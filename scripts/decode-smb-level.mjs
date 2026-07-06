@@ -384,6 +384,24 @@ function renderArea(objects, enemies) {
   return { grid, widthCols };
 }
 
+// An underwater area runs a swimming Cheep-cheep frenzy where the level object
+// stream issues the "start frenzy" command (special row-13 id 9); id 10 stops
+// it. Returns the tile-column span the frenzy is active over (water areas only).
+function computeCheepFrenzy(objects, areaTypeName, widthCols) {
+  if (areaTypeName !== "water") return undefined;
+  const starts = objects
+    .filter((o) => o.kind === "special13:9")
+    .map((o) => o.col)
+    .sort((a, b) => a - b);
+  if (starts.length === 0) return undefined;
+  const startTileX = starts[0];
+  const endTileX = objects
+    .filter((o) => o.kind === "special13:10" && o.col > startTileX)
+    .map((o) => o.col)
+    .sort((a, b) => a - b)[0];
+  return { startTileX, endTileX: endTileX ?? widthCols - 1 };
+}
+
 export async function decodeLevel(romPath, world, level) {
   const prg = extractPrgData(await readFile(romPath));
   const area = resolveArea(prg, world, level);
@@ -519,6 +537,20 @@ export async function decodeAllLevels(romPath) {
       for (const subLevel of subLevels) {
         levels.push(subLevel);
       }
+      const metadata = buildMetadata(
+        grid,
+        header,
+        transitions,
+        area.areaTypeName,
+      );
+      const cheepFrenzy = computeCheepFrenzy(
+        objects,
+        area.areaTypeName,
+        widthCols,
+      );
+      if (cheepFrenzy !== undefined) {
+        metadata.cheepFrenzy = cheepFrenzy;
+      }
       levels.push({
         world: world + 1,
         slot: slot + 1,
@@ -526,7 +558,7 @@ export async function decodeAllLevels(romPath) {
         area,
         grid,
         widthCols,
-        metadata: buildMetadata(grid, header, transitions, area.areaTypeName),
+        metadata,
       });
     }
   }
