@@ -1,5 +1,5 @@
 import { ActorRole, TileCollisionKind } from "../../domain/level-spec";
-import type { LevelSpecInput } from "../../domain/level-spec";
+import type { CheepFrenzyInput, LevelSpecInput } from "../../domain/level-spec";
 import type { DomainResult } from "../../domain/result";
 import { fail } from "../../domain/result";
 import type { ValidationError } from "../../domain/validation-error";
@@ -403,6 +403,7 @@ type VglcSmbTextImportMetadata = {
   readonly pathAnnotations: readonly VglcSmbPathAnnotationMetadata[];
   readonly transitions: readonly VglcSmbTransitionMetadata[];
   readonly multiLayer: VglcSmbMultiLayerMetadata | undefined;
+  readonly cheepFrenzy: CheepFrenzyInput | undefined;
 };
 
 export function parseVglcSmbTextLevel(
@@ -678,13 +679,18 @@ function parseConvertedVglcSmbRows(
     return parsed;
   }
 
+  const withFrenzy: LevelSpecInput =
+    input.metadata.cheepFrenzy === undefined
+      ? parsed.value
+      : { ...parsed.value, cheepFrenzy: input.metadata.cheepFrenzy };
+
   if (input.metadata.transitions.length === 0) {
-    return parsed;
+    return { ok: true, value: withFrenzy };
   }
 
   return {
     ok: true,
-    value: withTransitionPipes(parsed.value, input.metadata.transitions),
+    value: withTransitionPipes(withFrenzy, input.metadata.transitions),
   };
 }
 
@@ -753,6 +759,7 @@ function parseVglcSmbTextImportMetadata(
       pathAnnotations: [],
       transitions: [],
       multiLayer: undefined,
+      cheepFrenzy: undefined,
     };
   }
 
@@ -775,6 +782,7 @@ function parseVglcSmbTextImportMetadata(
       pathAnnotations: [],
       transitions: [],
       multiLayer: undefined,
+      cheepFrenzy: undefined,
     };
   }
 
@@ -818,7 +826,36 @@ function parseVglcSmbTextImportMetadata(
       mode === VglcSmbImportMetadataMode.MultiLayer
         ? parseMultiLayerMetadata(candidate.multiLayer, errors)
         : undefined,
+    cheepFrenzy: parseCheepFrenzy(candidate.cheepFrenzy, errors),
   };
+}
+
+// Parse the underwater Cheep-cheep frenzy region ({startTileX,endTileX}) the
+// decoder emits into water-level metadata; absent for every other level.
+function parseCheepFrenzy(
+  value: unknown,
+  errors: ValidationError[],
+): CheepFrenzyInput | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    typeof (value as { startTileX?: unknown }).startTileX !== "number" ||
+    typeof (value as { endTileX?: unknown }).endTileX !== "number"
+  ) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        "metadata.cheepFrenzy must be { startTileX, endTileX } numbers.",
+        "metadata.cheepFrenzy",
+      ),
+    );
+    return undefined;
+  }
+  const region = value as { startTileX: number; endTileX: number };
+  return { startTileX: region.startTileX, endTileX: region.endTileX };
 }
 
 function mergePathAnnotations(

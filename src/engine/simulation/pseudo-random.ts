@@ -28,9 +28,7 @@ export function assertValidPseudoRandomState(
   if (
     !Array.isArray(register) ||
     register.length !== pseudoRandomRegisterSize ||
-    register.some(
-      (byte) => !Number.isInteger(byte) || byte < 0 || byte > 0xff,
-    )
+    register.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 0xff)
   ) {
     throw new Error(
       `PseudoRandom register must be ${pseudoRandomRegisterSize} bytes in 0..255.`,

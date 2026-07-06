@@ -149,6 +149,19 @@ export type LevelSpecInput = {
   readonly timedHazardProjectileSpawners?: readonly TimedHazardProjectileSpawnerInput[];
   readonly pathAnnotations?: readonly PathAnnotationInput[];
   readonly spawnedPowerUpMovement?: SpawnedPowerUpMovementInput;
+  readonly cheepFrenzy?: CheepFrenzyInput;
+};
+
+// An underwater Cheep-cheep frenzy: while the player is within this tile-column
+// span, swimming cheeps spawn continuously (SMB's water-area frenzy).
+export type CheepFrenzyInput = {
+  readonly startTileX: number;
+  readonly endTileX: number;
+};
+
+export type CheepFrenzyRegion = {
+  readonly startTileX: number;
+  readonly endTileX: number;
 };
 
 type LevelTimerId = Brand<string, "LevelTimerId">;
@@ -241,6 +254,7 @@ export type LevelSpec = {
   readonly pathAnnotations: readonly PathAnnotation[];
   readonly timedHazardProjectileSpawners: readonly TimedHazardProjectileSpawner[];
   readonly spawnedPowerUpMovement: SpawnedPowerUpMovement | undefined;
+  readonly cheepFrenzy: CheepFrenzyRegion | undefined;
 };
 
 type ValidatedDimensions = {
@@ -1123,7 +1137,31 @@ export function makeLevelSpec(
     pathAnnotations: pathAnnotationsResult.value,
     timedHazardProjectileSpawners: timedHazardProjectileSpawnersResult.value,
     spawnedPowerUpMovement: spawnedPowerUpMovementResult.value,
+    cheepFrenzy: resolveCheepFrenzy(
+      input.cheepFrenzy,
+      dimensionsResult.value.widthTiles,
+    ),
   });
+}
+
+// Clamp a decoded frenzy region to the level's tile bounds (start <= end,
+// in [0, width-1]). Decoder-generated, so clamp rather than error.
+function resolveCheepFrenzy(
+  input: CheepFrenzyInput | undefined,
+  widthTiles: number,
+): CheepFrenzyRegion | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+  const startTileX = Math.max(
+    0,
+    Math.min(widthTiles - 1, Math.trunc(input.startTileX)),
+  );
+  const endTileX = Math.max(
+    startTileX,
+    Math.min(widthTiles - 1, Math.trunc(input.endTileX)),
+  );
+  return { startTileX, endTileX };
 }
 
 function validateSpawnedPowerUpMovement(
