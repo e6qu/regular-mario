@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+
+# Build output
+dist/
+build/
+out/
+coverage/
+playwright-report/
+test-results/
+
+# Generated caches
+.vite/
+.vitest/
+.turbo/
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Binary/generated assets that must be regenerated or intentionally reviewed
+*.min.js
+*.min.css
+*.map
+*.bundle.*
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+*.ips
+*.bps
+*.ups
+*.xdelta
+*.xdelta3
+*.dmg
+*.iso
+*.nes
+*.sfc
+*.smc
+*.gba
+*.gb
+*.gbc
+
+# Generated static release content (authored sprites + composed manifest; regenerated at build)
+/public/game-content/
+scratchpad-shots/

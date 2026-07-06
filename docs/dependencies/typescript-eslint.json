@@ -1,0 +1,15 @@
+{
+  "name": "typescript-eslint",
+  "versionRange": "8.62.0",
+  "dependencySection": "devDependencies",
+  "purpose": "TypeScript-aware ESLint parser, plugin, and flat-config helpers.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view typescript-eslint version license repository.url --json` reported license `MIT` and repository `git+https://github.com/typescript-eslint/typescript-eslint.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "8.62.0",
+  "checkedVersionPublishedAt": "2026-06-22T18:23:50.377Z",
+  "checkedAt": "2026-06-25T22:58:30Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "typescript-eslint is the standard TypeScript integration for ESLint."
+}

@@ -1,0 +1,15 @@
+{
+  "name": "vite",
+  "versionRange": "8.0.16",
+  "dependencySection": "devDependencies",
+  "purpose": "Development server and production JavaScript bundle builder for the browser game.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view vite@8.0.16 license repository.url time --json` reported license `MIT` and repository `git+https://github.com/vitejs/vite.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "8.0.16",
+  "checkedVersionPublishedAt": "2026-06-01T09:50:43.261Z",
+  "checkedAt": "2026-06-25T22:41:38Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "Vite is the selected build tool in PLAN.md and AGENTS.md and is a widely used modern frontend build tool."
+}

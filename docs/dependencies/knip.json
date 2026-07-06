@@ -1,0 +1,15 @@
+{
+  "name": "knip",
+  "versionRange": "6.18.0",
+  "dependencySection": "devDependencies",
+  "purpose": "Dead-code, unused-file, unused-export, and unused-dependency detection.",
+  "license": "ISC",
+  "licenseEvidence": "npm registry metadata from `npm view knip version license repository.url --json` reported license `ISC` and repository `git+https://github.com/webpro-nl/knip.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "6.18.0",
+  "checkedVersionPublishedAt": "2026-06-22T16:56:49.045Z",
+  "checkedAt": "2026-06-25T22:58:30Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "Knip is a dedicated TypeScript/JavaScript dead-code and unused dependency detector."
+}

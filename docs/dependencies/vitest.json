@@ -1,0 +1,15 @@
+{
+  "name": "vitest",
+  "versionRange": "4.1.9",
+  "dependencySection": "devDependencies",
+  "purpose": "Fast unit test runner for the functional core, validation logic, importers, and deterministic simulation tests.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view vitest@4.1.9 license repository.url time --json` reported license `MIT` and repository `git+https://github.com/vitest-dev/vitest.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "4.1.9",
+  "checkedVersionPublishedAt": "2026-06-15T07:23:00.326Z",
+  "checkedAt": "2026-06-25T22:41:38Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "Vitest is the selected fast test runner in PLAN.md and is maintained in the Vite ecosystem."
+}

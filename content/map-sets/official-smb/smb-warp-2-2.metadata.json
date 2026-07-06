@@ -1,0 +1,26 @@
+{
+  "playerStart": {
+    "x": 2,
+    "y": 12
+  },
+  "exits": [
+    {
+      "x": 158,
+      "y": 11
+    }
+  ],
+  "paths": [],
+  "timers": [
+    {
+      "id": "level-timer.frames",
+      "value": 400,
+      "unit": "smb-time-units"
+    }
+  ],
+  "transitions": [],
+  "multiLayer": {
+    "playerPathRows": []
+  },
+  "questionBlockContentsDefault": "power-up",
+  "theme": "underground"
+}

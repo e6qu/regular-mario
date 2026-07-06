@@ -1,0 +1,15 @@
+{
+  "name": "@types/node",
+  "versionRange": "26.0.0",
+  "dependencySection": "devDependencies",
+  "purpose": "Node.js type declarations for Vite, Vitest, Playwright, and local script/config TypeScript typechecking.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view @types/node version license repository.url --json` reported license `MIT` and repository `https://github.com/DefinitelyTyped/DefinitelyTyped.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "26.0.0",
+  "checkedVersionPublishedAt": "2026-06-19T07:14:52.347Z",
+  "checkedAt": "2026-06-25T22:41:38Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "@types/node is the standard DefinitelyTyped package for Node.js type declarations and matches the local Node major version reported by `node --version`."
+}

@@ -1,0 +1,15 @@
+{
+  "name": "phaser",
+  "versionRange": "4.2.0",
+  "dependencySection": "dependencies",
+  "purpose": "Browser 2D game framework used for rendering, scenes, input, audio, camera, asset loading, and the imperative shell around the deterministic platformer core.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view phaser@4.2.0 license repository.url time --json` reported license `MIT` and repository `git+https://phaserjs@github.com/phaserjs/phaser.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "4.2.0",
+  "checkedVersionPublishedAt": "2026-06-19T13:55:36.930Z",
+  "checkedAt": "2026-06-25T22:41:38Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "Phaser is the selected browser 2D game framework in PLAN.md and AGENTS.md and is a widely used HTML5 game framework."
+}

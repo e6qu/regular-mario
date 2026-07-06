@@ -1,0 +1,43 @@
+{
+  "playerStart": {
+    "x": 2,
+    "y": 12
+  },
+  "exits": [
+    {
+      "x": 254,
+      "y": 11
+    }
+  ],
+  "paths": [],
+  "timers": [
+    {
+      "id": "level-timer.frames",
+      "value": 400,
+      "unit": "smb-time-units"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "warp-0",
+      "x": 84,
+      "y": 10,
+      "targetLevelName": "smb-warp-1-15",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-1",
+      "x": 214,
+      "y": 10,
+      "targetLevelName": "smb-warp-1-15",
+      "targetTileX": 2,
+      "targetTileY": 2
+    }
+  ],
+  "multiLayer": {
+    "playerPathRows": []
+  },
+  "questionBlockContentsDefault": "power-up",
+  "theme": "underground"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "eslint",
+  "versionRange": "10.5.0",
+  "dependencySection": "devDependencies",
+  "purpose": "JavaScript and TypeScript linting engine for source, test, and configuration code.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view eslint version license repository.url --json` reported license `MIT` and repository `git+https://github.com/eslint/eslint.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "10.5.0",
+  "checkedVersionPublishedAt": "2026-06-12T17:54:40.577Z",
+  "checkedAt": "2026-06-25T22:58:30Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "ESLint is the standard linting tool for JavaScript and TypeScript projects."
+}

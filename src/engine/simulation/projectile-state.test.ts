@@ -1,0 +1,479 @@
+import { describe, expect, it } from "vitest";
+import { ActorRole, makeLevelSpec } from "../domain/level-spec";
+import type { LevelSpec } from "../domain/level-spec";
+import type { EntityId } from "../domain/identifiers";
+import { makeFrameIndex, type TilePoint } from "../domain/units";
+import {
+  makeEmptyBreakableBlockState,
+  resolveBreakableBlockState,
+} from "./breakable-block-state";
+import {
+  HorizontalMovementState,
+  initialMovementConstants,
+  VerticalMovementState,
+} from "./movement-model";
+import {
+  breakableBlockLevelSpec,
+  makeSkyGrassTileDefinitions,
+  makeSkyGroundTiles,
+  playerAt,
+} from "./level-test-support";
+import { playerWithTestState } from "./movement-test-support";
+import {
+  makeFirePlayerVitalityState,
+  PlayerVitalityKind,
+} from "./player-vitality";
+import {
+  makeEmptyProjectilesState,
+  resolveProjectilesState,
+  type Projectile,
+  type ProjectilesState,
+} from "./projectile-state";
+import { makeInitialSimulationState } from "./simulation-state";
+import { nominalSixtyHertzFrameDurationMilliseconds } from "./simulation-units";
+
+function makeProjectileLevelSpec(): LevelSpec {
+  const result = makeLevelSpec({
+    widthTiles: 10,
+    heightTiles: 6,
+    tileSizePixels: 16,
+    tileDefinitions: makeSkyGrassTileDefinitions(),
+    actorDefinitions: [
+      {
+        actorId: "runner-start",
+        role: ActorRole.PlayerStart,
+      },
+      {
+        actorId: "beetle",
+        role: ActorRole.Enemy,
+      },
+      {
+        actorId: "open-gate",
+        role: ActorRole.Exit,
+      },
+    ],
+    tiles: makeSkyGroundTiles(10),
+    actors: [
+      {
+        entityId: "runner-1",
+        actorId: "runner-start",
+        x: 1,
+        y: 4,
+      },
+      {
+        entityId: "beetle-1",
+        actorId: "beetle",
+        x: 4,
+        y: 4,
+      },
+      {
+        entityId: "gate-1",
+        actorId: "open-gate",
+        x: 9,
+        y: 4,
+      },
+    ],
+  });
+
+  if (!result.ok) {
+    throw new Error("Expected projectile test level to validate.");
+  }
+
+  return result.value;
+}
+
+function makeFireproofEnemyLevelSpec(): LevelSpec {
+  const result = makeLevelSpec({
+    widthTiles: 10,
+    heightTiles: 6,
+    tileSizePixels: 16,
+    tileDefinitions: makeSkyGrassTileDefinitions(),
+    actorDefinitions: [
+      { actorId: "runner-start", role: ActorRole.PlayerStart },
+      { actorId: "buzzy", role: ActorRole.ArmoredEnemy, fireproof: true },
+      { actorId: "open-gate", role: ActorRole.Exit },
+    ],
+    tiles: makeSkyGroundTiles(10),
+    actors: [
+      { entityId: "runner-1", actorId: "runner-start", x: 1, y: 4 },
+      { entityId: "buzzy-1", actorId: "buzzy", x: 4, y: 4 },
+      { entityId: "gate-1", actorId: "open-gate", x: 9, y: 4 },
+    ],
+  });
+
+  if (!result.ok) {
+    throw new Error("Expected fireproof enemy test level to validate.");
+  }
+
+  return result.value;
+}
+
+function tilePoint(x: number, y: number): TilePoint {
+  return {
+    x: x as unknown as TilePoint["x"],
+    y: y as unknown as TilePoint["y"],
+  };
+}
+
+function makeInitialTestState(levelSpec: LevelSpec) {
+  const result = makeInitialSimulationState(
+    nominalSixtyHertzFrameDurationMilliseconds,
+    levelSpec,
+    initialMovementConstants,
+  );
+
+  if (!result.ok) {
+    throw new Error("Expected initial test state to validate.");
+  }
+
+  return result.value;
+}
+
+function frameIndex(value: number) {
+  const result = makeFrameIndex(value, "test.frameIndex");
+
+  if (!result.ok) {
+    throw new Error("Expected valid test frame index.");
+  }
+
+  return result.value;
+}
+
+function resolveOnce(
+  state: ProjectilesState,
+  input: { readonly firePressed: boolean },
+  player = playerAt({ x: 16, y: 56 }),
+  enemyDefeatedEntityIds: readonly EntityId[] = [],
+  frameIdx = 1,
+): ReturnType<typeof resolveProjectilesState> {
+  const levelSpec = makeProjectileLevelSpec();
+  const initialState = makeInitialTestState(levelSpec);
+
+  return resolveProjectilesState(
+    input,
+    player,
+    makeFirePlayerVitalityState(),
+    initialState.enemyMotion,
+    { defeatedEnemyEntityIds: enemyDefeatedEntityIds },
+    state,
+    makeEmptyBreakableBlockState(),
+    initialMovementConstants,
+    levelSpec,
+    nominalSixtyHertzFrameDurationMilliseconds,
+    frameIndex(frameIdx),
+  );
+}
+
+function activeProjectiles(
+  result: ReturnType<typeof resolveProjectilesState>,
+): readonly Projectile[] {
+  return result.state.projectiles.filter((projectile) => projectile.active);
+}
+
+describe("projectile-state", () => {
+  it("creates an empty projectiles state", () => {
+    const state = makeEmptyProjectilesState();
+
+    expect(state.projectiles).toEqual([]);
+    expect(state.cooldownRemainingFrames).toBe(0);
+  });
+
+  it("does not spawn a projectile when fire is not pressed", () => {
+    const result = resolveOnce(makeEmptyProjectilesState(), {
+      firePressed: false,
+    });
+
+    expect(result.firedProjectile).toBe(false);
+    expect(result.state.projectiles).toEqual([]);
+    expect(result.newlyDefeatedEnemyEntityIds).toEqual([]);
+  });
+
+  it("does not spawn a projectile when the player is small", () => {
+    const levelSpec = makeProjectileLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+    const result = resolveProjectilesState(
+      { firePressed: true },
+      playerAt({ x: 16, y: 56 }),
+      { kind: PlayerVitalityKind.Small },
+      initialState.enemyMotion,
+      { defeatedEnemyEntityIds: [] },
+      makeEmptyProjectilesState(),
+      makeEmptyBreakableBlockState(),
+      initialMovementConstants,
+      levelSpec,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      frameIndex(1),
+    );
+
+    expect(result.firedProjectile).toBe(false);
+    expect(result.state.projectiles).toEqual([]);
+  });
+
+  it("spawns a projectile to the right when fire is pressed while powered", () => {
+    const result = resolveOnce(makeEmptyProjectilesState(), {
+      firePressed: true,
+    });
+
+    expect(result.firedProjectile).toBe(true);
+    expect(activeProjectiles(result)).toHaveLength(1);
+
+    const projectile = activeProjectiles(result)[0];
+
+    expect(projectile?.velocity.x).toBe(
+      initialMovementConstants.projectileSpeed,
+    );
+    expect(projectile?.position.x).toBe(16 + 7);
+    expect(projectile?.position.y).toBe(56 + 12);
+  });
+
+  it("spawns a projectile to the left when the player is moving left", () => {
+    const leftMovingPlayer = playerWithTestState({
+      position: { x: 80, y: 56 },
+      velocity: { x: -10, y: 0 },
+      movement: {
+        horizontal: HorizontalMovementState.Idle,
+        vertical: VerticalMovementState.Grounded,
+      },
+    });
+    const result = resolveOnce(
+      makeEmptyProjectilesState(),
+      { firePressed: true },
+      leftMovingPlayer,
+    );
+
+    const projectile = activeProjectiles(result)[0];
+
+    expect(projectile?.velocity.x).toBe(
+      0 - initialMovementConstants.projectileSpeed,
+    );
+  });
+
+  it("enforces a cooldown between shots", () => {
+    const firstResult = resolveOnce(makeEmptyProjectilesState(), {
+      firePressed: true,
+    });
+    const secondResult = resolveOnce(firstResult.state, {
+      firePressed: true,
+    });
+
+    expect(firstResult.firedProjectile).toBe(true);
+    expect(secondResult.firedProjectile).toBe(false);
+    expect(secondResult.state.cooldownRemainingFrames).toBe(
+      initialMovementConstants.projectileCooldownFrameCount - 1,
+    );
+  });
+
+  it("moves an active projectile each frame", () => {
+    const firstResult = resolveOnce(makeEmptyProjectilesState(), {
+      firePressed: true,
+    });
+    const projectile = activeProjectiles(firstResult)[0];
+
+    if (projectile === undefined) {
+      throw new Error("Expected a projectile to be spawned.");
+    }
+
+    const secondResult = resolveOnce(firstResult.state, {
+      firePressed: false,
+    });
+    const movedProjectile = activeProjectiles(secondResult)[0];
+
+    expect(movedProjectile?.position.x).toBeGreaterThan(projectile.position.x);
+    expect(movedProjectile?.remainingLifetimeFrames).toBe(
+      projectile.remainingLifetimeFrames - 1,
+    );
+  });
+
+  it("defeats an enemy when a projectile overlaps it", () => {
+    const levelSpec = makeProjectileLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+    const player = playerAt({ x: 32, y: 56 });
+    const firstResult = resolveProjectilesState(
+      { firePressed: true },
+      player,
+      makeFirePlayerVitalityState(),
+      initialState.enemyMotion,
+      { defeatedEnemyEntityIds: [] },
+      makeEmptyProjectilesState(),
+      makeEmptyBreakableBlockState(),
+      initialMovementConstants,
+      levelSpec,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      frameIndex(1),
+    );
+
+    let steppedResult = firstResult;
+
+    for (let step = 0; step < 30; step += 1) {
+      steppedResult = resolveProjectilesState(
+        { firePressed: false },
+        player,
+        makeFirePlayerVitalityState(),
+        initialState.enemyMotion,
+        {
+          defeatedEnemyEntityIds: steppedResult.newlyDefeatedEnemyEntityIds,
+        },
+        steppedResult.state,
+        makeEmptyBreakableBlockState(),
+        initialMovementConstants,
+        levelSpec,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        frameIndex(2 + step),
+      );
+
+      if (steppedResult.newlyDefeatedEnemyEntityIds.length > 0) {
+        break;
+      }
+    }
+
+    expect(steppedResult.newlyDefeatedEnemyEntityIds).toContain("beetle-1");
+    expect(activeProjectiles(steppedResult)).toHaveLength(0);
+  });
+
+  it("does not defeat a fireproof enemy (Buzzy Beetle) with a projectile", () => {
+    const levelSpec = makeFireproofEnemyLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+    const player = playerAt({ x: 32, y: 56 });
+    let steppedResult = resolveProjectilesState(
+      { firePressed: true },
+      player,
+      makeFirePlayerVitalityState(),
+      initialState.enemyMotion,
+      { defeatedEnemyEntityIds: [] },
+      makeEmptyProjectilesState(),
+      makeEmptyBreakableBlockState(),
+      initialMovementConstants,
+      levelSpec,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      frameIndex(1),
+    );
+
+    // The fireball travels through the Buzzy without ever defeating it.
+    for (let step = 0; step < 30; step += 1) {
+      steppedResult = resolveProjectilesState(
+        { firePressed: false },
+        player,
+        makeFirePlayerVitalityState(),
+        initialState.enemyMotion,
+        { defeatedEnemyEntityIds: steppedResult.newlyDefeatedEnemyEntityIds },
+        steppedResult.state,
+        makeEmptyBreakableBlockState(),
+        initialMovementConstants,
+        levelSpec,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        frameIndex(2 + step),
+      );
+      expect(steppedResult.newlyDefeatedEnemyEntityIds).toEqual([]);
+    }
+  });
+
+  it("expires a projectile that hits a solid tile", () => {
+    const levelSpec = makeProjectileLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+    const player = playerAt({ x: 0, y: 88 });
+    const firedResult = resolveProjectilesState(
+      { firePressed: true },
+      player,
+      makeFirePlayerVitalityState(),
+      initialState.enemyMotion,
+      { defeatedEnemyEntityIds: [] },
+      makeEmptyProjectilesState(),
+      makeEmptyBreakableBlockState(),
+      initialMovementConstants,
+      levelSpec,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      frameIndex(1),
+    );
+    const steppedResult = resolveProjectilesState(
+      { firePressed: false },
+      player,
+      makeFirePlayerVitalityState(),
+      initialState.enemyMotion,
+      { defeatedEnemyEntityIds: [] },
+      firedResult.state,
+      makeEmptyBreakableBlockState(),
+      initialMovementConstants,
+      levelSpec,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      frameIndex(2),
+    );
+
+    expect(firedResult.firedProjectile).toBe(true);
+    expect(activeProjectiles(steppedResult)).toHaveLength(0);
+  });
+
+  it("expires a projectile after its lifetime elapses", () => {
+    let result = resolveOnce(makeEmptyProjectilesState(), {
+      firePressed: true,
+    });
+    const player = playerAt({ x: 16, y: 56 });
+    const levelSpec = makeProjectileLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+
+    for (
+      let step = 0;
+      step < initialMovementConstants.projectileLifetimeFrameCount;
+      step += 1
+    ) {
+      result = resolveProjectilesState(
+        { firePressed: false },
+        player,
+        makeFirePlayerVitalityState(),
+        initialState.enemyMotion,
+        { defeatedEnemyEntityIds: [] },
+        result.state,
+        makeEmptyBreakableBlockState(),
+        initialMovementConstants,
+        levelSpec,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        frameIndex(2 + step),
+      );
+    }
+
+    expect(activeProjectiles(result)).toHaveLength(0);
+  });
+
+  it("keeps a projectile active when it crosses an already-broken breakable tile", () => {
+    const levelSpec = breakableBlockLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+    const player = playerAt({ x: 25, y: 58 });
+    const breakableBlocks = resolveBreakableBlockState(
+      makeEmptyBreakableBlockState(),
+      [tilePoint(2, 4)],
+      makeFirePlayerVitalityState(),
+    );
+    let result = resolveProjectilesState(
+      { firePressed: true },
+      player,
+      makeFirePlayerVitalityState(),
+      initialState.enemyMotion,
+      { defeatedEnemyEntityIds: [] },
+      makeEmptyProjectilesState(),
+      breakableBlocks,
+      initialMovementConstants,
+      levelSpec,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      frameIndex(1),
+    );
+
+    for (let step = 0; step < 11; step += 1) {
+      result = resolveProjectilesState(
+        { firePressed: false },
+        player,
+        makeFirePlayerVitalityState(),
+        initialState.enemyMotion,
+        { defeatedEnemyEntityIds: [] },
+        result.state,
+        breakableBlocks,
+        initialMovementConstants,
+        levelSpec,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        frameIndex(2 + step),
+      );
+    }
+
+    const projectile = activeProjectiles(result)[0];
+
+    expect(projectile?.position.x).toBeGreaterThan(48);
+  });
+});

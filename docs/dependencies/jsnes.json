@@ -1,0 +1,15 @@
+{
+  "name": "jsnes",
+  "versionRange": "2.1.0",
+  "dependencySection": "devDependencies",
+  "purpose": "Headless NES emulator used only by local reference-frame capture tooling (scripts/capture-smb-reference-frames.mjs) to render a user-supplied ROM into ignored-cache reference frames for pixel-frame verification. Never shipped in the browser bundle or runtime.",
+  "license": "Apache-2.0",
+  "licenseEvidence": "npm registry metadata for jsnes@2.1.0 reported license `Apache-2.0` and repository `git://github.com/bfirsh/jsnes.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "2.1.0",
+  "checkedVersionPublishedAt": "2026-04-11T23:55:31.688Z",
+  "checkedAt": "2026-07-02T00:00:00Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "jsnes is a long-established pure-JavaScript NES emulator (github.com/bfirsh/jsnes) with zero runtime dependencies, widely used for browser and headless NES emulation."
+}

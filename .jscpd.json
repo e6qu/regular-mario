@@ -1,0 +1,18 @@
+{
+  "threshold": 0,
+  "formats": ["javascript", "json", "markdown", "markup", "typescript", "yaml"],
+  "reporters": ["console"],
+  "ignore": [
+    ".git/**",
+    ".cache/**",
+    "content/**",
+    "dist/**",
+    "node_modules/**",
+    "playwright-report/**",
+    "test-results/**",
+    "pnpm-lock.yaml",
+    "*.tsbuildinfo",
+    "scripts/data/smb-rom-extraction-map.json",
+    "src/shell/smb-rom-music.json"
+  ]
+}

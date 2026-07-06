@@ -1,0 +1,114 @@
+# WHAT_WE_DID.md
+
+Reverse-chronological changelog, grouped by milestone/theme; older granular
+entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
+sprites/audio/maps, patches, extraction outputs, or reference captures ever
+committed — only numeric metadata, code, docs, and scripts.
+
+## 2026-07-06 — Deploy stamp, level-complete UX, water world & shabby soundtrack
+
+- **Deploy-info footer**: every page stamps the deployed commit SHA + build time
+  in the viewer's own timezone (Vite `define` bakes in GITHUB_SHA / git HEAD + build
+  time); pointer-events:none and skipped under automation so it can't perturb
+  screenshot baselines.
+- **Level-complete bar**: on a finish the pause/replay bar promotes itself — a
+  gold-bordered glowing background, a glistening "LEVEL COMPLETE / Press N" banner,
+  and a bigger shimmering "Next level" button; pressing N advances to the next level.
+- **Water-world merman**: the swim sprite is a side-profile fish-person (profile
+  head, stroking arm, teal tail + aqua fluke) that mirrors to face his travel
+  direction; two frames animate an arm-stroke/tail-flick only while moving, and he
+  holds the swim pose for all water movement. Air bubbles are near-transparent with a
+  white-blue rim + specular highlight. Horizontal water resistance makes swimming
+  slower and floatier (tuned-to-feel; SMB swim constants aren't source-verified).
+- **Shabby soundtrack** (new default "Sound" option): the melody channel is sung as
+  a baritone "ba ba ba" — a sawtooth glottal buzz + vibrato through three "ah"-vowel
+  formant filters, gated by a "ba" plosive envelope, folded into the baritone
+  register — while bass/harmony stay chiptune. "Classic" keeps the all-chiptune track.
+
+## 2026-07-06 — Enemy-contact & rendering fixes
+
+- **Faithful Koopa stomp on the ground**: `isEnemyStomp` keyed the stomp on the
+  post-landing velocity, so a fast drop onto a grounded enemy (which lands the same
+  frame, zeroing velocity) read as a harmful side contact and killed the player.
+  Now keyed on the actual descent past the enemy's top; a persistent side overlap
+  still stays harmful.
+- **Stomp rebound for shells**: only defeating a simple enemy bounced the player up;
+  shelling a koopa or kicking a shell did not, so the player stayed on the fresh
+  shell and it could hit him the next frame. Now every stomp/shell/kick rebounds,
+  lifting him clear.
+- **Crisp HiDPI/retina rendering**: the RESIZE scale mode sized the canvas to CSS
+  pixels, so retina upscaled a half-resolution canvas and blurred everything (HUD
+  text most visibly). Now the backing store is window × devicePixelRatio at the CSS
+  box size — native resolution — sized before the camera is configured to avoid a
+  first-frame scroll transient. HUD text is also larger and rasterized at on-screen
+  size.
+
+## 2026-07-05/06 — Level editor/designer, enemies, music, themes, mobile
+
+- **Level editor / designer**: paint tiles (mouse + touch, two-finger scroll),
+  brick/question/hidden blocks, coin blocks (stack coins; painting a coin embeds it
+  into any block keeping the block's look), Bullet Bill cannons, piranha plants;
+  multiple areas with placeable, connectable **warp pipes** (teleport in play);
+  per-area overworld/underground/castle colour themes; prominent menu button + a
+  guided tutorial; shabby-only tileset with persisted choices; play-from-creator
+  that preserves areas across play and round-trips official levels.
+- **Enemies**: Piranha Plant (pipe emerge, non-stompable, fireball-killable), Buzzy
+  Beetle (fireproof armored), Hammer Bro / Lakitu / Chaser exposed in the editor,
+  Bullet Bill projectiles. Full faithful Koopa lifecycle: stomp → resting shell →
+  kick into a slide (flattens enemies) → stop → re-emerge into a walking koopa with
+  a wobble tell. Removed the spurious 1-1 start Goomba.
+- **Scoring parity**: faithful stomp-chain sequence (100/200/400/800/1000 + 1-UP)
+  and kicked-shell kill chains scoring the full rising sequence.
+- **Audio**: decoded the original ROM music (all 3 channels, numeric-only) at the
+  correct tempo and play it per theme; a transcribed per-theme song suite.
+- **Themes + water**: overworld/underground/castle/water themes drive palette,
+  backdrop, and parallax; official levels themed from the ROM area type; pipe warps
+  switch a section's theme. Water swimming physics + swimming sprite + air bubbles.
+- **Progression + HUD**: official levels ordered by world (1-1 … 8-4, warps last)
+  with classic HUD numbering and a "Next level" button on the end-of-level overlay.
+- **Multi-session tabs**: several games/editors as switchable sessions with a
+  session bar; input routes only to the active game.
+- **Mobile**: landscape play with console-style thumb controls + a rotate prompt.
+- Two-tone parallax hills; dedicated climb pose; shabby head-bonk feedback.
+
+## 2026-07-03 — Viewport, replay timeline, warp pipes (forward)
+
+- Scale.FIT → RESIZE with an integer camera zoom so the world fills the window;
+  flagpole finish with slide.
+- **Pause + video-editor timeline** (`P`, or on run end): a DOM overlay recording
+  every run (per-frame input + a state keyframe every 300 frames + a thumbnail every
+  30), with 60fps playback (camera restored), scrub, a filmstrip, and export to a
+  replayable `run.json` or `.zip` (verified pixel-for-pixel). See
+  `docs/run-recording-format.md`.
+- **Forward warp pipes**: the ROM decoder links an enterable pipe-warp to its
+  destination sub-area and emits a transition; the shell loads the target and drops
+  the player in (verified 1‑1 → underground coin room). Return trip still open.
+
+## 2026-06-26 → 07-02 — Foundation through faithful mechanics (Milestones 0–8)
+
+- **Toolchain + governance**: `pnpm` (TypeScript/Vite/Vitest/Playwright), AGPL, and
+  pre-commit gates (format, lint, typecheck, dead-code, copy-paste, vulnerability,
+  license, dependency-age); continuity docs.
+- **Deterministic functional core**: branded types/units, validated `LevelSpec`,
+  fixed-step simulation (movement, solid collision, contacts, outcomes,
+  collectibles, enemy interactions, post-outcome freeze, retry), coyote-time, jump
+  buffering, variable jump height, pit/underside defeat, and replay fixtures.
+- **Phaser/Vite shell**: input→command mapping, render-from-state, camera follow,
+  outcome feedback, Playwright QA; VGLC-text and Tiled importers to `LevelSpecInput`.
+- **Faithful mechanics + scoring**: power-up tiers, koopa/shell gravity, goombas
+  walk off ledges, classic scoring/lives, faithful HUD, parallax background.
+- **Content sets (Decision 0019)**: composable asset sets × map sets with a
+  `content-sets` CLI, a Skin × Map × Game-Mode start menu behind a fail-loud
+  sprite-coverage gate; the authored "Shabby Castaway" parody skin (build-time
+  generated sprites, no ROM).
+- **ROM pipeline (Decision 0018)**: `acquire`/`extract`/`prepare`/`capture`/`verify`
+  scripts (no hardcoded sources) turning the user's own ROM into numeric palette
+  sheets + documented sprite compositions and headless reference-frame checkpoints,
+  all under ignored `.cache/`.
+- **ROM level decoder** (`scripts/decode-smb-level.mjs`): follows SMB's area/enemy
+  pointer tables into the engine grid; all 36 areas (1-1 … 8-4) build into the map
+  pack (`docs/smb-level-format.md`). Replaced the lossy VGLC reconstruction.
+- **Compatibility importers (Milestone 7)**: VGLC SMB text + multi-layer importers
+  with metadata sidecars and a `CompatibilityProfile` model, each fail-loud on
+  unrepresented symbols; browser user-asset import; corpus/assets kept under ignored
+  `.cache/user-levels`.

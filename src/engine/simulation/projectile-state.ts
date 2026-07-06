@@ -1,0 +1,576 @@
+import type { Brand } from "../domain/brand";
+import type { EntityId } from "../domain/identifiers";
+import { TileCollisionKind } from "../domain/level-spec";
+import type { LevelSpec } from "../domain/level-spec";
+import type { BreakableBlockState } from "./breakable-block-state";
+import {
+  assertValidBreakableBlockState,
+  isBreakableBlockBroken,
+} from "./breakable-block-state";
+import {
+  makePixelDelta,
+  type FrameIndex,
+  type PixelDelta,
+  type PixelPosition,
+  type TileCoordinate,
+  type VelocityPixelsPerSecond,
+} from "../domain/units";
+import type { EnemyMotionState } from "./enemy-motion";
+import { requireEnemyActorState } from "./enemy-motion";
+import { makeActorColliderSizePixels } from "./actor-interaction";
+import type { MovementConstants, ProjectileFrameCount } from "./movement-model";
+import { makeProjectileFrameCount } from "./movement-model";
+import type { PlayerSimulationState } from "./player-state";
+import {
+  PlayerVitalityKind,
+  type PlayerVitalityState,
+} from "./player-vitality";
+import {
+  requireSimulationPixelPosition,
+  requireSimulationVelocity,
+} from "./simulation-units";
+
+type ProjectileId = Brand<string, "ProjectileId">;
+
+export type Projectile = {
+  readonly id: ProjectileId;
+  readonly position: {
+    readonly x: PixelPosition;
+    readonly y: PixelPosition;
+  };
+  readonly velocity: {
+    readonly x: VelocityPixelsPerSecond;
+    readonly y: VelocityPixelsPerSecond;
+  };
+  readonly width: number;
+  readonly height: number;
+  readonly active: boolean;
+  readonly remainingLifetimeFrames: ProjectileFrameCount;
+  // Bullet Bills can be stomped; other projectiles (fireballs, thrown hammers)
+  // leave this undefined and are never stompable.
+  readonly stompable?: boolean;
+};
+
+export type ProjectilesState = {
+  readonly projectiles: readonly Projectile[];
+  readonly cooldownRemainingFrames: ProjectileFrameCount;
+};
+
+export type ResolvedProjectilesState = {
+  readonly state: ProjectilesState;
+  readonly newlyDefeatedEnemyEntityIds: readonly EntityId[];
+  readonly firedProjectile: boolean;
+};
+
+export function makeEmptyProjectilesState(): ProjectilesState {
+  return {
+    projectiles: [],
+    cooldownRemainingFrames: 0 as ProjectileFrameCount,
+  };
+}
+
+export function assertValidProjectilesState(
+  projectilesState: unknown,
+): asserts projectilesState is ProjectilesState {
+  if (typeof projectilesState !== "object" || projectilesState === null) {
+    throw new Error("Projectiles state must be an object.");
+  }
+
+  const candidate = projectilesState as Readonly<Record<string, unknown>>;
+
+  if (!Array.isArray(candidate.projectiles)) {
+    throw new Error("projectilesState.projectiles must be an array.");
+  }
+
+  if (typeof candidate.cooldownRemainingFrames !== "number") {
+    throw new Error(
+      "projectilesState.cooldownRemainingFrames must be a number.",
+    );
+  }
+
+  for (const projectile of candidate.projectiles) {
+    assertValidProjectile(projectile);
+  }
+}
+
+function assertValidProjectile(projectile: unknown): void {
+  if (typeof projectile !== "object" || projectile === null) {
+    throw new Error("Projectile must be an object.");
+  }
+
+  const candidate = projectile as Readonly<Record<string, unknown>>;
+
+  if (typeof candidate.id !== "string") {
+    throw new Error("projectile.id must be a string.");
+  }
+
+  if (
+    typeof candidate.position !== "object" ||
+    candidate.position === null ||
+    typeof (candidate.position as Record<string, unknown>).x !== "number" ||
+    typeof (candidate.position as Record<string, unknown>).y !== "number"
+  ) {
+    throw new Error("projectile.position must have numeric x and y.");
+  }
+
+  if (
+    typeof candidate.velocity !== "object" ||
+    candidate.velocity === null ||
+    typeof (candidate.velocity as Record<string, unknown>).x !== "number" ||
+    typeof (candidate.velocity as Record<string, unknown>).y !== "number"
+  ) {
+    throw new Error("projectile.velocity must have numeric x and y.");
+  }
+
+  if (
+    typeof candidate.width !== "number" ||
+    typeof candidate.height !== "number" ||
+    typeof candidate.active !== "boolean" ||
+    typeof candidate.remainingLifetimeFrames !== "number"
+  ) {
+    throw new Error(
+      "projectile must have numeric width/height/remainingLifetimeFrames and boolean active.",
+    );
+  }
+}
+
+export function requireProjectileFrameCount(
+  value: number,
+  path: string,
+): ProjectileFrameCount {
+  const result = makeProjectileFrameCount(value, path);
+
+  if (!result.ok) {
+    throw new Error(`${path} must be a valid projectile frame count.`);
+  }
+
+  return result.value;
+}
+
+export function resolveProjectilesState(
+  inputCommand: { readonly firePressed: boolean },
+  player: PlayerSimulationState,
+  playerVitality: PlayerVitalityState,
+  enemyMotion: EnemyMotionState,
+  enemies: { readonly defeatedEnemyEntityIds: readonly EntityId[] },
+  previousState: ProjectilesState,
+  breakableBlocks: BreakableBlockState,
+  movementConstants: MovementConstants,
+  levelSpec: LevelSpec,
+  frameDurationMilliseconds: number,
+  frameIndex: FrameIndex,
+): ResolvedProjectilesState {
+  assertValidProjectilesState(previousState);
+  assertValidBreakableBlockState(breakableBlocks);
+
+  const frameDurationSeconds = frameDurationMilliseconds / 1000;
+  const existingProjectiles = stepExistingProjectiles(
+    previousState.projectiles,
+    frameDurationSeconds,
+    levelSpec,
+    breakableBlocks,
+  );
+  const defeatedEnemyEntityIdSet = new Set(enemies.defeatedEnemyEntityIds);
+  const {
+    projectiles: projectilesAfterCollisions,
+    newlyDefeatedEnemyEntityIds,
+  } = resolveProjectileEnemyCollisions(
+    existingProjectiles,
+    enemyMotion,
+    levelSpec,
+    defeatedEnemyEntityIdSet,
+  );
+  const cooldownRemainingFrames = decrementCooldown(
+    previousState.cooldownRemainingFrames,
+  );
+
+  if (
+    !inputCommand.firePressed ||
+    playerVitality.kind !== PlayerVitalityKind.Fire ||
+    cooldownRemainingFrames > 0
+  ) {
+    return {
+      state: {
+        projectiles: projectilesAfterCollisions,
+        cooldownRemainingFrames,
+      },
+      newlyDefeatedEnemyEntityIds,
+      firedProjectile: false,
+    };
+  }
+
+  const direction = projectileDirectionFromPlayer(player);
+  const projectileSpeed = movementConstants.projectileSpeed;
+  const velocityX =
+    direction === ProjectileDirection.Right
+      ? projectileSpeed
+      : requireSimulationVelocity(0 - projectileSpeed, "projectile.velocity.x");
+  const spawnPosition = makeProjectileSpawnPosition(player);
+  const newProjectile: Projectile = {
+    id: makeProjectileId(frameIndex, projectilesAfterCollisions.length),
+    position: spawnPosition,
+    velocity: {
+      x: velocityX,
+      y: 0 as VelocityPixelsPerSecond,
+    },
+    width: movementConstants.projectileColliderWidth,
+    height: movementConstants.projectileColliderHeight,
+    active: true,
+    remainingLifetimeFrames: movementConstants.projectileLifetimeFrameCount,
+  };
+
+  return {
+    state: {
+      projectiles: [...projectilesAfterCollisions, newProjectile],
+      cooldownRemainingFrames: movementConstants.projectileCooldownFrameCount,
+    },
+    newlyDefeatedEnemyEntityIds,
+    firedProjectile: true,
+  };
+}
+
+function decrementCooldown(
+  cooldownRemainingFrames: ProjectileFrameCount,
+): ProjectileFrameCount {
+  if (cooldownRemainingFrames <= 0) {
+    return 0 as ProjectileFrameCount;
+  }
+
+  return (cooldownRemainingFrames - 1) as ProjectileFrameCount;
+}
+
+function makeProjectileId(
+  frameIndex: FrameIndex,
+  spawnIndex: number,
+): ProjectileId {
+  return `projectile-${frameIndex as number}-${spawnIndex}` as ProjectileId;
+}
+
+function makeProjectileSpawnPosition(player: PlayerSimulationState): {
+  x: PixelPosition;
+  y: PixelPosition;
+} {
+  const x = requireSimulationPixelPosition(
+    player.position.x + player.collider.width / 2,
+    "projectile.position.x",
+  );
+  const y = requireSimulationPixelPosition(
+    player.position.y + player.collider.height / 2,
+    "projectile.position.y",
+  );
+
+  return { x, y };
+}
+
+function requirePixelDelta(value: number, path: string): PixelDelta {
+  const result = makePixelDelta(value, path);
+
+  if (!result.ok) {
+    throw new Error(`${path} must be a valid pixel delta.`);
+  }
+
+  return result.value;
+}
+
+enum ProjectileDirection {
+  Left = "left",
+  Right = "right",
+}
+
+function projectileDirectionFromPlayer(
+  player: PlayerSimulationState,
+): ProjectileDirection {
+  if (player.velocity.x > 0) {
+    return ProjectileDirection.Right;
+  }
+
+  if (player.velocity.x < 0) {
+    return ProjectileDirection.Left;
+  }
+
+  return ProjectileDirection.Right;
+}
+
+export function stepExistingProjectiles(
+  projectiles: readonly Projectile[],
+  frameDurationSeconds: number,
+  levelSpec: LevelSpec,
+  breakableBlocks: BreakableBlockState,
+): readonly Projectile[] {
+  const steppedProjectiles: Projectile[] = [];
+
+  for (const projectile of projectiles) {
+    if (!projectile.active) {
+      continue;
+    }
+
+    const remainingLifetimeFrames = requireProjectileFrameCount(
+      projectile.remainingLifetimeFrames - 1,
+      "projectile.remainingLifetimeFrames",
+    );
+
+    if (remainingLifetimeFrames <= 0) {
+      continue;
+    }
+
+    const nextX = requireSimulationPixelPosition(
+      projectile.position.x +
+        requirePixelDelta(
+          projectile.velocity.x * frameDurationSeconds,
+          "projectile.position.x",
+        ),
+      "projectile.position.x",
+    );
+    const nextY = requireSimulationPixelPosition(
+      projectile.position.y +
+        requirePixelDelta(
+          projectile.velocity.y * frameDurationSeconds,
+          "projectile.position.y",
+        ),
+      "projectile.position.y",
+    );
+
+    const steppedProjectile: Projectile = {
+      ...projectile,
+      position: { x: nextX, y: nextY },
+      remainingLifetimeFrames,
+    };
+
+    if (
+      projectileOverlapsSolidTile(steppedProjectile, levelSpec, breakableBlocks)
+    ) {
+      continue;
+    }
+
+    if (isProjectileOutOfBounds(steppedProjectile, levelSpec)) {
+      continue;
+    }
+
+    steppedProjectiles.push(steppedProjectile);
+  }
+
+  return steppedProjectiles;
+}
+
+function resolveProjectileEnemyCollisions(
+  projectiles: readonly Projectile[],
+  enemyMotion: EnemyMotionState,
+  levelSpec: LevelSpec,
+  alreadyDefeatedEnemyEntityIds: ReadonlySet<EntityId>,
+): {
+  readonly projectiles: readonly Projectile[];
+  readonly newlyDefeatedEnemyEntityIds: readonly EntityId[];
+} {
+  const survivingProjectiles: Projectile[] = [];
+  const newlyDefeatedEnemyEntityIds: EntityId[] = [];
+  const newlyDefeatedSet = new Set<EntityId>();
+
+  for (const projectile of projectiles) {
+    if (!projectile.active) {
+      continue;
+    }
+
+    const hitEnemyEntityId = findHitEnemyEntityId(
+      projectile,
+      enemyMotion,
+      levelSpec,
+      alreadyDefeatedEnemyEntityIds,
+      newlyDefeatedSet,
+    );
+
+    if (hitEnemyEntityId !== undefined) {
+      newlyDefeatedEnemyEntityIds.push(hitEnemyEntityId);
+      newlyDefeatedSet.add(hitEnemyEntityId);
+      continue;
+    }
+
+    survivingProjectiles.push(projectile);
+  }
+
+  return {
+    projectiles: survivingProjectiles,
+    newlyDefeatedEnemyEntityIds,
+  };
+}
+
+function findHitEnemyEntityId(
+  projectile: Projectile,
+  enemyMotion: EnemyMotionState,
+  levelSpec: LevelSpec,
+  alreadyDefeatedEnemyEntityIds: ReadonlySet<EntityId>,
+  newlyDefeatedEnemyEntityIds: ReadonlySet<EntityId>,
+): EntityId | undefined {
+  for (const actor of levelSpec.actors) {
+    if (
+      alreadyDefeatedEnemyEntityIds.has(actor.entityId) ||
+      newlyDefeatedEnemyEntityIds.has(actor.entityId)
+    ) {
+      continue;
+    }
+
+    const enemyActor = tryGetEnemyActorState(enemyMotion, actor.entityId);
+
+    if (enemyActor === undefined) {
+      continue;
+    }
+
+    // Fireproof enemies (Buzzy Beetle) shrug off fireballs — the projectile
+    // passes over without defeating them.
+    const actorDefinition = levelSpec.actorDefinitions.find(
+      (definition) => definition.actorId === actor.actorId,
+    );
+    if (actorDefinition?.fireproof === true) {
+      continue;
+    }
+
+    if (
+      rectanglesOverlap(
+        {
+          x: projectile.position.x,
+          y: projectile.position.y,
+          width: projectile.width,
+          height: projectile.height,
+        },
+        {
+          x: enemyActor.position.x,
+          y: enemyActor.position.y,
+          ...makeActorColliderSizePixels(levelSpec, actor.actorId),
+        },
+      )
+    ) {
+      return actor.entityId;
+    }
+  }
+
+  return undefined;
+}
+
+function tryGetEnemyActorState(
+  enemyMotion: EnemyMotionState,
+  entityId: EntityId,
+): ReturnType<typeof requireEnemyActorState> | undefined {
+  try {
+    return requireEnemyActorState(enemyMotion, entityId);
+  } catch {
+    return undefined;
+  }
+}
+
+function rectanglesOverlap(
+  first: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  },
+  second: {
+    readonly x: number;
+    readonly y: number;
+    readonly width: number;
+    readonly height: number;
+  },
+): boolean {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
+}
+
+function projectileOverlapsSolidTile(
+  projectile: Projectile,
+  levelSpec: LevelSpec,
+  breakableBlocks: BreakableBlockState,
+): boolean {
+  const leftTile = Math.floor(projectile.position.x / levelSpec.tileSizePixels);
+  const rightTile = Math.floor(
+    (projectile.position.x + projectile.width - 1) / levelSpec.tileSizePixels,
+  );
+  const topTile = Math.floor(projectile.position.y / levelSpec.tileSizePixels);
+  const bottomTile = Math.floor(
+    (projectile.position.y + projectile.height - 1) / levelSpec.tileSizePixels,
+  );
+
+  for (let tileX = leftTile; tileX <= rightTile; tileX += 1) {
+    for (let tileY = topTile; tileY <= bottomTile; tileY += 1) {
+      if (tileCoordinateIsSolid(tileX, tileY, levelSpec, breakableBlocks)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function tileCoordinateIsSolid(
+  tileX: number,
+  tileY: number,
+  levelSpec: LevelSpec,
+  breakableBlocks: BreakableBlockState,
+): boolean {
+  if (
+    tileX < 0 ||
+    tileX >= levelSpec.widthTiles ||
+    tileY < 0 ||
+    tileY >= levelSpec.heightTiles
+  ) {
+    return false;
+  }
+
+  const row = levelSpec.tiles[tileY];
+
+  if (row === undefined) {
+    throw new Error(`Tile row ${tileY} is out of bounds.`);
+  }
+
+  const tileId = row[tileX];
+
+  if (tileId === undefined) {
+    throw new Error(`Tile column ${tileX} is out of bounds.`);
+  }
+
+  const tileDefinition = levelSpec.tileDefinitions.find(
+    (definition) => definition.tileId === tileId,
+  );
+
+  if (tileDefinition === undefined) {
+    throw new Error(`Unknown tile id ${tileId} at (${tileX}, ${tileY}).`);
+  }
+
+  switch (tileDefinition.collision) {
+    case TileCollisionKind.Solid:
+    case TileCollisionKind.Interactive:
+    case TileCollisionKind.SolidHazard:
+    case TileCollisionKind.Spring:
+      return true;
+    case TileCollisionKind.Breakable:
+      return !isBreakableBlockBroken(breakableBlocks, {
+        x: tileX as TileCoordinate,
+        y: tileY as TileCoordinate,
+      });
+    case TileCollisionKind.Empty:
+    case TileCollisionKind.Hazard:
+    case TileCollisionKind.Goal:
+    // A hidden block is intangible until bumped from below, so a fireball passes
+    // straight through it.
+    case TileCollisionKind.Hidden:
+      return false;
+    default: {
+      const invalidCollision: never = tileDefinition.collision;
+      throw new Error(`Invalid tile collision: ${String(invalidCollision)}`);
+    }
+  }
+}
+
+function isProjectileOutOfBounds(
+  projectile: Projectile,
+  levelSpec: LevelSpec,
+): boolean {
+  return (
+    projectile.position.x + projectile.width < 0 ||
+    projectile.position.x > levelSpec.widthTiles * levelSpec.tileSizePixels ||
+    projectile.position.y + projectile.height < 0 ||
+    projectile.position.y > levelSpec.heightTiles * levelSpec.tileSizePixels
+  );
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@eslint/js",
+  "versionRange": "10.0.1",
+  "dependencySection": "devDependencies",
+  "purpose": "Official ESLint JavaScript rule presets for flat config.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `npm view @eslint/js version license repository.url --json` reported license `MIT` and repository `git+https://github.com/eslint/eslint.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "10.0.1",
+  "checkedVersionPublishedAt": "2026-02-06T22:34:56.290Z",
+  "checkedAt": "2026-06-25T22:58:30Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "@eslint/js is the official ESLint JavaScript configuration package."
+}

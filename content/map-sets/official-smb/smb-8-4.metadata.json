@@ -1,0 +1,83 @@
+{
+  "playerStart": {
+    "x": 2,
+    "y": 12
+  },
+  "exits": [
+    {
+      "x": 334,
+      "y": 11
+    }
+  ],
+  "paths": [],
+  "timers": [
+    {
+      "id": "level-timer.frames",
+      "value": 400,
+      "unit": "smb-time-units"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "warp-0",
+      "x": 51,
+      "y": 11,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-1",
+      "x": 81,
+      "y": 8,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-2",
+      "x": 132,
+      "y": 11,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-3",
+      "x": 152,
+      "y": 6,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-4",
+      "x": 212,
+      "y": 7,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-5",
+      "x": 228,
+      "y": 8,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    },
+    {
+      "id": "warp-6",
+      "x": 266,
+      "y": 11,
+      "targetLevelName": "smb-warp-3-5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    }
+  ],
+  "multiLayer": {
+    "playerPathRows": []
+  },
+  "questionBlockContentsDefault": "power-up",
+  "theme": "castle"
+}

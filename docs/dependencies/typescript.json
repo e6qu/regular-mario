@@ -1,0 +1,15 @@
+{
+  "name": "typescript",
+  "versionRange": "6.0.3",
+  "dependencySection": "devDependencies",
+  "purpose": "TypeScript compiler for strong static typing, branded domain types, and browser bundle source compilation.",
+  "license": "Apache-2.0",
+  "licenseEvidence": "npm registry metadata from `npm view typescript@6.0.3 license repository.url time --json` reported license `Apache-2.0` and repository `git+https://github.com/microsoft/TypeScript.git`.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "6.0.3",
+  "checkedVersionPublishedAt": "2026-04-16T23:38:27.905Z",
+  "checkedAt": "2026-06-25T22:41:38Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "TypeScript is the planned language in PLAN.md and is the standard Microsoft-maintained TypeScript compiler package."
+}

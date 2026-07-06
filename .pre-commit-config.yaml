@@ -1,0 +1,80 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dependency-policy
+        name: dependency policy
+        entry: node scripts/check-dependency-policy.mjs
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: repository-content-policy
+        name: repository content policy
+        entry: node scripts/check-repository-content-policy.mjs
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: transitive-license-policy
+        name: transitive license policy
+        entry: node scripts/check-transitive-license-policy.mjs
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: package-json-valid
+        name: package.json valid
+        entry: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json ok')"
+        language: system
+        pass_filenames: false
+        files: ^package\.json$
+        stages: [pre-commit]
+
+      - id: vulnerability-policy
+        name: vulnerability policy
+        entry: node scripts/check-vulnerability-policy.mjs
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: format-check
+        name: format check
+        entry: pnpm run format:check
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: lint
+        name: lint
+        entry: pnpm run lint
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: dead-code
+        name: dead-code detector
+        entry: pnpm run dead-code
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: copy-paste
+        name: copy-paste detector
+        entry: pnpm run copy-paste
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: typecheck
+        name: TypeScript typecheck
+        entry: pnpm run typecheck
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: unit-tests
+        name: unit tests
+        entry: pnpm run test
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
