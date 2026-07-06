@@ -10,6 +10,7 @@ import {
 } from "../../engine/domain/level-spec";
 import type { TilePoint } from "../../engine/domain/units";
 import { assertValidCollectibleInteractionState } from "../../engine/simulation/collectible-interaction";
+import { liveFrenzyCheeps } from "../../engine/simulation/cheep-frenzy-state";
 import {
   computeTotalScore,
   timeBonusFramesPerDisplayUnit,
@@ -557,6 +558,10 @@ export class BootScene extends Phaser.Scene {
     Phaser.GameObjects.Container
   > = new Map();
   private readonly timedHazardProjectileRenderObjects: Map<
+    string,
+    Phaser.GameObjects.Container
+  > = new Map();
+  private readonly frenzyCheepRenderObjects: Map<
     string,
     Phaser.GameObjects.Container
   > = new Map();
@@ -1287,6 +1292,7 @@ export class BootScene extends Phaser.Scene {
     this.spawnedActorRenderObjects.clear();
     this.projectileRenderObjects.clear();
     this.timedHazardProjectileRenderObjects.clear();
+    this.frenzyCheepRenderObjects.clear();
   }
 
   private advanceToNextLevel(): void {
@@ -2376,6 +2382,7 @@ export class BootScene extends Phaser.Scene {
     this.renderRevealedHiddenBlocks();
     this.renderProjectiles();
     this.renderTimedHazardProjectiles();
+    this.renderFrenzyCheeps();
     this.renderPipes();
   }
 
@@ -2613,6 +2620,45 @@ export class BootScene extends Phaser.Scene {
     );
   }
 
+  // Swimming Cheep-cheeps spawn and despawn dynamically as the frenzy runs, so
+  // reconcile their sprites each frame the way spawned actors are handled.
+  private renderFrenzyCheeps(): void {
+    const activeIds = new Set<string>();
+    for (const cheep of liveFrenzyCheeps(this.simulationState.cheepFrenzy)) {
+      activeIds.add(cheep.entityId);
+      let renderObject = this.frenzyCheepRenderObjects.get(cheep.entityId);
+      if (renderObject === undefined) {
+        const userImage =
+          this.userAssetBundle?.actorImages.get("vglc-smb-cheep");
+        if (userImage === undefined) {
+          renderObject = renderAuthoredActor(
+            this,
+            cheep.position,
+            ActorRole.FlyingEnemy,
+          );
+        } else {
+          const rendered = renderUserActorImage(
+            this,
+            cheep.position,
+            userImage,
+          );
+          // The fish sprite is drawn head-right; cheeps swim left, so mirror it.
+          rendered.image.setFlipX(true);
+          renderObject = rendered.container;
+        }
+        this.frenzyCheepRenderObjects.set(cheep.entityId, renderObject);
+      }
+      renderObject.setPosition(cheep.position.x, cheep.position.y);
+      renderObject.setDepth(0);
+    }
+    for (const [id, renderObject] of this.frenzyCheepRenderObjects) {
+      if (!activeIds.has(id)) {
+        renderObject.destroy();
+        this.frenzyCheepRenderObjects.delete(id);
+      }
+    }
+  }
+
   private renderProjectileCollection(
     projectiles: readonly {
       readonly id: string;
@@ -2833,6 +2879,9 @@ export class BootScene extends Phaser.Scene {
             ),
           playerContact:
             this.simulationState.timedHazardProjectiles.playerContact,
+        },
+        cheepFrenzy: {
+          liveCount: liveFrenzyCheeps(this.simulationState.cheepFrenzy).length,
         },
         pipeEntry: {
           phase: this.simulationState.pipeEntry.phase,

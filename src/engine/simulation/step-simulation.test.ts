@@ -748,6 +748,12 @@ describe("simulation primitives", () => {
           y: 0,
         },
         bloodiness: 0,
+        pseudoRandom: { register: [0xa5, 0, 0, 0, 0, 0, 0] },
+        cheepFrenzy: {
+          slots: [null, null, null],
+          respawnTimerFrames: 0,
+          usedYBands: 0,
+        },
       },
     });
   });
@@ -2539,6 +2545,8 @@ describe("simulation primitives", () => {
           playerReaction: validInitialState().playerReaction,
           enemyStompReaction: validInitialState().enemyStompReaction,
           bloodiness: validInitialState().bloodiness,
+          pseudoRandom: validInitialState().pseudoRandom,
+          cheepFrenzy: validInitialState().cheepFrenzy,
         },
         validInputCommand(),
         initialMovementConstants,

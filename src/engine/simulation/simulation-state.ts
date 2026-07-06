@@ -77,6 +77,14 @@ import {
   makeEmptyTimedHazardProjectilesState,
   type TimedHazardProjectilesState,
 } from "./timed-hazard-projectile-state";
+import {
+  makeInitialPseudoRandomState,
+  type PseudoRandomState,
+} from "./pseudo-random";
+import {
+  makeEmptyCheepFrenzyState,
+  type CheepFrenzyState,
+} from "./cheep-frenzy-state";
 
 export const initialLivesCount = 3;
 
@@ -113,6 +121,10 @@ export type SimulationState = {
   // Accumulated head-bonk "bloodiness" in [0, 1] (shabby mode only). Each bonk
   // adds more the faster the player was going; at 1 the player is at half speed.
   readonly bloodiness: number;
+  // SMB's shared PseudoRandom register, advanced once per frame; drives the
+  // underwater Cheep-cheep frenzy.
+  readonly pseudoRandom: PseudoRandomState;
+  readonly cheepFrenzy: CheepFrenzyState;
 };
 
 export function makeInitialSimulationState(
@@ -182,5 +194,7 @@ export function makeInitialSimulationStateWithPlayerVitality(
     playerReaction: makeEmptyPlayerReactionState(),
     enemyStompReaction: makeEmptyStompReactionState(),
     bloodiness: 0,
+    pseudoRandom: makeInitialPseudoRandomState(),
+    cheepFrenzy: makeEmptyCheepFrenzyState(),
   });
 }

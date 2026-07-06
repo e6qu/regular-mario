@@ -743,24 +743,28 @@ function finishConvertedVglcSmbImport(
   return parseConvertedVglcSmbRows(input);
 }
 
+function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
+  return {
+    playerStart: undefined,
+    exits: [],
+    questionBlocks: [],
+    questionBlockContentsDefault: undefined,
+    timers: [],
+    cannonProjectiles: [],
+    pathAnnotations: [],
+    transitions: [],
+    multiLayer: undefined,
+    cheepFrenzy: undefined,
+  };
+}
+
 function parseVglcSmbTextImportMetadata(
   input: unknown,
   mode: VglcSmbImportMetadataMode,
   errors: ValidationError[],
 ): VglcSmbTextImportMetadata {
   if (input === undefined) {
-    return {
-      playerStart: undefined,
-      exits: [],
-      questionBlocks: [],
-      questionBlockContentsDefault: undefined,
-      timers: [],
-      cannonProjectiles: [],
-      pathAnnotations: [],
-      transitions: [],
-      multiLayer: undefined,
-      cheepFrenzy: undefined,
-    };
+    return makeEmptyImportMetadata();
   }
 
   if (typeof input !== "object" || input === null) {
@@ -772,18 +776,7 @@ function parseVglcSmbTextImportMetadata(
       ),
     );
 
-    return {
-      playerStart: undefined,
-      exits: [],
-      questionBlocks: [],
-      questionBlockContentsDefault: undefined,
-      timers: [],
-      cannonProjectiles: [],
-      pathAnnotations: [],
-      transitions: [],
-      multiLayer: undefined,
-      cheepFrenzy: undefined,
-    };
+    return makeEmptyImportMetadata();
   }
 
   const candidate = input as Readonly<Record<string, unknown>>;

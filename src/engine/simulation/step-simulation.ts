@@ -98,6 +98,8 @@ import {
   requireSimulationPixelPosition,
   requireSimulationVelocity,
 } from "./simulation-units";
+import { advancePseudoRandom } from "./pseudo-random";
+import { resolveCheepFrenzyState } from "./cheep-frenzy-state";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -528,12 +530,25 @@ function stepActiveSimulation(
     timedHazardProjectiles.stompedProjectileCount > 0
       ? reboundPlayerFromStomp(playerAfterContactResponse, movementConstants)
       : playerAfterContactResponse;
-  const outcomeLevelContacts = timedHazardProjectiles.playerContact
-    ? {
-        ...levelContacts,
-        hazard: true,
-      }
-    : levelContacts;
+  // SMB advances its PseudoRandom register once per frame regardless of use; the
+  // underwater Cheep-cheep frenzy reads it to spawn the shoal. Touching a cheep
+  // harms the player like any hazard (you can't stomp underwater).
+  const nextPseudoRandom = advancePseudoRandom(state.pseudoRandom);
+  const cheepFrenzy = resolveCheepFrenzyState(
+    state.cheepFrenzy,
+    levelSpec,
+    playerAfterProjectileStomp,
+    nextPseudoRandom,
+    Number(state.clock.frameDurationMilliseconds) / 1000,
+    Number(nextClock.frameIndex),
+  );
+  const outcomeLevelContacts =
+    timedHazardProjectiles.playerContact || cheepFrenzy.playerContacted
+      ? {
+          ...levelContacts,
+          hazard: true,
+        }
+      : levelContacts;
 
   const playerOutcome = resolvePlayerOutcomeState(
     state.playerOutcome,
@@ -623,6 +638,8 @@ function stepActiveSimulation(
     playerReaction,
     enemyStompReaction,
     bloodiness,
+    pseudoRandom: nextPseudoRandom,
+    cheepFrenzy: cheepFrenzy.state,
   };
 }
 
