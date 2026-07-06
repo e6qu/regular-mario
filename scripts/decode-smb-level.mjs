@@ -218,12 +218,34 @@ function decodeEnemies(prg, enemyAddr) {
   return enemies;
 }
 
+// SMB enemy-object ids (verified empirically against the ROM's own enemy
+// streams: 0x07 dominates water = Blooper, 0x0c dominates castle = Podoboo, etc.)
+// Only ids we model are named; anything else stays `enemy-<hex>` and is skipped.
 function enemyIdName(id) {
   if (id === 0x00) return "koopa"; // green koopa troopa
-  if (id === 0x03) return "koopa-red";
+  if (id === 0x03) return "koopa-red"; // red koopa (ledge-staying)
+  if (id === 0x02) return "buzzy"; // buzzy beetle (fireproof armored)
+  if (id === 0x05) return "hammer-bro";
   if (id === 0x06) return "goomba";
+  if (id === 0x07) return "blooper"; // squid — pulses toward the swimmer
+  if (id === 0x0a || id === 0x0b) return "cheep"; // cheep-cheep (swimming fish)
+  if (id === 0x0e) return "paratroopa"; // green flying koopa
+  if (id === 0x14) return "lakitu";
   return `enemy-${id.toString(16)}`;
 }
+
+// Grid symbol per modeled enemy kind (matches the runtime multi-layer legend).
+const enemyKindSymbol = {
+  goomba: "g",
+  koopa: "k",
+  "koopa-red": "k",
+  buzzy: "t",
+  "hammer-bro": "h",
+  paratroopa: "K",
+  lakitu: "l",
+  blooper: "q", // squid (b/c are taken by cannon/coin tiles)
+  cheep: "F", // fish
+};
 
 // ---- Render objects into a symbol grid ------------------------------------
 function makeGrid(widthCols) {
@@ -345,12 +367,14 @@ function renderArea(objects, enemies) {
     }
   }
 
-  // Enemies onto the grid (goomba `g`, koopa `k`). Enemy Y-pixels omit the
-  // 32px status-bar offset that objects carry, so a data-row-R enemy stands one
-  // grid row above a data-row-R object — i.e. on top of it / on the floor.
+  // Enemies onto the grid using each kind's legend symbol. Enemy Y-pixels omit
+  // the 32px status-bar offset that objects carry, so a data-row-R enemy stands
+  // one grid row above a data-row-R object — i.e. on top of it / on the floor.
   for (const e of enemies) {
-    if (e.kind === "goomba") set(grid, e.col, e.row + rowOffset - 1, "g");
-    else if (e.kind === "koopa") set(grid, e.col, e.row + rowOffset - 1, "k");
+    const symbol = enemyKindSymbol[e.kind];
+    if (symbol !== undefined) {
+      set(grid, e.col, e.row + rowOffset - 1, symbol);
+    }
   }
 
   return { grid, widthCols };

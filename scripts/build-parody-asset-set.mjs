@@ -46,6 +46,59 @@ const enemyPalette = {
   m: [70, 46, 40, 255],
 };
 
+// Water enemies: a red "nipper" fish (cheep-cheep stand-in) and a cream "drifter"
+// squid (blooper stand-in).
+const waterEnemyPalette = {
+  ".": [0, 0, 0, 0],
+  R: [214, 74, 60, 255], // fish red body
+  r: [242, 150, 96, 255], // fish orange fins
+  C: [236, 226, 208, 255], // squid cream mantle
+  c: [198, 182, 160, 255], // squid tentacle/shadow
+  e: [24, 20, 18, 255], // pupil
+  w: [245, 245, 245, 255], // eye white
+  y: [250, 214, 120, 255], // fish lip
+};
+
+// Nipper fish: a round body facing right, tail fins to the left, eye + lips.
+const castawayFish = [
+  "................",
+  "................",
+  "................",
+  ".........RRR....",
+  ".r......RRRRRR..",
+  "rr....RRRRRRRw..",
+  ".rr..RRRRRReRw..",
+  "rrrrRRRRRRRRRy..",
+  ".rr..RRRRRReRw..",
+  ".r....RRRRRRw...",
+  ".......RRRRR....",
+  ".........RR.....",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+
+// Drifter squid: a domed cream mantle with two eyes and dangling tentacles.
+const castawaySquid = [
+  "................",
+  ".....CCCC.......",
+  "....CCCCCC......",
+  "...CCCCCCCC.....",
+  "..CCCCCCCCCC....",
+  "..CweCCCCweC....",
+  "..CCCCCCCCCC....",
+  "..CCCCCCCCCC....",
+  "...CCCCCCCC.....",
+  "...cCcCCcCc.....",
+  "..c.c.cc.c.c....",
+  ".c..c.c.c..c....",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+
 // 16x16 grids. Each string is one row; each char indexes the palette.
 const castawayIdle = [
   "................",
@@ -621,6 +674,8 @@ async function main() {
     ["castaway-star.png", castawayStar, starPalette],
     ["snapper-walk.png", snapperWalk, enemyPalette],
     ["snapper-shell.png", snapperShell, enemyPalette],
+    ["castaway-fish.png", castawayFish, waterEnemyPalette],
+    ["castaway-squid.png", castawaySquid, waterEnemyPalette],
   ];
   for (const [fileName, grid, paletteMap] of sprites) {
     await writeFile(resolve(outDir, fileName), drawSprite(grid, paletteMap));
@@ -681,6 +736,8 @@ async function main() {
         "snapper-walk.png",
         "snapper-shell.png",
       ),
+      "vglc-smb-cheep": walkingEnemySprite("castaway-fish.png"),
+      "vglc-smb-blooper": walkingEnemySprite("castaway-squid.png"),
       "vglc-smb-coin": spriteEntry("tile-shell.png"),
       "vglc-smb-question-block-contents": spriteEntry("tile-shell.png"),
       "vglc-smb-power-up": spriteEntry("castaway-powerup.png"),

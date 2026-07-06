@@ -127,6 +127,11 @@ const multiLayerActorLegendCharacters = new Map([
       role: ActorRole.AerialThrowingEnemy,
     },
   ],
+  // Water enemies (F=fish, q=squid; b/c are cannon/coin tiles): a Cheep-cheep
+  // swims (flying behavior underwater) and a Blooper pulses toward the swimmer
+  // (chasing behavior).
+  ["F", { actorId: "vglc-smb-cheep", role: ActorRole.FlyingEnemy }],
+  ["q", { actorId: "vglc-smb-blooper", role: ActorRole.ChasingEnemy }],
 ]);
 
 const transitionPipeActorDefinition = {
@@ -236,6 +241,8 @@ const multiLayerStructuralActorCharacters = new Map([
   ["t", { actorCharacter: "t" }],
   ["h", { actorCharacter: "h" }],
   ["l", { actorCharacter: "l" }],
+  ["F", { actorCharacter: "F" }],
+  ["q", { actorCharacter: "q" }],
 ]);
 
 type VglcSmbUnsupportedFeature = {
