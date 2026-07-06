@@ -1747,13 +1747,14 @@ function stepChasingEnemyActor(
     }
 
     // A swimming chaser (Blooper) also drifts toward the player's depth, so it
-    // pursues in 2D instead of sliding past at a fixed height. On land the
+    // pursues in 2D instead of sliding past at a fixed height — but gently (a
+    // fraction of its horizontal speed) so it stays avoidable. On land the
     // chaser stays on its row.
     const attemptedPositionY = movementConstants.swimming
       ? approachEnemyDepth(
           chasingActor.position.y,
           player.position.y,
-          movementConstants.chasingEnemySpeed * frameDurationSeconds * 0.6,
+          movementConstants.chasingEnemySpeed * frameDurationSeconds * 0.35,
           levelSpec,
         )
       : chasingActor.position.y;

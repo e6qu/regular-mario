@@ -23,9 +23,9 @@ const areaDataAddrHighAddr = 0x9d4e;
 
 const areaTypeNames = ["water", "ground", "underground", "castle"];
 
-const gridHeight = 14; // rows 0..13; play rows 2..13 (object row R -> grid R+2)
+const gridHeight = 15; // 2 HUD rows + 13-row playfield (rows 2..14); object R -> grid R+2
 const rowOffset = 2; // status-bar offset (object y-pixel = row*16 + 32)
-const floorRow = 13; // ground surface row in the grid
+const floorRow = 13; // ground SURFACE row; row 14 is the sub-surface ground row
 
 const emptySymbol = "-";
 
@@ -291,7 +291,11 @@ function renderArea(objects, enemies) {
     }
   }
   for (let x = 0; x < widthCols; x += 1) {
-    if (!holes.has(x)) set(grid, x, floorRow, "#");
+    // SMB's standard ground is the bottom TWO playfield rows, so fill from the
+    // surface (floorRow) down to the last grid row. Pits clear both rows.
+    if (!holes.has(x)) {
+      for (let r = floorRow; r < gridHeight; r += 1) set(grid, x, r, "#");
+    }
   }
 
   for (const o of objects) {

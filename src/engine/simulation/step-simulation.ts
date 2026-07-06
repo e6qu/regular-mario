@@ -117,6 +117,11 @@ import {
   requireEnemyActorState,
 } from "./enemy-motion";
 
+// The top two grid rows of every decoded level are reserved for the HUD overlay
+// (the decoder's row offset), so gameplay content — and the water surface —
+// begins at grid row 2.
+const hudReservedRowCount = 2;
+
 export function stepSimulation(
   state: SimulationState,
   inputCommand: SimulationInputCommand,
@@ -274,16 +279,23 @@ function stepActiveSimulation(
   );
   const resolvedPlayerWithBumpsPlayer = resolvedPlayerWithBumps.player;
 
-  // Water surface: swimming can't carry the player above the top of the level —
-  // repeated strokes would otherwise send him clear off-screen (open water has
-  // no solid ceiling). He bumps the surface and his upward speed is cancelled.
+  // Water surface: the top two grid rows are the HUD-reserved band, so the
+  // swimmable water starts at grid row 2. Swimming can't carry the player above
+  // that waterline — repeated strokes would otherwise send him off-screen (open
+  // water has no solid ceiling). He bumps the surface and his upward speed is
+  // cancelled.
+  const waterSurfaceY = hudReservedRowCount * levelSpec.tileSizePixels;
   const resolvedPlayer =
-    movementConstants.swimming && resolvedPlayerWithBumpsPlayer.position.y < 0
+    movementConstants.swimming &&
+    resolvedPlayerWithBumpsPlayer.position.y < waterSurfaceY
       ? {
           ...resolvedPlayerWithBumpsPlayer,
           position: {
             x: resolvedPlayerWithBumpsPlayer.position.x,
-            y: requireSimulationPixelPosition(0, "player.position.y"),
+            y: requireSimulationPixelPosition(
+              waterSurfaceY,
+              "player.position.y",
+            ),
           },
           velocity: {
             x: resolvedPlayerWithBumpsPlayer.velocity.x,

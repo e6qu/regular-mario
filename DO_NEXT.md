@@ -9,9 +9,14 @@ Landed (all measured/tested, not guessed):
   (squid) — e.g. 2-2 has 14 Bloopers, castle 8-4 has a Hammer Bro + Buzzy Beetles
   - Paratroopas. Authored parody fish/squid sprites cover them.
 - **Underwater rules match SMB.** You can't stomp underwater (swim, don't stomp),
-  so Bloopers/Cheeps harm on contact; a swim-surface clamp stops repeated strokes
-  from carrying Mario off the top of the level; a Blooper pursues the swimmer in 2D.
+  so Bloopers/Cheeps harm on contact; instead a water level starts Mario with
+  **fire power** so he can fight them. A drawn **water surface** (jagged waterline
+  at grid row 2, below the HUD) with a matching swim clamp keeps him from swimming
+  off the top. A Blooper pursues the swimmer in 2D but gently (avoidable).
 - **Buzzy Beetle is fireproof** (fireballs bounce off; still shell-stompable on land).
+- **Full-height playfield.** Levels are 15 grid rows (2 HUD rows + a 13-row
+  playfield with the standard two-row ground), matching the NES — previously the
+  ground was a single-row sliver, which read as "too short."
 
 **Gap — Cheep-cheep schools.** Verified: **zero** Cheep-cheeps decode across all 41
 levels. In SMB the swimming/jumping Cheep schools come from _frenzy generators_

@@ -31,12 +31,14 @@ What exists now:
   creator with round-trip of official levels.
 - **Themes + water.** Overworld / underground / castle / water themes drive tile
   palette, backdrop, and parallax; official levels are themed from the ROM area
-  type and pipe warps switch a section's theme. Water uses slower, floatier swim
-  physics (tap to stroke up, gentle sink, capped at the water surface so strokes
-  can't carry you off the top); underwater you swim rather than stomp, so enemy
-  contact harms you. The castaway becomes a side-profile **merman** (fish tail,
-  arm-stroke + tail-flick animated only when moving, mirrored to his travel
-  direction) trailing translucent white-rimmed air bubbles.
+  type and pipe warps switch a section's theme. Water draws a jagged **waterline**
+  at the surface and uses slower, floatier swim physics (tap to stroke up, gentle
+  sink, capped at that surface so strokes can't carry you off the top); underwater
+  you swim rather than stomp, so enemy contact harms you — a water level therefore
+  starts Mario with **fire power** so he can fight back. The castaway becomes a
+  side-profile **merman** (fish tail, arm-stroke + tail-flick animated only when
+  moving, mirrored to his travel direction) trailing translucent white-rimmed air
+  bubbles.
 - **Audio.** ROM-decoded music (all 3 channels, numeric data only) at the correct
   tempo with per-theme songs, plus original synthesized SFX. Two soundtracks: the
   default **Shabby** sings the melody as a baritone "ba ba ba" (formant vocal

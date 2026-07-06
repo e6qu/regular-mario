@@ -10,7 +10,10 @@ import {
   type UserPlayerSpriteEntry,
 } from "./engine/domain/user-asset-manifest";
 import type { LevelSpecInput } from "./engine/domain/level-spec";
-import { makeInitialPlayerVitalityState } from "./engine/simulation/player-vitality";
+import {
+  makeFirePlayerVitalityState,
+  makeInitialPlayerVitalityState,
+} from "./engine/simulation/player-vitality";
 import {
   classicCompatibilityViewport,
   selectBrowserGameBootstrap,
@@ -2251,7 +2254,13 @@ async function bootSelectedContentSet(
           ),
         ),
         levelIndex: 0,
-        initialPlayerVitality: makeInitialPlayerVitalityState(),
+        // Underwater you can't stomp, so a water level starts Mario with fire
+        // power — otherwise you'd have no way to fight the Bloopers/Cheep-cheeps
+        // (they harm on contact). Other themes start small as usual.
+        initialPlayerVitality:
+          selectedLevel.theme === "water"
+            ? makeFirePlayerVitalityState()
+            : makeInitialPlayerVitalityState(),
         userAssetBundle: { ...bundle, sounds },
         viewport: classicCompatibilityViewport,
         userLevelVisualName: selectedLevel.name,

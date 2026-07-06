@@ -2981,6 +2981,13 @@ function configureMainCamera(
 
 // Water world backdrop: seaweed fronds rising from the seabed and slow bubbles
 // drifting upward, each layer on its own parallax rate.
+// World-Y of the water surface: the top of the playfield, which is grid row 2
+// (the top two rows are reserved for the HUD overlay). The simulation's swim
+// clamp keeps the player at/below this same line — a jagged white waterline.
+const waterSurfaceHudRows = 2;
+const waterSurfaceTileSizePixels = 16;
+const waterSurfaceY = waterSurfaceHudRows * waterSurfaceTileSizePixels;
+
 function renderWaterParallax(
   scene: Phaser.Scene,
   worldWidth: number,
@@ -2988,6 +2995,24 @@ function renderWaterParallax(
 ): void {
   const seaweedColor = 0x0e8f7a;
   const bubbleColor = 0xbdf0ff;
+
+  // Jagged white waterline: a row of little upward teeth spanning the level.
+  const surface = scene.add.graphics();
+  surface.setScrollFactor(1, 1).setDepth(-70);
+  surface.fillStyle(0xffffff, 1);
+  const toothWidth = 8;
+  const toothHeight = 5;
+  const baseY = waterSurfaceY + toothHeight;
+  for (let x = 0; x < worldWidth; x += toothWidth) {
+    surface.fillTriangle(
+      x,
+      baseY,
+      x + toothWidth / 2,
+      waterSurfaceY,
+      x + toothWidth,
+      baseY,
+    );
+  }
   for (let i = 60; i < worldWidth; i += 150) {
     const fronds = 3 + ((i * 7) % 3);
     const lean = (i * 13) % 2 === 0 ? -3 : 3;

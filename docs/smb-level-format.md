@@ -127,13 +127,15 @@ rectangular grid of the engine's multi-layer symbols (`#` ground, `B` brick,
 `?`/`M` coin/power-up blocks, `O` multi-coin brick, `*` star brick, `+` 1-up,
 `[]`/`pP` pipe, `|` flagpole, `g` Goomba, `k` Koopa, `o` coin).
 
-Coordinate mapping (to match the engine's 14-row levels):
+Coordinate mapping (to match the engine's 15-row levels — 2 HUD rows + a
+13-row playfield, mirroring the NES 15-row screen):
 
 - Object row `R` → grid row `R + 2` (objects carry a 32 px status-bar offset).
 - Enemy row `R` → grid row `R + 1` (enemy Y-pixels omit that offset, so a
   same-row enemy stands one grid row above / on top of an object, i.e. on the
   floor).
-- The ground surface is grid row 13; holes clear it.
+- The ground surface is grid row 13 and the sub-surface ground is row 14 (the
+  standard two-row ground); holes clear both. Rows 0–1 are the HUD band.
 
 Every area's decoded grid plus minimal import metadata (player start, exit,
 default ? contents) is written by `build-official-map-set`, which emits all 36

@@ -36,7 +36,9 @@ describe("decode-smb-level", () => {
     expect(grid[9]?.[5]).toBe("M"); // power-up ? block
     expect(grid[9]?.[8]).toBe("?"); // coin ? block
     expect(grid[12]?.[6]).toBe("g"); // Goomba on the floor
-    expect(grid[13]?.[0]).toBe("#"); // ground row
+    expect(grid[13]?.[0]).toBe("#"); // ground surface row
+    expect(grid[14]?.[0]).toBe("#"); // sub-surface ground row (2-row ground)
+    expect(grid.length).toBe(15); // 2 HUD rows + 13-row playfield
     // Text form is a rectangular grid.
     const text = gridToText(grid).trimEnd().split("\n");
     expect(new Set(text.map((row) => row.length)).size).toBe(1);

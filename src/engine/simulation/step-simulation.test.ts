@@ -2470,13 +2470,15 @@ describe("simulation primitives", () => {
     });
   });
 
-  it("does not let a swimmer rise above the water surface (top of the level)", () => {
+  it("does not let a swimmer rise above the water surface (grid row 2)", () => {
+    // The top two grid rows are the HUD band, so the waterline sits at row 2.
+    const waterSurfaceY = 2 * 16;
     const next = stepSimulation(
       {
         ...validInitialState(),
         player: playerWithTestState({
-          position: { x: 40, y: 2 },
-          velocity: { x: 0, y: -600 }, // stroking hard upward, near the top
+          position: { x: 40, y: waterSurfaceY + 4 },
+          velocity: { x: 0, y: -600 }, // stroking hard upward, into the surface
           movement: {
             horizontal: HorizontalMovementState.Idle,
             vertical: VerticalMovementState.Jumping,
@@ -2488,7 +2490,7 @@ describe("simulation primitives", () => {
       firstAuthoredLevelWithoutHazardSpec(),
     );
 
-    expect(next.player.position.y).toBeGreaterThanOrEqual(0);
+    expect(next.player.position.y).toBeGreaterThanOrEqual(waterSurfaceY);
     expect(next.player.velocity.y).toBeGreaterThanOrEqual(0);
   });
 
