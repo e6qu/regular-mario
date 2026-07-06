@@ -18,15 +18,16 @@ Landed (all measured/tested, not guessed):
   playfield with the standard two-row ground), matching the NES — previously the
   ground was a single-row sliver, which read as "too short."
 
-**Gap — Cheep-cheep schools.** Verified: **zero** Cheep-cheeps decode across all 41
-levels. In SMB the swimming/jumping Cheep schools come from _frenzy generators_
-(continuous spawners keyed off special enemy-stream objects), not direct placements.
-Adding them faithfully needs (a) accurate frenzy-generator decoding — the raw
-`decodeLevel(w,l)` path currently disagrees with the `decodeAllLevels` output and
-yields garbage high IDs for water areas, so it isn't trustworthy yet — and (b) a new
-continuous-spawner simulation feature. Both are real work with real guessing risk;
-don't fake positions or spawn cadence. Do the generator decode against the SMB
-disassembly's frenzy tables first, then model the spawner, then wire it.
+**Cheep-cheep schools — already implemented.** (An earlier note here wrongly
+called this a gap.) The swimming Cheep frenzy is a full, ROM-faithful feature:
+`computeCheepFrenzy` decodes the frenzy span from the object stream's start/stop
+commands (`special13:9`/`:10`) into `metadata.cheepFrenzy`, and
+`cheep-frenzy-state.ts` spawns cheeps every 32 frames into a 3-slot buffer ahead
+of the player (ROM Y-bands + drift speeds), rendered and unit-tested. The 2-2 and
+7-3 underwater areas (which SMB shares) run it over tiles 80–192. `smb-2-3`'s
+committed metadata had gone **stale** (missing `cheepFrenzy`) — now refreshed, so
+the displayed "2-2" schools cheeps like 7-3. Directly-placed cheeps (`F`) still
+decode to 0 because these areas use the frenzy, not stream placements — expected.
 
 ## Clearest next item: finish the warp-pipe return trip
 

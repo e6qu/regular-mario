@@ -22,5 +22,9 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "water"
+  "theme": "water",
+  "cheepFrenzy": {
+    "startTileX": 80,
+    "endTileX": 192
+  }
 }
