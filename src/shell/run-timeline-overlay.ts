@@ -35,6 +35,29 @@ function formatFrameTime(frame: number, frameDurationMs: number): string {
   return `${totalSeconds.toFixed(2)}s`;
 }
 
+// Remember whether the scrubber filmstrip is collapsed. Default (no stored
+// value) is expanded — the timeline is on unless the player turns it off.
+const timelineCollapsedStorageKey = "regular-mario:timeline-collapsed";
+
+function readTimelineCollapsed(): boolean {
+  try {
+    return globalThis.localStorage.getItem(timelineCollapsedStorageKey) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeTimelineCollapsed(collapsed: boolean): void {
+  try {
+    globalThis.localStorage.setItem(
+      timelineCollapsedStorageKey,
+      collapsed ? "1" : "0",
+    );
+  } catch {
+    // Storage may be unavailable (private mode); the toggle still works in-session.
+  }
+}
+
 // Keyframes + classes for the level-complete glisten/pulse. Scoped to elements
 // inside the overlay; honours prefers-reduced-motion.
 function makeTimelineOverlayStyle(): HTMLStyleElement {
@@ -82,6 +105,10 @@ export class RunTimelineOverlay {
   private readonly completeBanner: HTMLDivElement;
   private playButton!: HTMLButtonElement;
   private continueButton!: HTMLButtonElement;
+  private readonly timelineToggleButton: HTMLButtonElement;
+  // Whether the filmstrip/scrubber track is collapsed (controls stay). Defaults
+  // to expanded ("timeline on") and is remembered across runs.
+  private timelineCollapsed = readTimelineCollapsed();
 
   // Shared base so the normal and level-complete bar styles differ only in their
   // background/border/glow, not in layout.
@@ -110,7 +137,13 @@ export class RunTimelineOverlay {
       "letter-spacing:2px;color:#fbbf24;background:#00000055;padding:2px 8px;border-radius:4px;";
     this.frameLabel = document.createElement("span");
     this.frameLabel.style.color = "#9ca3af";
-    heading.append(this.title, this.frameLabel, this.makeControls());
+    this.timelineToggleButton = this.makeTimelineToggle();
+    heading.append(
+      this.title,
+      this.frameLabel,
+      this.timelineToggleButton,
+      this.makeControls(),
+    );
     this.root.append(heading);
 
     // A celebratory, glistening banner shown only on a level-complete pause,
@@ -141,6 +174,7 @@ export class RunTimelineOverlay {
 
     this.track.append(this.strip, this.playhead, this.tooltip);
     this.root.append(this.track);
+    this.applyTimelineCollapsed();
     this.registerTrackHandlers();
 
     parent.append(this.root);
@@ -219,6 +253,23 @@ export class RunTimelineOverlay {
       RunTimelineOverlay.rootBaseCss +
       "background:linear-gradient(180deg,#1c1407f2,#0b0f19f5);" +
       "border-top:4px solid #ffd54a;box-shadow:0 -10px 34px #ffd54a2e;";
+  }
+
+  // A small toggle that collapses/expands the filmstrip scrubber (the "timeline"
+  // proper). The control buttons stay either way; the choice is remembered.
+  private makeTimelineToggle(): HTMLButtonElement {
+    return this.makeActionButton("", "#4b5563", () => {
+      this.timelineCollapsed = !this.timelineCollapsed;
+      writeTimelineCollapsed(this.timelineCollapsed);
+      this.applyTimelineCollapsed();
+    });
+  }
+
+  private applyTimelineCollapsed(): void {
+    this.track.style.display = this.timelineCollapsed ? "none" : "";
+    this.timelineToggleButton.textContent = this.timelineCollapsed
+      ? "▸ Timeline"
+      : "▾ Timeline";
   }
 
   private makeControls(): HTMLDivElement {

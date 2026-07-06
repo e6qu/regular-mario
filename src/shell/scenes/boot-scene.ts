@@ -967,6 +967,11 @@ export class BootScene extends Phaser.Scene {
   public onSessionSuspend(): void {
     this.suspended = true;
     this.gameAudio.stopBackgroundMusic();
+    // The timeline/replay bar is a DOM overlay in the shared game layer, not a
+    // child of this game's canvas — hiding the canvas doesn't hide it. Hide it
+    // explicitly so a paused game's replay bar doesn't linger over the next one
+    // (e.g. after "Next level"). It's restored on resume if still paused.
+    this.timelineOverlay?.hide();
   }
 
   // Called when this game is brought back to the foreground: resume its music if
@@ -990,6 +995,11 @@ export class BootScene extends Phaser.Scene {
       !this.pausedByDeath
     ) {
       this.gameAudio.startBackgroundMusic(this.currentTheme);
+    }
+    // If this game was still paused when it was backgrounded, bring its replay
+    // bar back (onSessionSuspend hid it) so it isn't frozen with no controls.
+    if (this.paused) {
+      this.presentTimelineOverlay();
     }
   }
 
@@ -1857,6 +1867,10 @@ export class BootScene extends Phaser.Scene {
     this.pauseFrame = this.runRecorder.frameCount;
     this.scrubFrame = this.pauseFrame;
     this.pauseFrameState = this.simulationState;
+    this.presentTimelineOverlay();
+  }
+
+  private presentTimelineOverlay(): void {
     this.ensureTimelineOverlay().show(
       this.pauseFrame,
       this.scrubFrame,
