@@ -89,6 +89,9 @@ export function resolveTimedHazardProjectilesState(
     frameDurationSeconds,
     levelSpec,
     breakableBlocks,
+    // Cannonballs / thrown hazards fly straight — no arc, no bounce.
+    0,
+    0,
   );
   const spawnedProjectiles = levelSpec.timedHazardProjectileSpawners
     .filter((spawner) => shouldSpawnProjectile(spawner, frameIndex))

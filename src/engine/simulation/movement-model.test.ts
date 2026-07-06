@@ -76,6 +76,8 @@ describe("movement model", () => {
       coyoteFrameCount: 6,
       jumpBufferFrameCount: 6,
       projectileSpeed: 240,
+      projectileGravity: 540,
+      projectileBounceSpeed: 225,
       projectileCooldownFrameCount: 20,
       projectileLifetimeFrameCount: 120,
       projectileColliderWidth: 6,

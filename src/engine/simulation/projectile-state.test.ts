@@ -26,6 +26,7 @@ import {
 import {
   makeEmptyProjectilesState,
   resolveProjectilesState,
+  stepExistingProjectiles,
   type Projectile,
   type ProjectilesState,
 } from "./projectile-state";
@@ -282,6 +283,59 @@ describe("projectile-state", () => {
     expect(movedProjectile?.remainingLifetimeFrames).toBe(
       projectile.remainingLifetimeFrames - 1,
     );
+  });
+
+  it("arcs a fireball down under gravity and bounces it off the ground", () => {
+    // Spawn high + far left so the fireball has room to fall before the ground.
+    const shooter = playerAt({ x: 8, y: 8 });
+    let result = resolveOnce(
+      makeEmptyProjectilesState(),
+      { firePressed: true },
+      shooter,
+    );
+    let sawFalling = false;
+    let sawBounce = false;
+    for (let frame = 0; frame < 50; frame += 1) {
+      result = resolveOnce(result.state, { firePressed: false }, shooter);
+      const projectile = activeProjectiles(result)[0];
+      if (projectile === undefined) {
+        break;
+      }
+      if (projectile.velocity.y > 60) {
+        sawFalling = true; // gained downward speed from gravity
+      }
+      if (sawFalling && projectile.velocity.y < 0) {
+        sawBounce = true; // sprang back up off the floor
+      }
+    }
+    expect(sawFalling).toBe(true);
+    expect(sawBounce).toBe(true);
+  });
+
+  it("flies a fireball straight when gravity is zero (underwater)", () => {
+    const spawned = activeProjectiles(
+      resolveOnce(makeEmptyProjectilesState(), { firePressed: true }),
+    )[0];
+    if (spawned === undefined) {
+      throw new Error("Expected a fireball to spawn.");
+    }
+
+    const levelSpec = makeProjectileLevelSpec();
+    let projectiles: readonly Projectile[] = [spawned];
+    for (let frame = 0; frame < 20; frame += 1) {
+      projectiles = stepExistingProjectiles(
+        projectiles,
+        nominalSixtyHertzFrameDurationMilliseconds / 1000,
+        levelSpec,
+        makeEmptyBreakableBlockState(),
+        0,
+        0,
+      );
+    }
+
+    expect(projectiles[0]?.velocity.y).toBe(0);
+    expect(projectiles[0]?.position.y).toBe(spawned.position.y);
+    expect(projectiles[0]?.position.x).toBeGreaterThan(spawned.position.x);
   });
 
   it("defeats an enemy when a projectile overlaps it", () => {

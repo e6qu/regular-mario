@@ -177,6 +177,10 @@ export type MovementConstants = {
   readonly coyoteFrameCount: CoyoteFrameCount;
   readonly jumpBufferFrameCount: JumpBufferFrameCount;
   readonly projectileSpeed: VelocityPixelsPerSecond;
+  // Fireballs fall under gravity and bounce off the ground in an arc (0 gravity
+  // underwater, where they travel straight and buoyant like SMB).
+  readonly projectileGravity: AccelerationPixelsPerSecondSquared;
+  readonly projectileBounceSpeed: VelocityPixelsPerSecond;
   readonly projectileCooldownFrameCount: ProjectileFrameCount;
   readonly projectileLifetimeFrameCount: ProjectileFrameCount;
   readonly projectileColliderWidth: ColliderDimensionPixels;
@@ -341,6 +345,8 @@ export const initialMovementConstants: MovementConstants = {
     "movement.jumpBufferFrameCount",
   ),
   projectileSpeed: requireVelocity(240, "movement.projectileSpeed"),
+  projectileGravity: requireAcceleration(540, "movement.projectileGravity"),
+  projectileBounceSpeed: requireVelocity(225, "movement.projectileBounceSpeed"),
   projectileCooldownFrameCount: requirePositiveProjectileFrameCount(
     20,
     "movement.projectileCooldownFrameCount",
@@ -402,6 +408,8 @@ export const swimmingMovementConstants: MovementConstants = {
   // land chaser (so it can drift up/down to follow) but not the whole column —
   // it should be avoidable, not clingy.
   chasingEnemyDetectionHeightPixels: 72,
+  // Underwater fireballs travel straight and buoyant — no gravity, no bounce.
+  projectileGravity: requireAcceleration(0, "movement.swim.projectileGravity"),
 };
 
 export function makeInitialMovementState(): MovementState {

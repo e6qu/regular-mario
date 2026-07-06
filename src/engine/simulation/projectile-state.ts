@@ -169,6 +169,8 @@ export function resolveProjectilesState(
     frameDurationSeconds,
     levelSpec,
     breakableBlocks,
+    movementConstants.projectileGravity,
+    movementConstants.projectileBounceSpeed,
   );
   const defeatedEnemyEntityIdSet = new Set(enemies.defeatedEnemyEntityIds);
   const {
@@ -296,6 +298,9 @@ export function stepExistingProjectiles(
   frameDurationSeconds: number,
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
+  // Fireballs arc + bounce; straight hazards (cannonballs) pass 0 for both.
+  projectileGravity: number,
+  projectileBounceSpeed: number,
 ): readonly Projectile[] {
   const steppedProjectiles: Projectile[] = [];
 
@@ -313,6 +318,12 @@ export function stepExistingProjectiles(
       continue;
     }
 
+    // Gravity pulls the fireball down so it travels in an arc (0 underwater,
+    // where it flies straight and buoyant).
+    const velocityYAfterGravity =
+      projectile.velocity.y + projectileGravity * frameDurationSeconds;
+
+    // Horizontal move first — running into a wall kills the fireball.
     const nextX = requireSimulationPixelPosition(
       projectile.position.x +
         requirePixelDelta(
@@ -321,32 +332,64 @@ export function stepExistingProjectiles(
         ),
       "projectile.position.x",
     );
-    const nextY = requireSimulationPixelPosition(
-      projectile.position.y +
-        requirePixelDelta(
-          projectile.velocity.y * frameDurationSeconds,
-          "projectile.position.y",
-        ),
-      "projectile.position.y",
-    );
-
-    const steppedProjectile: Projectile = {
+    const horizontallyMoved: Projectile = {
       ...projectile,
-      position: { x: nextX, y: nextY },
+      position: { x: nextX, y: projectile.position.y },
       remainingLifetimeFrames,
     };
-
     if (
-      projectileOverlapsSolidTile(steppedProjectile, levelSpec, breakableBlocks)
+      projectileOverlapsSolidTile(horizontallyMoved, levelSpec, breakableBlocks)
     ) {
       continue;
     }
 
-    if (isProjectileOutOfBounds(steppedProjectile, levelSpec)) {
+    // Vertical move — hitting the ground bounces it back up in an arc; a ceiling
+    // just cancels the upward motion. Either way it keeps its pre-move height so
+    // it never sinks into the tile.
+    const nextY = requireSimulationPixelPosition(
+      projectile.position.y +
+        requirePixelDelta(
+          velocityYAfterGravity * frameDurationSeconds,
+          "projectile.position.y",
+        ),
+      "projectile.position.y",
+    );
+    const verticallyMoved: Projectile = {
+      ...horizontallyMoved,
+      position: { x: nextX, y: nextY },
+    };
+
+    const resolvedProjectile: Projectile = projectileOverlapsSolidTile(
+      verticallyMoved,
+      levelSpec,
+      breakableBlocks,
+    )
+      ? {
+          ...horizontallyMoved,
+          velocity: {
+            x: projectile.velocity.x,
+            y: requireSimulationVelocity(
+              velocityYAfterGravity > 0 ? 0 - projectileBounceSpeed : 0,
+              "projectile.velocity.y",
+            ),
+          },
+        }
+      : {
+          ...verticallyMoved,
+          velocity: {
+            x: projectile.velocity.x,
+            y: requireSimulationVelocity(
+              velocityYAfterGravity,
+              "projectile.velocity.y",
+            ),
+          },
+        };
+
+    if (isProjectileOutOfBounds(resolvedProjectile, levelSpec)) {
       continue;
     }
 
-    steppedProjectiles.push(steppedProjectile);
+    steppedProjectiles.push(resolvedProjectile);
   }
 
   return steppedProjectiles;
