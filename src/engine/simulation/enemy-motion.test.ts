@@ -25,7 +25,10 @@ import {
   makeEmptyEnemyInteractionState,
   type EnemyInteractionState,
 } from "./enemy-interaction";
-import { initialMovementConstants } from "./movement-model";
+import {
+  initialMovementConstants,
+  swimmingMovementConstants,
+} from "./movement-model";
 import { playerAt } from "./level-test-support";
 import { testFrameDurationMilliseconds } from "./movement-test-support";
 import { makeTileRun } from "../levels/level-builder";
@@ -768,6 +771,30 @@ describe("enemy motion", () => {
           x: 60,
         },
       });
+    });
+
+    it("a swimming chaser (Blooper) pursues the player's depth, not just its row", () => {
+      const levelSpec = chasingEnemyRouteLevelSpec(3, 4); // enemy at (48, 64)
+      const swimming = stepEnemyMotionState(
+        enemyMotionFor(levelSpec),
+        levelSpec,
+        makeEmptyEnemyInteractionState(),
+        testFrameDurationMilliseconds(250),
+        swimmingMovementConstants,
+        playerAt({ x: 72, y: 24 }), // right of + well above the enemy
+        1 as FrameIndex,
+      );
+      const swimmer = requireChasingEnemyActorState(swimming, "hunter-1");
+      expect(swimmer.behavior).toBe(ChasingEnemyBehavior.Chase);
+      expect(swimmer.position.y).toBeLessThan(64); // rose toward the player
+
+      // On land the same chaser holds its row (no vertical pursuit).
+      const land = stepFreshRouteEnemy(levelSpec, {
+        player: playerAt({ x: 80, y: 40 }),
+      });
+      expect(requireChasingEnemyActorState(land, "hunter-1").position.y).toBe(
+        64,
+      );
     });
 
     it("chases at the tuned horizontal detection edge", () => {

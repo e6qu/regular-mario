@@ -272,6 +272,9 @@ export function resolveEnemyInteractionState(
     }
 
     if (
+      // Underwater you swim rather than stomp, so nothing is stompable — a
+      // Blooper or Cheep-cheep harms you on contact (kill them with fireballs).
+      !movementConstants.swimming &&
       // Piranha Plants can't be stomped — landing on one hurts the player, so
       // it falls through to the harmful-contact branch below.
       role !== ActorRole.PiranhaPlant &&

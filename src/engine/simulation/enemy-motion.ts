@@ -1664,6 +1664,22 @@ function stopPiranhaPlantActor(
   return piranhaPlantActor;
 }
 
+// Move an enemy's vertical position toward the player's depth by up to `step`,
+// clamped to stay within the playfield (so a swimming chaser never drifts off
+// the top or bottom of the water).
+function approachEnemyDepth(
+  currentY: number,
+  targetY: number,
+  step: number,
+  levelSpec: LevelSpec,
+): number {
+  const worldHeight = levelSpec.heightTiles * levelSpec.tileSizePixels;
+  const delta = targetY - currentY;
+  const next =
+    Math.abs(delta) <= step ? targetY : currentY + Math.sign(delta) * step;
+  return Math.max(8, Math.min(worldHeight - 20, next));
+}
+
 function stepChasingEnemyActor(
   chasingActor: ChasingEnemyActorState,
   levelSpec: LevelSpec,
@@ -1730,6 +1746,18 @@ function stepChasingEnemyActor(
       };
     }
 
+    // A swimming chaser (Blooper) also drifts toward the player's depth, so it
+    // pursues in 2D instead of sliding past at a fixed height. On land the
+    // chaser stays on its row.
+    const attemptedPositionY = movementConstants.swimming
+      ? approachEnemyDepth(
+          chasingActor.position.y,
+          player.position.y,
+          movementConstants.chasingEnemySpeed * frameDurationSeconds * 0.6,
+          levelSpec,
+        )
+      : chasingActor.position.y;
+
     return {
       ...chasingActor,
       behavior: ChasingEnemyBehavior.Chase,
@@ -1739,7 +1767,10 @@ function stepChasingEnemyActor(
           attemptedPositionX,
           "enemyMotion.chasingActors[].position.x",
         ),
-        y: chasingActor.position.y,
+        y: requireEnemyPixelPosition(
+          attemptedPositionY,
+          "enemyMotion.chasingActors[].position.y",
+        ),
       },
       velocity: {
         x: makeEnemyPatrolVelocity(

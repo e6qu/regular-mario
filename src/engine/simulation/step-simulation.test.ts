@@ -34,6 +34,7 @@ import {
   HorizontalMovementState,
   VerticalMovementState,
   initialMovementConstants,
+  swimmingMovementConstants,
 } from "./movement-model";
 import { playerWithTestState } from "./movement-test-support";
 import { ValidationErrorCode } from "../domain/validation-error";
@@ -2467,6 +2468,28 @@ describe("simulation primitives", () => {
       x: 0,
       y: initialMovementConstants.aerialThrowingEnemyProjectileSpeed,
     });
+  });
+
+  it("does not let a swimmer rise above the water surface (top of the level)", () => {
+    const next = stepSimulation(
+      {
+        ...validInitialState(),
+        player: playerWithTestState({
+          position: { x: 40, y: 2 },
+          velocity: { x: 0, y: -600 }, // stroking hard upward, near the top
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Jumping,
+          },
+        }),
+      },
+      validInputCommand(),
+      swimmingMovementConstants,
+      firstAuthoredLevelWithoutHazardSpec(),
+    );
+
+    expect(next.player.position.y).toBeGreaterThanOrEqual(0);
+    expect(next.player.velocity.y).toBeGreaterThanOrEqual(0);
   });
 
   it("rejects unsafe frame indexes before advancing", () => {

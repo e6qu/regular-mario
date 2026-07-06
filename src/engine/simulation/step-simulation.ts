@@ -94,7 +94,10 @@ import {
   resolvePipeState,
   teleportPlayerToTilePosition,
 } from "./pipe-state";
-import { requireSimulationVelocity } from "./simulation-units";
+import {
+  requireSimulationPixelPosition,
+  requireSimulationVelocity,
+} from "./simulation-units";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -269,7 +272,28 @@ function stepActiveSimulation(
     movementConstants.springLaunchSpeed,
     revealedHiddenPositionKeys,
   );
-  const resolvedPlayer = resolvedPlayerWithBumps.player;
+  const resolvedPlayerWithBumpsPlayer = resolvedPlayerWithBumps.player;
+
+  // Water surface: swimming can't carry the player above the top of the level —
+  // repeated strokes would otherwise send him clear off-screen (open water has
+  // no solid ceiling). He bumps the surface and his upward speed is cancelled.
+  const resolvedPlayer =
+    movementConstants.swimming && resolvedPlayerWithBumpsPlayer.position.y < 0
+      ? {
+          ...resolvedPlayerWithBumpsPlayer,
+          position: {
+            x: resolvedPlayerWithBumpsPlayer.position.x,
+            y: requireSimulationPixelPosition(0, "player.position.y"),
+          },
+          velocity: {
+            x: resolvedPlayerWithBumpsPlayer.velocity.x,
+            y: requireSimulationVelocity(
+              Math.max(0, resolvedPlayerWithBumpsPlayer.velocity.y),
+              "player.velocity.y",
+            ),
+          },
+        }
+      : resolvedPlayerWithBumpsPlayer;
 
   const teleportedPlayer =
     teleportResult.kind === "same-level"

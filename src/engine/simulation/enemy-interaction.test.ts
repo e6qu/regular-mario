@@ -29,7 +29,10 @@ import {
   makeSkyGroundTiles,
   playerAt,
 } from "./level-test-support";
-import { initialMovementConstants } from "./movement-model";
+import {
+  initialMovementConstants,
+  swimmingMovementConstants,
+} from "./movement-model";
 import { playerWithTestState } from "./movement-test-support";
 
 function fallingPlayerAt(position: { readonly x: number; readonly y: number }) {
@@ -620,6 +623,23 @@ describe("enemy interactions", () => {
         ...expectedEmptyEnemyInteractionState(),
         shelledEnemyEntityIds: ["crab-1"],
       });
+    });
+
+    it("cannot be stomped underwater — the descent is a harmful contact instead", () => {
+      // Swimming, you don't stomp; the same descent that would shell a koopa on
+      // land harms you (Bloopers/Cheep-cheeps are avoid-or-fireball).
+      const levelSpec = armoredEnemyLevelSpec();
+
+      expect(
+        resolveEnemyInteractionState(
+          playerAt({ x: 48, y: 32 }),
+          makeFallingPlayerAt({ x: 48, y: 50 }),
+          levelSpec,
+          armoredEnemyMotion(levelSpec),
+          swimmingMovementConstants,
+          makeEmptyEnemyInteractionState(),
+        ),
+      ).toEqual(expectedEnemyContactedState("crab-1" as EntityId));
     });
 
     it("stomps a grounded armored enemy even when the fall lands the same frame", () => {

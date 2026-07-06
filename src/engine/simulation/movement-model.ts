@@ -398,6 +398,9 @@ export const swimmingMovementConstants: MovementConstants = {
   walkAcceleration: requireAcceleration(210, "movement.swim.walkAcceleration"),
   runAcceleration: requireAcceleration(260, "movement.swim.runAcceleration"),
   airFriction: requireAcceleration(120, "movement.swim.airFriction"),
+  // A Blooper senses and pursues the swimmer across a taller slice of water, so
+  // it drifts up/down to follow rather than only reacting on its own row.
+  chasingEnemyDetectionHeightPixels: 112,
 };
 
 export function makeInitialMovementState(): MovementState {
