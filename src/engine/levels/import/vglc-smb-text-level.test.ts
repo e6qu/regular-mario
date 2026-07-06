@@ -220,6 +220,28 @@ describe("parseVglcSmbTextLevel", () => {
     expect(() => stepImportedLevelOnce(value)).not.toThrow();
   });
 
+  it("marks a Buzzy Beetle fireproof but leaves a Koopa vulnerable", () => {
+    const parsed = parseVglcSmbMultiLayerLevel(
+      ["--t-k--", "XXXXXXX"].join("\n"),
+      {
+        playerStart: { x: 0, y: 0 },
+        exits: [{ x: 6, y: 0 }],
+      },
+    );
+
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.actorDefinitions).toContainEqual({
+      actorId: "vglc-smb-turtle",
+      role: ActorRole.ArmoredEnemy,
+      fireproof: true,
+    });
+    expect(parsed.value.actorDefinitions).toContainEqual({
+      actorId: "vglc-smb-koopa",
+      role: ActorRole.ArmoredEnemy,
+    });
+  });
+
   it("rejects invalid transition metadata", () => {
     const errors = requireParseFailure(
       parseVglcSmbTextLevel("P-G\nXXX", {
@@ -867,6 +889,7 @@ describe("parseVglcSmbMultiLayerLevel", () => {
     expect(value.actorDefinitions).toContainEqual({
       actorId: "vglc-smb-turtle",
       role: ActorRole.ArmoredEnemy,
+      fireproof: true,
     });
     expect(value.actorDefinitions).toContainEqual({
       actorId: "vglc-smb-throwing-enemy",

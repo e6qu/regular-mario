@@ -1,5 +1,28 @@
 # DO_NEXT.md
 
+## Water / enemy mechanics — landed, and one honest gap
+
+Landed (all measured/tested, not guessed):
+
+- **Enemies in water/underground/castle levels.** The ROM decoder now emits Buzzy
+  Beetle, Hammer Bro, green Paratroopa, Lakitu, red Koopa, and the water Blooper
+  (squid) — e.g. 2-2 has 14 Bloopers, castle 8-4 has a Hammer Bro + Buzzy Beetles
+  - Paratroopas. Authored parody fish/squid sprites cover them.
+- **Underwater rules match SMB.** You can't stomp underwater (swim, don't stomp),
+  so Bloopers/Cheeps harm on contact; a swim-surface clamp stops repeated strokes
+  from carrying Mario off the top of the level; a Blooper pursues the swimmer in 2D.
+- **Buzzy Beetle is fireproof** (fireballs bounce off; still shell-stompable on land).
+
+**Gap — Cheep-cheep schools.** Verified: **zero** Cheep-cheeps decode across all 41
+levels. In SMB the swimming/jumping Cheep schools come from _frenzy generators_
+(continuous spawners keyed off special enemy-stream objects), not direct placements.
+Adding them faithfully needs (a) accurate frenzy-generator decoding — the raw
+`decodeLevel(w,l)` path currently disagrees with the `decodeAllLevels` output and
+yields garbage high IDs for water areas, so it isn't trustworthy yet — and (b) a new
+continuous-spawner simulation feature. Both are real work with real guessing risk;
+don't fake positions or spawn cadence. Do the generator decode against the SMB
+disassembly's frenzy tables first, then model the spawner, then wire it.
+
 ## Clearest next item: finish the warp-pipe return trip
 
 The round trip is now **mechanically possible** but not yet exposed/wired. Landed:

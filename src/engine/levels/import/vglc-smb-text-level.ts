@@ -114,11 +114,25 @@ const actorLegendCharacters = new Map([
   ["H", { actorId: "vglc-smb-climbable", role: ActorRole.Climbable }],
 ]);
 
-const multiLayerActorLegendCharacters = new Map([
+type SmbActorLegendValue = {
+  readonly actorId: string;
+  readonly role: ActorRole;
+  readonly fireproof?: boolean;
+};
+
+const multiLayerActorLegendCharacters = new Map<string, SmbActorLegendValue>([
   ...actorLegendCharacters,
   ["k", { actorId: "vglc-smb-koopa", role: ActorRole.ArmoredEnemy }],
   ["K", { actorId: "vglc-smb-parakoopa", role: ActorRole.FlyingEnemy }],
-  ["t", { actorId: "vglc-smb-turtle", role: ActorRole.ArmoredEnemy }],
+  // Buzzy Beetle: an armored shell like a Koopa, but fireballs bounce off it.
+  [
+    "t",
+    {
+      actorId: "vglc-smb-turtle",
+      role: ActorRole.ArmoredEnemy,
+      fireproof: true,
+    },
+  ],
   ["h", { actorId: "vglc-smb-throwing-enemy", role: ActorRole.ThrowingEnemy }],
   [
     "l",

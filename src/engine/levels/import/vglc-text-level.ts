@@ -19,6 +19,9 @@ type VglcTileLegendEntry = {
 type VglcActorLegendEntry = {
   readonly actorId: string;
   readonly role: string;
+  // Shrugs off fireballs (e.g. a Buzzy Beetle) — kept in the shell/defeat state
+  // machine like a Koopa but never removed by a projectile.
+  readonly fireproof?: boolean;
 };
 
 export type VglcTextLevelInput = {
@@ -220,6 +223,7 @@ function collectActorDefinitions(
     actorDefinitions.push({
       actorId: entry.actorId,
       role: entry.role,
+      ...(entry.fireproof === true ? { fireproof: true } : {}),
     });
   }
 

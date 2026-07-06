@@ -4,7 +4,7 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **670 unit tests + 100 browser tests
+Preparing for a public beta/demo release. **678 unit tests + 100 browser tests
 pass; all gates green.**
 
 What exists now:
@@ -19,9 +19,11 @@ What exists now:
   lives, enterable pipes, flagpole finish with slide, and the death arc.
 - **Faithful enemy roster.** Goomba, Koopa (full shell lifecycle: stomp → resting
   shell → kick into a slide that flattens enemies → stop, re-emerges into a
-  walking koopa with a wobble tell), Buzzy Beetle (fireproof armored), Piranha
-  Plant (pipe emerge, non-stompable, fireball-killable), Hammer Bro, Lakitu,
-  Chaser, and Bullet Bill cannons/projectiles.
+  walking koopa with a wobble tell), Buzzy Beetle (fireproof armored — fireballs
+  bounce off), Paratroopa (flying), Piranha Plant (pipe emerge, non-stompable,
+  fireball-killable), Hammer Bro, Lakitu, Chaser, Blooper (water squid that
+  pursues the swimmer in 2D and harms on contact), and Bullet Bill cannons/
+  projectiles.
 - **Level editor / designer.** Paint tiles (mouse + touch, two-finger scroll),
   coin blocks (stack coins, embed into any block keeping its look), brick/question
   blocks, hidden blocks, cannons, piranha plants; multiple areas with placeable,
@@ -30,9 +32,11 @@ What exists now:
 - **Themes + water.** Overworld / underground / castle / water themes drive tile
   palette, backdrop, and parallax; official levels are themed from the ROM area
   type and pipe warps switch a section's theme. Water uses slower, floatier swim
-  physics; the castaway becomes a side-profile **merman** (fish tail, arm-stroke +
-  tail-flick animated only when moving, mirrored to his travel direction) trailing
-  translucent white-rimmed air bubbles.
+  physics (tap to stroke up, gentle sink, capped at the water surface so strokes
+  can't carry you off the top); underwater you swim rather than stomp, so enemy
+  contact harms you. The castaway becomes a side-profile **merman** (fish tail,
+  arm-stroke + tail-flick animated only when moving, mirrored to his travel
+  direction) trailing translucent white-rimmed air bubbles.
 - **Audio.** ROM-decoded music (all 3 channels, numeric data only) at the correct
   tempo with per-theme songs, plus original synthesized SFX. Two soundtracks: the
   default **Shabby** sings the melody as a baritone "ba ba ba" (formant vocal
