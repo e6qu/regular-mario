@@ -22,14 +22,172 @@
       "id": "warp-0",
       "x": 93,
       "y": 10,
-      "targetLevelName": "smb-warp-2-2",
+      "targetLevelName": "smb-warp-2-2-w7",
       "targetTileX": 2,
-      "targetTileY": 2
+      "targetTileY": 4
     }
   ],
   "multiLayer": {
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "cannonProjectiles": [
+    {
+      "spawnerId": "cannon-0",
+      "x": 19,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 143,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-1",
+      "x": 28,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 44,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-2",
+      "x": 28,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 44,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-3",
+      "x": 36,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 180,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-4",
+      "x": 46,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 134,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-5",
+      "x": 56,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 88,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-6",
+      "x": 56,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 88,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-7",
+      "x": 64,
+      "y": 7,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 224,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-8",
+      "x": 68,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 148,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-9",
+      "x": 104,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 40,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-10",
+      "x": 122,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 130,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-11",
+      "x": 146,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 250,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-12",
+      "x": 146,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 250,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    }
+  ]
 }

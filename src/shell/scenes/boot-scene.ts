@@ -4119,6 +4119,12 @@ function renderAuthoredTile(
     }
     return;
   }
+  if (tileId === "power-up-brick") {
+    // A brick with an embedded power-up keeps the plain brick look.
+    requireTileAssetCollision(tileId, collision, TileCollisionKind.Interactive);
+    renderBrickTile(scene, x, y, size);
+    return;
+  }
   switch (tileId) {
     case "empty":
       requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
@@ -4153,11 +4159,18 @@ function renderAuthoredTile(
       renderSolidTile(scene, x, y, size, "stone");
       return;
     case "cannon-top":
-      requireTileAssetCollision(
-        tileId,
-        collision,
-        TileCollisionKind.SolidHazard,
-      );
+      // Editor-authored cannons are hazard-topped (touching hurts); decoded SMB
+      // cannons are safe to stand on — only their Bullet Bills harm.
+      if (
+        collision !== TileCollisionKind.SolidHazard &&
+        collision !== TileCollisionKind.Solid
+      ) {
+        requireTileAssetCollision(
+          tileId,
+          collision,
+          TileCollisionKind.SolidHazard,
+        );
+      }
       renderCannonTile(scene, x, y, size, true);
       return;
     case "cannon-bottom":

@@ -435,63 +435,159 @@
       }
     },
     {
-      "name": "smb-warp-0-0",
+      "name": "smb-warp-2-2-w1",
       "format": "vglc-smb-multi-layer",
       "source": {
         "kind": "url",
-        "url": "smb-warp-0-0.txt"
+        "url": "smb-warp-2-2-w1.txt"
       },
       "importMetadataSource": {
         "kind": "url",
-        "url": "smb-warp-0-0.metadata.json"
+        "url": "smb-warp-2-2-w1.metadata.json"
       }
     },
     {
-      "name": "smb-warp-1-11",
+      "name": "smb-warp-2-2-w2",
       "format": "vglc-smb-multi-layer",
       "source": {
         "kind": "url",
-        "url": "smb-warp-1-11.txt"
+        "url": "smb-warp-2-2-w2.txt"
       },
       "importMetadataSource": {
         "kind": "url",
-        "url": "smb-warp-1-11.metadata.json"
+        "url": "smb-warp-2-2-w2.metadata.json"
       }
     },
     {
-      "name": "smb-warp-1-15",
+      "name": "smb-warp-2-2-w3",
       "format": "vglc-smb-multi-layer",
       "source": {
         "kind": "url",
-        "url": "smb-warp-1-15.txt"
+        "url": "smb-warp-2-2-w3.txt"
       },
       "importMetadataSource": {
         "kind": "url",
-        "url": "smb-warp-1-15.metadata.json"
+        "url": "smb-warp-2-2-w3.metadata.json"
       }
     },
     {
-      "name": "smb-warp-2-2",
+      "name": "smb-warp-2-2-w4",
       "format": "vglc-smb-multi-layer",
       "source": {
         "kind": "url",
-        "url": "smb-warp-2-2.txt"
+        "url": "smb-warp-2-2-w4.txt"
       },
       "importMetadataSource": {
         "kind": "url",
-        "url": "smb-warp-2-2.metadata.json"
+        "url": "smb-warp-2-2-w4.metadata.json"
       }
     },
     {
-      "name": "smb-warp-3-5",
+      "name": "smb-warp-1-15-w4",
       "format": "vglc-smb-multi-layer",
       "source": {
         "kind": "url",
-        "url": "smb-warp-3-5.txt"
+        "url": "smb-warp-1-15-w4.txt"
       },
       "importMetadataSource": {
         "kind": "url",
-        "url": "smb-warp-3-5.metadata.json"
+        "url": "smb-warp-1-15-w4.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-1-5-w4",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-5-w4.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-5-w4.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-2-2-w5",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w5.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w5.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-0-0-w5",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-0-0-w5.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-0-0-w5.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-2-2-w6",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w6.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w6.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-1-20-w6",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-20-w6.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-20-w6.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-2-2-w7",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w7.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w7.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-2-2-w8",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w8.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-2-2-w8.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-0-2-w8",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-0-2-w8.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-0-2-w8.metadata.json"
       }
     }
   ]

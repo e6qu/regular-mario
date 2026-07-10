@@ -1,7 +1,7 @@
 {
   "playerStart": {
     "x": 2,
-    "y": 12
+    "y": 4
   },
   "exits": [
     {
@@ -22,33 +22,42 @@
       "id": "warp-0",
       "x": 103,
       "y": 10,
-      "targetLevelName": "smb-warp-2-2",
-      "targetTileX": 2,
-      "targetTileY": 2
+      "targetLevelName": "smb-warp-2-2-w1",
+      "targetTileX": 34,
+      "targetTileY": 4
     },
     {
       "id": "warp-1",
       "x": 178,
       "y": 10,
-      "targetLevelName": "smb-warp-2-2",
+      "targetLevelName": "smb-4-1",
       "targetTileX": 2,
-      "targetTileY": 2
+      "targetTileY": 12
     },
     {
       "id": "warp-2",
       "x": 182,
       "y": 10,
-      "targetLevelName": "smb-warp-2-2",
+      "targetLevelName": "smb-3-1",
       "targetTileX": 2,
-      "targetTileY": 2
+      "targetTileY": 12
     },
     {
       "id": "warp-3",
       "x": 186,
       "y": 10,
-      "targetLevelName": "smb-warp-2-2",
+      "targetLevelName": "smb-2-1",
       "targetTileX": 2,
-      "targetTileY": 2
+      "targetTileY": 12
+    },
+    {
+      "id": "warp-4",
+      "x": 166,
+      "y": 8,
+      "targetLevelName": "smb-1-1",
+      "targetTileX": 178,
+      "targetTileY": 12,
+      "entryDirection": "right"
     }
   ],
   "multiLayer": {

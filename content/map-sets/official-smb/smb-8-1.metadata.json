@@ -22,9 +22,9 @@
       "id": "warp-0",
       "x": 104,
       "y": 9,
-      "targetLevelName": "smb-warp-2-2",
-      "targetTileX": 2,
-      "targetTileY": 2
+      "targetLevelName": "smb-warp-2-2-w8",
+      "targetTileX": 34,
+      "targetTileY": 4
     }
   ],
   "multiLayer": {

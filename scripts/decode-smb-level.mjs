@@ -3,8 +3,9 @@
 // ROM's own object and enemy streams (Decision 0020). This reproduces the
 // canonical layout of every area the game ships — no community reconstruction.
 //
-// The format facts encoded here (pointer tables, object/enemy bit layouts, and
-// the object/enemy type tables) are documented in docs/smb-level-format.md and
+// The format facts encoded here (pointer tables, object/enemy bit layouts, the
+// object/enemy type tables, terrain-pattern bits, warp-zone number rows, and
+// entrance-position semantics) are documented in docs/smb-level-format.md and
 // come from publicly available disassembly/RE work. This script reads only the
 // numeric layout streams; it never emits ROM bytes, graphics, or audio.
 
@@ -73,11 +74,65 @@ export function levelCountForWorld(prg, world) {
   return next - start;
 }
 
+// ---- Area header ------------------------------------------------------------
+// Header byte 0: bits 7-6 timer setting, bits 5-3 player entrance control,
+// bits 2-0 foreground scenery (>= 4: background colour control instead).
+// Header byte 1: bits 7-6 area style (3 = cloud override, style 0),
+// bits 5-4 background scenery, bits 3-0 terrain (floor/ceiling) pattern.
+export function parseAreaHeader(byte0, byte1) {
+  const styleBits = (byte1 >> 6) & 0x3;
+  return {
+    byte0,
+    byte1,
+    timerSetting: (byte0 >> 6) & 0x3,
+    entranceCtrl: (byte0 >> 3) & 0x7,
+    foregroundScenery: byte0 & 0x7,
+    terrainControl: byte1 & 0xf,
+    backgroundScenery: (byte1 >> 4) & 0x3,
+    areaStyle: styleBits === 3 ? 0 : styleBits, // 0 trees, 1 mushrooms, 2 cannons
+    cloudOverride: styleBits === 3,
+  };
+}
+
+// TerrainRenderBits: 16 patterns x 2 bytes. Byte 0 bit N = playfield row N
+// (rows 0-7) solid; byte 1 bits 0-4 = playfield rows 8-12 solid. The standard
+// ground is pattern 1 ("no ceiling, floor 2" = rows 11-12).
+const terrainRenderBits = [
+  [0b00000000, 0b00000000], // no ceiling or floor
+  [0b00000000, 0b00011000], // no ceiling, floor 2
+  [0b00000001, 0b00011000], // ceiling 1, floor 2
+  [0b00000111, 0b00011000], // ceiling 3, floor 2
+  [0b00001111, 0b00011000], // ceiling 4, floor 2
+  [0b11111111, 0b00011000], // ceiling 8, floor 2
+  [0b00000001, 0b00011111], // ceiling 1, floor 5
+  [0b00000111, 0b00011111], // ceiling 3, floor 5
+  [0b00001111, 0b00011111], // ceiling 4, floor 5
+  [0b10000001, 0b00011111], // ceiling 1, floor 6
+  [0b00000001, 0b00000000], // ceiling 1, no floor
+  [0b10001111, 0b00011111], // ceiling 4, floor 6
+  [0b11110001, 0b00011111], // ceiling 1, floor 9
+  [0b11111001, 0b00011000], // ceiling 1, middle 5, floor 2
+  [0b11110001, 0b00011000], // ceiling 1, middle 4, floor 2
+  [0b11111111, 0b00011111], // completely solid top to bottom
+];
+
+// Solid playfield rows (0-12) for a terrain pattern. With the cloud override
+// (coin heavens) only byte 0 applies in full; of byte 1 only bit 3 (row 11)
+// survives — the single cloud floor row.
+function terrainSolidRows(terrainControl, cloudOverride) {
+  const [b0, rawB1] = terrainRenderBits[terrainControl & 0xf];
+  const b1 = cloudOverride ? rawB1 & 0b00001000 : rawB1;
+  const rows = [];
+  for (let r = 0; r < 8; r += 1) if (b0 & (1 << r)) rows.push(r);
+  for (let r = 0; r < 5; r += 1) if (b1 & (1 << r)) rows.push(8 + r);
+  return rows;
+}
+
 // ---- Object stream ---------------------------------------------------------
 // Each object is 2 bytes; the stream ends at $FD. See docs for the bit layout.
 function decodeObjects(prg, levelAddr) {
   let off = cpuAddressToPrgOffset(levelAddr);
-  const header = { byte0: prg[off], byte1: prg[off + 1] };
+  const header = parseAreaHeader(prg[off], prg[off + 1]);
   off += 2;
 
   const objects = [];
@@ -115,12 +170,12 @@ function decodeObjects(prg, levelAddr) {
 
 function classifyObject(y, c, low, b1) {
   if (y <= 0xb) {
-    if (c === 0) return `small:${low}`; // 22 + low
+    if (c === 0) return `small:${low}`;
     if (c === 7) return b1 & 0x08 ? "pipe-warp" : "pipe";
     return (
       [
         "",
-        "areastyle",
+        "areastyle", // tree/mushroom ledge or bullet-bill cannon, by area style
         "row-bricks",
         "row-solid",
         "row-coins",
@@ -133,7 +188,7 @@ function classifyObject(y, c, low, b1) {
     return (
       [
         "hole",
-        "pulley",
+        "pulley-rope",
         "bridge-hi",
         "bridge-mid",
         "bridge-lo",
@@ -143,7 +198,7 @@ function classifyObject(y, c, low, b1) {
       ][c] ?? "unknown"
     );
   }
-  if (y === 0xd) return `special13:${b1 & 0x3f}`; // 34 + low6
+  if (y === 0xd) return `special13:${b1 & 0x3f}`;
   if (y === 0xe) return "alter-attributes";
   if (y === 0xf) {
     return (
@@ -160,6 +215,28 @@ function classifyObject(y, c, low, b1) {
   return "unknown";
 }
 
+// Special row-13 object ids (b1 & 0x3f): the jump table order from the
+// disassembly. 9 is the Bullet-Bill-or-swimming-Cheep frenzy (by area type).
+const special13Names = {
+  0: "intro-pipe",
+  1: "flagpole",
+  2: "axe",
+  3: "chain",
+  4: "castle-bridge",
+  5: "scroll-lock-warp",
+  6: "scroll-lock",
+  7: "scroll-lock",
+  8: "frenzy-flying-cheep",
+  9: "frenzy-bbill-or-cheep",
+  10: "frenzy-stop",
+  11: "loop-command",
+};
+
+function special13Name(kind) {
+  if (!kind.startsWith("special13:")) return undefined;
+  return special13Names[Number(kind.slice(10))];
+}
+
 // ---- Enemy stream ----------------------------------------------------------
 // Each enemy is 2 bytes (one 3-byte area-connection); stream ends at $FF.
 function decodeEnemies(prg, enemyAddr) {
@@ -174,12 +251,16 @@ function decodeEnemies(prg, enemyAddr) {
     const x = (b0 >> 4) & 0xf;
 
     if (y === 0xe) {
-      // area-connection command (3 bytes) — destination area/world/page
+      // area-connection command (3 bytes) — destination area/world/page. The
+      // command activates when the level scroll reaches its column, so a
+      // stream can point different pipes/vines at different destinations and
+      // a shared bonus area can hold one return connection per world.
       const b1 = prg[off + 1];
       const b2 = prg[off + 2];
       off += 3;
       enemies.push({
         kind: "connection",
+        col: page * 16 + x,
         areaPointer: b1,
         world: (b2 >> 5) & 0x7,
         entrancePage: b2 & 0x1f,
@@ -197,7 +278,7 @@ function decodeEnemies(prg, enemyAddr) {
     const hardOnly = (b1 & 0x40) !== 0;
     const id = b1 & 0x3f;
     if (id >= 0x37 && id <= 0x3e) {
-      // group (frenzy) enemies: n = id - 0x37
+      // group enemies: n = id - 0x37
       const n = id - 0x37;
       const koopa = n >= 4;
       const count = n & 1 ? 3 : 2;
@@ -218,9 +299,9 @@ function decodeEnemies(prg, enemyAddr) {
   return enemies;
 }
 
-// SMB enemy-object ids (verified empirically against the ROM's own enemy
-// streams: 0x07 dominates water = Blooper, 0x0c dominates castle = Podoboo, etc.)
-// Only ids we model are named; anything else stays `enemy-<hex>` and is skipped.
+// SMB enemy-object ids (from the disassembly's enemy constants, validated
+// against the ROM's own enemy streams). Only ids we model are named; anything
+// else stays `enemy-<hex>` and is skipped.
 function enemyIdName(id) {
   if (id === 0x00) return "koopa"; // green koopa troopa
   if (id === 0x03) return "koopa-red"; // red koopa (ledge-staying)
@@ -230,7 +311,7 @@ function enemyIdName(id) {
   if (id === 0x07) return "blooper"; // squid — pulses toward the swimmer
   if (id === 0x0a || id === 0x0b) return "cheep"; // cheep-cheep (swimming fish)
   if (id === 0x0e) return "paratroopa"; // green flying koopa
-  if (id === 0x14) return "lakitu";
+  if (id === 0x11) return "lakitu";
   return `enemy-${id.toString(16)}`;
 }
 
@@ -263,45 +344,88 @@ function set(grid, col, row, symbol) {
 const smallObjectSymbols = {
   0: "M", // ? power-up
   1: "?", // ? coin
-  2: "?", // hidden coin block (render as coin block)
-  3: "+", // hidden 1-up
-  4: "p-brick", // brick w/ power-up (handled specially below)
-  5: "B", // brick w/ vine
+  2: "i", // hidden coin block
+  3: "I", // hidden 1-up block
+  4: "m", // brick w/ power-up
+  5: "H", // brick w/ vine (beanstalk block)
   6: "*", // brick w/ star
   7: "O", // brick w/ multi-coins
   8: "+", // brick w/ 1-up
-  9: "P", // sideways pipe (approx solid)
-  10: "#", // used/empty block (approx solid)
-  11: "B", // jumpspring (approx)
+  9: "water-pipe", // small sideways pipe end (2 rows, handled below)
+  10: "#", // used/empty block (solid)
+  11: "jumpspring", // springboard (2 rows, handled below)
 };
 
-function renderArea(objects, enemies) {
-  // width: from the furthest object column, rounded up to a page, min 16 pages
+// Fixed rows (playfield coordinates) from the disassembly's object handlers.
+const qblockRowHigh = 3; // QuestionBlockRow_High
+const qblockRowLow = 7; // QuestionBlockRow_Low
+const bridgeFloorRows = { "bridge-hi": 7, "bridge-mid": 8, "bridge-lo": 10 };
+const holeTopPlayfieldRow = 8; // holes clear playfield rows 8-12
+const introPipeMouthRow = 9; // sideways intro pipe mouth rows 9-10
+
+// Bullet-Bill cannon fire pattern for decoded levels: SMB fires roughly every
+// few seconds while the cannon is near the screen; we stagger cannons by
+// column so volleys do not synchronise. Bullet speed ~2 px/frame at 60 fps.
+const cannonIntervalFrames = 288;
+const cannonSpeedPixelsPerSecond = 120;
+const cannonBulletWidthPixels = 16;
+const cannonBulletHeightPixels = 14;
+const cannonBulletLifetimeFrames = 900;
+
+function renderArea(header, objects, enemies) {
+  // width: from the furthest object/enemy column, rounded up to a page,
+  // min 16 pages
   let maxCol = 16;
   for (const o of objects) maxCol = Math.max(maxCol, o.col + 8);
+  for (const e of enemies) maxCol = Math.max(maxCol, (e.col ?? 0) + 4);
   const widthCols = Math.ceil((maxCol + 4) / 16) * 16;
   const grid = makeGrid(widthCols);
+  const cannons = [];
 
-  // Floor: fill the ground row across the whole width; holes clear it.
-  const holes = new Set();
-  for (const o of objects) {
-    if (o.kind === "hole" || o.kind === "hole-water") {
-      const len = (o.low & 0xf) + 1;
-      for (let i = 0; i < len; i += 1) holes.add(o.col + i);
+  // Terrain (floor/ceiling pattern) per column: the header's pattern, updated
+  // mid-level by alter-attributes objects (d6 clear variant).
+  let terrainControl = header.terrainControl;
+  const terrainByCol = new Array(widthCols);
+  const alterObjects = objects
+    .filter((o) => o.kind === "alter-attributes" && (o.b1 & 0x40) === 0)
+    .sort((a, b) => a.col - b.col);
+  let alterIndex = 0;
+  for (let x = 0; x < widthCols; x += 1) {
+    while (
+      alterIndex < alterObjects.length &&
+      alterObjects[alterIndex].col <= x
+    ) {
+      terrainControl = alterObjects[alterIndex].b1 & 0xf;
+      alterIndex += 1;
     }
+    terrainByCol[x] = terrainControl;
   }
   for (let x = 0; x < widthCols; x += 1) {
-    // SMB's standard ground is the bottom TWO playfield rows, so fill from the
-    // surface (floorRow) down to the last grid row. Pits clear both rows.
-    if (!holes.has(x)) {
-      for (let r = floorRow; r < gridHeight; r += 1) set(grid, x, r, "#");
+    for (const r of terrainSolidRows(terrainByCol[x], header.cloudOverride)) {
+      set(grid, x, r + rowOffset, "#");
     }
   }
 
+  // Objects overwrite terrain in stream order (matches the NES renderer).
   for (const o of objects) {
     const gr = o.row + rowOffset;
     const len = (o.low & 0xf) + 1;
     switch (o.kind) {
+      case "hole":
+      case "hole-water": {
+        // Holes clear playfield rows 8-12 (grid 10-14) regardless of floor
+        // thickness; water holes differ only in (unmodelled) visuals.
+        for (let i = 0; i < len; i += 1) {
+          for (
+            let r = holeTopPlayfieldRow + rowOffset;
+            r < gridHeight;
+            r += 1
+          ) {
+            set(grid, o.col + i, r, emptySymbol);
+          }
+        }
+        break;
+      }
       case "row-bricks":
         for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "B");
         break;
@@ -317,55 +441,113 @@ function renderArea(objects, enemies) {
       case "col-solid":
         for (let i = 0; i < len; i += 1) set(grid, o.col, gr + i, "#");
         break;
+      case "areastyle": {
+        if (header.areaStyle === 2) {
+          // Bullet-bill cannon column: top at the object row, shaft below.
+          // The low nybble is the height count here, not a length.
+          const height = o.low & 0xf;
+          set(grid, o.col, gr, "C");
+          for (let r = 1; r <= height; r += 1) set(grid, o.col, gr + r, "c");
+          cannons.push({ col: o.col, row: gr });
+        } else {
+          // Tree/mushroom (and cloud) ledge: the top row is the platform; the
+          // trunk/stem below is background-only scenery.
+          for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "#");
+        }
+        break;
+      }
+      case "bridge-hi":
+      case "bridge-mid":
+      case "bridge-lo": {
+        const floor = bridgeFloorRows[o.kind] + rowOffset;
+        for (let i = 0; i < len; i += 1) set(grid, o.col + i, floor, "#");
+        break;
+      }
       case "qblock-row-hi":
+        for (let i = 0; i < len; i += 1) {
+          set(grid, o.col + i, qblockRowHigh + rowOffset, "?");
+        }
+        break;
       case "qblock-row-lo":
-        for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "?");
+        for (let i = 0; i < len; i += 1) {
+          set(grid, o.col + i, qblockRowLow + rowOffset, "?");
+        }
         break;
       case "pipe":
       case "pipe-warp": {
-        const height = o.low & 0x7;
-        const topRow = gr;
-        set(grid, o.col, topRow, "[");
-        set(grid, o.col + 1, topRow, "]");
-        for (let r = topRow + 1; r <= floorRow - 1; r += 1) {
+        const height = Math.max(o.low & 0x7, 1);
+        set(grid, o.col, gr, "[");
+        set(grid, o.col + 1, gr, "]");
+        for (let r = gr + 1; r < gr + height; r += 1) {
           set(grid, o.col, r, "p");
           set(grid, o.col + 1, r, "P");
         }
-        void height;
         break;
       }
       case "staircase": {
         // right-rising staircase of solid blocks, `len` steps
         for (let s = 0; s < len; s += 1) {
-          for (let h = 0; h <= s; h += 1) {
+          for (let h = 0; h <= Math.min(s, 7); h += 1) {
             set(grid, o.col + s, floorRow - 1 - h, "#");
           }
         }
         break;
       }
-      case "flagballs":
-        break;
       case "castle":
-        for (let i = 0; i < 5; i += 1) set(grid, o.col + i, floorRow - 1, "#");
+        // The start/end castle is background scenery the player walks past —
+        // nothing solid to emit.
+        break;
+      case "exit-pipe": {
+        // Side pipe out of a bonus room: vertical shaft from the top of the
+        // screen with a left-facing mouth. Mouth rows are (length-2, length-1)
+        // in playfield coordinates.
+        const mouthTop = Math.max((o.low & 0xf) - 2, 0) + rowOffset;
+        set(grid, o.col, mouthTop, "{");
+        set(grid, o.col, mouthTop + 1, "d");
+        set(grid, o.col + 1, mouthTop, "}");
+        set(grid, o.col + 1, mouthTop + 1, "D");
+        for (let r = rowOffset; r < mouthTop; r += 1) {
+          set(grid, o.col + 1, r, "p");
+        }
+        break;
+      }
+      case "pulley-rope":
+      case "endless-rope":
+      case "balance-rope":
+      case "flagballs":
+        // Rope/pulley furniture for the balance lifts and the castle flag
+        // balls are visual-only; the lifts themselves are enemy objects.
         break;
       default: {
         if (o.kind.startsWith("small:")) {
           const sub = Number(o.kind.slice(6));
           const sym = smallObjectSymbols[sub];
-          if (sym === "p-brick") {
-            set(grid, o.col, gr, "B");
+          if (sym === "water-pipe") {
+            set(grid, o.col, gr, "d");
+            set(grid, o.col, gr + 1, "D");
+          } else if (sym === "jumpspring") {
+            set(grid, o.col, gr, "Y");
+            set(grid, o.col, gr + 1, "y");
           } else if (sym !== undefined) {
             set(grid, o.col, gr, sym);
           }
+          break;
         }
-        // areastyle, special13 (flagpole), bridges, ropes: handled minimally
-        if (o.kind.startsWith("special13:")) {
-          const t = Number(o.kind.slice(10));
-          if (t === 1) {
-            // flagpole: vertical run near the end
-            for (let r = 2; r <= floorRow - 1; r += 1) set(grid, o.col, r, "|");
+        const special = special13Name(o.kind);
+        if (special === "flagpole") {
+          for (let r = 2; r <= floorRow - 1; r += 1) set(grid, o.col, r, "|");
+        } else if (special === "intro-pipe") {
+          const mouthTop = introPipeMouthRow + rowOffset;
+          set(grid, o.col, mouthTop, "{");
+          set(grid, o.col, mouthTop + 1, "d");
+          set(grid, o.col + 1, mouthTop, "}");
+          set(grid, o.col + 1, mouthTop + 1, "D");
+          for (let r = rowOffset; r < mouthTop; r += 1) {
+            set(grid, o.col + 1, r, "p");
           }
         }
+        // axe/chain/castle-bridge/scroll-locks/frenzies/loop commands carry
+        // no terrain; they become mechanics metadata in later passes.
         break;
       }
     }
@@ -381,22 +563,26 @@ function renderArea(objects, enemies) {
     }
   }
 
-  return { grid, widthCols };
+  return { grid, widthCols, cannons };
 }
 
 // An underwater area runs a swimming Cheep-cheep frenzy where the level object
-// stream issues the "start frenzy" command (special row-13 id 9); id 10 stops
-// it. Returns the tile-column span the frenzy is active over (water areas only).
+// stream issues the Bullet-Bill-or-Cheep frenzy command (special13:9 — cheeps
+// in water areas); special13:10 stops it. Returns the tile-column span the
+// frenzy is active over (water areas only; ground areas get Bullet Bills from
+// the same command, modelled in a later pass).
 function computeCheepFrenzy(objects, areaTypeName, widthCols) {
   if (areaTypeName !== "water") return undefined;
   const starts = objects
-    .filter((o) => o.kind === "special13:9")
+    .filter((o) => special13Name(o.kind) === "frenzy-bbill-or-cheep")
     .map((o) => o.col)
     .sort((a, b) => a - b);
   if (starts.length === 0) return undefined;
   const startTileX = starts[0];
   const endTileX = objects
-    .filter((o) => o.kind === "special13:10" && o.col > startTileX)
+    .filter(
+      (o) => special13Name(o.kind) === "frenzy-stop" && o.col > startTileX,
+    )
     .map((o) => o.col)
     .sort((a, b) => a - b)[0];
   return { startTileX, endTileX: endTileX ?? widthCols - 1 };
@@ -407,21 +593,24 @@ export async function decodeLevel(romPath, world, level) {
   const area = resolveArea(prg, world, level);
   const { header, objects } = decodeObjects(prg, area.levelAddr);
   const enemies = decodeEnemies(prg, area.enemyAddr);
-  const { grid, widthCols } = renderArea(objects, enemies);
-  return { area, header, objects, enemies, grid, widthCols };
+  const { grid, widthCols, cannons } = renderArea(header, objects, enemies);
+  return { area, header, objects, enemies, grid, widthCols, cannons };
 }
 
 export function gridToText(grid) {
   return grid.map((row) => row.join("")).join("\n") + "\n";
 }
 
-// Minimal import metadata for a decoded area: where the player spawns, where
-// the level ends, and the default ? block contents. The player-path layer is
-// left empty (the engine does not require it for these levels).
-// Header byte 0 bits 7-6 select the level time limit (in SMB time units).
-function timerDisplayUnitsFromHeader(header) {
-  return [400, 400, 300, 200][(header.byte0 >> 6) & 0x3];
-}
+// Header timer setting -> SMB time units; setting 0 means "keep the running
+// timer" (used by bonus/sub areas), which we express by inheriting the
+// entering level's units.
+const timerUnitsBySetting = [undefined, 400, 300, 200];
+
+// Player entrance control (header bits 5-3) -> starting playfield grid row.
+// Entrance Y pixels from the disassembly: $00 fall-in from the top, $20 upper
+// third, $b0 standing on the standard floor, $50 mid-height, 6/7 are the
+// side-pipe intro walk (floor height).
+const entranceGridRowByCtrl = [2, 4, 12, 7, 2, 2, 12, 12];
 
 // The ROM's area type selects the world's colour theme; "ground" is overworld.
 const themeByAreaTypeName = {
@@ -431,7 +620,13 @@ const themeByAreaTypeName = {
   castle: "castle",
 };
 
-export function buildMetadata(grid, header, transitions = [], areaTypeName) {
+export function buildMetadata(grid, header, options = {}) {
+  const {
+    transitions = [],
+    cannons = [],
+    areaTypeName = "ground",
+    inheritedTimerUnits = 400,
+  } = options;
   const walkRow = floorRow - 1; // standing row on top of the floor
   let exitX = grid[0].length - 2;
   outer: for (let x = 0; x < grid[0].length; x += 1) {
@@ -442,9 +637,11 @@ export function buildMetadata(grid, header, transitions = [], areaTypeName) {
       }
     }
   }
-  const timeUnits = timerDisplayUnitsFromHeader(header);
-  return {
-    playerStart: { x: 2, y: walkRow },
+  const timeUnits =
+    timerUnitsBySetting[header.timerSetting] ?? inheritedTimerUnits;
+  const startY = entranceGridRowByCtrl[header.entranceCtrl] ?? walkRow;
+  const metadata = {
+    playerStart: { x: 2, y: startY },
     exits: [{ x: exitX, y: walkRow - 1 }],
     paths: [],
     // The runtime timer is keyed by this id (see level-timer-state.ts).
@@ -454,70 +651,55 @@ export function buildMetadata(grid, header, transitions = [], areaTypeName) {
     transitions,
     multiLayer: { playerPathRows: [] },
     questionBlockContentsDefault: "power-up",
-    theme: themeByAreaTypeName[areaTypeName] ?? "overworld",
+    theme: header.cloudOverride
+      ? "overworld"
+      : (themeByAreaTypeName[areaTypeName] ?? "overworld"),
   };
+  if (cannons.length > 0) {
+    metadata.cannonProjectiles = cannons.map((cannon, index) => ({
+      spawnerId: `cannon-${index}`,
+      x: cannon.col,
+      y: cannon.row,
+      direction: "left",
+      intervalFrames: cannonIntervalFrames,
+      initialDelayFrames: (cannon.col * 53) % cannonIntervalFrames,
+      speedPixelsPerSecond: cannonSpeedPixelsPerSecond,
+      widthPixels: cannonBulletWidthPixels,
+      heightPixels: cannonBulletHeightPixels,
+      lifetimeFrames: cannonBulletLifetimeFrames,
+    }));
+  }
+  return metadata;
 }
 
-// Link a level's enterable warp pipe(s) to the area-connection destination:
-// decode that destination area as its own named sub-level (deduped across the
-// pack) and emit a transition per warp pipe so the runtime loads it on entry.
-// Mario drops in near the top-left of the sub-area (targetTile 2,2) as a falling
-// body, which the landing collision settles.
-function resolveWarpTransitions(prg, objects, enemies, subLevelsByPointer) {
-  const pipeWarps = objects.filter((o) => o.kind === "pipe-warp");
-  const connection = enemies.find((e) => e.kind === "connection");
+// ---- Warp zones -------------------------------------------------------------
+// A scroll-lock-warp object turns the pipes that follow it into the warp zone.
+// The zone number is picked exactly like the game: world 1 -> zone {4,3,2};
+// otherwise ground areas -> zone {8,7,6}, non-ground -> zone {-,5,-} (the
+// blanks are not usable warps). Each zone row maps the left/middle/right pipe
+// to a destination world whose FIRST area slot is entered at page 0.
+const warpZoneRows = {
+  4: [4, 3, 2],
+  5: [undefined, 5, undefined],
+  6: [8, 7, 6],
+};
 
-  if (pipeWarps.length === 0 || connection === undefined) {
-    return { transitions: [], subLevels: [] };
-  }
-
-  const destArea = resolveAreaByPointer(prg, connection.areaPointer);
-
-  if (destArea.levelAddr < 0x8000 || destArea.enemyAddr < 0x8000) {
-    return { transitions: [], subLevels: [] };
-  }
-
-  const destName = `smb-warp-${destArea.areaType}-${destArea.index5}`;
-  const subLevels = [];
-
-  if (!subLevelsByPointer.has(destName)) {
-    const { header: destHeader, objects: destObjects } = decodeObjects(
-      prg,
-      destArea.levelAddr,
-    );
-    const destEnemies = decodeEnemies(prg, destArea.enemyAddr);
-    const { grid, widthCols } = renderArea(destObjects, destEnemies);
-    const subLevel = {
-      world: destArea.areaType + 1,
-      slot: destArea.index5 + 1,
-      name: destName,
-      area: destArea,
-      grid,
-      widthCols,
-      metadata: buildMetadata(grid, destHeader, [], destArea.areaTypeName),
-    };
-    subLevelsByPointer.set(destName, subLevel);
-    subLevels.push(subLevel);
-  }
-
-  const transitions = pipeWarps.map((pipe, index) => ({
-    id: `warp-${index}`,
-    x: pipe.col,
-    y: pipe.row + rowOffset,
-    targetLevelName: destName,
-    targetTileX: 2,
-    targetTileY: 2,
-  }));
-
-  return { transitions, subLevels };
+function warpZoneNumberFor(world, areaTypeName) {
+  if (world === 0) return 4;
+  return areaTypeName === "ground" ? 6 : 5;
 }
 
+// ---- Full-pack decoding -----------------------------------------------------
 // Decode every area slot the game ships (world 1-8, each world's level slots),
-// returning one entry per slot with a stable "world-slot" name.
+// then resolve pipe/exit transitions through the stream-ordered, world-scoped
+// area-connection commands — materialising pipe-reached sub-areas (bonus rooms,
+// warp destinations) as their own named levels, one per (area, world).
 export async function decodeAllLevels(romPath) {
   const prg = extractPrgData(await readFile(romPath));
-  const levels = [];
-  const subLevelsByPointer = new Map();
+
+  // Pass 1: resolve every main slot so connections can point back at them.
+  const mains = [];
+  const mainNameByWorldAndPointer = new Map();
   for (let world = 0; world < 8; world += 1) {
     const count = levelCountForWorld(prg, world);
     for (let slot = 0; slot < count; slot += 1) {
@@ -525,42 +707,210 @@ export async function decodeAllLevels(romPath) {
       // Skip slots whose pointers do not resolve into the PRG window (only
       // happens for malformed/partial ROMs, e.g. test fixtures).
       if (area.levelAddr < 0x8000 || area.enemyAddr < 0x8000) continue;
-      const { header, objects } = decodeObjects(prg, area.levelAddr);
-      const enemies = decodeEnemies(prg, area.enemyAddr);
-      const { grid, widthCols } = renderArea(objects, enemies);
-      const { transitions, subLevels } = resolveWarpTransitions(
-        prg,
-        objects,
-        enemies,
-        subLevelsByPointer,
+      const name = `smb-${world + 1}-${slot + 1}`;
+      mains.push({ world, slot, area, name });
+      // Key by area type+index: connection commands may carry stray high bits
+      // in their AreaPointer byte (e.g. $a5 and $25 both mean ground #5).
+      mainNameByWorldAndPointer.set(
+        `${world}:${area.areaType}:${area.index5}`,
+        name,
       );
-      for (const subLevel of subLevels) {
-        levels.push(subLevel);
-      }
-      const metadata = buildMetadata(
-        grid,
-        header,
-        transitions,
-        area.areaTypeName,
-      );
-      const cheepFrenzy = computeCheepFrenzy(
-        objects,
-        area.areaTypeName,
-        widthCols,
-      );
-      if (cheepFrenzy !== undefined) {
-        metadata.cheepFrenzy = cheepFrenzy;
-      }
-      levels.push({
-        world: world + 1,
-        slot: slot + 1,
-        name: `smb-${world + 1}-${slot + 1}`,
-        area,
-        grid,
-        widthCols,
-        metadata,
-      });
     }
+  }
+
+  const levels = [];
+  const materialized = new Map(); // name -> level entry (mains + subs)
+  const mainByName = new Map(mains.map((m) => [m.name, m]));
+
+  const materialize = (area, world, name, inheritedTimerUnits) => {
+    if (materialized.has(name)) return materialized.get(name);
+    const { header, objects } = decodeObjects(prg, area.levelAddr);
+    const enemies = decodeEnemies(prg, area.enemyAddr);
+    const { grid, widthCols, cannons } = renderArea(header, objects, enemies);
+    const mainInfo = mainByName.get(name);
+    const entry = {
+      world: mainInfo !== undefined ? mainInfo.world + 1 : world + 1,
+      slot: mainInfo !== undefined ? mainInfo.slot + 1 : area.index5 + 1,
+      name,
+      area,
+      grid,
+      widthCols,
+      metadata: undefined,
+    };
+    // Register before recursing so connection cycles (A->B->A) terminate.
+    materialized.set(name, entry);
+
+    const timeUnits =
+      timerUnitsBySetting[header.timerSetting] ?? inheritedTimerUnits;
+
+    // World-scoped, stream-ordered connections: a transfer initiated at column
+    // X uses the latest connection at or before roughly one screen ahead.
+    const connections = enemies
+      .filter((e) => e.kind === "connection" && e.world === world)
+      .sort((a, b) => a.col - b.col);
+    const connectionForCol = (col) => {
+      let active;
+      for (const connection of connections) {
+        if (connection.col <= col + 8) active = connection;
+      }
+      return active ?? connections[0];
+    };
+
+    // The destination's starting row comes straight from its header (its
+    // metadata may not be built yet when areas reference each other in a
+    // cycle, e.g. 1-1 <-> its bonus room <-> 1-2).
+    const areaStartRow = (someArea) => {
+      const destHeader = parseAreaHeader(
+        prg[cpuAddressToPrgOffset(someArea.levelAddr)],
+        prg[cpuAddressToPrgOffset(someArea.levelAddr) + 1],
+      );
+      return entranceGridRowByCtrl[destHeader.entranceCtrl] ?? floorRow - 1;
+    };
+
+    const resolveDestination = (connection) => {
+      const destArea = resolveAreaByPointer(prg, connection.areaPointer);
+      if (destArea.levelAddr < 0x8000 || destArea.enemyAddr < 0x8000) {
+        return undefined;
+      }
+      const mainName = mainNameByWorldAndPointer.get(
+        `${world}:${destArea.areaType}:${destArea.index5}`,
+      );
+      const destName =
+        mainName ??
+        `smb-warp-${destArea.areaType}-${destArea.index5}-w${world + 1}`;
+      const destEntry = materialize(destArea, world, destName, timeUnits);
+      if (destEntry === undefined) return undefined;
+      return {
+        targetLevelName: destName,
+        targetTileX: connection.entrancePage * 16 + 2,
+        targetTileY: areaStartRow(destArea),
+      };
+    };
+
+    // Warp-zone handling: pipes past a scroll-lock-warp object use the zone
+    // number rows, not the stream connections.
+    const warpZoneObject = objects.find(
+      (o) => special13Name(o.kind) === "scroll-lock-warp",
+    );
+    const zoneRow =
+      warpZoneObject === undefined
+        ? undefined
+        : warpZoneRows[warpZoneNumberFor(world, area.areaTypeName)];
+
+    const transitions = [];
+    let transitionIndex = 0;
+    const pushTransition = (x, y, target, entryDirection) => {
+      if (target === undefined) return;
+      transitions.push({
+        id: `warp-${transitionIndex++}`,
+        x,
+        y,
+        ...target,
+        ...(entryDirection === undefined ? {} : { entryDirection }),
+      });
+    };
+
+    const warpPipes = objects
+      .filter((o) => o.kind === "pipe-warp")
+      .sort((a, b) => a.col - b.col);
+    // The scroll-lock-warp object can sit up to a couple of pages past the
+    // pipes it converts (the runtime renders ahead of the player), so include
+    // pipes shortly before it as well.
+    const zonePipes =
+      warpZoneObject === undefined
+        ? []
+        : warpPipes.filter((o) => o.col >= warpZoneObject.col - 32);
+    for (const pipe of warpPipes) {
+      const zoneIndex = zonePipes.indexOf(pipe);
+      if (zoneIndex >= 0 && zoneRow !== undefined) {
+        const destWorld = zoneRow[Math.min(zoneIndex, zoneRow.length - 1)];
+        if (destWorld !== undefined) {
+          pushTransition(pipe.col, pipe.row + rowOffset, {
+            targetLevelName: `smb-${destWorld}-1`,
+            targetTileX: 2,
+            targetTileY: areaStartRow(resolveArea(prg, destWorld - 1, 0)),
+          });
+        }
+        continue;
+      }
+      const connection = connectionForCol(pipe.col);
+      if (connection === undefined) continue;
+      pushTransition(
+        pipe.col,
+        pipe.row + rowOffset,
+        resolveDestination(connection),
+      );
+    }
+
+    // Side exit pipes (bonus-room returns) and intro pipes are walk-in
+    // transitions: the player moves right into the left-facing mouth. An
+    // intro pipe without a stream connection advances to the world's next
+    // level slot instead (the game's pipe-intro cutscene does NextArea).
+    for (const o of objects) {
+      const special = special13Name(o.kind);
+      const isExitPipe = o.kind === "exit-pipe";
+      const isIntroPipe = special === "intro-pipe";
+      if (!isExitPipe && !isIntroPipe) continue;
+      const mouthTop = isIntroPipe
+        ? introPipeMouthRow + rowOffset
+        : Math.max((o.low & 0xf) - 2, 0) + rowOffset;
+      const connection = connectionForCol(o.col);
+      if (connection !== undefined) {
+        pushTransition(
+          o.col,
+          mouthTop + 1,
+          resolveDestination(connection),
+          "right",
+        );
+        continue;
+      }
+      if (isIntroPipe && mainInfo !== undefined) {
+        const nextSlot = mainByName.get(
+          `smb-${mainInfo.world + 1}-${mainInfo.slot + 2}`,
+        );
+        if (nextSlot !== undefined) {
+          pushTransition(
+            o.col,
+            mouthTop + 1,
+            {
+              targetLevelName: nextSlot.name,
+              targetTileX: 2,
+              targetTileY: areaStartRow(nextSlot.area),
+            },
+            "right",
+          );
+        }
+      }
+    }
+
+    entry.metadata = buildMetadata(grid, header, {
+      transitions,
+      cannons,
+      areaTypeName: area.areaTypeName,
+      inheritedTimerUnits,
+    });
+    const cheepFrenzy = computeCheepFrenzy(
+      objects,
+      area.areaTypeName,
+      widthCols,
+    );
+    if (cheepFrenzy !== undefined) {
+      entry.metadata.cheepFrenzy = cheepFrenzy;
+    }
+    return entry;
+  };
+
+  for (const main of mains) {
+    materialize(main.area, main.world, main.name, 400);
+  }
+
+  // Mains first (world order), then sub-areas, matching materialization order.
+  const mainNames = new Set(mains.map((m) => m.name));
+  for (const main of mains) {
+    levels.push(materialized.get(main.name));
+  }
+  for (const [name, entry] of materialized) {
+    if (!mainNames.has(name)) levels.push(entry);
   }
   return levels;
 }
@@ -572,7 +922,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const level = Number(levelArg ?? "1") - 1;
   const result = await decodeLevel(romPath, world, level);
   console.error(
-    `Area ${result.area.areaTypeName}#${result.area.index5} ptr=$${result.area.areaPointer.toString(16)} width=${result.widthCols} objects=${result.objects.length} enemies=${result.enemies.filter((e) => e.kind === "goomba" || e.kind === "koopa").length}`,
+    `Area ${result.area.areaTypeName}#${result.area.index5} ptr=$${result.area.areaPointer.toString(16)} width=${result.widthCols} objects=${result.objects.length} enemies=${result.enemies.length}`,
   );
   process.stdout.write(gridToText(result.grid));
 }

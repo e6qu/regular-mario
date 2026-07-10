@@ -22,14 +22,52 @@
       "id": "warp-0",
       "x": 156,
       "y": 7,
-      "targetLevelName": "smb-warp-2-2",
-      "targetTileX": 2,
-      "targetTileY": 2
+      "targetLevelName": "smb-warp-2-2-w5",
+      "targetTileX": 130,
+      "targetTileY": 4
     }
   ],
   "multiLayer": {
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "cannonProjectiles": [
+    {
+      "spawnerId": "cannon-0",
+      "x": 111,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 123,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-1",
+      "x": 159,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 75,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-2",
+      "x": 170,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 82,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    }
+  ]
 }

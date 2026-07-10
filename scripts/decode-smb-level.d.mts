@@ -10,12 +10,31 @@ export type DecodedArea = {
   readonly enemyAddr: number;
 };
 
+export type DecodedAreaHeader = {
+  readonly byte0: number;
+  readonly byte1: number;
+  readonly timerSetting: number;
+  readonly entranceCtrl: number;
+  readonly foregroundScenery: number;
+  readonly terrainControl: number;
+  readonly backgroundScenery: number;
+  readonly areaStyle: number;
+  readonly cloudOverride: boolean;
+};
+
 export type DecodedGrid = string[][];
+
+export type DecodedCannon = {
+  readonly col: number;
+  readonly row: number;
+};
 
 export type DecodedLevelResult = {
   readonly area: DecodedArea;
+  readonly header: DecodedAreaHeader;
   readonly grid: DecodedGrid;
   readonly widthCols: number;
+  readonly cannons: readonly DecodedCannon[];
 };
 
 export type DecodedNamedLevel = {
@@ -35,6 +54,20 @@ export type DecodedTransition = {
   readonly targetLevelName: string;
   readonly targetTileX: number;
   readonly targetTileY: number;
+  readonly entryDirection?: "left" | "right";
+};
+
+export type DecodedCannonProjectile = {
+  readonly spawnerId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly direction: "left" | "right";
+  readonly intervalFrames: number;
+  readonly initialDelayFrames: number;
+  readonly speedPixelsPerSecond: number;
+  readonly widthPixels: number;
+  readonly heightPixels: number;
+  readonly lifetimeFrames: number;
 };
 
 export type DecodedLevelMetadata = {
@@ -44,6 +77,9 @@ export type DecodedLevelMetadata = {
   readonly transitions: readonly DecodedTransition[];
   readonly questionBlockContentsDefault: string;
   readonly multiLayer: { playerPathRows: readonly string[] };
+  readonly theme: string;
+  readonly cannonProjectiles?: readonly DecodedCannonProjectile[];
+  readonly cheepFrenzy?: { startTileX: number; endTileX: number };
 };
 
 export function decodeLevel(
@@ -58,8 +94,18 @@ export function decodeAllLevels(
 
 export function gridToText(grid: DecodedGrid): string;
 
+export function parseAreaHeader(
+  byte0: number,
+  byte1: number,
+): DecodedAreaHeader;
+
 export function buildMetadata(
   grid: DecodedGrid,
-  header: { readonly byte0: number; readonly byte1: number },
-  transitions?: readonly DecodedTransition[],
+  header: DecodedAreaHeader,
+  options?: {
+    readonly transitions?: readonly DecodedTransition[];
+    readonly cannons?: readonly DecodedCannon[];
+    readonly areaTypeName?: string;
+    readonly inheritedTimerUnits?: number;
+  },
 ): DecodedLevelMetadata;

@@ -22,14 +22,136 @@
       "id": "warp-0",
       "x": 156,
       "y": 9,
-      "targetLevelName": "smb-warp-2-2",
-      "targetTileX": 2,
-      "targetTileY": 2
+      "targetLevelName": "smb-warp-2-2-w8",
+      "targetTileX": 130,
+      "targetTileY": 4
     }
   ],
   "multiLayer": {
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "cannonProjectiles": [
+    {
+      "spawnerId": "cannon-0",
+      "x": 85,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 185,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-1",
+      "x": 93,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 33,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-2",
+      "x": 93,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 33,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-3",
+      "x": 105,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 93,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-4",
+      "x": 115,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 47,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-5",
+      "x": 119,
+      "y": 8,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 259,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-6",
+      "x": 125,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 1,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-7",
+      "x": 175,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 59,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-8",
+      "x": 191,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 43,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-9",
+      "x": 191,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 43,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    }
+  ]
 }

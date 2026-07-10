@@ -22,5 +22,43 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "cannonProjectiles": [
+    {
+      "spawnerId": "cannon-0",
+      "x": 18,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 90,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-1",
+      "x": 34,
+      "y": 10,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 74,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    },
+    {
+      "spawnerId": "cannon-2",
+      "x": 86,
+      "y": 11,
+      "direction": "left",
+      "intervalFrames": 288,
+      "initialDelayFrames": 238,
+      "speedPixelsPerSecond": 120,
+      "widthPixels": 16,
+      "heightPixels": 14,
+      "lifetimeFrames": 900
+    }
+  ]
 }

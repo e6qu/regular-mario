@@ -1,0 +1,51 @@
+{
+  "playerStart": {
+    "x": 2,
+    "y": 12
+  },
+  "exits": [
+    {
+      "x": 94,
+      "y": 11
+    }
+  ],
+  "paths": [],
+  "timers": [
+    {
+      "id": "level-timer.frames",
+      "value": 400,
+      "unit": "smb-time-units"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "warp-0",
+      "x": 50,
+      "y": 10,
+      "targetLevelName": "smb-8-1",
+      "targetTileX": 2,
+      "targetTileY": 12
+    },
+    {
+      "id": "warp-1",
+      "x": 54,
+      "y": 10,
+      "targetLevelName": "smb-7-1",
+      "targetTileX": 2,
+      "targetTileY": 12
+    },
+    {
+      "id": "warp-2",
+      "x": 58,
+      "y": 10,
+      "targetLevelName": "smb-6-1",
+      "targetTileX": 2,
+      "targetTileY": 12
+    }
+  ],
+  "multiLayer": {
+    "playerPathRows": []
+  },
+  "questionBlockContentsDefault": "power-up",
+  "theme": "overworld"
+}

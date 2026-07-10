@@ -30,6 +30,7 @@ const authoredMultiCoinBlockSpawnCooldownFrames = 16;
 const authoredExtraLifeBlockSpawnLimit = 1;
 const authoredInvincibilityBlockSpawnLimit = 1;
 const authoredClimbableBlockSpawnLimit = 1;
+const authoredHiddenBlockSpawnLimit = 1;
 
 type VglcSmbTileLegendEntry = {
   readonly tileId: string;
@@ -234,7 +235,37 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
     },
   ],
   ["B", { tileId: "breakable-block", collision: TileCollisionKind.Breakable }],
-  ["C", { tileId: "cannon-top", collision: TileCollisionKind.SolidHazard }],
+  [
+    // A brick with an embedded power-up: keeps the brick look, dispenses on bump.
+    "m",
+    {
+      tileId: "power-up-brick",
+      collision: TileCollisionKind.Interactive,
+      contentsActorId: "vglc-smb-power-up",
+    },
+  ],
+  [
+    // Hidden blocks are intangible and invisible until bumped from below.
+    "i",
+    {
+      tileId: "hidden-coin-block",
+      collision: TileCollisionKind.Hidden,
+      contentsActorId: "vglc-smb-coin",
+      contentSpawnLimit: authoredHiddenBlockSpawnLimit,
+    },
+  ],
+  [
+    "I",
+    {
+      tileId: "hidden-extra-life-block",
+      collision: TileCollisionKind.Hidden,
+      contentsActorId: "vglc-smb-extra-life",
+      contentSpawnLimit: authoredHiddenBlockSpawnLimit,
+    },
+  ],
+  // SMB cannon towers are safe to stand on and walk against; only the fired
+  // Bullet Bills (cannonProjectiles metadata) are the hazard.
+  ["C", { tileId: "cannon-top", collision: TileCollisionKind.Solid }],
   ["c", { tileId: "cannon-bottom", collision: TileCollisionKind.Solid }],
   ["V", { tileId: "plant-hazard", collision: TileCollisionKind.Hazard }],
   ["X", { tileId: "plant-hazard", collision: TileCollisionKind.Hazard }],
@@ -385,6 +416,9 @@ type VglcSmbTransitionMetadata = VglcSmbPoint & {
   readonly targetLevelName: string | undefined;
   readonly targetTileX: number;
   readonly targetTileY: number;
+  // Walk-in pipes (side exits, intro pipes) declare which way the player moves
+  // into the mouth; absent means the classic press-down top entry.
+  readonly entryDirection: "left" | "right" | undefined;
 };
 
 type VglcSmbMultiLayerMetadata = {
@@ -716,6 +750,9 @@ function withTransitionPipes(
         ...(transition.targetLevelName === undefined
           ? {}
           : { targetLevelName: transition.targetLevelName }),
+        ...(transition.entryDirection === undefined
+          ? {}
+          : { pipeEntryDirection: transition.entryDirection }),
       })),
     ],
   };
@@ -1058,12 +1095,19 @@ function parseTransition(
     errors,
   );
 
+  const entryDirection = parseOptionalTransitionEntryDirection(
+    candidate.entryDirection,
+    `${path}.entryDirection`,
+    errors,
+  );
+
   if (
     id === undefined ||
     !idIsValid ||
     targetLevelName === invalidOptionalMetadataString ||
     targetTileX === undefined ||
-    targetTileY === undefined
+    targetTileY === undefined ||
+    entryDirection === invalidOptionalMetadataString
   ) {
     return undefined;
   }
@@ -1074,7 +1118,29 @@ function parseTransition(
     targetLevelName,
     targetTileX,
     targetTileY,
+    entryDirection,
   };
+}
+
+function parseOptionalTransitionEntryDirection(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): "left" | "right" | undefined | typeof invalidOptionalMetadataString {
+  if (input === undefined) {
+    return undefined;
+  }
+  if (input === "left" || input === "right") {
+    return input;
+  }
+  errors.push(
+    makeValidationError(
+      ValidationErrorCode.VglcMetadataInvalid,
+      `${path} must be "left" or "right".`,
+      path,
+    ),
+  );
+  return invalidOptionalMetadataString;
 }
 
 function validateTransitionId(
