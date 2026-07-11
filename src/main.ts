@@ -48,7 +48,18 @@ if (appElement === null) {
 const gameLayer = document.createElement("div");
 gameLayer.setAttribute("role", "application");
 gameLayer.setAttribute("aria-label", "Original platformer game");
-gameLayer.style.cssText = "position:fixed;inset:0;display:none;";
+// A column: the game viewport on top, the (mobile-only) touch control bar
+// below it, so the controls sit OUTSIDE the drawing surface rather than over it.
+gameLayer.style.cssText =
+  "position:fixed;inset:0;display:none;flex-direction:column;";
+// Phaser mounts the canvas into this viewport (not gameLayer directly) so that
+// the canvas sizes to the viewport's box — which shrinks when the touch control
+// bar claims space below, narrowing the view instead of overlapping it.
+const gameViewport = document.createElement("div");
+gameViewport.setAttribute("data-role", "game-viewport");
+gameViewport.style.cssText =
+  "position:relative;flex:1 1 auto;min-height:0;min-width:0;width:100%;";
+gameLayer.append(gameViewport);
 const sessionBar = document.createElement("div");
 sessionBar.setAttribute("role", "tablist");
 sessionBar.setAttribute("aria-label", "In-progress games");
@@ -426,7 +437,7 @@ function resumeSession(session: GameSession): void {
   bootSceneOf(session.game)?.onSessionResume();
 }
 function showGameLayer(): void {
-  gameLayer.style.display = "";
+  gameLayer.style.display = "flex";
   // Hide the help hint during play (it would cover the touch A button); the "?"
   // key still opens the overlay.
   keymapHint.style.display = "none";
@@ -519,7 +530,7 @@ function startSession(
   clearApp();
   showGameLayer();
   const game = new Phaser.Game(
-    createGameConfig(gameLayer, {
+    createGameConfig(gameViewport, {
       ...bootstrap,
       onExitToMenu: () => suspendActiveSession(),
     }),

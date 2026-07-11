@@ -211,6 +211,79 @@ test("journey: shared #play URL boots straight into a running game", async ({
   expect(await playerX(page)).toBeGreaterThan(-1);
 });
 
+// On a touch device the NES-style control deck must sit OUTSIDE the drawing
+// surface (below the canvas), not overlap it — and pressing a direction must
+// actually drive the game.
+test.describe("mobile touch controls", () => {
+  // Landscape — touch devices play the game in landscape (portrait shows a
+  // rotate prompt), so the control deck is exercised in its real orientation.
+  test.use({
+    hasTouch: true,
+    isMobile: true,
+    viewport: { width: 812, height: 390 },
+  });
+
+  test("journey: NES controls sit below the canvas and drive the game", async ({
+    page,
+  }) => {
+    await page.goto(
+      "/#play?skin=castaway-parody&map=official-smb&level=smb-1-1" +
+        "&mode=classic&sound=classic",
+    );
+    await expect(page.locator("canvas")).toBeVisible({ timeout: 15000 });
+    await page.waitForFunction(
+      () => window.__originalBrowserPlatformerDebug !== undefined,
+    );
+
+    // Every NES control is present.
+    for (const label of [
+      "touch-left",
+      "touch-right",
+      "touch-up",
+      "touch-down",
+      "touch-A",
+      "touch-B",
+      "touch-start",
+    ]) {
+      await expect(page.locator(`[aria-label="${label}"]`)).toBeVisible();
+    }
+
+    // The control bar is below the canvas (no vertical overlap), and the canvas
+    // is shorter than the window because the bar claimed space beneath it.
+    const geometry = await page.evaluate(() => {
+      const canvas = document.querySelector("canvas");
+      const bar = document.querySelector('[data-role="touch-control-bar"]');
+      if (canvas === null || bar === null) {
+        throw new Error("missing canvas or control bar");
+      }
+      const c = canvas.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      return {
+        canvasBottom: c.bottom,
+        canvasHeight: c.height,
+        barTop: b.top,
+        barHeight: b.height,
+        windowHeight: window.innerHeight,
+      };
+    });
+    // Bar starts at (or below) the canvas bottom — outside the drawing surface.
+    expect(geometry.barTop).toBeGreaterThanOrEqual(geometry.canvasBottom - 1);
+    expect(geometry.barHeight).toBeGreaterThan(0);
+    // The view was narrowed to make room (canvas + bar ≈ window height).
+    expect(geometry.canvasHeight).toBeLessThan(geometry.windowHeight - 40);
+
+    // Pressing "right" moves the player rightward once the level is running.
+    await page.locator('[aria-label="touch-A"]').tap();
+    const startX = await playerX(page);
+    await page
+      .locator('[aria-label="touch-right"]')
+      .dispatchEvent("pointerdown");
+    await page.waitForTimeout(600);
+    await page.locator('[aria-label="touch-right"]').dispatchEvent("pointerup");
+    expect(await playerX(page)).toBeGreaterThan(startX);
+  });
+});
+
 // The set of placed actors the live scene is expected to render, as an exact
 // sorted multiset of "actorId@tileX,tileY" — the PlayerStart and Pipe roles are
 // rendered by other machinery (the player sprite / pipe tiles), so they are

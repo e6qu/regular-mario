@@ -694,6 +694,7 @@ export class BootScene extends Phaser.Scene {
   private readonly touchState = {
     left: false,
     right: false,
+    up: false,
     down: false,
     jump: false,
     run: false,
@@ -1062,9 +1063,11 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // On a coarse-pointer device (phone/tablet), overlay an on-screen D-pad + A/B
-  // so the game is playable without a keyboard. Buttons drive `touchState`, which
-  // resolveInputCommand OR's with the keys.
+  // On a coarse-pointer device (phone/tablet), mount an NES-style control deck
+  // in a bar BELOW the canvas — outside the drawing surface, so nothing covers
+  // the game. The viewport (the canvas's flex parent) shrinks to make room, so
+  // the view is a little shorter rather than obscured. Buttons drive
+  // `touchState`, which resolveInputCommand OR's with the keys.
   private createTouchControls(): void {
     const coarsePointer =
       window.matchMedia("(pointer: coarse)").matches ||
@@ -1073,79 +1076,72 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    // A full-surface overlay; only the buttons capture touches, so the game
-    // underneath stays visible. The clusters sit in the bottom corners like a
-    // console's left/right thumb pads.
-    const root = document.createElement("div");
-    root.style.cssText =
-      "position:absolute;inset:0;z-index:15;pointer-events:none;" +
-      "font-family:monospace;user-select:none;touch-action:none;";
+    // The bar lives as a sibling of the game viewport (canvas parent) inside the
+    // column layout, so it claims its own space instead of overlapping.
+    const viewport = this.game.canvas.parentElement;
+    const host = viewport?.parentElement ?? document.body;
 
-    const makeButton = (
-      label: string,
-      diameter: number,
+    const bar = makeTouchControlBar();
+    const press = (
       onDown: () => void,
-      onUp: () => void,
-    ): HTMLButtonElement => {
-      const button = document.createElement("button");
-      button.textContent = label;
-      button.setAttribute("aria-label", `touch-${label}`);
-      button.style.cssText =
-        `pointer-events:auto;width:${String(diameter)}px;height:${String(diameter)}px;` +
-        "border-radius:50%;border:2px solid #ffffff88;background:#0b0f19aa;color:#fff;" +
-        `font:800 ${String(Math.round(diameter * 0.4))}px monospace;touch-action:none;`;
-      const press = (event: Event): void => {
+      button: HTMLElement,
+    ): ((e: Event) => void) => {
+      return (event: Event): void => {
         event.preventDefault();
         this.touchStartRequested = true;
         onDown();
-        button.style.background = "#ffffff66";
+        button.style.filter = "brightness(1.5)";
       };
-      const release = (event: Event): void => {
+    };
+    const release = (
+      onUp: () => void,
+      button: HTMLElement,
+    ): ((e: Event) => void) => {
+      return (event: Event): void => {
         event.preventDefault();
         onUp();
-        button.style.background = "#0b0f19aa";
+        button.style.filter = "";
       };
-      button.addEventListener("pointerdown", press);
-      button.addEventListener("pointerup", release);
-      button.addEventListener("pointerleave", release);
-      button.addEventListener("pointercancel", release);
-      return button;
+    };
+    const bind = (
+      button: HTMLElement,
+      onDown: () => void,
+      onUp: () => void,
+    ): void => {
+      button.addEventListener("pointerdown", press(onDown, button));
+      button.addEventListener("pointerup", release(onUp, button));
+      button.addEventListener("pointerleave", release(onUp, button));
+      button.addEventListener("pointercancel", release(onUp, button));
     };
 
-    // Left thumb: move. Bottom-left corner.
-    const moveCluster = document.createElement("div");
-    moveCluster.style.cssText =
-      "position:absolute;left:20px;bottom:20px;display:flex;gap:16px;";
-    moveCluster.append(
-      makeButton(
-        "◀",
-        76,
-        () => (this.touchState.left = true),
-        () => (this.touchState.left = false),
-      ),
-      makeButton(
-        "▶",
-        76,
-        () => (this.touchState.right = true),
-        () => (this.touchState.right = false),
-      ),
+    const deck = buildNesControlDeck();
+    bind(
+      deck.dpadLeft,
+      () => (this.touchState.left = true),
+      () => (this.touchState.left = false),
     );
-
-    // Right thumb: A = jump — the most-used button, so it sits lowest in the
-    // corner where the thumb naturally rests. B = run (held) / fire, up and to
-    // the left of A (a console-style A/B diagonal).
-    const jumpButton = makeButton(
-      "A",
-      92,
+    bind(
+      deck.dpadRight,
+      () => (this.touchState.right = true),
+      () => (this.touchState.right = false),
+    );
+    bind(
+      deck.dpadUp,
+      () => (this.touchState.up = true),
+      () => (this.touchState.up = false),
+    );
+    bind(
+      deck.dpadDown,
+      () => (this.touchState.down = true),
+      () => (this.touchState.down = false),
+    );
+    bind(
+      deck.buttonA,
       () => (this.touchState.jump = true),
       () => (this.touchState.jump = false),
     );
-    jumpButton.style.position = "absolute";
-    jumpButton.style.right = "22px";
-    jumpButton.style.bottom = "18px";
-    const runButton = makeButton(
-      "B",
-      72,
+    bind(
+      deck.buttonB,
       () => {
         this.touchState.run = true;
         this.touchState.fire = true;
@@ -1155,27 +1151,15 @@ export class BootScene extends Phaser.Scene {
         this.touchState.fire = false;
       },
     );
-    runButton.style.position = "absolute";
-    runButton.style.right = "118px";
-    runButton.style.bottom = "86px";
-
-    // A small pause button (top-right) reaches the menu, like Esc.
-    const pauseButton = document.createElement("button");
-    pauseButton.textContent = "⏸";
-    pauseButton.setAttribute("aria-label", "touch-pause");
-    pauseButton.style.cssText =
-      "position:absolute;right:16px;top:14px;pointer-events:auto;width:44px;height:44px;" +
-      "border-radius:12px;border:2px solid #ffffff88;background:#0b0f19aa;color:#fff;" +
-      "font:700 20px monospace;touch-action:none;";
-    pauseButton.addEventListener("pointerdown", (event) => {
+    // SELECT is unused in play; START reaches the menu (like Esc).
+    deck.buttonStart.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       this.exitRequested = true;
     });
 
-    root.append(moveCluster, runButton, jumpButton, pauseButton);
-    const parent = this.game.canvas.parentElement ?? document.body;
-    parent.append(root);
-    this.touchControlsRoot = root;
+    bar.append(deck.root);
+    host.append(bar);
+    this.touchControlsRoot = bar;
   }
 
   // The canvas fills the window (RESIZE); apply an integer camera zoom so the
@@ -2303,7 +2287,7 @@ export class BootScene extends Phaser.Scene {
       this.anyDown(jumpKeyCodes) || this.touchState.jump,
       this.anyDown(runKeyCodes) || this.touchState.run,
       this.anyDown(fireKeyCodes) || this.touchState.fire,
-      this.anyDown(upKeyCodes),
+      this.anyDown(upKeyCodes) || this.touchState.up,
       this.anyDown(downKeyCodes) || this.touchState.down,
     );
 
@@ -3496,6 +3480,125 @@ const singleUseQuestionBlockTileIds: ReadonlySet<string> = new Set([
   "full-question-block-coin",
   "full-question-block-power-up",
 ]);
+
+// The bar that hosts the touch deck, sitting below the game viewport in the
+// column layout (a flex item that claims its own height rather than overlapping
+// the canvas). Styled like the grey shell of a classic console pad.
+function makeTouchControlBar(): HTMLDivElement {
+  const bar = document.createElement("div");
+  bar.setAttribute("data-role", "touch-control-bar");
+  bar.style.cssText =
+    "flex:0 0 auto;width:100%;box-sizing:border-box;" +
+    "padding:10px max(10px,env(safe-area-inset-right)) " +
+    "max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));" +
+    "background:linear-gradient(#c9c9c9,#9c9c9c);border-top:3px solid #6a1b1b;" +
+    "touch-action:none;user-select:none;-webkit-user-select:none;";
+  return bar;
+}
+
+type NesControlDeck = {
+  readonly root: HTMLElement;
+  readonly dpadUp: HTMLElement;
+  readonly dpadDown: HTMLElement;
+  readonly dpadLeft: HTMLElement;
+  readonly dpadRight: HTMLElement;
+  readonly buttonA: HTMLElement;
+  readonly buttonB: HTMLElement;
+  readonly buttonStart: HTMLElement;
+};
+
+// A classic controller face: a black cross D-pad on the left, oval SELECT/START
+// in the middle, and round red B/A buttons on the right.
+function buildNesControlDeck(): NesControlDeck {
+  const root = document.createElement("div");
+  root.style.cssText =
+    "display:flex;align-items:center;justify-content:space-between;gap:10px;" +
+    "max-width:640px;margin:0 auto;font-family:monospace;";
+
+  // --- D-pad (a 3×3 grid; only the plus-shaped arms are buttons) ---
+  const arm = "min(13vw,52px)";
+  const dpad = document.createElement("div");
+  dpad.style.cssText =
+    `display:grid;grid-template-columns:repeat(3,${arm});` +
+    `grid-template-rows:repeat(3,${arm});`;
+  const makeArm = (
+    label: string,
+    ariaLabel: string,
+    column: number,
+    row: number,
+    radius: string,
+  ): HTMLButtonElement => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.setAttribute("aria-label", ariaLabel);
+    button.style.cssText =
+      `grid-column:${String(column)};grid-row:${String(row)};` +
+      "background:#1b1b1b;color:#e8e8e8;border:none;touch-action:none;" +
+      `border-radius:${radius};font:700 min(4.5vw,18px) monospace;` +
+      "display:flex;align-items:center;justify-content:center;";
+    return button;
+  };
+  const dpadUp = makeArm("▲", "touch-up", 2, 1, "6px 6px 0 0");
+  const dpadLeft = makeArm("◀", "touch-left", 1, 2, "6px 0 0 6px");
+  const hub = makeArm("", "touch-dpad-center", 2, 2, "0");
+  hub.disabled = true;
+  const dpadRight = makeArm("▶", "touch-right", 3, 2, "0 6px 6px 0");
+  const dpadDown = makeArm("▼", "touch-down", 2, 3, "0 0 6px 6px");
+  dpad.append(dpadUp, dpadLeft, hub, dpadRight, dpadDown);
+
+  // --- SELECT / START (dark oval pills) ---
+  const pillGroup = document.createElement("div");
+  pillGroup.style.cssText =
+    "display:flex;flex-direction:column;align-items:center;gap:6px;";
+  const makePill = (label: string): HTMLButtonElement => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.setAttribute("aria-label", `touch-${label.toLowerCase()}`);
+    button.style.cssText =
+      "width:min(16vw,64px);height:min(5vw,20px);border-radius:10px;" +
+      "background:#2a2a2a;color:#cfcfcf;border:2px solid #555;touch-action:none;" +
+      "font:700 min(2.6vw,10px) monospace;letter-spacing:1px;";
+    return button;
+  };
+  const buttonSelect = makePill("SELECT");
+  const buttonStart = makePill("START");
+  pillGroup.append(buttonSelect, buttonStart);
+
+  // --- B / A (round red buttons; A right of B, both slightly raised) ---
+  const abGroup = document.createElement("div");
+  abGroup.style.cssText =
+    "display:flex;align-items:flex-end;gap:min(4vw,16px);";
+  const makeRound = (label: string): HTMLButtonElement => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = label;
+    button.setAttribute("aria-label", `touch-${label}`);
+    button.style.cssText =
+      "width:min(16vw,64px);height:min(16vw,64px);border-radius:50%;" +
+      "background:radial-gradient(circle at 38% 32%,#e64b4b,#b21414);" +
+      "color:#fff;border:3px solid #7a0f0f;touch-action:none;" +
+      "font:800 min(6vw,24px) monospace;";
+    return button;
+  };
+  const buttonB = makeRound("B");
+  const buttonA = makeRound("A");
+  buttonA.style.marginBottom = "min(5vw,20px)";
+  abGroup.append(buttonB, buttonA);
+
+  root.append(dpad, pillGroup, abGroup);
+  return {
+    root,
+    dpadUp,
+    dpadDown,
+    dpadLeft,
+    dpadRight,
+    buttonA,
+    buttonB,
+    buttonStart,
+  };
+}
 
 function makeLevelWorldWidthPixels(levelSpec: LevelSpec): number {
   return levelSpec.widthTiles * levelSpec.tileSizePixels;

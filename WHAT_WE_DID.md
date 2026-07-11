@@ -5,6 +5,28 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-12 — Mobile NES control deck outside the drawing surface
+
+- **Touch controls moved out of the play area.** On coarse-pointer devices the
+  game viewport is now a flex column: the canvas sizes to a viewport box that
+  shrinks to make room for a control bar BELOW it, so the deck never overlaps
+  the drawing surface (the view is just a little shorter). The deck is styled
+  like a classic console pad — a black cross D-pad (all four directions, incl.
+  a touch Up for vine climbs), oval SELECT/START pills (START = pause/menu),
+  and round red B/A buttons. A landscape browser test asserts the bar sits
+  below the canvas, the view is narrowed, every control is present, and
+  pressing Right actually drives the player.
+- **Deep-link any pack level.** A `#play?...&level=` URL naming a warp/bonus
+  sub-area (hidden from the menu picker) now boots that level directly instead
+  of falling back to the first main — used by the all-54 position check.
+
+## 2026-07-12 — All-54 exact-position verification
+
+- The content census now pins the exact position of every actor, pipe, and
+  mechanism per level plus a tile-grid digest, and a browser journey boots all
+  54 pack levels and compares the live scene's rendered actor positions to the
+  decoded spec at frame 0. See the census/browser entries in the test suite.
+
 ## 2026-07-12 — Piranha-in-pipe occlusion, flag-ball scoring, jscpd boyscout
 
 - **Piranha plants retract into their pipes.** A retracted plant now sinks
