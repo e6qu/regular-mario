@@ -459,6 +459,18 @@
       }
     },
     {
+      "name": "smb-warp-1-11-w2",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-11-w2.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-11-w2.metadata.json"
+      }
+    },
+    {
       "name": "smb-warp-2-2-w3",
       "format": "vglc-smb-multi-layer",
       "source": {
@@ -468,6 +480,18 @@
       "importMetadataSource": {
         "kind": "url",
         "url": "smb-warp-2-2-w3.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-1-20-w3",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-20-w3.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-20-w3.metadata.json"
       }
     },
     {
@@ -528,6 +552,18 @@
       "importMetadataSource": {
         "kind": "url",
         "url": "smb-warp-0-0-w5.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-1-11-w5",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-11-w5.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-11-w5.metadata.json"
       }
     },
     {

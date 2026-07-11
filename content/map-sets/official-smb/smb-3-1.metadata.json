@@ -53,5 +53,14 @@
       "x": 103,
       "y": 9
     }
+  ],
+  "vineTransitions": [
+    {
+      "x": 131,
+      "y": 5,
+      "targetLevelName": "smb-warp-1-20-w3",
+      "targetTileX": 2,
+      "targetTileY": 2
+    }
   ]
 }

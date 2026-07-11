@@ -5,7 +5,7 @@
   },
   "exits": [
     {
-      "x": 110,
+      "x": 94,
       "y": 11
     }
   ],
@@ -33,7 +33,7 @@
     }
   ],
   "fallExitTransition": {
-    "targetLevelName": "smb-6-2",
+    "targetLevelName": "smb-2-1",
     "targetTileX": 162,
     "targetTileY": 12
   }

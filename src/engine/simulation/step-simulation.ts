@@ -91,6 +91,7 @@ import {
 import {
   assertValidPipeEntryState,
   isPlayerFrozenByPipeEntry,
+  PipeEntryPhase,
   resolvePipeState,
   teleportPlayerToTilePosition,
 } from "./pipe-state";
@@ -616,7 +617,8 @@ function stepActiveSimulation(
     outcomeLevelContacts,
     enemies,
     playerVitalityAfterEnemyContact,
-    hasPlayerFallenIntoPit(playerAfterContactResponse, levelSpec),
+    levelSpec.fallExitTransition === undefined &&
+      hasPlayerFallenIntoPit(playerAfterContactResponse, levelSpec),
     hasLevelTimerExpired(levelTimer),
   );
 
@@ -690,7 +692,12 @@ function stepActiveSimulation(
     breakableBlocks,
     spawnedActors,
     projectiles: projectiles.state,
-    pipeEntry: pipeState.pipeEntry,
+    pipeEntry: resolveAreaTransferPipeEntry(
+      pipeState.pipeEntry,
+      teleportedPlayer,
+      levelSpec,
+      movementConstants,
+    ),
     levelTimer,
     timedHazardProjectiles,
     timeBonusScore,
@@ -710,6 +717,71 @@ function stepActiveSimulation(
 
 // Each full-speed head-bonk adds this much bloodiness; ~10 reach the max (1).
 const bloodinessPerHeadBonk = 0.1;
+
+// Vine climbs and bonus-area fall exits transfer to another area by starting
+// a synthetic pipe entry — the same machinery that carries warp pipes across
+// levels then does the rest.
+const vineTransferHorizontalTolerancePixels = 20;
+
+function resolveAreaTransferPipeEntry(
+  pipeEntry: SimulationState["pipeEntry"],
+  player: PlayerSimulationState,
+  levelSpec: LevelSpec,
+  movementConstants: MovementConstants,
+): SimulationState["pipeEntry"] {
+  if (pipeEntry.phase !== PipeEntryPhase.None) {
+    return pipeEntry;
+  }
+
+  const tileSize = levelSpec.tileSizePixels;
+
+  if (
+    levelSpec.fallExitTransition !== undefined &&
+    hasPlayerFallenIntoPit(player, levelSpec)
+  ) {
+    const fallExit = levelSpec.fallExitTransition;
+    return {
+      phase: PipeEntryPhase.Entering,
+      pipeEntityId: "area-fall-exit" as EntityId,
+      sourceLevelName: undefined,
+      targetLevelName: fallExit.targetLevelName,
+      targetTilePosition: {
+        x: fallExit.targetTileX,
+        y: fallExit.targetTileY,
+      },
+      remainingFrames: movementConstants.pipeEntryFrameCount,
+    } as SimulationState["pipeEntry"];
+  }
+
+  if (player.movement.vertical !== VerticalMovementState.Climbing) {
+    return pipeEntry;
+  }
+
+  for (const vine of levelSpec.vineTransitions) {
+    const vineTopPixelY = (vine.y - 1) * tileSize + 4;
+    const vineCenterX = vine.x * tileSize + tileSize / 2;
+    const playerCenterX = player.position.x + player.collider.width / 2;
+    if (
+      player.position.y <= vineTopPixelY &&
+      Math.abs(playerCenterX - vineCenterX) <=
+        vineTransferHorizontalTolerancePixels
+    ) {
+      return {
+        phase: PipeEntryPhase.Entering,
+        pipeEntityId: "vine-transfer" as EntityId,
+        sourceLevelName: undefined,
+        targetLevelName: vine.targetLevelName,
+        targetTilePosition: {
+          x: vine.targetTileX,
+          y: vine.targetTileY,
+        },
+        remainingFrames: movementConstants.pipeEntryFrameCount,
+      } as SimulationState["pipeEntry"];
+    }
+  }
+
+  return pipeEntry;
+}
 
 function freezePlayerInputCommand(
   inputCommand: SimulationInputCommand,

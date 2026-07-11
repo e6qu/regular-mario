@@ -754,6 +754,8 @@ export function buildMetadata(grid, header, options = {}) {
     platforms = [],
     flameSpawners = [],
     loopZones = [],
+    vineTransitions = [],
+    fallExitTransition = undefined,
     axeTileX = undefined,
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
@@ -807,6 +809,12 @@ export function buildMetadata(grid, header, options = {}) {
   }
   if (loopZones.length > 0) {
     metadata.loopZones = loopZones;
+  }
+  if (vineTransitions.length > 0) {
+    metadata.vineTransitions = vineTransitions;
+  }
+  if (fallExitTransition !== undefined) {
+    metadata.fallExitTransition = fallExitTransition;
   }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
@@ -1117,6 +1125,29 @@ export async function decodeAllLevels(romPath) {
 
     const loopZones = computeLoopZones(world, objects);
 
+    // Vine bricks climb into another area (coin heavens; 4-2's warp zone):
+    // the destination is the connection active at the brick's column.
+    const vineTransitions = [];
+    for (const o of objects) {
+      if (o.kind !== "small:5") continue;
+      const connection = connectionForCol(o.col);
+      if (connection === undefined) continue;
+      const destination = resolveDestination(connection);
+      if (destination === undefined) continue;
+      vineTransitions.push({
+        x: o.col,
+        y: o.row + rowOffset,
+        ...destination,
+      });
+    }
+
+    // Cloud bonus areas return to their source level when the player drops
+    // off the end — the area's own world-scoped connection points home.
+    let fallExitTransition;
+    if (header.cloudOverride && connections.length > 0) {
+      fallExitTransition = resolveDestination(connections[0]);
+    }
+
     // The castle axe: reaching it ends the level (the goal column paints at
     // its column).
     const axeObject = objects.find((o) => special13Name(o.kind) === "axe");
@@ -1182,6 +1213,8 @@ export async function decodeAllLevels(romPath) {
       platforms,
       flameSpawners,
       loopZones,
+      vineTransitions,
+      fallExitTransition,
       axeTileX,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,

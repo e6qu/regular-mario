@@ -149,6 +149,8 @@ describe("makeLevelSpec", () => {
       podoboos: [],
       platforms: [],
       loopZones: [],
+      vineTransitions: [],
+      fallExitTransition: undefined,
     });
   });
 

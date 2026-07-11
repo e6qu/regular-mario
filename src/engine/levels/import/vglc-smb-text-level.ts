@@ -1,11 +1,13 @@
 import { ActorRole, TileCollisionKind } from "../../domain/level-spec";
 import type {
   CheepFrenzyInput,
+  FallExitTransitionInput,
   FirebarInput,
   LevelSpecInput,
   LoopZoneInput,
   PlatformInput,
   PodobooInput,
+  VineTransitionInput,
 } from "../../domain/level-spec";
 import type { DomainResult } from "../../domain/result";
 import { fail } from "../../domain/result";
@@ -550,6 +552,8 @@ type VglcSmbTextImportMetadata = {
   readonly podoboos: readonly PodobooInput[];
   readonly platforms: readonly PlatformInput[];
   readonly loopZones: readonly LoopZoneInput[];
+  readonly vineTransitions: readonly VineTransitionInput[];
+  readonly fallExitTransition: FallExitTransitionInput | undefined;
 };
 
 export function parseVglcSmbTextLevel(
@@ -860,8 +864,18 @@ function parseConvertedVglcSmbRows(
       ? withPlatforms
       : { ...withPlatforms, loopZones: input.metadata.loopZones };
 
+  const withAreaTransfers: LevelSpecInput = {
+    ...withLoopZones,
+    ...(input.metadata.vineTransitions.length === 0
+      ? {}
+      : { vineTransitions: input.metadata.vineTransitions }),
+    ...(input.metadata.fallExitTransition === undefined
+      ? {}
+      : { fallExitTransition: input.metadata.fallExitTransition }),
+  };
+
   const withPlants = withPiranhaPlants(
-    withLoopZones,
+    withAreaTransfers,
     input.metadata.piranhaPlants,
   );
 
@@ -973,6 +987,8 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     podoboos: [],
     platforms: [],
     loopZones: [],
+    vineTransitions: [],
+    fallExitTransition: undefined,
   };
 }
 
@@ -1070,6 +1086,99 @@ function parseVglcSmbTextImportMetadata(
       "metadata.loopZones",
       errors,
     ),
+    vineTransitions: parseVineTransitionArray(
+      candidate.vineTransitions,
+      "metadata.vineTransitions",
+      errors,
+    ),
+    fallExitTransition: parseFallExitTransition(
+      candidate.fallExitTransition,
+      "metadata.fallExitTransition",
+      errors,
+    ),
+  };
+}
+
+function parseVineTransitionArray(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): readonly VineTransitionInput[] {
+  if (input === undefined) {
+    return [];
+  }
+  if (!Array.isArray(input)) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        `${path} must be an array of vine transition metadata objects.`,
+        path,
+      ),
+    );
+    return [];
+  }
+  const vines: VineTransitionInput[] = [];
+  for (const [index, value] of input.entries()) {
+    const itemPath = `${path}[${index}]`;
+    const candidate = value as Readonly<Record<string, unknown>> | null;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      typeof candidate.x !== "number" ||
+      typeof candidate.y !== "number" ||
+      typeof candidate.targetLevelName !== "string" ||
+      typeof candidate.targetTileX !== "number" ||
+      typeof candidate.targetTileY !== "number"
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.VglcMetadataInvalid,
+          `${itemPath} must have numeric x/y/targetTileX/targetTileY and a string targetLevelName.`,
+          itemPath,
+        ),
+      );
+      continue;
+    }
+    vines.push({
+      x: candidate.x,
+      y: candidate.y,
+      targetLevelName: candidate.targetLevelName,
+      targetTileX: candidate.targetTileX,
+      targetTileY: candidate.targetTileY,
+    });
+  }
+  return vines;
+}
+
+function parseFallExitTransition(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): FallExitTransitionInput | undefined {
+  if (input === undefined) {
+    return undefined;
+  }
+  const candidate = input as Readonly<Record<string, unknown>> | null;
+  if (
+    typeof candidate !== "object" ||
+    candidate === null ||
+    typeof candidate.targetLevelName !== "string" ||
+    typeof candidate.targetTileX !== "number" ||
+    typeof candidate.targetTileY !== "number"
+  ) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        `${path} must have a string targetLevelName and numeric targetTileX/targetTileY.`,
+        path,
+      ),
+    );
+    return undefined;
+  }
+  return {
+    targetLevelName: candidate.targetLevelName,
+    targetTileX: candidate.targetTileX,
+    targetTileY: candidate.targetTileY,
   };
 }
 

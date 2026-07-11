@@ -33,7 +33,7 @@
     }
   ],
   "fallExitTransition": {
-    "targetLevelName": "smb-6-2",
+    "targetLevelName": "smb-3-1",
     "targetTileX": 162,
     "targetTileY": 12
   }

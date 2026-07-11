@@ -221,7 +221,29 @@ export type LevelSpecInput = {
   readonly podoboos?: readonly PodobooInput[];
   readonly platforms?: readonly PlatformInput[];
   readonly loopZones?: readonly LoopZoneInput[];
+  // Vine climbs (beanstalk blocks) that lead to another area, and the bonus
+  // areas' fall-off-the-end return trip.
+  readonly vineTransitions?: readonly VineTransitionInput[];
+  readonly fallExitTransition?: FallExitTransitionInput;
 };
+
+export type VineTransitionInput = {
+  readonly x: number;
+  readonly y: number;
+  readonly targetLevelName: string;
+  readonly targetTileX: number;
+  readonly targetTileY: number;
+};
+
+export type VineTransitionDefinition = VineTransitionInput;
+
+export type FallExitTransitionInput = {
+  readonly targetLevelName: string;
+  readonly targetTileX: number;
+  readonly targetTileY: number;
+};
+
+export type FallExitTransitionDefinition = FallExitTransitionInput;
 
 // Castle maze loop checkpoints (4-4 / 7-4 / 8-4): crossing the check column
 // on the wrong row sends the player back four pages. Multi-part groups
@@ -428,6 +450,8 @@ export type LevelSpec = {
   readonly podoboos: readonly PodobooDefinition[];
   readonly platforms: readonly PlatformDefinition[];
   readonly loopZones: readonly LoopZoneDefinition[];
+  readonly vineTransitions: readonly VineTransitionDefinition[];
+  readonly fallExitTransition: FallExitTransitionDefinition | undefined;
 };
 
 type ValidatedDimensions = {
@@ -1265,6 +1289,8 @@ export function makeLevelSpec(
   const podoboosResult = validatePodoboos(input);
   const platformsResult = validatePlatforms(input);
   const loopZonesResult = validateLoopZones(input);
+  const vineTransitionsResult = validateVineTransitions(input);
+  const fallExitResult = validateFallExitTransition(input);
 
   if (!enemyPatrolSpeedResult.ok) {
     errors.push(...enemyPatrolSpeedResult.errors);
@@ -1302,6 +1328,14 @@ export function makeLevelSpec(
     errors.push(...loopZonesResult.errors);
   }
 
+  if (!vineTransitionsResult.ok) {
+    errors.push(...vineTransitionsResult.errors);
+  }
+
+  if (!fallExitResult.ok) {
+    errors.push(...fallExitResult.errors);
+  }
+
   const interactiveBlockContentsErrors = validateInteractiveBlockContents(
     definitionsResult.value.tileDefinitions,
     definitionsResult.value.actorRoles,
@@ -1324,7 +1358,9 @@ export function makeLevelSpec(
     !firebarsResult.ok ||
     !podoboosResult.ok ||
     !platformsResult.ok ||
-    !loopZonesResult.ok
+    !loopZonesResult.ok ||
+    !vineTransitionsResult.ok ||
+    !fallExitResult.ok
   ) {
     throw new Error("Level metadata result is invalid after validation.");
   }
@@ -1362,6 +1398,8 @@ export function makeLevelSpec(
     podoboos: podoboosResult.value,
     platforms: platformsResult.value,
     loopZones: loopZonesResult.value,
+    vineTransitions: vineTransitionsResult.value,
+    fallExitTransition: fallExitResult.value,
   });
 }
 
@@ -1538,6 +1576,68 @@ function validateLoopZones(
   }
 
   return errors.length > 0 ? fail(errors) : succeed(validated);
+}
+
+function validateVineTransitions(
+  input: LevelSpecInput,
+): DomainResult<readonly VineTransitionDefinition[], ValidationError> {
+  const vineTransitions = input.vineTransitions ?? [];
+  const errors: ValidationError[] = [];
+  const validated: VineTransitionDefinition[] = [];
+  for (const [index, vine] of vineTransitions.entries()) {
+    const path = `vineTransitions[${index}]`;
+    if (
+      !Number.isSafeInteger(vine.x) ||
+      !Number.isSafeInteger(vine.y) ||
+      vine.x < 0 ||
+      vine.x >= input.widthTiles ||
+      vine.y < 0 ||
+      vine.y >= input.heightTiles ||
+      typeof vine.targetLevelName !== "string" ||
+      vine.targetLevelName.length === 0 ||
+      !Number.isSafeInteger(vine.targetTileX) ||
+      !Number.isSafeInteger(vine.targetTileY) ||
+      vine.targetTileX < 0 ||
+      vine.targetTileY < 0
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorPositionOutOfBounds,
+          `${path} must have an in-bounds position and a valid target.`,
+          path,
+        ),
+      );
+      continue;
+    }
+    validated.push(vine);
+  }
+  return errors.length > 0 ? fail(errors) : succeed(validated);
+}
+
+function validateFallExitTransition(
+  input: LevelSpecInput,
+): DomainResult<FallExitTransitionDefinition | undefined, ValidationError> {
+  const fallExit = input.fallExitTransition;
+  if (fallExit === undefined) {
+    return succeed(undefined);
+  }
+  if (
+    typeof fallExit.targetLevelName !== "string" ||
+    fallExit.targetLevelName.length === 0 ||
+    !Number.isSafeInteger(fallExit.targetTileX) ||
+    !Number.isSafeInteger(fallExit.targetTileY) ||
+    fallExit.targetTileX < 0 ||
+    fallExit.targetTileY < 0
+  ) {
+    return fail([
+      makeValidationError(
+        ValidationErrorCode.ActorPositionOutOfBounds,
+        "fallExitTransition must have a valid target.",
+        "fallExitTransition",
+      ),
+    ]);
+  }
+  return succeed(fallExit);
 }
 
 const maxFirebarOrbCount = 16;

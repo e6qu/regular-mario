@@ -46,6 +46,15 @@
       "y": 11
     }
   ],
+  "vineTransitions": [
+    {
+      "x": 85,
+      "y": 5,
+      "targetLevelName": "smb-warp-1-11-w5",
+      "targetTileX": 2,
+      "targetTileY": 2
+    }
+  ],
   "cannonProjectiles": [
     {
       "spawnerId": "cannon-0",
