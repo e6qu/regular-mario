@@ -95,8 +95,7 @@ function stepSpiny(
   );
   const blocked =
     attemptedX < 0 ||
-    attemptedX + spinyColliderSizePixels >
-      levelSpec.widthTiles * tileSize ||
+    attemptedX + spinyColliderSizePixels > levelSpec.widthTiles * tileSize ||
     tileIsSolid(levelSpec, solidTileIds, bodyRow, leadingColumn);
   const velocityX = blocked ? -spiny.velocityX : spiny.velocityX;
   const nextX = blocked ? spiny.position.x : attemptedX;
@@ -109,21 +108,17 @@ function stepSpiny(
   let velocityY = 0;
   if (resting) {
     nextY =
-      Math.floor(
-        (spiny.position.y + spinyColliderSizePixels) / tileSize,
-      ) *
+      Math.floor((spiny.position.y + spinyColliderSizePixels) / tileSize) *
         tileSize -
       spinyColliderSizePixels;
   } else {
     velocityY = Math.min(
-      spiny.velocityY + spinyGravityPixelsPerSecondSquared * frameDurationSeconds,
+      spiny.velocityY +
+        spinyGravityPixelsPerSecondSquared * frameDurationSeconds,
       spinyMaxFallSpeedPixelsPerSecond,
     );
     nextY = spiny.position.y + velocityY * frameDurationSeconds;
-    if (
-      velocityY > 0 &&
-      solidBelow(levelSpec, solidTileIds, nextX, nextY)
-    ) {
+    if (velocityY > 0 && solidBelow(levelSpec, solidTileIds, nextX, nextY)) {
       nextY =
         Math.floor((nextY + spinyColliderSizePixels) / tileSize) * tileSize -
         spinyColliderSizePixels;

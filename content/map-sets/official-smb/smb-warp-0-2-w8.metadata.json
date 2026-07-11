@@ -17,7 +17,17 @@
       "unit": "smb-time-units"
     }
   ],
-  "transitions": [],
+  "transitions": [
+    {
+      "id": "warp-0",
+      "x": 68,
+      "y": 8,
+      "targetLevelName": "smb-8-4",
+      "targetTileX": 258,
+      "targetTileY": 7,
+      "entryDirection": "right"
+    }
+  ],
   "multiLayer": {
     "playerPathRows": []
   },

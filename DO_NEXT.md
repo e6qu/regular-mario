@@ -1,38 +1,39 @@
 # DO_NEXT.md
 
-## Landed: every SMB mechanic and enemy, for every level (2026-07-11)
+## Landed: the polish deltas are done (2026-07-11, second pass)
 
-The full-roster pass is in (see WHAT_WE_DID.md for the commit-by-commit
-breakdown): complete terrain decoding, the whole enemy cast, firebars,
-podoboos, lifts and balance pairs, aerial frenzies, Bowser + axe endings,
-castle maze loops, vines/coin heavens with returns, correct warp zones and
-per-world bonus areas, and tiered hazard damage. 52 decoded levels, all
-importing and booting; 709 unit + 100 browser tests green.
+Everything from the previous "known deltas" list is now in:
 
-## Known deltas to polish next (honest list)
+- **Warp progression** — runs keep their origin's HUD number and next-level
+  chain through flag-tail/bonus warps; warp-zone jumps retitle the run and
+  advance within the new world; clearing 8-4 returns to the menu.
+- **Water-level exits** — 2-2/7-2 end by swimming into their sideways water
+  pipe (into the shared flag tail, like the ROM), and **8-4's water section
+  exits back into the castle past the final loop checkpoint** — the maze's
+  true completion path. A committed-pack coherence test now guards every
+  cross-level transfer, 8-4's checkpoint/bypass wiring, and every castle's
+  boss staging.
+- **Castle-clear cinematic** — reaching the axe chops the bridge planks away
+  from the axe side, drops the boss, and shows an original rescue message
+  (final castle: the friend is freed; others: "in another keep").
+- **Spiny eggs hatch** — Lakitu's landed eggs become walking Spinies (capped
+  at three), harmful on contact, fireball-killable.
+- **Visuals** — paratroopas carry winged sprites/fallback wings until
+  stomped; balance lifts draw their pulley ropes.
+- **Tuning** — Bullet Bill speed set from the ROM's 3x-walker ratio; a test
+  pins star invincibility ignoring flame/hazard contact.
+- **Editor** — places the red snapper, winged snapper, urchin and the
+  five-fireball warden, plus firebars, podoboos and three lift kinds
+  (share-URL codes J-Z); official-level imports round-trip their mechanisms.
 
-- **Progression through shared flag tails.** 1-2's exit pipe lands in 1-1's
-  area at page 11 (exactly what the ROM does). Finishing there counts as
-  finishing "1-1", so "Next level" offers 1-2 again. The shell needs to carry
-  the originating level through cross-level warps for HUD numbering and
-  next-level sequencing.
-- **Bowser cinematics.** The axe ends the level at the right place, but the
-  bridge-collapse + Bowser-fall sequence and the rescue-retainer room ($35)
-  are not staged; the retainer needs an original character + message.
-- **Lakitu's spiny eggs.** Lakitu throws plain falling projectiles; the eggs
-  don't yet hatch into walking Spinies on landing.
-- **Winged/behavior visuals.** Paratroopas render with the same body as
-  walking koopas (no wings), Bowser variants share the warden sprite, and
-  balance-lift ropes/pulleys aren't drawn.
-- **Frenzy/hazard tuning.** Cannon/flame cadences, flying-cheep arcs and lift
-  speeds use sensible constants; measuring the originals frame-by-frame would
-  tighten feel. Star currently protects from firebars (as in SMB) via the
-  generic hazard gate — verify edge cases.
-- **8-4 water section.** The water sub-area decodes with swimming + firebars;
-  a full playthrough of the maze ordering (loop checks + pipe picks) still
-  needs a human run.
-- **Editor exposure.** The editor can't yet place the new mechanics
-  (platforms, firebars, podoboos, loop zones, frenzies, Bowser, axe).
-- Earlier backlog still valid: exact ROM movement constants/colliders, ROM
-  skin sprites for koopa/star/1-up (+ the new cast), frame verification,
-  audio parity, walk-in pipe editor UI.
+## Remaining backlog (pre-existing, unchanged)
+
+- Loop zones and frenzy regions are decoder-level region mechanics — not
+  editor paint objects (by design; author them via level JSON metadata).
+- Balance-lift pairs aren't editor-placeable (pairing UI); single lifts are.
+- Exact ROM movement constants / per-state colliders / timer conversions.
+- ROM-skin sprites for koopa/star/1-up and the new cast (authored skin covers
+  them; the ROM skin falls back to shapes).
+- Frame verification (`verify:smb-frames` palette reconciliation), audio
+  parity, editor UI for connecting walk-in pipes.
+- A human playthrough pass over the full 32-level run for feel/pacing.

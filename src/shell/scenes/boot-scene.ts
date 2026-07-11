@@ -556,6 +556,15 @@ export class BootScene extends Phaser.Scene {
   >;
   private usedBlockSwaps!: ReadonlyMap<string, UsedBlockSwap>;
   private hiddenBlockTiles!: ReadonlyMap<string, HiddenBlockTile>;
+  private castleBridgeTilesByColumn: ReadonlyMap<
+    number,
+    readonly Phaser.GameObjects.GameObject[]
+  > = new Map();
+  // Frames left in the castle-clear cinematic (bridge chop + boss fall).
+  private castleClearFramesRemaining = 0;
+  private castleClearTotalFrames = 0;
+  private castleClearMessageText: Phaser.GameObjects.Text | undefined =
+    undefined;
   private readonly revealedHiddenTiles = new Set<string>();
   private renderedActors!: readonly RuntimeRenderedActor[];
   private renderedActorRoleCounts!: BrowserRenderedActorRoleCounts;
@@ -577,6 +586,10 @@ export class BootScene extends Phaser.Scene {
   > = new Map();
   private readonly flameHazardRenderObjects: Phaser.GameObjects.Arc[] = [];
   private readonly platformRenderObjects: Phaser.GameObjects.Rectangle[] = [];
+  private readonly platformRopeRenderObjects: (
+    | Phaser.GameObjects.Rectangle
+    | undefined
+  )[] = [];
   private readonly aerialFrenzyRenderObjects: Map<
     string,
     Phaser.GameObjects.Container
@@ -719,9 +732,7 @@ export class BootScene extends Phaser.Scene {
       this.hasFinishedOutcome() &&
       this.browserGameBootstrap.onAdvanceToNextLevel !== undefined
     ) {
-      this.browserGameBootstrap.onAdvanceToNextLevel(
-        this.currentMainLevelName,
-      );
+      this.browserGameBootstrap.onAdvanceToNextLevel(this.currentMainLevelName);
       return;
     }
 
@@ -1254,6 +1265,10 @@ export class BootScene extends Phaser.Scene {
     this.breakableTileRenderObjects = renderedLevel.breakableTileRenderObjects;
     this.usedBlockSwaps = renderedLevel.usedBlockSwaps;
     this.hiddenBlockTiles = renderedLevel.hiddenBlockTiles;
+    this.castleBridgeTilesByColumn = renderedLevel.castleBridgeTilesByColumn;
+    this.castleClearFramesRemaining = 0;
+    this.castleClearMessageText?.destroy();
+    this.castleClearMessageText = undefined;
     this.revealedHiddenTiles.clear();
     this.renderFlagpoleFurniture();
     const renderedActorSummary = renderNonPlayerActors(
@@ -1324,6 +1339,7 @@ export class BootScene extends Phaser.Scene {
     this.frenzyCheepRenderObjects.clear();
     this.flameHazardRenderObjects.length = 0;
     this.platformRenderObjects.length = 0;
+    this.platformRopeRenderObjects.length = 0;
     this.aerialFrenzyRenderObjects.clear();
     this.hatchedSpinyRenderObjects.clear();
   }
@@ -1355,6 +1371,79 @@ export class BootScene extends Phaser.Scene {
     this.renderSimulationState();
   }
 
+  // The castle-clear staging: chop the bridge planks away from the axe side,
+  // drop the boss off the severed bridge, then reveal the rescue message.
+  private stepCastleClearCinematic(): void {
+    if (this.castleClearFramesRemaining <= 0) {
+      return;
+    }
+    this.castleClearFramesRemaining -= 1;
+    const elapsed =
+      this.castleClearTotalFrames - this.castleClearFramesRemaining;
+
+    // Chop one plank column per interval, rightmost (axe side) first.
+    const columns = [...this.castleBridgeTilesByColumn.keys()].sort(
+      (a, b) => b - a,
+    );
+    const chopped = Math.min(
+      Math.floor(elapsed / castleBridgeChopFrames),
+      columns.length,
+    );
+    for (let index = 0; index < chopped; index += 1) {
+      const column = columns[index];
+      if (column === undefined) {
+        continue;
+      }
+      for (const plank of this.castleBridgeTilesByColumn.get(column) ?? []) {
+        (plank as Phaser.GameObjects.Rectangle).setVisible(false);
+      }
+    }
+
+    // Once the bridge is gone the boss falls off it.
+    if (chopped >= columns.length) {
+      const fallElapsed = elapsed - columns.length * castleBridgeChopFrames;
+      for (const actor of this.renderedActors) {
+        if (!actor.actorId.startsWith("vglc-smb-bowser")) {
+          continue;
+        }
+        actor.renderObject.setY(
+          actor.pixelPosition.y + fallElapsed * castleClearFallSpeedPerFrame,
+        );
+      }
+      if (
+        fallElapsed >= castleClearMessageDelayFrames &&
+        this.castleClearMessageText === undefined
+      ) {
+        const finalCastle = this.currentMainLevelName === "smb-8-4";
+        const message = finalCastle
+          ? "THE KEEP HAS FALLEN!\nYOUR FRIEND IS FREE — THE ISLAND IS AT PEACE."
+          : "THE KEEPER PLUNGED INTO THE MOAT!\nBUT YOUR FRIEND IS IN ANOTHER KEEP...";
+        const camera = this.cameras.main;
+        this.castleClearMessageText = this.add
+          .text(
+            camera.scrollX + camera.width / (2 * camera.zoom),
+            camera.scrollY + camera.height / (3 * camera.zoom),
+            message,
+            {
+              fontFamily: "monospace",
+              fontSize: "10px",
+              color: "#fef3c7",
+              align: "center",
+              stroke: "#1f2937",
+              strokeThickness: 3,
+            },
+          )
+          .setOrigin(0.5)
+          .setResolution(3)
+          .setDepth(120);
+        this.levelRenderedObjects = [
+          ...this.levelRenderedObjects,
+          this.castleClearMessageText,
+        ];
+      }
+    }
+  }
+
   private hasFinishedOutcome(): boolean {
     return (
       this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Finished ||
@@ -1364,6 +1453,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   private readonly levelAdvanceDelayFrames = 60;
+  // Castle-clear cinematic pacing: one plank chopped per interval, then the
+  // boss falls and the rescue message shows.
 
   // Builds a hidden image for an asset set's reaction sprite (e.g. the parody
   // skin's "ouch" pose or squashed-enemy frame) when the bundle provides it, so
@@ -1691,6 +1782,7 @@ export class BootScene extends Phaser.Scene {
     if (this.levelAdvanceDelayFramesRemaining > 0) {
       this.levelAdvanceDelayFramesRemaining -= 1;
       this.stepFlagpoleSlide();
+      this.stepCastleClearCinematic();
 
       if (this.levelAdvanceDelayFramesRemaining === 0) {
         this.advanceToNextLevel();
@@ -1736,6 +1828,15 @@ export class BootScene extends Phaser.Scene {
       this.levelCompleteSoundPlayed = true;
       this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
       this.beginFlagpoleSlide();
+      // A castle ends at the axe: stage the bridge chop, the boss's fall and
+      // the rescue message before the finish overlay appears.
+      if (this.castleBridgeTilesByColumn.size > 0) {
+        this.castleClearTotalFrames =
+          this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
+          castleClearFallFrames;
+        this.castleClearFramesRemaining = this.castleClearTotalFrames;
+        this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
+      }
     }
 
     this.gameAudio.playEvents(this.lastSoundEvents);
@@ -2402,6 +2503,15 @@ export class BootScene extends Phaser.Scene {
             )
           : 0;
 
+      if (actor.wingObject !== undefined) {
+        actor.wingObject.setVisible(
+          requireArmoredEnemyActorState(
+            this.simulationState.enemyMotion,
+            actor.entityId,
+          ).behavior === ArmoredEnemyBehavior.Winged,
+        );
+      }
+
       actor.renderObject.setPosition(
         renderedPosition.x + shakeOffsetX,
         renderedPosition.y,
@@ -2508,6 +2618,25 @@ export class BootScene extends Phaser.Scene {
       }
       rectangle.setPosition(placement.x, placement.y);
       rectangle.setSize(placement.widthPixels, placement.heightPixels);
+
+      // Balance platforms hang from their pulley rope; draw it up to the
+      // pulley band under the HUD.
+      let rope = this.platformRopeRenderObjects[index];
+      if (placement.kind === "balance") {
+        if (rope === undefined) {
+          rope = this.add
+            .rectangle(0, 0, 1, 1, platformRopeColor)
+            .setOrigin(0)
+            .setDepth(-1);
+          this.platformRopeRenderObjects[index] = rope;
+        }
+        const ropeTopY = platformRopePulleyRowY;
+        rope.setPosition(placement.x + placement.widthPixels / 2, ropeTopY);
+        rope.setSize(1, Math.max(1, placement.y - ropeTopY));
+        rope.setVisible(true);
+      } else if (rope !== undefined) {
+        rope.setVisible(false);
+      }
     }
   }
 
@@ -3198,6 +3327,10 @@ type RenderedLevelSummary = {
   >;
   readonly usedBlockSwaps: ReadonlyMap<string, UsedBlockSwap>;
   readonly hiddenBlockTiles: ReadonlyMap<string, HiddenBlockTile>;
+  readonly castleBridgeTilesByColumn: ReadonlyMap<
+    number,
+    readonly Phaser.GameObjects.GameObject[]
+  >;
 };
 
 // Single-use question blocks turn into a spent/used block once bumped, like the
@@ -3475,6 +3608,9 @@ type RuntimeRenderedActor = BrowserRenderedActorSnapshot & {
   readonly renderObject: Phaser.GameObjects.Container;
   readonly userImageObject: Phaser.GameObjects.Image | undefined;
   readonly userImage: LoadedStatefulImageAsset | undefined;
+  // Fallback-shape wing marker for winged armored enemies (sprite sets carry
+  // their own winged frames instead).
+  readonly wingObject: Phaser.GameObjects.Triangle | undefined;
 };
 
 function renderPlayerAccent(
@@ -3892,6 +4028,10 @@ function renderLevelTiles(
 ): RenderedLevelSummary {
   const collisionLookup = makeTileCollisionLookup(levelSpec);
   const collisionCounts = makeEmptyCollisionCounts();
+  const castleBridgeTilesByColumn = new Map<
+    number,
+    readonly Phaser.GameObjects.GameObject[]
+  >();
   const breakableTileRenderObjects = new Map<
     string,
     readonly Phaser.GameObjects.GameObject[]
@@ -3966,6 +4106,17 @@ function renderLevelTiles(
         );
       }
 
+      // Castle-bridge planks are tracked per column so the castle-clear
+      // cinematic can chop them away one by one.
+      if (tileId === castleBridgeTileId) {
+        castleBridgeTilesByColumn.set(
+          columnIndex,
+          scene.children.list.filter(
+            (child) => !childrenBeforeTileRender.has(child),
+          ),
+        );
+      }
+
       collisionCounts[collision] += 1;
       renderedTileCount += 1;
     }
@@ -3981,6 +4132,7 @@ function renderLevelTiles(
     breakableTileRenderObjects,
     usedBlockSwaps,
     hiddenBlockTiles,
+    castleBridgeTilesByColumn,
   };
 }
 
@@ -4160,6 +4312,17 @@ function resolveActorSpriteImage(
         "shell",
       ]);
     }
+
+    if (armoredActor.behavior === ArmoredEnemyBehavior.Winged) {
+      const wingedDirection = makeSpriteDirectionFromVelocity(
+        armoredActor.velocity.x,
+      );
+      return resolveFirstStatefulImage(actor.userImage, [
+        `winged-${wingedDirection}`,
+        "winged",
+        `walk-${wingedDirection}`,
+      ]);
+    }
   }
 
   const enemyActor = requireEnemyActorState(
@@ -4284,6 +4447,17 @@ function renderNonPlayerActors(
       renderedUserActor?.container ??
       renderAuthoredActor(scene, pixelPosition, role);
 
+    // Fallback shapes get a small wing marker for winged armored enemies;
+    // toggled per frame by the winged behavior.
+    let wingObject: Phaser.GameObjects.Triangle | undefined;
+    if (role === ActorRole.ArmoredEnemy && renderedUserActor === undefined) {
+      wingObject = scene.add
+        .triangle(-2, 2, 0, 6, 6, 0, 6, 6, wingFallbackColor)
+        .setOrigin(0)
+        .setVisible(false);
+      renderObject.add(wingObject);
+    }
+
     roleCounts[role] += 1;
     actors.push({
       entityId: actor.entityId,
@@ -4297,6 +4471,7 @@ function renderNonPlayerActors(
       renderObject,
       userImageObject: renderedUserActor?.image,
       userImage,
+      wingObject,
     });
   }
 
@@ -5349,9 +5524,20 @@ function renderThrowingEnemyActor(
   ]);
 }
 
+// Castle-clear cinematic pacing and the bridge tile it chops.
+const castleBridgeTileId = "castle-bridge";
+const castleBridgeChopFrames = 5;
+const castleClearFallFrames = 120;
+const castleClearFallSpeedPerFrame = 3;
+const castleClearMessageDelayFrames = 45;
+
 const flameHazardCoreColor = 0xf97316;
 const platformFillColor = 0xd9a066;
 const platformEdgeColor = 0x8a5a2b;
+const platformRopeColor = 0xd6c4a0;
+const wingFallbackColor = 0xf8fafc;
+// Balance-lift ropes hang from the pulley band just below the HUD rows.
+const platformRopePulleyRowY = 2 * 16;
 const flameHazardRimColor = 0xfde047;
 const piranhaStalkColor = 0x15803d;
 const piranhaHeadColor = 0x22c55e;

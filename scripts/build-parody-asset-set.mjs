@@ -676,6 +676,25 @@ const snapperWalk = [
   "..mm....mm......",
   "................",
 ];
+const snapperWinged = [
+  "....www.........",
+  "...wwwweeee.....",
+  "..wwwweGGGGe....",
+  ".wwww.eGwGwGe...",
+  "..ww..eGeGeGe...",
+  "......eeGGGee...",
+  ".eeeeeeeeee.....",
+  "eGLLGLLGLLGe....",
+  "eGLLGLLGLLGe....",
+  "eGLLGLLGLLGe....",
+  "eGLLGLLGLLGe....",
+  ".eeeeeeeeee.....",
+  "...L....L.......",
+  "..LL....LL......",
+  "..mm....mm......",
+  "................",
+];
+
 const snapperShell = [
   "................",
   "................",
@@ -761,6 +780,22 @@ function shelledEnemySprite(walkFileName, shellFileName) {
   };
 }
 
+// A winged (paratroopa-like) enemy adds airborne frames on top of the
+// shelled set; a stomp drops it to the plain walking look.
+function wingedEnemySprite(walkFileName, shellFileName, wingedFileName) {
+  const base = shelledEnemySprite(walkFileName, shellFileName);
+  return {
+    ...base,
+    stateSprites: {
+      ...base.stateSprites,
+      winged: spriteEntry(wingedFileName),
+      "winged-left": spriteEntry(wingedFileName),
+      "winged-right": spriteEntry(wingedFileName),
+      "winged-idle": spriteEntry(wingedFileName),
+    },
+  };
+}
+
 function playerStateSprites() {
   // Map every engine player state key to an authored frame; powered/recovering
   // reuse the small frames (this parody skin has one body size), and fall/run
@@ -821,6 +856,8 @@ async function main() {
     ["snapper-shell.png", snapperShell, enemyPalette],
     ["snapper-red-walk.png", snapperWalk, redEnemyPalette],
     ["snapper-red-shell.png", snapperShell, redEnemyPalette],
+    ["snapper-winged.png", snapperWinged, enemyPalette],
+    ["snapper-red-winged.png", snapperWinged, redEnemyPalette],
     ["urchin-walk.png", snapperShell, spinyPalette],
     ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
     ["bullet-slug.png", bulletSlug, bulletPalette],
@@ -884,9 +921,10 @@ async function main() {
         "snapper-walk.png",
         "snapper-shell.png",
       ),
-      "vglc-smb-parakoopa": shelledEnemySprite(
+      "vglc-smb-parakoopa": wingedEnemySprite(
         "snapper-walk.png",
         "snapper-shell.png",
+        "snapper-winged.png",
       ),
       "vglc-smb-turtle": shelledEnemySprite(
         "snapper-walk.png",
@@ -898,13 +936,15 @@ async function main() {
         "snapper-red-walk.png",
         "snapper-red-shell.png",
       ),
-      "vglc-smb-parakoopa-red": shelledEnemySprite(
+      "vglc-smb-parakoopa-red": wingedEnemySprite(
         "snapper-red-walk.png",
         "snapper-red-shell.png",
+        "snapper-red-winged.png",
       ),
-      "vglc-smb-parakoopa-hopper": shelledEnemySprite(
+      "vglc-smb-parakoopa-hopper": wingedEnemySprite(
         "snapper-walk.png",
         "snapper-shell.png",
+        "snapper-winged.png",
       ),
       "vglc-smb-spiny": walkingEnemySprite("urchin-walk.png"),
       "vglc-smb-bowser": walkingEnemySprite("warden.png"),

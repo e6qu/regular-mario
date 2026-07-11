@@ -47,6 +47,7 @@ export type PlatformsState = {
 
 export type PlatformPlacement = {
   readonly platformId: string;
+  readonly kind: LevelSpec["platforms"][number]["kind"];
   readonly x: number;
   readonly y: number;
   readonly widthPixels: number;
@@ -164,6 +165,7 @@ export function computePlatformPlacements(
     const base = basePlatformPosition(definition, levelSpec, frameIndex);
     return {
       platformId: runtime.platformId,
+      kind: definition.kind,
       x: base.x,
       y: base.y + runtime.balanceOffsetY + runtime.fallOffsetY,
       widthPixels: definition.widthTiles * levelSpec.tileSizePixels,

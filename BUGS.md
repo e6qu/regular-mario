@@ -19,10 +19,11 @@
   use documented structure + chosen constants; frame-by-frame measurement
   against the original would tighten them. Exact movement constants,
   per-state colliders and timer conversions remain unproven.
-- **Uncinematic castle clear.** The axe ends the level correctly but without
-  the bridge-collapse/Bowser-fall staging or a rescue room; Lakitu's eggs
-  don't hatch into Spinies yet. See DO_NEXT.md.
-- **8-4 needs a human playthrough** (maze ordering, water section, loops).
+- **Cinematic staging is shell-side visual only** — the sim ends the level at
+  the axe; the chop/fall/rescue overlay never affects replay determinism.
+- **8-4's maze wiring is machine-verified** (pack coherence test: checkpoint
+  bypass pipes, water-section return past the final checkpoint); a human
+  feel/pacing playthrough is still worthwhile.
 - **Supply chain:** record a dependency's license/purpose/maintenance/security
   before adding it; the license/age/vulnerability gates need registry access. No
   copyrighted fixtures in importers.

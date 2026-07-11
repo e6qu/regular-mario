@@ -1063,18 +1063,23 @@ export async function decodeAllLevels(romPath) {
       );
     }
 
-    // Side exit pipes (bonus-room returns) and intro pipes are walk-in
-    // transitions: the player moves right into the left-facing mouth. An
-    // intro pipe without a stream connection advances to the world's next
-    // level slot instead (the game's pipe-intro cutscene does NextArea).
+    // Side exit pipes (bonus-room returns), intro pipes, and the water areas'
+    // sideways water pipes are walk-in transitions: the player moves right
+    // into the left-facing mouth (swimming into the water pipe's lower half
+    // in the original). An intro pipe without a stream connection advances
+    // to the world's next level slot instead (the pipe-intro cutscene does
+    // NextArea).
     for (const o of objects) {
       const special = special13Name(o.kind);
       const isExitPipe = o.kind === "exit-pipe";
       const isIntroPipe = special === "intro-pipe";
-      if (!isExitPipe && !isIntroPipe) continue;
+      const isWaterPipe = o.kind === "small:9";
+      if (!isExitPipe && !isIntroPipe && !isWaterPipe) continue;
       const mouthTop = isIntroPipe
         ? introPipeMouthRow + rowOffset
-        : Math.max((o.low & 0xf) - 2, 0) + rowOffset;
+        : isWaterPipe
+          ? o.row + rowOffset
+          : Math.max((o.low & 0xf) - 2, 0) + rowOffset;
       const connection = connectionForCol(o.col);
       if (connection !== undefined) {
         pushTransition(

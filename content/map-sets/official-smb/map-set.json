@@ -471,6 +471,18 @@
       }
     },
     {
+      "name": "smb-warp-1-5-w2",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-5-w2.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-5-w2.metadata.json"
+      }
+    },
+    {
       "name": "smb-warp-2-2-w3",
       "format": "vglc-smb-multi-layer",
       "source": {
@@ -600,6 +612,18 @@
       "importMetadataSource": {
         "kind": "url",
         "url": "smb-warp-2-2-w7.metadata.json"
+      }
+    },
+    {
+      "name": "smb-warp-1-5-w7",
+      "format": "vglc-smb-multi-layer",
+      "source": {
+        "kind": "url",
+        "url": "smb-warp-1-5-w7.txt"
+      },
+      "importMetadataSource": {
+        "kind": "url",
+        "url": "smb-warp-1-5-w7.metadata.json"
       }
     },
     {

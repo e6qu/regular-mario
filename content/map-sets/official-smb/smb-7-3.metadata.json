@@ -17,7 +17,17 @@
       "unit": "smb-time-units"
     }
   ],
-  "transitions": [],
+  "transitions": [
+    {
+      "id": "warp-0",
+      "x": 189,
+      "y": 8,
+      "targetLevelName": "smb-warp-1-5-w7",
+      "targetTileX": 178,
+      "targetTileY": 12,
+      "entryDirection": "right"
+    }
+  ],
   "multiLayer": {
     "playerPathRows": []
   },

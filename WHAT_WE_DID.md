@@ -5,6 +5,41 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — Polish deltas: true endings, hatching spinies, cinematics, editor mechanics
+
+- **Warp progression fixed**: the scene tracks the main level a run belongs
+  to. Flag-tail and bonus-room warps (mid-page landings) keep the origin's
+  HUD number and next-level chain; a warp-zone jump landing at another main
+  level's start retitles the run and advances within the new world; clearing
+  8-4 returns to the menu.
+- **Water-level exits decoded**: swimming right into the sideways water
+  pipe's lower half transfers via the active connection (the ROM's
+  CheckSideMTiles $6c rule). 2-2/7-2 now end in the shared flag tail, and
+  8-4's water section exits back into the castle at page 16 — past the
+  final pipe-gated checkpoint, completing the maze exactly like the
+  original (54 levels committed).
+- **Castle-clear cinematic**: reaching the axe chops the bridge planks away
+  from the axe side, drops the boss off the severed bridge, then shows an
+  original rescue message before the finish overlay.
+- **Spiny eggs hatch**: Lakitu's landed eggs convert into walking Spinies
+  (three live max, goomba-style gravity, harmful on any contact through the
+  tiered hazard path, fireball-killable — the fireball is consumed).
+- **Visuals**: winged sprites (and fallback wing markers) for paratroopas
+  until their wings drop; balance lifts draw their pulley ropes.
+- **Tuning**: Bullet Bill speed derives from the ROM's 3x-walker ratio
+  (BulletBillXSpdData $18 vs the $08 walker) = 120 px/s; a test pins star
+  invincibility ignoring flame/hazard contact.
+- **Editor mechanics**: palette entries for the red snapper (ledge-staying),
+  winged snapper, urchin (spiked) and the keep warden (five fireballs), plus
+  firebar/podoboo/lift markers that export into the mechanics metadata and
+  survive import round trips. Share-URL codes for the new items use J-Z
+  (A-I stay coin-brick counts); the tutorial tip now stays clear of the
+  session tab bar.
+- **Pack coherence test**: a committed-content suite validates every level
+  parses, every cross-level transfer (pipes, vines, fall exits) targets a
+  real in-bounds level, 8-4's checkpoints all have bypass pipes, and every
+  castle stages boss + bridge + flames.
+
 ## 2026-07-11 — Every SMB mechanic and enemy, for every level
 
 Nine-commit pass that closes the gap between the decoded levels and the full

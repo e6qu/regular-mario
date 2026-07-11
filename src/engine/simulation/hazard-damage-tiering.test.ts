@@ -92,6 +92,44 @@ describe("hazard damage tiering", () => {
     expect(next.playerVitality.kind).toBe(PlayerVitalityKind.Recovering);
   });
 
+  it("star invincibility ignores hazard contact entirely", () => {
+    const levelResult = makeLevelSpec(makeHazardLevelInput());
+    if (!levelResult.ok) {
+      throw new Error("expected level");
+    }
+    const stateResult = makeInitialSimulationStateWithPlayerVitality(
+      nominalFrameMilliseconds,
+      levelResult.value,
+      initialMovementConstants,
+      makeFirePlayerVitalityState(),
+    );
+    if (!stateResult.ok) {
+      throw new Error("expected initial state");
+    }
+    const starred = {
+      ...stateResult.value,
+      playerInvincibility: {
+        ...stateResult.value.playerInvincibility,
+        remainingFrames: 60,
+      } as (typeof stateResult.value)["playerInvincibility"],
+    };
+    const next = stepSimulation(
+      starred,
+      {
+        horizontal: HorizontalInput.Neutral,
+        jumpPressed: false,
+        runHeld: false,
+        firePressed: false,
+        upHeld: false,
+        downHeld: false,
+      },
+      initialMovementConstants,
+      levelResult.value,
+    );
+    expect(next.playerOutcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(next.playerVitality.kind).toBe(PlayerVitalityKind.Fire);
+  });
+
   it("ignores hazard contact during the recovery window", () => {
     const shrunk = stepOnce(makeFirePlayerVitalityState());
     const afterAnotherFrame = stepSimulation(

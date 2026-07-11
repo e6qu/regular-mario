@@ -105,7 +105,16 @@ const editorGuideHtml = `
 
   <h3 style="color:#7dd3fc;margin:16px 0 4px;">Enemies</h3>
   <p>Goomba, Koopa, Buzzy (fireproof), a flyer, a piranha plant, Hammer Bro,
-  Lakitu and a chaser. Stomp most from above; some throw or shrug off fireballs.</p>
+  Lakitu, a chaser, the ledge-staying red snapper, a winged snapper (stomp
+  drops its wings), the spiked urchin (don't stomp it!) and the keep warden
+  (spiked, soaks five fireballs). Stomp most from above; some throw or shrug
+  off fireballs.</p>
+
+  <h3 style="color:#7dd3fc;margin:16px 0 4px;">Mechanisms</h3>
+  <p><b>Firebar</b> — a rotating bar of fire orbs anchored to the painted
+  block. <b>Podoboo</b> — a fireball that leaps out of the pit below its
+  column. <b>Lifts</b> — rideable platforms that sweep side-to-side, up and
+  down, or fall away when ridden.</p>
 
   <h3 style="color:#7dd3fc;margin:16px 0 4px;">Sharing</h3>
   <p><b>🔗 Share</b> copies a link, <b>⬇ Download</b> saves a file, and you can Save
@@ -130,12 +139,40 @@ type ActorPaletteItem = {
   readonly unique?: boolean;
   // Armored enemies flagged fireproof (Buzzy Beetle) shrug off fireballs.
   readonly fireproof?: boolean;
+  // Spiked walkers (the urchin) hurt the player on stomp.
+  readonly spiky?: boolean;
+  // Ledge-staying walkers (the red snapper) turn around at ledges.
+  readonly turnsAtLedges?: boolean;
+  // Winged armored enemies fly until the first stomp drops their wings.
+  readonly wingedFlight?: string;
+  // Fireball hits needed to defeat this enemy (the warden takes five).
+  readonly projectileHitPoints?: number;
+  readonly colliderWidthPixels?: number;
+  readonly colliderHeightPixels?: number;
   // Some actors also paint a tile in their cell (the goal is an Exit actor on a
   // Goal-collision tile — the tile is what actually triggers the finish).
   readonly tileId?: string;
 };
 
-type PaletteItem = TilePaletteItem | ActorPaletteItem;
+// A mechanism paints a marker cell that exports into the level's mechanics
+// metadata (a rotating firebar, a leaping podoboo, or a moving lift) rather
+// than an actor.
+type MechanismPaletteItem = {
+  readonly key: string;
+  readonly label: string;
+  readonly color: string;
+  readonly kind: "mechanism";
+  readonly mechanismId:
+    | "firebar"
+    | "podoboo"
+    | "lift-horizontal"
+    | "lift-vertical"
+    | "lift-drop";
+  // Firebars paint their anchor block into the cell; lifts/podoboos sit on sky.
+  readonly tileId?: string;
+};
+
+type PaletteItem = TilePaletteItem | ActorPaletteItem | MechanismPaletteItem;
 
 const skyKey = "sky";
 
@@ -389,6 +426,89 @@ const paletteItems: readonly PaletteItem[] = [
     actorId: "spark-cap",
     role: ActorRole.PowerUp,
   },
+  {
+    // A ledge-staying walker: turns around at edges instead of falling off.
+    key: "redkoopa",
+    label: "Red Snapper",
+    color: "#b91c1c",
+    kind: "actor",
+    actorId: "snapper-red",
+    role: ActorRole.ArmoredEnemy,
+    turnsAtLedges: true,
+  },
+  {
+    // A winged snapper that glides until the first stomp drops its wings.
+    key: "parakoopa",
+    label: "Winged",
+    color: "#15803d",
+    kind: "actor",
+    actorId: "snapper-winged",
+    role: ActorRole.ArmoredEnemy,
+    wingedFlight: "horizontal",
+  },
+  {
+    // A spiked walker — stomping it hurts; fireballs still work.
+    key: "urchin",
+    label: "Urchin",
+    color: "#9d174d",
+    kind: "actor",
+    actorId: "urchin",
+    role: ActorRole.Enemy,
+    spiky: true,
+  },
+  {
+    // The castle boss: spiked, paces its ledge, soaks five fireballs.
+    key: "warden",
+    label: "Warden",
+    color: "#334155",
+    kind: "actor",
+    actorId: "keep-warden",
+    role: ActorRole.Enemy,
+    spiky: true,
+    turnsAtLedges: true,
+    projectileHitPoints: 5,
+    colliderWidthPixels: 28,
+    colliderHeightPixels: 28,
+  },
+  {
+    // A rotating bar of fire orbs anchored to the painted block.
+    key: "firebar",
+    label: "Firebar",
+    color: "#ea580c",
+    kind: "mechanism",
+    mechanismId: "firebar",
+    tileId: "stone",
+  },
+  {
+    // A fireball that leaps out of the pit below this column on a cycle.
+    key: "podoboo",
+    label: "Podoboo",
+    color: "#f97316",
+    kind: "mechanism",
+    mechanismId: "podoboo",
+  },
+  {
+    // Moving lift platforms: side-to-side, up-and-down, and fall-when-ridden.
+    key: "lifth",
+    label: "Lift ↔",
+    color: "#a16207",
+    kind: "mechanism",
+    mechanismId: "lift-horizontal",
+  },
+  {
+    key: "liftv",
+    label: "Lift ↕",
+    color: "#a16207",
+    kind: "mechanism",
+    mechanismId: "lift-vertical",
+  },
+  {
+    key: "liftd",
+    label: "Lift ▼",
+    color: "#78350f",
+    kind: "mechanism",
+    mechanismId: "lift-drop",
+  },
 ];
 
 const paletteByKey = new Map(paletteItems.map((item) => [item.key, item]));
@@ -487,6 +607,16 @@ const cellCharByKey: Readonly<Record<string, string>> = {
   pipetr: "t",
   pipel: "l",
   piper: "w",
+  // New mechanics use J-Z codes (A-I are the coin-brick counts).
+  redkoopa: "a",
+  parakoopa: "v",
+  urchin: "y",
+  warden: "K",
+  firebar: "R",
+  podoboo: "P",
+  lifth: "L",
+  liftv: "V",
+  liftd: "J",
 };
 const keyByCellChar = new Map(
   Object.entries(cellCharByKey).map(([key, char]) => [char, key]),
@@ -517,9 +647,9 @@ function encodeSharedLevel(level: LevelSpecInput): string {
 }
 
 export function decodeSharedLevel(encoded: string): LevelSpecInput | undefined {
-  // Cell chars: lowercase letters/"." for tiles, digits 1-9 for coin blocks, and
-  // A-I for coin bricks (both N coins).
-  const match = /^(\d+)\.(\d+)\.([.a-zA-I1-9]*)$/.exec(encoded);
+  // Cell chars: lowercase letters/"." for tiles, digits 1-9 for coin blocks,
+  // A-I for coin bricks (both N coins), and J-Z for the newer mechanics.
+  const match = /^(\d+)\.(\d+)\.([.a-zA-Z1-9]*)$/.exec(encoded);
   if (match === null) {
     return undefined;
   }
@@ -2151,6 +2281,8 @@ export function renderLevelEditor(
   renderGrid();
 
   // --- Guided tutorial (spotlight walkthrough) + detailed static guide ---
+  // The tip card must never cover the session tab bar pinned at the top.
+  const tutorialTipMinTopPixels = 56;
 
   function tutorialSteps(): readonly {
     readonly target: HTMLElement;
@@ -2161,7 +2293,7 @@ export function renderLevelEditor(
       {
         target: paletteBar,
         title: "1 / 8 · Palette",
-        body: "Pick what to place: ground and blocks, ? and hidden blocks, pipes, a cannon, enemies, coins, and the Player and Goal. Every level needs exactly one Player and one Goal.",
+        body: "Pick what to place: tiles, blocks, pipes, cannons, enemies, firebars, podoboos, lifts, coins, and the Player and Goal. Every level needs exactly one Player and one Goal.",
       },
       {
         target: drawer,
@@ -2240,8 +2372,9 @@ export function renderLevelEditor(
       const below = rect.bottom + 12;
       const useAbove = below + 160 > window.innerHeight;
       tip.style.left = `${String(Math.max(12, Math.min(rect.left, window.innerWidth - 360)))}px`;
+      // Keep the tip clear of the session tab bar at the top of the page.
       tip.style.top = useAbove
-        ? `${String(Math.max(12, rect.top - 176))}px`
+        ? `${String(Math.max(tutorialTipMinTopPixels, rect.top - 176))}px`
         : `${String(below)}px`;
       tip.replaceChildren();
       const heading = document.createElement("div");
@@ -2337,10 +2470,10 @@ function paintCellAppearance(button: HTMLButtonElement, key: string): void {
   const item = paletteByKey.get(key) ?? paletteByKey.get(skyKey)!;
   button.style.background = item.color;
   button.style.boxShadow =
-    item.kind === "actor"
-      ? "inset 0 0 0 2px #ffffffcc"
-      : "inset 0 0 0 1px #00000022";
-  button.textContent = item.kind === "actor" ? (item.label[0] ?? "") : "";
+    item.kind === "tile"
+      ? "inset 0 0 0 1px #00000022"
+      : "inset 0 0 0 2px #ffffffcc";
+  button.textContent = item.kind === "tile" ? "" : (item.label[0] ?? "");
   button.style.color = "#0b1220";
   button.style.font = "700 12px monospace";
 }
@@ -2560,6 +2693,77 @@ function levelInputFromCells(
 
   const cannonSpawners = buildCannonSpawners(tiles);
 
+  // Mechanism markers export into the level's mechanics metadata: firebars
+  // anchor to their painted block, podoboos leap from their column, lifts
+  // oscillate or drop where placed.
+  const firebars: {
+    firebarId: string;
+    x: number;
+    y: number;
+    orbCount: number;
+    direction: string;
+    speed: string;
+  }[] = [];
+  const podoboos: {
+    podobooId: string;
+    x: number;
+    phaseOffsetFrames: number;
+  }[] = [];
+  const platforms: {
+    platformId: string;
+    kind: string;
+    x: number;
+    y: number;
+    widthTiles: number;
+  }[] = [];
+  cells.forEach((row, y) => {
+    row.forEach((key, x) => {
+      const item = paletteByKey.get(key);
+      if (item === undefined || item.kind !== "mechanism") {
+        return;
+      }
+      switch (item.mechanismId) {
+        case "firebar":
+          firebars.push({
+            firebarId: `firebar-${String(x)}-${String(y)}`,
+            x,
+            y,
+            orbCount: editorFirebarOrbCount,
+            direction: "clockwise",
+            speed: "slow",
+          });
+          return;
+        case "podoboo":
+          podoboos.push({
+            podobooId: `podoboo-${String(x)}-${String(y)}`,
+            x,
+            phaseOffsetFrames: (x * 89) % 384,
+          });
+          return;
+        case "lift-horizontal":
+        case "lift-vertical":
+        case "lift-drop":
+          platforms.push({
+            platformId: `lift-${String(x)}-${String(y)}`,
+            kind:
+              item.mechanismId === "lift-horizontal"
+                ? "horizontal"
+                : item.mechanismId === "lift-vertical"
+                  ? "vertical"
+                  : "drop",
+            x,
+            y,
+            widthTiles: editorLiftWidthTiles,
+          });
+          return;
+        default: {
+          const invalidMechanism: never = item.mechanismId;
+          throw new Error(`Invalid mechanism: ${String(invalidMechanism)}`);
+        }
+      }
+    });
+  });
+
   return {
     widthTiles: width,
     heightTiles: height,
@@ -2586,6 +2790,20 @@ function levelInputFromCells(
         actorId: item.actorId,
         role: item.role,
         ...(item.fireproof === true ? { fireproof: true } : {}),
+        ...(item.spiky === true ? { spiky: true } : {}),
+        ...(item.turnsAtLedges === true ? { turnsAtLedges: true } : {}),
+        ...(item.wingedFlight === undefined
+          ? {}
+          : { wingedFlight: item.wingedFlight }),
+        ...(item.projectileHitPoints === undefined
+          ? {}
+          : { projectileHitPoints: item.projectileHitPoints }),
+        ...(item.colliderWidthPixels === undefined
+          ? {}
+          : { colliderWidthPixels: item.colliderWidthPixels }),
+        ...(item.colliderHeightPixels === undefined
+          ? {}
+          : { colliderHeightPixels: item.colliderHeightPixels }),
       })),
       // The coin dispensed by coin blocks and hidden blocks needs its own
       // actor definition.
@@ -2599,8 +2817,15 @@ function levelInputFromCells(
     ...(cannonSpawners.length > 0
       ? { timedHazardProjectileSpawners: cannonSpawners }
       : {}),
+    ...(firebars.length > 0 ? { firebars } : {}),
+    ...(podoboos.length > 0 ? { podoboos } : {}),
+    ...(platforms.length > 0 ? { platforms } : {}),
   };
 }
+
+// Editor mechanism tuning: a mid-length firebar and the classic 3-tile lift.
+const editorFirebarOrbCount = 6;
+const editorLiftWidthTiles = 3;
 
 function cellsFromLevelInput(input: LevelSpecInput): {
   cells: string[][];
@@ -2633,6 +2858,35 @@ function cellsFromLevelInput(input: LevelSpecInput): {
     if (item !== undefined) {
       row[actor.x] = item.key;
     }
+  }
+
+  // Restore mechanism markers so imported levels keep their firebars,
+  // podoboos and lifts through an editing round trip. Lift kinds beyond the
+  // editor's three markers map to the closest one (an intentionally lossy
+  // simplification, like the rest of the editor round trip).
+  for (const firebar of input.firebars ?? []) {
+    const row = cells[firebar.y];
+    if (row !== undefined && row[firebar.x] !== undefined) {
+      row[firebar.x] = "firebar";
+    }
+  }
+  for (const podoboo of input.podoboos ?? []) {
+    const row = cells[height - 2];
+    if (row !== undefined && row[podoboo.x] !== undefined) {
+      row[podoboo.x] = "podoboo";
+    }
+  }
+  for (const platform of input.platforms ?? []) {
+    const row = cells[platform.y];
+    if (row === undefined || row[platform.x] === undefined) {
+      continue;
+    }
+    row[platform.x] =
+      platform.kind === "horizontal" || platform.kind === "balance"
+        ? "lifth"
+        : platform.kind === "drop"
+          ? "liftd"
+          : "liftv";
   }
 
   return { cells, width, height };

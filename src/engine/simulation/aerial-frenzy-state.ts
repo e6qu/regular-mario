@@ -25,7 +25,9 @@ const flyingCheepMinLaunchSpeed = 280;
 const flyingCheepLaunchSpeedSpreadPixels = 80;
 const flyingCheepMaxHorizontalSpeed = 40;
 // Bullet Bills streak in horizontally at the player's height from ahead.
-const bulletBillSpeedPixelsPerSecond = 130;
+// The ROM's BulletBillXSpdData ($18) is three times the walker speed ($08),
+// so with the 40 px/s patrol pace bullets fly at 120 px/s.
+const bulletBillSpeedPixelsPerSecond = 120;
 const bulletBillSpawnAheadPixels = 220;
 // Spawn cheeps a bit ahead of (or slightly behind) the player.
 const flyingCheepSpawnMinAheadPixels = -32;
