@@ -37,7 +37,7 @@ const bobAmplitudePixels = 15;
 const spawnAheadPixels = 176;
 const despawnBehindPixels = 200;
 
-export enum CheepColor {
+enum CheepColor {
   Grey = "grey",
   Red = "red",
 }
@@ -74,7 +74,7 @@ export function makeEmptyCheepFrenzyState(): CheepFrenzyState {
   };
 }
 
-export function assertValidCheepFrenzyState(
+function assertValidCheepFrenzyState(
   candidate: unknown,
 ): asserts candidate is CheepFrenzyState {
   if (typeof candidate !== "object" || candidate === null) {
@@ -191,6 +191,7 @@ export function resolveCheepFrenzyState(
   frameDurationSeconds: number,
   frameIndex: number,
 ): ResolvedCheepFrenzyState {
+  assertValidCheepFrenzyState(previousState);
   const active = frenzyIsActive(levelSpec, player);
 
   // Move + cull existing cheeps (they persist even after leaving the region).

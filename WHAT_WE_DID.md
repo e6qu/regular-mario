@@ -5,6 +5,57 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — Every SMB mechanic and enemy, for every level
+
+Nine-commit pass that closes the gap between the decoded levels and the full
+original game. All facts sourced from the SMBDIS disassembly (the project's
+cited RE source) and validated by re-decoding the user's ROM; only numeric
+data committed.
+
+- **Complete terrain decoding**: header semantics (timer/entrance/scenery/
+  style), the 16 TerrainRenderBits floor/ceiling patterns with mid-level
+  alter-attributes (castles and undergrounds finally have their ceilings and
+  thick floors), tree/mushroom ledges, bullet-bill cannon columns, bridges,
+  exact pipe heights, fixed-row ?-block rows, springs (Y/y), vine bricks (H),
+  hidden coin/1-up blocks (i/I), power-up bricks (m), castle demoted to
+  scenery. Stream-ordered, **world-scoped area connections**: every warp pipe,
+  side exit, intro pipe and vine resolves its true destination; the shared
+  underground bonus room returns each world to its own level; warp zones
+  derive {4,3,2}/{-,5,-}/{8,7,6} exactly like the game; sub-areas materialize
+  per world (52 levels).
+- **Full enemy roster**: red Koopas turn at ledges; Paratroopas are winged
+  armored enemies (glider/vertical/hopper) whose first stomp drops the wings;
+  Spinies hurt when stomped; the Lakitu id bug ($14 vs $11) is fixed so
+  4-1/6-1/8-2 get theirs; Piranha Plants auto-spawn in every pipe outside 1-1
+  and hold while the player is near.
+- **Castle hazards**: rotating firebars ($1B-$1F variants, ~205/146-frame
+  revolutions, 6/12 orbs) and leaping podoboos — both pure functions of the
+  frame (replay-exact, no new serialized state).
+- **Moving lift platforms**: vertical/horizontal oscillators, wrapping
+  elevators, drop lifts, rope-linked balance pairs that detach past the rope
+  limit; the player lands on, rides, and is carried by them.
+- **Aerial frenzies**: leaping flying-Cheeps over the bridge levels and
+  offscreen Bullet Bill volleys (worlds 5+ only — the ROM's world gate is why
+  1-3 and 5-3 share an area but only 5-3 gets bullets). Both stompable.
+- **Bowser guards every castle**: spiky (stomping hurts), five fireballs to
+  fell (new multi-hit tracking), flame volleys from the $15 spawners, hammers
+  from world 6 (throwing-enemy variant); the **axe ends the level** where the
+  original's bridge chop does, behind a real plank bridge.
+- **Castle maze loops**: the LoopCmd checkpoints for 4-4, 7-4 (two three-part
+  groups) and 8-4's pipe-gated water maze — wrong row ⇒ back four pages.
+- **Vines & coin heavens**: vine climbs transfer to the cloud bonus areas
+  (and 4-2's {8,7,6} warp zone) via a synthetic pipe entry; cloud areas use
+  the cloud terrain override and return the player to their source level's
+  entrance page when they drop off the end.
+- **Tiered hazard damage**: hammers/bullets/cheeps/flames/hazard tiles now
+  shrink big Mario into the recovery window instead of defeating outright;
+  recovery and star protect.
+- **Skin coverage**: parody sprites for the new cast (red snappers, urchin,
+  castle warden, bullet slug, driftwood cannons, vine springs, plank
+  bridges); hidden blocks exempted from sprite-coverage validation (they're
+  invisible). All 52 levels import, boot, and play; 709 unit + 100 browser
+  tests green.
+
 ## 2026-07-06 — Deploy stamp, level-complete UX, water world & shabby soundtrack
 
 - **Deploy-info footer**: every page stamps the deployed commit SHA + build time

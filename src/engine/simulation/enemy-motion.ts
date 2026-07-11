@@ -127,7 +127,7 @@ export type AerialThrowingEnemyActorState = {
 // A stationary carnivorous plant that rises out of a pipe and retreats on a
 // timer. `baseY` is its retracted (hidden) position; `phase` counts frames
 // through the emerge/pause/retreat/pause cycle.
-export type PiranhaPlantActorState = {
+type PiranhaPlantActorState = {
   readonly entityId: EntityId;
   readonly position: {
     readonly x: PixelPosition;
@@ -2007,6 +2007,44 @@ function stepArmoredEnemyActor(
   };
 }
 
+// Shared horizontal motion for winged (airborne) armored enemies: advance at
+// the given speed, reversing at walls and world edges, never falling.
+function stepWingedHorizontal(
+  armoredActor: ArmoredEnemyActorState,
+  speed: VelocityPixelsPerSecond,
+  levelSpec: LevelSpec,
+  frameDurationSeconds: number,
+): { readonly nextX: number; readonly nextDirection: EnemyPatrolDirection } {
+  const direction = makeEnemyPatrolDirectionFromVelocity(
+    armoredActor.velocity.x,
+  );
+  const attemptedPositionX =
+    armoredActor.position.x +
+    makeEnemyPatrolDirectionSign(direction) * speed * frameDurationSeconds;
+  let nextDirection = direction;
+  let nextX: number = armoredActor.position.x;
+  if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
+    const asPatrol: EnemyPatrolActorState = {
+      entityId: armoredActor.entityId,
+      position: armoredActor.position,
+      velocity: { x: armoredActor.velocity.x, y: zeroEnemyVerticalVelocity },
+      direction,
+    };
+    const obstacleCheck = checkEnemyMotionObstacle(
+      asPatrol,
+      attemptedPositionX,
+      levelSpec,
+      false,
+    );
+    if (obstacleCheck.blocked) {
+      nextDirection = obstacleCheck.nextDirection;
+    } else {
+      nextX = attemptedPositionX;
+    }
+  }
+  return { nextX, nextDirection };
+}
+
 // Airborne Paratroopa movement, by flight pattern: "horizontal" glides side to
 // side with a gentle bob, "vertical" oscillates in place over a tall range,
 // "hop" bounds along the ground taking off again on every landing.
@@ -2038,35 +2076,12 @@ function stepWingedArmoredEnemyActor(
   }
 
   if (pattern === "hop") {
-    const direction = makeEnemyPatrolDirectionFromVelocity(
-      armoredActor.velocity.x,
+    const { nextX, nextDirection } = stepWingedHorizontal(
+      armoredActor,
+      movementConstants.enemyPatrolSpeed,
+      levelSpec,
+      frameDurationSeconds,
     );
-    const attemptedPositionX =
-      armoredActor.position.x +
-      makeEnemyPatrolDirectionSign(direction) *
-        movementConstants.enemyPatrolSpeed *
-        frameDurationSeconds;
-    let nextDirection = direction;
-    let nextX: number = armoredActor.position.x;
-    if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
-      const asPatrol: EnemyPatrolActorState = {
-        entityId: armoredActor.entityId,
-        position: armoredActor.position,
-        velocity: { x: armoredActor.velocity.x, y: armoredActor.velocity.y },
-        direction,
-      };
-      const obstacleCheck = checkEnemyMotionObstacle(
-        asPatrol,
-        attemptedPositionX,
-        levelSpec,
-        false,
-      );
-      if (obstacleCheck.blocked) {
-        nextDirection = obstacleCheck.nextDirection;
-      } else {
-        nextX = attemptedPositionX;
-      }
-    }
     const moved = resolveEnemyMotionFields(
       armoredActor.position.y,
       armoredActor.velocity.y,
@@ -2098,35 +2113,12 @@ function stepWingedArmoredEnemyActor(
   }
 
   // "horizontal": glide like a flying enemy, bobbing around the spawn height.
-  const direction = makeEnemyPatrolDirectionFromVelocity(
-    armoredActor.velocity.x,
+  const { nextX, nextDirection } = stepWingedHorizontal(
+    armoredActor,
+    movementConstants.flyingEnemyPatrolSpeed,
+    levelSpec,
+    frameDurationSeconds,
   );
-  const attemptedPositionX =
-    armoredActor.position.x +
-    makeEnemyPatrolDirectionSign(direction) *
-      movementConstants.flyingEnemyPatrolSpeed *
-      frameDurationSeconds;
-  let nextDirection = direction;
-  let nextX: number = armoredActor.position.x;
-  if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
-    const asPatrol: EnemyPatrolActorState = {
-      entityId: armoredActor.entityId,
-      position: armoredActor.position,
-      velocity: { x: armoredActor.velocity.x, y: zeroEnemyVerticalVelocity },
-      direction,
-    };
-    const obstacleCheck = checkEnemyMotionObstacle(
-      asPatrol,
-      attemptedPositionX,
-      levelSpec,
-      false,
-    );
-    if (obstacleCheck.blocked) {
-      nextDirection = obstacleCheck.nextDirection;
-    } else {
-      nextX = attemptedPositionX;
-    }
-  }
   const phaseIncrement =
     (2 * Math.PI) / movementConstants.flyingEnemyVerticalPeriodFrames;
   const nextY = requireEnemyPixelPosition(
@@ -2164,7 +2156,7 @@ const shellReviveFrames = 300;
 const shellReviveShakeFrames = 48;
 
 // True while a resting shell is in its pre-wake wobble window.
-export function isShellReviving(armoredActor: ArmoredEnemyActorState): boolean {
+function isShellReviving(armoredActor: ArmoredEnemyActorState): boolean {
   return (
     armoredActor.behavior === ArmoredEnemyBehavior.Shell &&
     armoredActor.velocity.x === 0 &&

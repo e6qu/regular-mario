@@ -40,7 +40,7 @@ type ActorPlacementInput = {
 
 // "down" = top-entry (press down); "left"/"right" = walk into the pipe mouth
 // while moving that way.
-export type PipeEntryDirection = "down" | "left" | "right";
+type PipeEntryDirection = "down" | "left" | "right";
 
 function resolvePipeEntryDirection(
   value: string | undefined,
@@ -149,7 +149,7 @@ type ActorDefinitionInput = {
 };
 
 // Flight pattern for a winged armored enemy (Paratroopa variants).
-export type WingedFlightPattern = "horizontal" | "vertical" | "hop";
+type WingedFlightPattern = "horizontal" | "vertical" | "hop";
 
 const maxProjectileHitPoints = 10;
 
@@ -235,7 +235,7 @@ export type VineTransitionInput = {
   readonly targetTileY: number;
 };
 
-export type VineTransitionDefinition = VineTransitionInput;
+type VineTransitionDefinition = VineTransitionInput;
 
 export type FallExitTransitionInput = {
   readonly targetLevelName: string;
@@ -243,7 +243,7 @@ export type FallExitTransitionInput = {
   readonly targetTileY: number;
 };
 
-export type FallExitTransitionDefinition = FallExitTransitionInput;
+type FallExitTransitionDefinition = FallExitTransitionInput;
 
 // Castle maze loop checkpoints (4-4 / 7-4 / 8-4): crossing the check column
 // on the wrong row sends the player back four pages. Multi-part groups
@@ -258,7 +258,7 @@ export type LoopZoneInput = {
   readonly groupSize: number;
 };
 
-export type LoopZoneDefinition = {
+type LoopZoneDefinition = {
   readonly loopZoneId: string;
   readonly checkTileX: number;
   readonly requiredRowMin: number;
@@ -283,7 +283,7 @@ export type PlatformInput = {
   readonly balancePartnerId?: string;
 };
 
-export type PlatformKind =
+type PlatformKind =
   | "vertical"
   | "horizontal"
   | "lift-up"
@@ -307,7 +307,7 @@ export type CheepFrenzyInput = {
   readonly endTileX: number;
 };
 
-export type CheepFrenzyRegion = {
+type CheepFrenzyRegion = {
   readonly startTileX: number;
   readonly endTileX: number;
 };
@@ -323,10 +323,10 @@ export type FirebarInput = {
   readonly speed: string; // "slow" | "fast"
 };
 
-export type FirebarRotationDirection = "clockwise" | "counter-clockwise";
-export type FirebarRotationSpeed = "slow" | "fast";
+type FirebarRotationDirection = "clockwise" | "counter-clockwise";
+type FirebarRotationSpeed = "slow" | "fast";
 
-export type FirebarDefinition = {
+type FirebarDefinition = {
   readonly firebarId: string;
   readonly anchorTileX: number;
   readonly anchorTileY: number;
@@ -343,7 +343,7 @@ export type PodobooInput = {
   readonly phaseOffsetFrames: number;
 };
 
-export type PodobooDefinition = {
+type PodobooDefinition = {
   readonly podobooId: string;
   readonly tileX: number;
   readonly phaseOffsetFrames: number;

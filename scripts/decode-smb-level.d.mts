@@ -58,15 +58,15 @@ export type DecodedTransition = {
 };
 
 export type DecodedCannonProjectile = {
-  readonly spawnerId: string;
   readonly x: number;
   readonly y: number;
+  readonly spawnerId: string;
   readonly direction: "left" | "right";
-  readonly intervalFrames: number;
-  readonly initialDelayFrames: number;
-  readonly speedPixelsPerSecond: number;
   readonly widthPixels: number;
   readonly heightPixels: number;
+  readonly speedPixelsPerSecond: number;
+  readonly intervalFrames: number;
+  readonly initialDelayFrames: number;
   readonly lifetimeFrames: number;
 };
 

@@ -1,62 +1,38 @@
 # DO_NEXT.md
 
-## Water / enemy mechanics — landed, and one honest gap
+## Landed: every SMB mechanic and enemy, for every level (2026-07-11)
 
-Landed (all measured/tested, not guessed):
+The full-roster pass is in (see WHAT_WE_DID.md for the commit-by-commit
+breakdown): complete terrain decoding, the whole enemy cast, firebars,
+podoboos, lifts and balance pairs, aerial frenzies, Bowser + axe endings,
+castle maze loops, vines/coin heavens with returns, correct warp zones and
+per-world bonus areas, and tiered hazard damage. 52 decoded levels, all
+importing and booting; 709 unit + 100 browser tests green.
 
-- **Enemies in water/underground/castle levels.** The ROM decoder now emits Buzzy
-  Beetle, Hammer Bro, green Paratroopa, Lakitu, red Koopa, and the water Blooper
-  (squid) — e.g. 2-2 has 14 Bloopers, castle 8-4 has a Hammer Bro + Buzzy Beetles
-  - Paratroopas. Authored parody fish/squid sprites cover them.
-- **Underwater rules match SMB.** You can't stomp underwater (swim, don't stomp),
-  so Bloopers/Cheeps harm on contact; instead a water level starts Mario with
-  **fire power** so he can fight them. A drawn **water surface** (jagged waterline
-  at grid row 2, below the HUD) with a matching swim clamp keeps him from swimming
-  off the top. A Blooper pursues the swimmer in 2D but gently (avoidable).
-- **Buzzy Beetle is fireproof** (fireballs bounce off; still shell-stompable on land).
-- **Full-height playfield.** Levels are 15 grid rows (2 HUD rows + a 13-row
-  playfield with the standard two-row ground), matching the NES — previously the
-  ground was a single-row sliver, which read as "too short."
+## Known deltas to polish next (honest list)
 
-**Cheep-cheep schools — already implemented.** (An earlier note here wrongly
-called this a gap.) The swimming Cheep frenzy is a full, ROM-faithful feature:
-`computeCheepFrenzy` decodes the frenzy span from the object stream's start/stop
-commands (`special13:9`/`:10`) into `metadata.cheepFrenzy`, and
-`cheep-frenzy-state.ts` spawns cheeps every 32 frames into a 3-slot buffer ahead
-of the player (ROM Y-bands + drift speeds), rendered and unit-tested. The 2-2 and
-7-3 underwater areas (which SMB shares) run it over tiles 80–192. `smb-2-3`'s
-committed metadata had gone **stale** (missing `cheepFrenzy`) — now refreshed, so
-the displayed "2-2" schools cheeps like 7-3. Directly-placed cheeps (`F`) still
-decode to 0 because these areas use the frenzy, not stream placements — expected.
-
-## Clearest next item: finish the warp-pipe return trip
-
-The round trip is now **mechanically possible** but not yet exposed/wired. Landed:
-
-- **Walk-in pipe entry** — pipes carry an `entryDirection` ("down" default, or a
-  sideways "left"/"right" walk-in). The pipe state machine enters a sideways pipe
-  when the player moves into its mouth at pace (unit-tested in `pipe-state.test.ts`).
-- **Mutual addressability** — a multi-area level now includes its main area in the
-  warp map, so a sub-area pipe can warp back to it (the return target exists).
-
-Remaining:
-
-- **Editor UI** to place a walk-in/return pipe and point it at the main area
-  (today the editor only creates down-warps).
-- **Official warp-zone content**: the decoded coin room needs a walk-in return pipe
-  wired to the source, and the shared warp zone's **world-indexed return
-  connections** still need decoding — with **ROM-verified** landing placement back
-  near the source flag. That last part needs the ROM + an in-game playthrough and
-  can't be verified here; don't claim round-trip parity until it is.
-
-## Other candidates
-
-- **Exact ROM koopa/star/1-up sprites for the ROM skin.** They never appear in 1-1
-  memory to capture; source tile numbers from the SMB disassembly graphics tables
-  or capture from a later level, verify visually, then map them in the rom asset set.
-- **Fidelity polish:** measured NES movement constants, exact per-state colliders/start
-  placement, camera left-lock, HUD glyph/format parity, animation/palette timing, and
-  audio parity (user recordings, then an APU-accurate renderer from the user's own ROM).
-- **Frame verification:** reconcile the extraction palette with `verify:smb-frames`
-  (references and extracted sprites use different NES palette RGBs) to hit 0-diff checkpoints.
-- More authored levels; route/enemy-placement tuning after playtesting.
+- **Progression through shared flag tails.** 1-2's exit pipe lands in 1-1's
+  area at page 11 (exactly what the ROM does). Finishing there counts as
+  finishing "1-1", so "Next level" offers 1-2 again. The shell needs to carry
+  the originating level through cross-level warps for HUD numbering and
+  next-level sequencing.
+- **Bowser cinematics.** The axe ends the level at the right place, but the
+  bridge-collapse + Bowser-fall sequence and the rescue-retainer room ($35)
+  are not staged; the retainer needs an original character + message.
+- **Lakitu's spiny eggs.** Lakitu throws plain falling projectiles; the eggs
+  don't yet hatch into walking Spinies on landing.
+- **Winged/behavior visuals.** Paratroopas render with the same body as
+  walking koopas (no wings), Bowser variants share the warden sprite, and
+  balance-lift ropes/pulleys aren't drawn.
+- **Frenzy/hazard tuning.** Cannon/flame cadences, flying-cheep arcs and lift
+  speeds use sensible constants; measuring the originals frame-by-frame would
+  tighten feel. Star currently protects from firebars (as in SMB) via the
+  generic hazard gate — verify edge cases.
+- **8-4 water section.** The water sub-area decodes with swimming + firebars;
+  a full playthrough of the maze ordering (loop checks + pipe picks) still
+  needs a human run.
+- **Editor exposure.** The editor can't yet place the new mechanics
+  (platforms, firebars, podoboos, loop zones, frenzies, Bowser, axe).
+- Earlier backlog still valid: exact ROM movement constants/colliders, ROM
+  skin sprites for koopa/star/1-up (+ the new cast), frame verification,
+  audio parity, walk-in pipe editor UI.

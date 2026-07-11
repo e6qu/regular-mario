@@ -9,6 +9,10 @@ import {
   computePodobooPositions,
   playerTouchesFlameHazard,
 } from "./flame-hazards";
+import {
+  makeFlatLevelInput,
+  requireMechanicsLevelSpec,
+} from "./mechanics-test-support";
 import { makeInitialPlayerSimulationState } from "./player-state";
 
 const frame = (value: number): FrameIndex => value as FrameIndex;
@@ -16,41 +20,19 @@ const frame = (value: number): FrameIndex => value as FrameIndex;
 function makeFlameLevelInput(
   overrides: Partial<LevelSpecInput> = {},
 ): LevelSpecInput {
-  const width = 16;
-  const height = 15;
-  const rows = Array.from({ length: height }, (_, rowIndex) =>
-    Array.from({ length: width }, () => (rowIndex >= 13 ? "ground" : "empty")),
-  );
-  return {
-    widthTiles: width,
-    heightTiles: height,
-    tileSizePixels: 16,
-    tileDefinitions: [
-      { tileId: "empty", collision: "empty" },
-      { tileId: "ground", collision: "solid" },
-    ],
-    actorDefinitions: [
-      { actorId: "player", role: "player-start" },
-      { actorId: "gate", role: "exit" },
-    ],
-    tiles: rows,
-    actors: [
-      { entityId: "player-1", actorId: "player", x: 1, y: 12 },
-      { entityId: "exit-1", actorId: "gate", x: 14, y: 12 },
-    ],
-    ...overrides,
-  };
+  return makeFlatLevelInput(16, overrides);
 }
 
-function requireLevelSpec(input: LevelSpecInput) {
-  const result = makeLevelSpec(input);
-  if (!result.ok) {
-    throw new Error(
-      `expected level spec: ${result.errors.map((error) => error.message).join(", ")}`,
-    );
-  }
-  return result.value;
-}
+const requireLevelSpec = requireMechanicsLevelSpec;
+
+const slowClockwiseFirebar = {
+  firebarId: "bar-1",
+  x: 4,
+  y: 8,
+  orbCount: 6,
+  direction: "clockwise",
+  speed: "slow",
+} as const;
 
 describe("flame hazards", () => {
   it("rejects malformed firebar definitions", () => {
@@ -73,18 +55,7 @@ describe("flame hazards", () => {
 
   it("rotates firebar orbs around the anchor block", () => {
     const levelSpec = requireLevelSpec(
-      makeFlameLevelInput({
-        firebars: [
-          {
-            firebarId: "bar-1",
-            x: 4,
-            y: 8,
-            orbCount: 6,
-            direction: "clockwise",
-            speed: "slow",
-          },
-        ],
-      }),
+      makeFlameLevelInput({ firebars: [slowClockwiseFirebar] }),
     );
 
     const orbsAtStart = computeFirebarOrbs(levelSpec, frame(0));
@@ -100,16 +71,7 @@ describe("flame hazards", () => {
     // Counter-clockwise mirrors the vertical direction.
     const ccwSpec = requireLevelSpec(
       makeFlameLevelInput({
-        firebars: [
-          {
-            firebarId: "bar-1",
-            x: 4,
-            y: 8,
-            orbCount: 6,
-            direction: "counter-clockwise",
-            speed: "slow",
-          },
-        ],
+        firebars: [{ ...slowClockwiseFirebar, direction: "counter-clockwise" }],
       }),
     );
     const ccwQuarter = computeFirebarOrbs(ccwSpec, frame(51));
@@ -137,18 +99,7 @@ describe("flame hazards", () => {
 
   it("reports player contact with a firebar orb", () => {
     const levelSpec = requireLevelSpec(
-      makeFlameLevelInput({
-        firebars: [
-          {
-            firebarId: "bar-1",
-            x: 4,
-            y: 8,
-            orbCount: 6,
-            direction: "clockwise",
-            speed: "slow",
-          },
-        ],
-      }),
+      makeFlameLevelInput({ firebars: [slowClockwiseFirebar] }),
     );
     const player = makeInitialPlayerSimulationState();
     // The player spawns far from the firebar: no contact at frame 0.

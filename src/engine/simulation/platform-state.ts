@@ -30,7 +30,7 @@ const balanceDetachFallAcceleration = 800;
 // in one frame and still snap onto it.
 const landingTolerancePixels = 10;
 
-export type PlatformRuntimeState = {
+type PlatformRuntimeState = {
   readonly platformId: string;
   // Runtime offsets on top of the spec-defined base position: drop lifts and
   // fallen balance platforms accumulate fallOffsetY; balance pairs accumulate

@@ -2,9 +2,11 @@
 
 ## Known Bugs
 
-- None currently recorded. (2026-07-06: fixed grounded-Koopa stomp reading as a
-  contact death, a missing rebound when shelling/kicking, and blurry HiDPI/retina
-  rendering.)
+- **Shared flag-tail progression** (2026-07-11): finishing 1-2 through its
+  exit pipe lands in 1-1's area (as the ROM does) — completing that flag
+  registers as completing 1-1, so "Next level" offers 1-2 again. The shell
+  needs to carry the originating level through cross-level warps. Same
+  applies to the other pipe-exit levels (2-2, 4-2, 7-2).
 
 ## Risks To Track
 
@@ -13,15 +15,15 @@
   stay under ignored `.cache/user-levels/`. Committed metadata is numeric-only;
   extraction/decoder scripts carry no copyrighted bytes. CI and fresh clones can't
   run the faithful mode and must skip ROM-dependent checks gracefully.
-- **Warp pipes are forward-only.** The return trip (sideways walk-in pipe into a
-  world-indexed warp zone) is not modeled — don't claim round-trip warp parity until
-  it's implemented and ROM-verified. See `DO_NEXT.md`.
-- **Exact-mechanics claims need evidence** (tests, measurements, or source refs).
-  Broader parity — per-state colliders, movement constants, timer conversions,
-  enemy/behavior timing — is not yet proven from measured source data.
-- **ROM skin gaps:** koopa/star/1-up render as vector fallbacks (not in 1-1 memory
-  to capture); exact ROM sprites still need disassembly tile numbers or a
-  later-level capture.
+- **Mechanics tuning is sensible, not measured.** Cannon/flame cadences,
+  flying-cheep arcs, lift speeds/amplitudes, podoboo leaps and Bowser's feel
+  use documented structure + chosen constants; frame-by-frame measurement
+  against the original would tighten them. Exact movement constants,
+  per-state colliders and timer conversions remain unproven.
+- **Uncinematic castle clear.** The axe ends the level correctly but without
+  the bridge-collapse/Bowser-fall staging or a rescue room; Lakitu's eggs
+  don't hatch into Spinies yet. See DO_NEXT.md.
+- **8-4 needs a human playthrough** (maze ordering, water section, loops).
 - **Supply chain:** record a dependency's license/purpose/maintenance/security
   before adding it; the license/age/vulnerability gates need registry access. No
   copyrighted fixtures in importers.

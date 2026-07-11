@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { makeLevelSpec } from "../domain/level-spec";
 import type { LevelSpecInput, PlatformInput } from "../domain/level-spec";
-import type { FrameIndex, PixelPosition } from "../domain/units";
+import type { FrameIndex } from "../domain/units";
+import {
+  makeFlatLevelInput,
+  makePlayerAt,
+  requireMechanicsLevelSpec,
+} from "./mechanics-test-support";
 import { VerticalMovementState } from "./movement-model";
 import {
   computePlatformPlacements,
   makeEmptyPlatformsState,
   resolvePlatformsState,
 } from "./platform-state";
-import { makeInitialPlayerSimulationState } from "./player-state";
 
 const frame = (value: number): FrameIndex => value as FrameIndex;
 const nominalFrameMilliseconds = 1000 / 60;
@@ -17,49 +20,11 @@ const nominalFrameMilliseconds = 1000 / 60;
 function makePlatformLevelInput(
   platforms: readonly PlatformInput[],
 ): LevelSpecInput {
-  const width = 32;
-  const height = 15;
-  const rows = Array.from({ length: height }, (_, rowIndex) =>
-    Array.from({ length: width }, () => (rowIndex >= 13 ? "ground" : "empty")),
-  );
-  return {
-    widthTiles: width,
-    heightTiles: height,
-    tileSizePixels: 16,
-    tileDefinitions: [
-      { tileId: "empty", collision: "empty" },
-      { tileId: "ground", collision: "solid" },
-    ],
-    actorDefinitions: [
-      { actorId: "player", role: "player-start" },
-      { actorId: "gate", role: "exit" },
-    ],
-    tiles: rows,
-    actors: [
-      { entityId: "player-1", actorId: "player", x: 1, y: 12 },
-      { entityId: "exit-1", actorId: "gate", x: 30, y: 12 },
-    ],
-    platforms,
-  };
+  return makeFlatLevelInput(32, { platforms });
 }
 
-function requireLevelSpec(input: LevelSpecInput) {
-  const result = makeLevelSpec(input);
-  if (!result.ok) {
-    throw new Error(
-      `expected level spec: ${result.errors.map((error) => error.message).join(", ")}`,
-    );
-  }
-  return result.value;
-}
-
-function playerAt(x: number, y: number) {
-  const player = makeInitialPlayerSimulationState();
-  return {
-    ...player,
-    position: { x: x as PixelPosition, y: y as PixelPosition },
-  };
-}
+const requireLevelSpec = requireMechanicsLevelSpec;
+const playerAt = makePlayerAt;
 
 describe("platform state", () => {
   it("oscillates a vertical lift around its start and returns after a period", () => {
@@ -175,40 +140,36 @@ describe("platform state", () => {
       ]),
     );
     let state = makeEmptyPlatformsState(levelSpec);
-    // Ride the left platform (top y=96, x=96..128).
-    for (let i = 0; i < 60; i += 1) {
-      const placements = computePlatformPlacements(state, levelSpec, frame(i));
-      const leftTop = placements[0]?.y ?? 0;
-      const rider = playerAt(100, leftTop - 22);
-      state = resolvePlatformsState(
-        state,
-        levelSpec,
-        rider,
-        nominalFrameMilliseconds,
-        frame(i),
-      ).state;
-    }
+    // Riding the left platform (top y=96, x=96..128) pulls it down and its
+    // partner up; past the rope limit both detach and fall.
+    const rideLeftPlatform = (fromFrame: number, toFrame: number) => {
+      for (let i = fromFrame; i < toFrame; i += 1) {
+        const placements = computePlatformPlacements(
+          state,
+          levelSpec,
+          frame(i),
+        );
+        const leftTop = placements[0]?.y ?? 0;
+        const rider = playerAt(100, leftTop - 22);
+        state = resolvePlatformsState(
+          state,
+          levelSpec,
+          rider,
+          nominalFrameMilliseconds,
+          frame(i),
+        ).state;
+        if (state.platforms.every((p) => p.detached)) {
+          break;
+        }
+      }
+    };
+    rideLeftPlatform(0, 60);
     const left = state.platforms.find((p) => p.platformId === "left");
     const right = state.platforms.find((p) => p.platformId === "right");
     expect(left?.balanceOffsetY ?? 0).toBeGreaterThan(0);
     expect(right?.balanceOffsetY ?? 0).toBeLessThan(0);
 
-    // Keep riding until past the rope limit: both detach and fall.
-    for (let i = 60; i < 400; i += 1) {
-      const placements = computePlatformPlacements(state, levelSpec, frame(i));
-      const leftTop = placements[0]?.y ?? 0;
-      const rider = playerAt(100, leftTop - 22);
-      state = resolvePlatformsState(
-        state,
-        levelSpec,
-        rider,
-        nominalFrameMilliseconds,
-        frame(i),
-      ).state;
-      if (state.platforms.every((p) => p.detached)) {
-        break;
-      }
-    }
+    rideLeftPlatform(60, 400);
     expect(state.platforms.some((p) => p.detached)).toBe(true);
   });
 });

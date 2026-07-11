@@ -384,6 +384,18 @@ const enemyKindSymbol = {
 };
 
 // ---- Render objects into a symbol grid ------------------------------------
+// Sideways pipe mouths (intro and bonus-exit pipes): a two-column left-facing
+// mouth with the vertical shaft above its right column.
+function paintSidePipeMouth(grid, col, mouthTop) {
+  set(grid, col, mouthTop, "{");
+  set(grid, col, mouthTop + 1, "d");
+  set(grid, col + 1, mouthTop, "}");
+  set(grid, col + 1, mouthTop + 1, "D");
+  for (let r = rowOffset; r < mouthTop; r += 1) {
+    set(grid, col + 1, r, "p");
+  }
+}
+
 function makeGrid(widthCols) {
   return Array.from({ length: gridHeight }, () =>
     new Array(widthCols).fill(emptySymbol),
@@ -559,14 +571,11 @@ function renderArea(header, objects, enemies, options = {}) {
         // Side pipe out of a bonus room: vertical shaft from the top of the
         // screen with a left-facing mouth. Mouth rows are (length-2, length-1)
         // in playfield coordinates.
-        const mouthTop = Math.max((o.low & 0xf) - 2, 0) + rowOffset;
-        set(grid, o.col, mouthTop, "{");
-        set(grid, o.col, mouthTop + 1, "d");
-        set(grid, o.col + 1, mouthTop, "}");
-        set(grid, o.col + 1, mouthTop + 1, "D");
-        for (let r = rowOffset; r < mouthTop; r += 1) {
-          set(grid, o.col + 1, r, "p");
-        }
+        paintSidePipeMouth(
+          grid,
+          o.col,
+          Math.max((o.low & 0xf) - 2, 0) + rowOffset,
+        );
         break;
       }
       case "pulley-rope":
@@ -600,14 +609,7 @@ function renderArea(header, objects, enemies, options = {}) {
         if (special === "flagpole") {
           for (let r = 2; r <= floorRow - 1; r += 1) set(grid, o.col, r, "|");
         } else if (special === "intro-pipe") {
-          const mouthTop = introPipeMouthRow + rowOffset;
-          set(grid, o.col, mouthTop, "{");
-          set(grid, o.col, mouthTop + 1, "d");
-          set(grid, o.col + 1, mouthTop, "}");
-          set(grid, o.col + 1, mouthTop + 1, "D");
-          for (let r = rowOffset; r < mouthTop; r += 1) {
-            set(grid, o.col + 1, r, "p");
-          }
+          paintSidePipeMouth(grid, o.col, introPipeMouthRow + rowOffset);
         }
         // axe/chain/castle-bridge/scroll-locks/frenzies/loop commands carry
         // no terrain; they become mechanics metadata in later passes.

@@ -1104,32 +1104,21 @@ function parseVineTransitionArray(
   path: string,
   errors: ValidationError[],
 ): readonly VineTransitionInput[] {
-  if (input === undefined) {
-    return [];
-  }
-  if (!Array.isArray(input)) {
-    errors.push(
-      makeValidationError(
-        ValidationErrorCode.VglcMetadataInvalid,
-        `${path} must be an array of vine transition metadata objects.`,
-        path,
-      ),
-    );
+  const values = requireMetadataArray(input, path, "vine transition", errors);
+  if (values === undefined) {
     return [];
   }
   const vines: VineTransitionInput[] = [];
-  for (const [index, value] of input.entries()) {
+  for (const [index, value] of values.entries()) {
     const itemPath = `${path}[${index}]`;
-    const candidate = value as Readonly<Record<string, unknown>> | null;
-    if (
-      typeof candidate !== "object" ||
-      candidate === null ||
-      typeof candidate.x !== "number" ||
-      typeof candidate.y !== "number" ||
-      typeof candidate.targetLevelName !== "string" ||
-      typeof candidate.targetTileX !== "number" ||
-      typeof candidate.targetTileY !== "number"
-    ) {
+    const candidate = metadataItemFields(value, {
+      x: "number",
+      y: "number",
+      targetLevelName: "string",
+      targetTileX: "number",
+      targetTileY: "number",
+    });
+    if (candidate === undefined) {
       errors.push(
         makeValidationError(
           ValidationErrorCode.VglcMetadataInvalid,
@@ -1140,11 +1129,11 @@ function parseVineTransitionArray(
       continue;
     }
     vines.push({
-      x: candidate.x,
-      y: candidate.y,
-      targetLevelName: candidate.targetLevelName,
-      targetTileX: candidate.targetTileX,
-      targetTileY: candidate.targetTileY,
+      x: candidate.x as number,
+      y: candidate.y as number,
+      targetLevelName: candidate.targetLevelName as string,
+      targetTileX: candidate.targetTileX as number,
+      targetTileY: candidate.targetTileY as number,
     });
   }
   return vines;
@@ -1187,32 +1176,21 @@ function parseLoopZoneArray(
   path: string,
   errors: ValidationError[],
 ): readonly LoopZoneInput[] {
-  if (input === undefined) {
-    return [];
-  }
-  if (!Array.isArray(input)) {
-    errors.push(
-      makeValidationError(
-        ValidationErrorCode.VglcMetadataInvalid,
-        `${path} must be an array of loop zone metadata objects.`,
-        path,
-      ),
-    );
+  const values = requireMetadataArray(input, path, "loop zone", errors);
+  if (values === undefined) {
     return [];
   }
   const loopZones: LoopZoneInput[] = [];
-  for (const [index, value] of input.entries()) {
+  for (const [index, value] of values.entries()) {
     const itemPath = `${path}[${index}]`;
-    const candidate = value as Readonly<Record<string, unknown>> | null;
-    if (
-      typeof candidate !== "object" ||
-      candidate === null ||
-      typeof candidate.checkTileX !== "number" ||
-      typeof candidate.requiredRowMin !== "number" ||
-      typeof candidate.requiredRowMax !== "number" ||
-      typeof candidate.groupId !== "string" ||
-      typeof candidate.groupSize !== "number"
-    ) {
+    const candidate = metadataItemFields(value, {
+      checkTileX: "number",
+      requiredRowMin: "number",
+      requiredRowMax: "number",
+      groupId: "string",
+      groupSize: "number",
+    });
+    if (candidate === undefined) {
       errors.push(
         makeValidationError(
           ValidationErrorCode.VglcMetadataInvalid,
@@ -1224,11 +1202,11 @@ function parseLoopZoneArray(
     }
     loopZones.push({
       loopZoneId: `vglc-smb-loop-${String(index)}`,
-      checkTileX: candidate.checkTileX,
-      requiredRowMin: candidate.requiredRowMin,
-      requiredRowMax: candidate.requiredRowMax,
-      groupId: candidate.groupId,
-      groupSize: candidate.groupSize,
+      checkTileX: candidate.checkTileX as number,
+      requiredRowMin: candidate.requiredRowMin as number,
+      requiredRowMax: candidate.requiredRowMax as number,
+      groupId: candidate.groupId as string,
+      groupSize: candidate.groupSize as number,
     });
   }
   return loopZones;
@@ -1239,31 +1217,22 @@ function parsePlatformArray(
   path: string,
   errors: ValidationError[],
 ): readonly PlatformInput[] {
-  if (input === undefined) {
-    return [];
-  }
-  if (!Array.isArray(input)) {
-    errors.push(
-      makeValidationError(
-        ValidationErrorCode.VglcMetadataInvalid,
-        `${path} must be an array of platform metadata objects.`,
-        path,
-      ),
-    );
+  const values = requireMetadataArray(input, path, "platform", errors);
+  if (values === undefined) {
     return [];
   }
   const platforms: PlatformInput[] = [];
-  for (const [index, value] of input.entries()) {
+  for (const [index, value] of values.entries()) {
     const itemPath = `${path}[${index}]`;
-    const candidate = value as Readonly<Record<string, unknown>> | null;
+    const candidate = metadataItemFields(value, {
+      id: "string",
+      kind: "string",
+      x: "number",
+      y: "number",
+      widthTiles: "number",
+    });
     if (
-      typeof candidate !== "object" ||
-      candidate === null ||
-      typeof candidate.id !== "string" ||
-      typeof candidate.kind !== "string" ||
-      typeof candidate.x !== "number" ||
-      typeof candidate.y !== "number" ||
-      typeof candidate.widthTiles !== "number" ||
+      candidate === undefined ||
       (candidate.balancePartnerId !== undefined &&
         typeof candidate.balancePartnerId !== "string")
     ) {
@@ -1277,11 +1246,11 @@ function parsePlatformArray(
       continue;
     }
     platforms.push({
-      platformId: candidate.id,
-      kind: candidate.kind,
-      x: candidate.x,
-      y: candidate.y,
-      widthTiles: candidate.widthTiles,
+      platformId: candidate.id as string,
+      kind: candidate.kind as string,
+      x: candidate.x as number,
+      y: candidate.y as number,
+      widthTiles: candidate.widthTiles as number,
       ...(candidate.balancePartnerId === undefined
         ? {}
         : { balancePartnerId: candidate.balancePartnerId }),
@@ -1292,37 +1261,69 @@ function parsePlatformArray(
 
 // Firebar/podoboo metadata is validated in depth by the level spec; the
 // importer only checks the container shape and required field types.
-function parseFirebarArray(
+
+// Shared guard for the metadata array parsers: undefined means "absent",
+// a non-array is a validation error, anything else parses per item.
+function requireMetadataArray(
   input: unknown,
   path: string,
+  subject: string,
   errors: ValidationError[],
-): readonly FirebarInput[] {
+): readonly unknown[] | undefined {
   if (input === undefined) {
-    return [];
+    return undefined;
   }
   if (!Array.isArray(input)) {
     errors.push(
       makeValidationError(
         ValidationErrorCode.VglcMetadataInvalid,
-        `${path} must be an array of firebar metadata objects.`,
+        `${path} must be an array of ${subject} metadata objects.`,
         path,
       ),
     );
+    return undefined;
+  }
+  return input as readonly unknown[];
+}
+
+// Shared per-item guard for the metadata parsers: an item must be an object
+// whose named fields carry the expected primitive types.
+function metadataItemFields(
+  value: unknown,
+  fieldTypes: Readonly<Record<string, "number" | "string">>,
+): Readonly<Record<string, unknown>> | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const candidate = value as Readonly<Record<string, unknown>>;
+  for (const [field, expectedType] of Object.entries(fieldTypes)) {
+    if (typeof candidate[field] !== expectedType) {
+      return undefined;
+    }
+  }
+  return candidate;
+}
+
+function parseFirebarArray(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): readonly FirebarInput[] {
+  const values = requireMetadataArray(input, path, "firebar", errors);
+  if (values === undefined) {
     return [];
   }
   const firebars: FirebarInput[] = [];
-  for (const [index, value] of input.entries()) {
+  for (const [index, value] of values.entries()) {
     const itemPath = `${path}[${index}]`;
-    const candidate = value as Readonly<Record<string, unknown>> | null;
-    if (
-      typeof candidate !== "object" ||
-      candidate === null ||
-      typeof candidate.x !== "number" ||
-      typeof candidate.y !== "number" ||
-      typeof candidate.orbCount !== "number" ||
-      typeof candidate.direction !== "string" ||
-      typeof candidate.speed !== "string"
-    ) {
+    const candidate = metadataItemFields(value, {
+      x: "number",
+      y: "number",
+      orbCount: "number",
+      direction: "string",
+      speed: "string",
+    });
+    if (candidate === undefined) {
       errors.push(
         makeValidationError(
           ValidationErrorCode.VglcMetadataInvalid,
@@ -1334,11 +1335,11 @@ function parseFirebarArray(
     }
     firebars.push({
       firebarId: `vglc-smb-firebar-${String(index)}`,
-      x: candidate.x,
-      y: candidate.y,
-      orbCount: candidate.orbCount,
-      direction: candidate.direction,
-      speed: candidate.speed,
+      x: candidate.x as number,
+      y: candidate.y as number,
+      orbCount: candidate.orbCount as number,
+      direction: candidate.direction as string,
+      speed: candidate.speed as string,
     });
   }
   return firebars;
@@ -1349,29 +1350,18 @@ function parsePodobooArray(
   path: string,
   errors: ValidationError[],
 ): readonly PodobooInput[] {
-  if (input === undefined) {
-    return [];
-  }
-  if (!Array.isArray(input)) {
-    errors.push(
-      makeValidationError(
-        ValidationErrorCode.VglcMetadataInvalid,
-        `${path} must be an array of podoboo metadata objects.`,
-        path,
-      ),
-    );
+  const values = requireMetadataArray(input, path, "podoboo", errors);
+  if (values === undefined) {
     return [];
   }
   const podoboos: PodobooInput[] = [];
-  for (const [index, value] of input.entries()) {
+  for (const [index, value] of values.entries()) {
     const itemPath = `${path}[${index}]`;
-    const candidate = value as Readonly<Record<string, unknown>> | null;
-    if (
-      typeof candidate !== "object" ||
-      candidate === null ||
-      typeof candidate.x !== "number" ||
-      typeof candidate.phaseOffsetFrames !== "number"
-    ) {
+    const candidate = metadataItemFields(value, {
+      x: "number",
+      phaseOffsetFrames: "number",
+    });
+    if (candidate === undefined) {
       errors.push(
         makeValidationError(
           ValidationErrorCode.VglcMetadataInvalid,
@@ -1383,8 +1373,8 @@ function parsePodobooArray(
     }
     podoboos.push({
       podobooId: `vglc-smb-podoboo-${String(index)}`,
-      x: candidate.x,
-      phaseOffsetFrames: candidate.phaseOffsetFrames,
+      x: candidate.x as number,
+      phaseOffsetFrames: candidate.phaseOffsetFrames as number,
     });
   }
   return podoboos;

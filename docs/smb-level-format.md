@@ -224,6 +224,33 @@ by `build-official-map-set`, which emits every main slot (`smb-1-1` …
 pipe-reached sub-area as `smb-warp-<type>-<index>-w<world>` — one copy per
 world, because connections are world-scoped.
 
+## Decoded mechanics metadata
+
+Beyond the grid, each level's `*.metadata.json` carries the mechanics the
+engine simulates:
+
+- `cannonProjectiles` — Bullet-Bill spawners for every decoded cannon column.
+- `flameSpawners` — the castles' `$15` Bowser-flame volleys (same spawner
+  shape, not anchored to a cannon tile).
+- `firebars` — anchor tile, orb count (6 short / 12 long) and the
+  direction/speed variant per `$1B-$1F` id.
+- `podoboos` — leap column and a deterministic per-column phase offset.
+- `platforms` — lifts from enemy ids `$24-$2C`: balance pairs (stream-order
+  couples sharing one rope), vertical/horizontal oscillators, wrapping
+  elevators (large and small), and drop lifts.
+- `loopZones` — the castle maze checkpoints from the disassembly's LoopCmd
+  tables (4-4, 7-4's three-part groups, 8-4's pipe-gated water maze).
+- `piranhaPlants` — one per vertical pipe outside world 1-1.
+- `cheepFrenzy` / `flyingCheepFrenzy` / `bulletBillFrenzy` — frenzy spans from
+  the object stream's special commands and the enemy-stream frenzy ids
+  (`$14`/`$17`/`$18`); Bullet Bills only fire from world 5 on.
+- `vineTransitions` — vine-brick climbs into the area named by the active
+  stream connection (coin heavens; 4-2's warp zone).
+- `fallExitTransition` — cloud bonus areas' drop-off-the-end return to their
+  source level at the connection's entrance page.
+- `transitions` — enterable pipes (with `entryDirection` for walk-in side
+  pipes) plus the derived warp-zone pipe destinations.
+
 ## Sources
 
 - doppelganger / 1wErt3r **SMBDIS.ASM** disassembly (gist `1wErt3r/4048722`) —

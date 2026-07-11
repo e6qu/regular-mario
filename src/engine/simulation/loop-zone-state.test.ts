@@ -1,57 +1,21 @@
 import { describe, expect, it } from "vitest";
 
-import { makeLevelSpec } from "../domain/level-spec";
 import type { LevelSpecInput, LoopZoneInput } from "../domain/level-spec";
-import type { PixelPosition } from "../domain/units";
 import { makeEmptyLoopZoneState, resolveLoopZones } from "./loop-zone-state";
-import { makeInitialPlayerSimulationState } from "./player-state";
+import {
+  makeFlatLevelInput,
+  makePlayerAt,
+  requireMechanicsLevelSpec,
+} from "./mechanics-test-support";
 
 function makeLoopLevelInput(
   loopZones: readonly LoopZoneInput[],
 ): LevelSpecInput {
-  const width = 160;
-  const height = 15;
-  const rows = Array.from({ length: height }, (_, rowIndex) =>
-    Array.from({ length: width }, () => (rowIndex >= 13 ? "ground" : "empty")),
-  );
-  return {
-    widthTiles: width,
-    heightTiles: height,
-    tileSizePixels: 16,
-    tileDefinitions: [
-      { tileId: "empty", collision: "empty" },
-      { tileId: "ground", collision: "solid" },
-    ],
-    actorDefinitions: [
-      { actorId: "player", role: "player-start" },
-      { actorId: "gate", role: "exit" },
-    ],
-    tiles: rows,
-    actors: [
-      { entityId: "player-1", actorId: "player", x: 1, y: 12 },
-      { entityId: "exit-1", actorId: "gate", x: 158, y: 12 },
-    ],
-    loopZones,
-  };
+  return makeFlatLevelInput(160, { loopZones });
 }
 
-function requireLevelSpec(input: LevelSpecInput) {
-  const result = makeLevelSpec(input);
-  if (!result.ok) {
-    throw new Error(
-      `expected level spec: ${result.errors.map((error) => error.message).join(", ")}`,
-    );
-  }
-  return result.value;
-}
-
-function playerAt(x: number, y: number) {
-  const player = makeInitialPlayerSimulationState();
-  return {
-    ...player,
-    position: { x: x as PixelPosition, y: y as PixelPosition },
-  };
-}
+const requireLevelSpec = requireMechanicsLevelSpec;
+const playerAt = makePlayerAt;
 
 const singleZone: LoopZoneInput = {
   loopZoneId: "loop-0",

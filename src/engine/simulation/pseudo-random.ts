@@ -5,7 +5,7 @@
 // match the original bit-for-bit (verified against the ROM: seed `lda #$a5`,
 // register `$07a7..$07ad`, feedback tap on bit 1 of the two lowest bytes).
 
-export const pseudoRandomRegisterSize = 7;
+const pseudoRandomRegisterSize = 7;
 
 export type PseudoRandomState = {
   // Exactly `pseudoRandomRegisterSize` bytes, each 0..255.

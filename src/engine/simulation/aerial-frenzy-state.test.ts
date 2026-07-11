@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { makeLevelSpec } from "../domain/level-spec";
 import type { LevelSpecInput } from "../domain/level-spec";
 import type { PixelPosition, VelocityPixelsPerSecond } from "../domain/units";
 import {
@@ -9,8 +8,12 @@ import {
   makeEmptyAerialFrenzyState,
   resolveAerialFrenzyState,
 } from "./aerial-frenzy-state";
+import {
+  makeFlatLevelInput,
+  makePlayerAt,
+  requireMechanicsLevelSpec,
+} from "./mechanics-test-support";
 import { initialMovementConstants } from "./movement-model";
-import { makeInitialPlayerSimulationState } from "./player-state";
 import { makeInitialPseudoRandomState } from "./pseudo-random";
 
 const nominalFrameSeconds = 1 / 60;
@@ -18,49 +21,11 @@ const nominalFrameSeconds = 1 / 60;
 function makeFrenzyLevelInput(
   overrides: Partial<LevelSpecInput> = {},
 ): LevelSpecInput {
-  const width = 64;
-  const height = 15;
-  const rows = Array.from({ length: height }, (_, rowIndex) =>
-    Array.from({ length: width }, () => (rowIndex >= 13 ? "ground" : "empty")),
-  );
-  return {
-    widthTiles: width,
-    heightTiles: height,
-    tileSizePixels: 16,
-    tileDefinitions: [
-      { tileId: "empty", collision: "empty" },
-      { tileId: "ground", collision: "solid" },
-    ],
-    actorDefinitions: [
-      { actorId: "player", role: "player-start" },
-      { actorId: "gate", role: "exit" },
-    ],
-    tiles: rows,
-    actors: [
-      { entityId: "player-1", actorId: "player", x: 1, y: 12 },
-      { entityId: "exit-1", actorId: "gate", x: 62, y: 12 },
-    ],
-    ...overrides,
-  };
+  return makeFlatLevelInput(64, overrides);
 }
 
-function requireLevelSpec(input: LevelSpecInput) {
-  const result = makeLevelSpec(input);
-  if (!result.ok) {
-    throw new Error(
-      `expected level spec: ${result.errors.map((error) => error.message).join(", ")}`,
-    );
-  }
-  return result.value;
-}
-
-function playerAt(x: number, y: number) {
-  const player = makeInitialPlayerSimulationState();
-  return {
-    ...player,
-    position: { x: x as PixelPosition, y: y as PixelPosition },
-  };
-}
+const requireLevelSpec = requireMechanicsLevelSpec;
+const playerAt = makePlayerAt;
 
 describe("aerial frenzy", () => {
   it("spawns leaping cheeps inside the flying-cheep region and arcs them", () => {
