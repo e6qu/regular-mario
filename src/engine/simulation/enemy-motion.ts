@@ -125,8 +125,9 @@ export type AerialThrowingEnemyActorState = {
 };
 
 // A stationary carnivorous plant that rises out of a pipe and retreats on a
-// timer. `baseY` is its retracted (hidden) position; `phase` counts frames
-// through the emerge/pause/retreat/pause cycle.
+// timer. `baseY` is its rest position at the pipe rim; when retracted it sinks
+// `piranhaSunkenPixels` below that (hidden inside the pipe). `phase` counts
+// frames through the emerge/pause/retreat/pause cycle.
 type PiranhaPlantActorState = {
   readonly entityId: EntityId;
   readonly position: {
@@ -1666,6 +1667,9 @@ const piranhaCycleFrames =
   piranhaRetreatFrames +
   piranhaBottomPauseFrames;
 const piranhaEmergeHeightTiles = 1.4;
+// Fully retracted, the plant sits this far below its rest position — inside
+// the pipe, occluded by it and out of contact range (as in the original).
+const piranhaSunkenPixels = 24;
 
 // 0 = fully retracted (in the pipe), 1 = fully emerged.
 function computePiranhaEmergeFraction(phase: number): number {
@@ -1708,15 +1712,24 @@ function stepPiranhaPlantActor(
   ) {
     return {
       ...piranhaPlantActor,
-      position: { x: piranhaPlantActor.position.x, y: piranhaPlantActor.baseY },
+      position: {
+        x: piranhaPlantActor.position.x,
+        y: requireEnemyPixelPosition(
+          piranhaPlantActor.baseY + piranhaSunkenPixels,
+          "enemyMotion.piranhaPlantActors[].position.y",
+        ),
+      },
     };
   }
 
   const nextPhase = nextPhaseCandidate;
   const emergePixels = piranhaEmergeHeightTiles * levelSpec.tileSizePixels;
+  const fraction = computePiranhaEmergeFraction(nextPhase);
+  // Interpolate from sunken-inside-the-pipe (fraction 0) to fully emerged.
   const nextPositionY = requireEnemyPixelPosition(
-    piranhaPlantActor.baseY -
-      computePiranhaEmergeFraction(nextPhase) * emergePixels,
+    piranhaPlantActor.baseY +
+      (1 - fraction) * piranhaSunkenPixels -
+      fraction * emergePixels,
     "enemyMotion.piranhaPlantActors[].position.y",
   );
 

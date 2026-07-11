@@ -17,6 +17,7 @@ import {
   scorePerItem,
   scorePerProjectileKill,
   scorePerTimeBonusDisplayUnit,
+  scoreForGoalContactHeight,
   timeBonusFramesPerDisplayUnit,
 } from "./game-score";
 
@@ -263,5 +264,27 @@ describe("total score", () => {
         (2 * scorePerBreakableBlock) as ReturnType<typeof emptyScore>,
       ),
     ).toBe(2 * scorePerBreakableBlock);
+  });
+
+  describe("flagpole grab height score", () => {
+    const tileSize = 16;
+
+    it("awards the top 5000 band for grabbing the ball at the pole top", () => {
+      // The flagpole ball sits at the very top; a grab with the player's top at
+      // row 4 or above earns the maximum, like the original's 5000.
+      expect(scoreForGoalContactHeight(2 * tileSize, tileSize)).toBe(5000);
+      expect(scoreForGoalContactHeight(4 * tileSize, tileSize)).toBe(5000);
+    });
+
+    it("awards the descending bands lower down the pole", () => {
+      expect(scoreForGoalContactHeight(5 * tileSize, tileSize)).toBe(2000);
+      expect(scoreForGoalContactHeight(7 * tileSize, tileSize)).toBe(800);
+      expect(scoreForGoalContactHeight(9 * tileSize, tileSize)).toBe(400);
+    });
+
+    it("awards the base 100 for grabbing near the foot of the pole", () => {
+      expect(scoreForGoalContactHeight(11 * tileSize, tileSize)).toBe(100);
+      expect(scoreForGoalContactHeight(14 * tileSize, tileSize)).toBe(100);
+    });
   });
 });

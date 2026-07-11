@@ -5,6 +5,27 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-12 — Piranha-in-pipe occlusion, flag-ball scoring, jscpd boyscout
+
+- **Piranha plants retract into their pipes.** A retracted plant now sinks
+  `piranhaSunkenPixels` (24px) below its rim rest position — inside the pipe
+  and out of contact range — and its render container draws behind the pipe
+  tiles (depth -1), so the pipe hides it while it is down, exactly as in the
+  original. The emerge interpolation runs from sunken (fraction 0) up to the
+  unchanged fully-emerged apex. New unit tests pin the sunken pause, the
+  emerged apex, and the player-near hold-hidden behaviour.
+- **Flag-ball grab verified end to end.** The flagpole ball at the pole top
+  scores the 5000 band; new pure-function tests cover every height band
+  (5000/2000/800/400/100), and a step-simulation test asserts a top-of-pole
+  grab both finishes the level and awards 5000. (The ball render, flag slide,
+  and completion jingle on grab were already wired.)
+- **Boyscout: jscpd clone eliminated.** The two official-pack scenario
+  regression tests (`down-pipe-standing-entry`, `maze-gate-crossing`) shared
+  an identical scaffolding block that had crept the duplicate-code gate over
+  its 0.0% threshold at HEAD. Extracted a shared `sim-scenario.test-support`
+  (load a pack level, drop the player at a pixel, build inputs, step N frames);
+  both tests now read as just the geometry they assert, and the gate is clean.
+
 ## 2026-07-12 — The playthrough driver learns the game; two more fidelity bugs
 
 - **Sixth and seventh fidelity bugs fixed**: (6) the loop-command check is

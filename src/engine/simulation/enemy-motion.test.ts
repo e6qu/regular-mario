@@ -212,6 +212,37 @@ function aerialThrowingEnemyRouteLevelSpec(
   });
 }
 
+function piranhaRouteLevelSpec(enemyX: number, enemyY: number): LevelSpec {
+  return makeRouteLevelSpec({
+    role: ActorRole.PiranhaPlant,
+    actorId: "biter",
+    entityId: "biter-1",
+    enemyX,
+    enemyY,
+    tiles: makeSkyGroundTiles(12),
+  });
+}
+
+function stepPiranha(
+  levelSpec: LevelSpec,
+  frames: number,
+  player: PlayerSimulationState,
+): EnemyMotionState {
+  let state = enemyMotionFor(levelSpec);
+  for (let frame = 0; frame < frames; frame += 1) {
+    state = stepEnemyMotionState(
+      state,
+      levelSpec,
+      makeEmptyEnemyInteractionState(),
+      testFrameDurationMilliseconds(1_000),
+      initialMovementConstants,
+      player,
+      (frame + 1) as FrameIndex,
+    );
+  }
+  return state;
+}
+
 function enemyMotionFor(levelSpec: LevelSpec) {
   return makeInitialEnemyMotionState(levelSpec, initialMovementConstants);
 }
@@ -1141,6 +1172,44 @@ describe("enemy motion", () => {
           x: 0 - initialMovementConstants.aerialThrowingEnemySpeed,
         },
       });
+    });
+  });
+
+  describe("piranha plant", () => {
+    // baseY = enemyY * 16; the plant sinks 24px into the pipe when retracted
+    // and rises 1.4 tiles (22.4px) above baseY when fully emerged.
+    const baseY = 4 * 16;
+    const sunkenY = baseY + 24;
+    const emergedY = baseY - 1.4 * 16;
+    const farPlayer = playerAt({ x: 0, y: 56 });
+
+    it("rests sunken inside the pipe during the retracted pause", () => {
+      const levelSpec = piranhaRouteLevelSpec(5, 4);
+      // Phase 100 lands in the bottom (retracted) pause of the cycle.
+      const state = stepPiranha(levelSpec, 100, farPlayer);
+
+      expect(state.piranhaPlantActors[0]?.phase).toBe(100);
+      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(sunkenY, 9);
+    });
+
+    it("rises above the rim when fully emerged", () => {
+      const levelSpec = piranhaRouteLevelSpec(5, 4);
+      // Phase 28 is the first frame of the top (fully emerged) pause.
+      const state = stepPiranha(levelSpec, 28, farPlayer);
+
+      expect(state.piranhaPlantActors[0]?.phase).toBe(28);
+      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(emergedY, 9);
+    });
+
+    it("stays hidden and holds its phase while the player stands on the pipe", () => {
+      const levelSpec = piranhaRouteLevelSpec(5, 4);
+      // The plant sits at x = 80; a player at the same column is within the
+      // emerge-hold distance, so the plant must not rise into them.
+      const nearPlayer = playerAt({ x: 80, y: 56 });
+      const state = stepPiranha(levelSpec, 10, nearPlayer);
+
+      expect(state.piranhaPlantActors[0]?.phase).toBe(0);
+      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(sunkenY, 9);
     });
   });
 });

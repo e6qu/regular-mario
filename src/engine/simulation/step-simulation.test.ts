@@ -2038,6 +2038,8 @@ describe("simulation primitives", () => {
       kind: "finished",
       reason: PlayerFinishReason.GoalContact,
     });
+    // Grabbing the goal at the top (row 2) awards the flag-ball 5000 band.
+    expect(nextState.goalHeightScore).toBe(5000);
   });
 
   it("awards time bonus score when reaching the goal on a timed level", () => {
