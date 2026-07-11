@@ -754,6 +754,10 @@ describe("simulation primitives", () => {
           respawnTimerFrames: 0,
           usedYBands: 0,
         },
+        aerialFrenzy: {
+          slots: [null, null, null],
+          respawnTimerFrames: 0,
+        },
         platforms: { platforms: [] },
       },
     });
@@ -2548,6 +2552,7 @@ describe("simulation primitives", () => {
           bloodiness: validInitialState().bloodiness,
           pseudoRandom: validInitialState().pseudoRandom,
           cheepFrenzy: validInitialState().cheepFrenzy,
+          aerialFrenzy: validInitialState().aerialFrenzy,
           platforms: validInitialState().platforms,
         },
         validInputCommand(),

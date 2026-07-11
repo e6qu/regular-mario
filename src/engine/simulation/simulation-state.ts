@@ -86,6 +86,10 @@ import {
   type CheepFrenzyState,
 } from "./cheep-frenzy-state";
 import { makeEmptyPlatformsState, type PlatformsState } from "./platform-state";
+import {
+  makeEmptyAerialFrenzyState,
+  type AerialFrenzyState,
+} from "./aerial-frenzy-state";
 
 export const initialLivesCount = 3;
 
@@ -126,6 +130,7 @@ export type SimulationState = {
   // underwater Cheep-cheep frenzy.
   readonly pseudoRandom: PseudoRandomState;
   readonly cheepFrenzy: CheepFrenzyState;
+  readonly aerialFrenzy: AerialFrenzyState;
   readonly platforms: PlatformsState;
 };
 
@@ -198,6 +203,7 @@ export function makeInitialSimulationStateWithPlayerVitality(
     bloodiness: 0,
     pseudoRandom: makeInitialPseudoRandomState(),
     cheepFrenzy: makeEmptyCheepFrenzyState(),
+    aerialFrenzy: makeEmptyAerialFrenzyState(),
     platforms: makeEmptyPlatformsState(levelSpec),
   });
 }

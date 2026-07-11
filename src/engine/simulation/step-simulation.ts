@@ -105,6 +105,10 @@ import {
   assertValidPlatformsState,
   resolvePlatformsState,
 } from "./platform-state";
+import {
+  assertValidAerialFrenzyState,
+  resolveAerialFrenzyState,
+} from "./aerial-frenzy-state";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -164,6 +168,7 @@ export function stepSimulation(
   assertValidLevelTimerState(state.levelTimer);
   assertValidTimedHazardProjectilesState(state.timedHazardProjectiles);
   assertValidPlatformsState(state.platforms, levelSpec);
+  assertValidAerialFrenzyState(state.aerialFrenzy);
 
   switch (state.playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -560,9 +565,27 @@ function stepActiveSimulation(
     Number(state.clock.frameDurationMilliseconds) / 1000,
     Number(nextClock.frameIndex),
   );
+  // Aerial frenzies (leaping cheeps over the bridges, offscreen Bullet Bill
+  // volleys): stompable — a stomp removes the entity and rebounds the player;
+  // any other contact harms like a hazard.
+  const aerialFrenzy = resolveAerialFrenzyState(
+    state.aerialFrenzy,
+    levelSpec,
+    state.player,
+    playerAfterProjectileStomp,
+    nextPseudoRandom,
+    movementConstants,
+    Number(state.clock.frameDurationMilliseconds) / 1000,
+    Number(nextClock.frameIndex),
+  );
+  const playerAfterAerialStomp =
+    aerialFrenzy.stompedCount > 0
+      ? reboundPlayerFromStomp(playerAfterProjectileStomp, movementConstants)
+      : playerAfterProjectileStomp;
   const outcomeLevelContacts =
     timedHazardProjectiles.playerContact ||
     cheepFrenzy.playerContacted ||
+    aerialFrenzy.playerContacted ||
     // Rotating firebars and leaping podoboos are stateless flame hazards —
     // contact harms exactly like touching a hazard tile.
     playerTouchesFlameHazard(
@@ -602,7 +625,8 @@ function stepActiveSimulation(
       scorePerBreakableBlock) as SimulationState["breakableBlockScore"];
 
   const bulletBillStompScore = (state.bulletBillStompScore +
-    timedHazardProjectiles.stompedProjectileCount *
+    (timedHazardProjectiles.stompedProjectileCount +
+      aerialFrenzy.stompedCount) *
       scorePerBulletBillStomp) as SimulationState["bulletBillStompScore"];
 
   const extraLifeMushroomsCollected =
@@ -640,7 +664,7 @@ function stepActiveSimulation(
 
   return {
     clock: nextClock,
-    player: playerAfterProjectileStomp,
+    player: playerAfterAerialStomp,
     playerVitality: playerVitalityAfterEnemyContact,
     playerInvincibility,
     levelContacts: outcomeLevelContacts,
@@ -666,6 +690,7 @@ function stepActiveSimulation(
     bloodiness,
     pseudoRandom: nextPseudoRandom,
     cheepFrenzy: cheepFrenzy.state,
+    aerialFrenzy: aerialFrenzy.state,
     platforms: platformsResolution.state,
   };
 }

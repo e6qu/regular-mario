@@ -22,5 +22,9 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "flyingCheepFrenzy": {
+    "startTileX": 26,
+    "endTileX": 197
+  }
 }

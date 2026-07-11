@@ -52,5 +52,9 @@
       "y": 7,
       "widthTiles": 3
     }
-  ]
+  ],
+  "bulletBillFrenzy": {
+    "startTileX": 18,
+    "endTileX": 141
+  }
 }

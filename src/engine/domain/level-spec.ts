@@ -183,6 +183,10 @@ export type LevelSpecInput = {
   readonly pathAnnotations?: readonly PathAnnotationInput[];
   readonly spawnedPowerUpMovement?: SpawnedPowerUpMovementInput;
   readonly cheepFrenzy?: CheepFrenzyInput;
+  // Aerial frenzies: leaping Cheep-cheeps over the bridge levels, and the
+  // offscreen Bullet Bill volleys of the later worlds' ground areas.
+  readonly flyingCheepFrenzy?: CheepFrenzyInput;
+  readonly bulletBillFrenzy?: CheepFrenzyInput;
   readonly firebars?: readonly FirebarInput[];
   readonly podoboos?: readonly PodobooInput[];
   readonly platforms?: readonly PlatformInput[];
@@ -364,6 +368,8 @@ export type LevelSpec = {
   readonly timedHazardProjectileSpawners: readonly TimedHazardProjectileSpawner[];
   readonly spawnedPowerUpMovement: SpawnedPowerUpMovement | undefined;
   readonly cheepFrenzy: CheepFrenzyRegion | undefined;
+  readonly flyingCheepFrenzy: CheepFrenzyRegion | undefined;
+  readonly bulletBillFrenzy: CheepFrenzyRegion | undefined;
   readonly firebars: readonly FirebarDefinition[];
   readonly podoboos: readonly PodobooDefinition[];
   readonly platforms: readonly PlatformDefinition[];
@@ -1276,6 +1282,14 @@ export function makeLevelSpec(
     spawnedPowerUpMovement: spawnedPowerUpMovementResult.value,
     cheepFrenzy: resolveCheepFrenzy(
       input.cheepFrenzy,
+      dimensionsResult.value.widthTiles,
+    ),
+    flyingCheepFrenzy: resolveCheepFrenzy(
+      input.flyingCheepFrenzy,
+      dimensionsResult.value.widthTiles,
+    ),
+    bulletBillFrenzy: resolveCheepFrenzy(
+      input.bulletBillFrenzy,
       dimensionsResult.value.widthTiles,
     ),
     firebars: firebarsResult.value,

@@ -12,6 +12,10 @@ import type { TilePoint } from "../../engine/domain/units";
 import { assertValidCollectibleInteractionState } from "../../engine/simulation/collectible-interaction";
 import { liveFrenzyCheeps } from "../../engine/simulation/cheep-frenzy-state";
 import {
+  AerialFrenzyKind,
+  liveAerialFrenzyEntities,
+} from "../../engine/simulation/aerial-frenzy-state";
+import {
   computeFirebarOrbs,
   computePodobooPositions,
 } from "../../engine/simulation/flame-hazards";
@@ -572,6 +576,10 @@ export class BootScene extends Phaser.Scene {
   > = new Map();
   private readonly flameHazardRenderObjects: Phaser.GameObjects.Arc[] = [];
   private readonly platformRenderObjects: Phaser.GameObjects.Rectangle[] = [];
+  private readonly aerialFrenzyRenderObjects: Map<
+    string,
+    Phaser.GameObjects.Container
+  > = new Map();
   private levelRenderedObjects: readonly Phaser.GameObjects.GameObject[] = [];
   private readonly levelSequence: readonly LevelSpecInput[] | undefined;
   private readonly warpLevelsByName:
@@ -1302,6 +1310,7 @@ export class BootScene extends Phaser.Scene {
     this.frenzyCheepRenderObjects.clear();
     this.flameHazardRenderObjects.length = 0;
     this.platformRenderObjects.length = 0;
+    this.aerialFrenzyRenderObjects.clear();
   }
 
   private advanceToNextLevel(): void {
@@ -2394,6 +2403,7 @@ export class BootScene extends Phaser.Scene {
     this.renderFrenzyCheeps();
     this.renderFlameHazards();
     this.renderPlatforms();
+    this.renderAerialFrenzyEntities();
     this.renderPipes();
   }
 
@@ -2702,6 +2712,49 @@ export class BootScene extends Phaser.Scene {
 
   // Swimming Cheep-cheeps spawn and despawn dynamically as the frenzy runs, so
   // reconcile their sprites each frame the way spawned actors are handled.
+  // Aerial frenzy entities: leaping cheeps use the fish sprite/role, Bullet
+  // Bills the flying-enemy fallback (dark capsule when no sprite is present).
+  private renderAerialFrenzyEntities(): void {
+    const activeIds = new Set<string>();
+    for (const entity of liveAerialFrenzyEntities(
+      this.simulationState.aerialFrenzy,
+    )) {
+      activeIds.add(entity.entityId);
+      let renderObject = this.aerialFrenzyRenderObjects.get(entity.entityId);
+      if (renderObject === undefined) {
+        const spriteKey =
+          entity.kind === AerialFrenzyKind.FlyingCheep
+            ? "vglc-smb-cheep"
+            : "vglc-smb-bullet";
+        const userImage = this.userAssetBundle?.actorImages.get(spriteKey);
+        if (userImage === undefined) {
+          renderObject = renderAuthoredActor(
+            this,
+            entity.position,
+            ActorRole.FlyingEnemy,
+          );
+        } else {
+          const rendered = renderUserActorImage(
+            this,
+            entity.position,
+            userImage,
+          );
+          rendered.image.setFlipX(entity.velocity.x > 0);
+          renderObject = rendered.container;
+        }
+        this.aerialFrenzyRenderObjects.set(entity.entityId, renderObject);
+      }
+      renderObject.setPosition(entity.position.x, entity.position.y);
+      renderObject.setDepth(0);
+    }
+    for (const [id, renderObject] of this.aerialFrenzyRenderObjects) {
+      if (!activeIds.has(id)) {
+        renderObject.destroy();
+        this.aerialFrenzyRenderObjects.delete(id);
+      }
+    }
+  }
+
   private renderFrenzyCheeps(): void {
     const activeIds = new Set<string>();
     for (const cheep of liveFrenzyCheeps(this.simulationState.cheepFrenzy)) {

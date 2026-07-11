@@ -506,6 +506,8 @@ type VglcSmbTextImportMetadata = {
   readonly transitions: readonly VglcSmbTransitionMetadata[];
   readonly multiLayer: VglcSmbMultiLayerMetadata | undefined;
   readonly cheepFrenzy: CheepFrenzyInput | undefined;
+  readonly flyingCheepFrenzy: CheepFrenzyInput | undefined;
+  readonly bulletBillFrenzy: CheepFrenzyInput | undefined;
   readonly piranhaPlants: readonly VglcSmbPoint[];
   readonly firebars: readonly FirebarInput[];
   readonly podoboos: readonly PodobooInput[];
@@ -785,10 +787,18 @@ function parseConvertedVglcSmbRows(
     return parsed;
   }
 
-  const withFrenzy: LevelSpecInput =
-    input.metadata.cheepFrenzy === undefined
-      ? parsed.value
-      : { ...parsed.value, cheepFrenzy: input.metadata.cheepFrenzy };
+  const withFrenzy: LevelSpecInput = {
+    ...parsed.value,
+    ...(input.metadata.cheepFrenzy === undefined
+      ? {}
+      : { cheepFrenzy: input.metadata.cheepFrenzy }),
+    ...(input.metadata.flyingCheepFrenzy === undefined
+      ? {}
+      : { flyingCheepFrenzy: input.metadata.flyingCheepFrenzy }),
+    ...(input.metadata.bulletBillFrenzy === undefined
+      ? {}
+      : { bulletBillFrenzy: input.metadata.bulletBillFrenzy }),
+  };
 
   const withFlames: LevelSpecInput =
     input.metadata.firebars.length === 0 && input.metadata.podoboos.length === 0
@@ -909,6 +919,8 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     transitions: [],
     multiLayer: undefined,
     cheepFrenzy: undefined,
+    flyingCheepFrenzy: undefined,
+    bulletBillFrenzy: undefined,
     piranhaPlants: [],
     firebars: [],
     podoboos: [],
@@ -978,6 +990,8 @@ function parseVglcSmbTextImportMetadata(
         ? parseMultiLayerMetadata(candidate.multiLayer, errors)
         : undefined,
     cheepFrenzy: parseCheepFrenzy(candidate.cheepFrenzy, errors),
+    flyingCheepFrenzy: parseCheepFrenzy(candidate.flyingCheepFrenzy, errors),
+    bulletBillFrenzy: parseCheepFrenzy(candidate.bulletBillFrenzy, errors),
     piranhaPlants: parsePointArray(
       candidate.piranhaPlants,
       "metadata.piranhaPlants",

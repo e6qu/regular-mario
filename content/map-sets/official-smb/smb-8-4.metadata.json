@@ -156,5 +156,9 @@
       "y": 14,
       "widthTiles": 3
     }
-  ]
+  ],
+  "flyingCheepFrenzy": {
+    "startTileX": 221,
+    "endTileX": 234
+  }
 }

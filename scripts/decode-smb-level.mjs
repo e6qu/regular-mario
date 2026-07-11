@@ -316,6 +316,9 @@ function enemyIdName(id) {
   if (id === 0x10) return "paratroopa-fly"; // green paratroopa (glides)
   if (id === 0x11) return "lakitu";
   if (id === 0x12) return "spiny";
+  if (id === 0x14) return "frenzy-flying-cheep-cmd"; // enemy-stream frenzy
+  if (id === 0x17) return "frenzy-bbill-cmd";
+  if (id === 0x18) return "frenzy-stop-cmd";
   if (id >= 0x1b && id <= 0x1f) return "firebar"; // metadata, not a glyph
   if (id >= 0x24 && id <= 0x2c) return "platform"; // lifts (metadata)
   return `enemy-${id.toString(16)}`;
@@ -629,6 +632,72 @@ function computeCheepFrenzy(objects, areaTypeName, widthCols) {
     .map((o) => o.col)
     .sort((a, b) => a - b)[0];
   return { startTileX, endTileX: endTileX ?? widthCols - 1 };
+}
+
+// Frenzy regions come from start commands in either stream: the object
+// stream's special row-13 ids or the enemy-stream frenzy ids ($14/$17), each
+// closed by the matching stop command (or the level end).
+function frenzySpan(
+  objects,
+  enemies,
+  objectStartName,
+  enemyStartName,
+  widthCols,
+) {
+  const starts = [
+    ...objects
+      .filter((o) => special13Name(o.kind) === objectStartName)
+      .map((o) => o.col),
+    ...enemies.filter((e) => e.kind === enemyStartName).map((e) => e.col),
+  ].sort((a, b) => a - b);
+  if (starts.length === 0) return undefined;
+  const startTileX = starts[0];
+  const endTileX = [
+    ...objects
+      .filter(
+        (o) => special13Name(o.kind) === "frenzy-stop" && o.col > startTileX,
+      )
+      .map((o) => o.col),
+    ...enemies
+      .filter((e) => e.kind === "frenzy-stop-cmd" && e.col > startTileX)
+      .map((e) => e.col),
+  ].sort((a, b) => a - b)[0];
+  return { startTileX, endTileX: endTileX ?? widthCols - 1 };
+}
+
+// The flying-Cheep frenzy (bridge levels) has its own start command.
+function computeFlyingCheepFrenzy(objects, enemies, widthCols) {
+  return frenzySpan(
+    objects,
+    enemies,
+    "frenzy-flying-cheep",
+    "frenzy-flying-cheep-cmd",
+    widthCols,
+  );
+}
+
+// The Bullet-Bill-or-Cheep command spawns Bullet Bills in ground areas — but
+// only from world 5 on (InitBulletBill kills the spawn in earlier worlds,
+// which is how 1-3 and 5-3 share an area yet only 5-3 gets bullets).
+const firstBulletBillWorld = 4; // 0-based world index (world 5)
+
+function computeBulletBillFrenzy(
+  objects,
+  enemies,
+  areaTypeName,
+  world,
+  widthCols,
+) {
+  if (areaTypeName === "water" || world < firstBulletBillWorld) {
+    return undefined;
+  }
+  return frenzySpan(
+    objects,
+    enemies,
+    "frenzy-bbill-or-cheep",
+    "frenzy-bbill-cmd",
+    widthCols,
+  );
 }
 
 export async function decodeLevel(romPath, world, level) {
@@ -1019,6 +1088,24 @@ export async function decodeAllLevels(romPath) {
     );
     if (cheepFrenzy !== undefined) {
       entry.metadata.cheepFrenzy = cheepFrenzy;
+    }
+    const flyingCheepFrenzy = computeFlyingCheepFrenzy(
+      objects,
+      enemies,
+      widthCols,
+    );
+    if (flyingCheepFrenzy !== undefined) {
+      entry.metadata.flyingCheepFrenzy = flyingCheepFrenzy;
+    }
+    const bulletBillFrenzy = computeBulletBillFrenzy(
+      objects,
+      enemies,
+      area.areaTypeName,
+      world,
+      widthCols,
+    );
+    if (bulletBillFrenzy !== undefined) {
+      entry.metadata.bulletBillFrenzy = bulletBillFrenzy;
     }
     return entry;
   };
