@@ -15,6 +15,10 @@ import { HorizontalInput } from "../../simulation/input-command";
 import { TileCollisionKind } from "../../domain/level-spec";
 import { liveFrenzyCheeps } from "../../simulation/cheep-frenzy-state";
 import {
+  computeFirebarOrbs,
+  computePodobooPositions,
+} from "../../simulation/flame-hazards";
+import {
   initialMovementConstants,
   swimmingMovementConstants,
   VerticalMovementState,
@@ -239,7 +243,9 @@ function playLevel(
           0,
           Math.max(1, Math.ceil(entry.frontier.length / 3)),
         )
-      : entry.frontier.slice(-8);
+      : rng() < 0.3
+        ? entry.frontier
+        : entry.frontier.slice(-8);
     return pool[Math.floor(rng() * pool.length)] ?? levelEntry;
   };
   let steps = 0;
@@ -343,17 +349,26 @@ function playLevel(
         (player.position.y + player.collider.height / 2) /
           runtime.level.levelSpec.tileSizePixels,
       );
+      const inWalkInZone = runtime.walkInCols.some(
+        (x) => col >= x - 4 && col <= x + 1,
+      );
       const wallAhead =
-        runtime.solid(col + 1, playerRow) || runtime.solid(col + 2, playerRow);
-      jumpFramesLeft = wallAhead
-        ? 5
-        : threatened
-          ? evadeUp
-            ? 5
-            : 0
-          : player.position.y > swimTargetY || rng() < 0.08
-            ? 4
-            : Math.max(0, jumpFramesLeft - 1);
+        !inWalkInZone &&
+        (runtime.solid(col + 1, playerRow) ||
+          runtime.solid(col + 2, playerRow));
+      // At a walk-in mouth, sink onto its row and press into it; elsewhere a
+      // wall ahead means stroke over it.
+      jumpFramesLeft = inWalkInZone
+        ? 0
+        : wallAhead
+          ? 5
+          : threatened
+            ? evadeUp
+              ? 5
+              : 0
+            : player.position.y > swimTargetY || rng() < 0.08
+              ? 4
+              : Math.max(0, jumpFramesLeft - 1);
     } else if (jumpFramesLeft > 0) {
       jumpFramesLeft -= 1;
     } else if (runtime.walkInCols.some((x) => col >= x - 12 && col <= x + 1)) {
@@ -371,6 +386,33 @@ function playLevel(
       jumpFramesLeft = 8 + Math.floor(rng() * 28);
     }
 
+    // Flame hazards are pure functions of the frame — wait out a bar or a
+    // podoboo that is currently sweeping the path ahead.
+    if (
+      idleFramesLeft === 0 &&
+      !runtime.water &&
+      (runtime.level.levelSpec.firebars.length > 0 ||
+        runtime.level.levelSpec.podoboos.length > 0)
+    ) {
+      const hazards = [
+        ...computeFirebarOrbs(
+          runtime.level.levelSpec,
+          state.clock.frameIndex,
+        ),
+        ...computePodobooPositions(
+          runtime.level.levelSpec,
+          state.clock.frameIndex,
+        ),
+      ];
+      for (const orb of hazards) {
+        const dx = orb.x - player.position.x;
+        const dy = orb.y - player.position.y;
+        if (dx > -4 && dx < 44 && Math.abs(dy) < 40) {
+          idleFramesLeft = 8;
+          break;
+        }
+      }
+    }
     if (idleFramesLeft > 0) {
       idleFramesLeft -= 1;
       jumpFramesLeft = 0;
