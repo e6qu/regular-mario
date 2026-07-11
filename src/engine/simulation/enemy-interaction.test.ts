@@ -294,9 +294,18 @@ describe("enemy interactions", () => {
     ).toEqual(expectedEnemyDefeatedState("beetle-1" as EntityId));
   });
 
-  it("keeps a deep previous-frame overlap as harmful enemy contact", () => {
+  it("stomps a descending player even at a deep overlap (ROM velocity rule)", () => {
+    // The ROM keys the stomp on downward motion alone: descending onto the
+    // enemy defeats it at any overlap depth, not only on a shallow top touch.
     expect(
       resolveFirstAuthoredEnemyInteraction({ x: 96, y: 45 }, { x: 96, y: 46 }),
+    ).toEqual(expectedEnemyDefeatedState("beetle-1" as EntityId));
+  });
+
+  it("keeps a grounded side contact (no descent) harmful", () => {
+    // Feet stay level (no downward motion) — a walk-in, which must still hurt.
+    expect(
+      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 46 }, { x: 96, y: 46 }),
     ).toEqual(expectedEnemyContactedState("beetle-1" as EntityId));
   });
 

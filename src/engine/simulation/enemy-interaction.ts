@@ -294,7 +294,6 @@ export function resolveEnemyInteractionState(
         previousPlayer,
         player,
         requireEnemyActorState(enemyMotion, actor.entityId),
-        movementConstants,
       )
     ) {
       if (role === ActorRole.ArmoredEnemy) {
@@ -458,24 +457,19 @@ function isEnemyStomp(
   previousPlayer: PlayerSimulationState,
   player: PlayerSimulationState,
   enemyActor: ReturnType<typeof requireEnemyActorState>,
-  movementConstants: MovementConstants,
 ): boolean {
   const actorTop = enemyActor.position.y;
   const previousPlayerBottom =
     previousPlayer.position.y + previousPlayer.collider.height;
   const playerBottom = player.position.y + player.collider.height;
 
-  // A stomp is a descent onto the enemy from above: last frame the feet were at
-  // or above the enemy's top, this frame they reached it. Key on the descent
-  // (playerBottom moved down) rather than the post-collision velocity — a fast
-  // drop onto an enemy standing on the ground lands on the floor the same frame,
-  // which zeroes velocity.y and was being misread as a harmful side contact. A
-  // persistent side overlap (feet already well below the top) never satisfies
-  // the previous-frame check, so it stays harmful.
-  return (
-    playerBottom > previousPlayerBottom &&
-    previousPlayerBottom <=
-      actorTop + movementConstants.enemyStompForgivenessPixels &&
-    playerBottom >= actorTop
-  );
+  // The ROM keys a stomp purely on downward motion: once the boxes overlap
+  // (already established before this check), any descending player defeats the
+  // enemy, at any overlap depth. Detect the descent by the feet moving down
+  // (playerBottom > previousPlayerBottom) rather than the post-collision
+  // velocity — a fast drop onto a grounded enemy lands on the floor the same
+  // frame, zeroing velocity.y. A grounded walk-in has no descent, and rising
+  // into an enemy from below moves the feet up, so both stay harmful; only a
+  // genuine descent onto the enemy reads as a stomp.
+  return playerBottom > previousPlayerBottom && playerBottom >= actorTop;
 }
