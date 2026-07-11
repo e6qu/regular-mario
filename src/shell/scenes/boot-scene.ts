@@ -584,8 +584,14 @@ export class BootScene extends Phaser.Scene {
     string,
     Phaser.GameObjects.Container
   > = new Map();
-  private readonly flameHazardRenderObjects: Phaser.GameObjects.Arc[] = [];
-  private readonly platformRenderObjects: Phaser.GameObjects.Rectangle[] = [];
+  private readonly flameHazardRenderObjects: (
+    | Phaser.GameObjects.Arc
+    | Phaser.GameObjects.Image
+  )[] = [];
+  private readonly platformRenderObjects: (
+    | Phaser.GameObjects.Rectangle
+    | Phaser.GameObjects.Image
+  )[] = [];
   private readonly platformRopeRenderObjects: (
     | Phaser.GameObjects.Rectangle
     | undefined
@@ -628,7 +634,10 @@ export class BootScene extends Phaser.Scene {
   private flagpoleSlideActive = false;
   private flagpoleSlideTargetY = 0;
   private flagpoleSlideColumnX = 0;
-  private flagObject: Phaser.GameObjects.Triangle | undefined = undefined;
+  private flagObject:
+    | Phaser.GameObjects.Triangle
+    | Phaser.GameObjects.Image
+    | undefined = undefined;
   private flagpoleFlagBaseY = 0;
   private deathArcActive = false;
   private deathArcStarted = false;
@@ -670,6 +679,10 @@ export class BootScene extends Phaser.Scene {
   // listeners (see leftKeyCodes etc.). Cleared on resume so a key held while the
   // game was backgrounded doesn't stay stuck down.
   private readonly keysDown = new Set<string>();
+  // Keys already held when a pause opened. The timeline scrubber ignores them
+  // until re-pressed, so dying while holding a direction key doesn't instantly
+  // rewind the replay.
+  private readonly keysHeldAtPause = new Set<string>();
   // Previous-frame held state for edge-detected (JustDown) controls.
   private pauseWasDown = false;
   private retryWasDown = false;
@@ -750,6 +763,7 @@ export class BootScene extends Phaser.Scene {
     // Always clear the released key, even while suspended, so a key let go in the
     // background never stays stuck down when this game is resumed.
     this.keysDown.delete(event.code);
+    this.keysHeldAtPause.delete(event.code);
     if (this.suspended) {
       return;
     }
@@ -1601,20 +1615,27 @@ export class BootScene extends Phaser.Scene {
     const flagStartY = topY + size * 0.55;
     const flagTipX = size * -1.25;
     // A left-pointing flag hanging off the pole (the castle sits to the right).
-    this.flagObject = this.add
-      .triangle(
-        centerX,
-        flagStartY,
-        0,
-        0,
-        0,
-        flagHeight,
-        flagTipX,
-        flagHeight / 2,
-        flagFabricColor,
-      )
-      .setOrigin(0, 0)
-      .setDepth(flagpoleFurnitureDepth);
+    // Skins may supply pennant art; otherwise draw the fabric triangle.
+    const flagImage = this.userAssetBundle?.tileImages.get("flagpole-flag");
+    this.flagObject =
+      flagImage !== undefined
+        ? addUserFrameImage(this, centerX - size, flagStartY, flagImage)
+            .setDisplaySize(size, size)
+            .setDepth(flagpoleFurnitureDepth)
+        : this.add
+            .triangle(
+              centerX,
+              flagStartY,
+              0,
+              0,
+              0,
+              flagHeight,
+              flagTipX,
+              flagHeight / 2,
+              flagFabricColor,
+            )
+            .setOrigin(0, 0)
+            .setDepth(flagpoleFurnitureDepth);
     this.flagpoleFlagBaseY = bottomRow * size - flagHeight;
   }
 
@@ -2039,6 +2060,10 @@ export class BootScene extends Phaser.Scene {
   private enterPause(byDeath: boolean): void {
     this.paused = true;
     this.pausedByDeath = byDeath;
+    this.keysHeldAtPause.clear();
+    for (const code of this.keysDown) {
+      this.keysHeldAtPause.add(code);
+    }
     this.setTouchControlsVisible(false);
     this.pauseFrame = this.runRecorder.frameCount;
     this.scrubFrame = this.pauseFrame;
@@ -2104,11 +2129,24 @@ export class BootScene extends Phaser.Scene {
   private handleScrubInput(): void {
     const step = this.anyDown(runKeyCodes) ? 6 : 1;
 
-    if (this.anyDown(leftKeyCodes) && !this.anyDown(rightKeyCodes)) {
+    if (
+      this.anyFreshlyDown(leftKeyCodes) &&
+      !this.anyFreshlyDown(rightKeyCodes)
+    ) {
       this.seekToFrame(this.scrubFrame - step);
-    } else if (this.anyDown(rightKeyCodes) && !this.anyDown(leftKeyCodes)) {
+    } else if (
+      this.anyFreshlyDown(rightKeyCodes) &&
+      !this.anyFreshlyDown(leftKeyCodes)
+    ) {
       this.seekToFrame(this.scrubFrame + step);
     }
+  }
+
+  // Down, and pressed after the pause opened (not carried over from gameplay).
+  private anyFreshlyDown(codes: readonly string[]): boolean {
+    return codes.some(
+      (code) => this.keysDown.has(code) && !this.keysHeldAtPause.has(code),
+    );
   }
 
   private seekToFrame(frame: number): void {
@@ -2587,26 +2625,20 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     const frameIndex = this.simulationState.clock.frameIndex;
-    const points = [
-      ...computeFirebarOrbs(this.levelSpec, frameIndex),
-      ...computePodobooPositions(this.levelSpec, frameIndex),
-    ];
-    for (const [index, point] of points.entries()) {
-      let orb = this.flameHazardRenderObjects[index];
-      if (orb === undefined) {
-        orb = this.add.circle(0, 0, point.sizePixels / 2, flameHazardCoreColor);
-        orb.setStrokeStyle(1, flameHazardRimColor);
-        this.flameHazardRenderObjects.push(orb);
-      }
-      orb.setRadius(point.sizePixels / 2);
-      orb.setPosition(
-        point.x + point.sizePixels / 2,
-        point.y + point.sizePixels / 2,
-      );
-      orb.setVisible(true);
-    }
+    // Firebar orbs come first with a fixed per-level count, so every pool
+    // index keeps one hazard kind (and one texture) for the whole session.
+    const used = this.renderFlameHazardPoints(
+      computeFirebarOrbs(this.levelSpec, frameIndex),
+      "mechanism-flame-orb",
+      0,
+    );
+    const total = this.renderFlameHazardPoints(
+      computePodobooPositions(this.levelSpec, frameIndex),
+      "mechanism-podoboo",
+      used,
+    );
     for (
-      let index = points.length;
+      let index = total;
       index < this.flameHazardRenderObjects.length;
       index += 1
     ) {
@@ -2614,8 +2646,44 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // Moving lift platforms: one pooled rectangle per platform, repositioned
-  // every frame from the platform state.
+  // Draw one family of flame hazard points into the shared pool starting at
+  // the given index, as skin art when the sprite set provides it (falling
+  // back to the glowing circle). Returns the next free pool index.
+  private renderFlameHazardPoints(
+    points: readonly { x: number; y: number; sizePixels: number }[],
+    imageKey: string,
+    startIndex: number,
+  ): number {
+    const image = this.userAssetBundle?.actorImages.get(imageKey);
+    for (const [offset, point] of points.entries()) {
+      const index = startIndex + offset;
+      let orb = this.flameHazardRenderObjects[index];
+      if (orb === undefined) {
+        orb =
+          image !== undefined
+            ? addUserFrameImage(this, 0, 0, image)
+            : this.add
+                .circle(0, 0, point.sizePixels / 2, flameHazardCoreColor)
+                .setStrokeStyle(1, flameHazardRimColor);
+        this.flameHazardRenderObjects[index] = orb;
+      }
+      if (orb instanceof Phaser.GameObjects.Arc) {
+        orb.setRadius(point.sizePixels / 2);
+        orb.setPosition(
+          point.x + point.sizePixels / 2,
+          point.y + point.sizePixels / 2,
+        );
+      } else {
+        orb.setDisplaySize(point.sizePixels, point.sizePixels);
+        orb.setPosition(point.x, point.y);
+      }
+      orb.setVisible(true);
+    }
+    return startIndex + points.length;
+  }
+
+  // Moving lift platforms: one pooled raft (skin art, or a plain rectangle),
+  // repositioned every frame from the platform state.
   private renderPlatforms(): void {
     if (this.levelSpec.platforms.length === 0) {
       return;
@@ -2625,23 +2693,31 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
       this.simulationState.clock.frameIndex,
     );
+    const liftImage = this.userAssetBundle?.actorImages.get("mechanism-lift");
     for (const [index, placement] of placements.entries()) {
-      let rectangle = this.platformRenderObjects[index];
-      if (rectangle === undefined) {
-        rectangle = this.add
-          .rectangle(
-            0,
-            0,
-            placement.widthPixels,
-            placement.heightPixels,
-            platformFillColor,
-          )
-          .setOrigin(0)
-          .setStrokeStyle(1, platformEdgeColor);
-        this.platformRenderObjects.push(rectangle);
+      let plank = this.platformRenderObjects[index];
+      if (plank === undefined) {
+        plank =
+          liftImage !== undefined
+            ? addUserFrameImage(this, 0, 0, liftImage)
+            : this.add
+                .rectangle(
+                  0,
+                  0,
+                  placement.widthPixels,
+                  placement.heightPixels,
+                  platformFillColor,
+                )
+                .setOrigin(0)
+                .setStrokeStyle(1, platformEdgeColor);
+        this.platformRenderObjects.push(plank);
       }
-      rectangle.setPosition(placement.x, placement.y);
-      rectangle.setSize(placement.widthPixels, placement.heightPixels);
+      plank.setPosition(placement.x, placement.y);
+      if (plank instanceof Phaser.GameObjects.Rectangle) {
+        plank.setSize(placement.widthPixels, placement.heightPixels);
+      } else {
+        plank.setDisplaySize(placement.widthPixels, placement.heightPixels);
+      }
 
       // Balance platforms hang from their pulley rope; draw it up to the
       // pulley band under the HUD.
@@ -2879,22 +2955,47 @@ export class BootScene extends Phaser.Scene {
   }
 
   private renderProjectiles(): void {
+    const fireball = this.userAssetBundle?.actorImages.get(
+      "projectile-fireball",
+    );
     this.renderProjectileCollection(
       this.simulationState.projectiles.projectiles,
       this.projectileRenderObjects,
       projectileColor,
       projectileOutlineColor,
       projectileCoreColor,
+      () => fireball,
     );
   }
 
   private renderTimedHazardProjectiles(): void {
+    const images = this.userAssetBundle?.actorImages;
     this.renderProjectileCollection(
       this.simulationState.timedHazardProjectiles.projectiles,
       this.timedHazardProjectileRenderObjects,
       cannonWarningColor,
       cannonMouthColor,
       projectileSparkleColor,
+      // The pooled timed hazards mix kinds; the id prefix says which art fits
+      // (castle flame jets, cannon bullets, hammers, Lakitu's eggs).
+      (projectile) => {
+        if (images === undefined) {
+          return undefined;
+        }
+        if (projectile.id.startsWith("timed-hazard-flame")) {
+          return images.get("projectile-flame");
+        }
+        if (projectile.id.startsWith("timed-hazard-")) {
+          return images.get("vglc-smb-bullet");
+        }
+        if (projectile.id.startsWith("aerial-throwing-enemy-")) {
+          return images.get("projectile-egg");
+        }
+        if (projectile.id.startsWith("throwing-enemy-")) {
+          return images.get("projectile-hammer");
+        }
+        return undefined;
+      },
     );
   }
 
@@ -3022,6 +3123,7 @@ export class BootScene extends Phaser.Scene {
     projectiles: readonly {
       readonly id: string;
       readonly position: { readonly x: number; readonly y: number };
+      readonly velocity?: { readonly x: number; readonly y: number };
       readonly width: number;
       readonly height: number;
     }[],
@@ -3029,6 +3131,9 @@ export class BootScene extends Phaser.Scene {
     fillColor: number,
     outlineColor: number,
     coreColor: number,
+    resolveImage?: (projectile: {
+      readonly id: string;
+    }) => LoadedImageAsset | undefined,
   ): void {
     const activeProjectileIds = new Set<string>();
 
@@ -3037,42 +3142,63 @@ export class BootScene extends Phaser.Scene {
       let renderObject = renderObjects.get(projectile.id);
 
       if (renderObject === undefined) {
-        const outline = this.add
-          .rectangle(0, 0, projectile.width, projectile.height, fillColor)
-          .setOrigin(0.5)
-          .setStrokeStyle(tileStrokeWidth, outlineColor);
-        const core = this.add
-          .rectangle(
-            0,
-            0,
-            Math.max(
-              projectile.width - tileStrokeWidth * 2,
-              projectileMinimumCoreDimensionPixels,
-            ),
-            Math.max(
-              projectile.height - tileStrokeWidth * 2,
-              projectileMinimumCoreDimensionPixels,
-            ),
-            coreColor,
-          )
-          .setOrigin(0.5);
-        const sparkle = this.add
-          .rectangle(
-            0,
-            0,
-            projectileSparkleSizePixels,
-            projectileSparkleSizePixels,
-            projectileSparkleColor,
-          )
-          .setOrigin(0.5);
-        renderObject = this.add.container(
-          projectile.position.x,
-          projectile.position.y,
-          [outline, core, sparkle],
-        );
+        const imageAsset = resolveImage?.(projectile);
+        if (imageAsset !== undefined) {
+          // Skin art (drawn facing left); sized to the projectile's collider.
+          const image = addUserFrameImage(this, 0, 0, imageAsset)
+            .setOrigin(0.5)
+            .setDisplaySize(projectile.width, projectile.height);
+          renderObject = this.add.container(
+            projectile.position.x,
+            projectile.position.y,
+            [image],
+          );
+        } else {
+          const outline = this.add
+            .rectangle(0, 0, projectile.width, projectile.height, fillColor)
+            .setOrigin(0.5)
+            .setStrokeStyle(tileStrokeWidth, outlineColor);
+          const core = this.add
+            .rectangle(
+              0,
+              0,
+              Math.max(
+                projectile.width - tileStrokeWidth * 2,
+                projectileMinimumCoreDimensionPixels,
+              ),
+              Math.max(
+                projectile.height - tileStrokeWidth * 2,
+                projectileMinimumCoreDimensionPixels,
+              ),
+              coreColor,
+            )
+            .setOrigin(0.5);
+          const sparkle = this.add
+            .rectangle(
+              0,
+              0,
+              projectileSparkleSizePixels,
+              projectileSparkleSizePixels,
+              projectileSparkleColor,
+            )
+            .setOrigin(0.5);
+          renderObject = this.add.container(
+            projectile.position.x,
+            projectile.position.y,
+            [outline, core, sparkle],
+          );
+        }
         renderObjects.set(projectile.id, renderObject);
       }
 
+      const first = renderObject.getAt(0);
+      if (
+        first instanceof Phaser.GameObjects.Image &&
+        projectile.velocity !== undefined &&
+        projectile.velocity.x !== 0
+      ) {
+        first.setFlipX(projectile.velocity.x > 0);
+      }
       renderObject.setPosition(
         projectile.position.x + projectile.width / 2,
         projectile.position.y + projectile.height / 2,
@@ -3080,9 +3206,13 @@ export class BootScene extends Phaser.Scene {
       renderObject.setVisible(true);
     }
 
+    // Projectile ids are unique per shot and never return once spent, so
+    // destroy stale entries — hiding them forever would grow the pool without
+    // bound over a long session.
     for (const [id, renderObject] of renderObjects) {
       if (!activeProjectileIds.has(id)) {
-        renderObject.setVisible(false);
+        renderObject.destroy();
+        renderObjects.delete(id);
       }
     }
   }
@@ -4079,6 +4209,39 @@ function renderLevelTiles(
 
       if (collision === TileCollisionKind.Hidden) {
         // Invisible until bumped — record its position and render no art now.
+        // A hidden block that displaced background scenery in the single-layer
+        // grid must not punch a sky-colored hole in it: continue the
+        // neighboring scenery art behind the invisible cell.
+        if (!suppressTileArt) {
+          const neighborSceneryId = [
+            row[columnIndex - 1],
+            row[columnIndex + 1],
+          ].find(
+            (candidate) =>
+              candidate !== undefined &&
+              decorativeSceneryTileIds.has(candidate),
+          );
+          if (neighborSceneryId !== undefined) {
+            const sceneryImage =
+              userAssetBundle?.tileImages.get(neighborSceneryId);
+            if (sceneryImage !== undefined) {
+              renderUserTileImage(
+                scene,
+                columnIndex * levelSpec.tileSizePixels,
+                rowIndex * levelSpec.tileSizePixels,
+                sceneryImage,
+              );
+            } else {
+              renderDecorativeSceneryTile(
+                scene,
+                columnIndex * levelSpec.tileSizePixels,
+                rowIndex * levelSpec.tileSizePixels,
+                levelSpec.tileSizePixels,
+                neighborSceneryId,
+              );
+            }
+          }
+        }
         hiddenBlockTiles.set(makeTileRenderKey(columnIndex, rowIndex), {
           pixelX: columnIndex * levelSpec.tileSizePixels,
           pixelY: rowIndex * levelSpec.tileSizePixels,
@@ -4217,6 +4380,9 @@ function resolvePlayerSpriteImage(
   const vitalityPrefix = makePlayerSpriteVitalityPrefix(
     simulationState.playerVitality.kind,
   );
+  // Fire art is optional in a sprite set; fall back to powered, then bare.
+  const prefixes =
+    vitalityPrefix === "fire" ? ["fire", "powered"] : [vitalityPrefix];
   const action = makePlayerSpriteAction(simulationState.player.movement, theme);
 
   // The merman's swim stroke (arms + tail flick) only animates while he is
@@ -4233,14 +4399,14 @@ function resolvePlayerSpriteImage(
   const candidates =
     action === "swim"
       ? [
-          `${vitalityPrefix}-${swimStroke}`,
+          ...prefixes.map((prefix) => `${prefix}-${swimStroke}`),
           swimStroke,
-          `${vitalityPrefix}-swim`,
+          ...prefixes.map((prefix) => `${prefix}-swim`),
           "swim",
-          `${vitalityPrefix}-jump`,
+          ...prefixes.map((prefix) => `${prefix}-jump`),
           "jump",
         ]
-      : [`${vitalityPrefix}-${action}`, action];
+      : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
   return resolveFirstStatefulImage(playerImage, candidates);
 }
@@ -4252,8 +4418,9 @@ function makePlayerSpriteVitalityPrefix(vitality: PlayerVitalityKind): string {
     case PlayerVitalityKind.Powered:
       return "powered";
     case PlayerVitalityKind.Fire:
-      // Fire Mario reuses the enlarged (powered) sprites.
-      return "powered";
+      // Fire tier art when the skin provides it; the candidate chain falls
+      // back to the enlarged (powered) sprites for sets without it.
+      return "fire";
     case PlayerVitalityKind.Recovering:
       return "recovering";
     default: {

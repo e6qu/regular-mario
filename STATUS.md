@@ -59,9 +59,13 @@ What exists now:
   themes; guided tutorial.
 - **Themes + water, audio, HUD, viewport, timeline replay, multi-session tabs,
   mobile** — as before (see git history).
-- **Authored "Shabby Castaway" skin** now covers the new cast: red snapper
-  variants, the spiky urchin, the castle warden (Bowser), bullet slugs,
-  driftwood cannons, coiled-vine springs, plank castle bridges.
+- **Authored "Shabby Castaway" skin is complete** — art for every visual
+  element (86 sprites): the full enemy cast (including the hurler, cloud
+  tosser, kelp traps, charcoal buzzies), all 24 scenery tiles, mechanisms
+  (firebar orbs, podoboos, lift rafts, the goal pennant), every projectile
+  kind (fireballs, bullets, hammers, eggs, flame jets), palette-swapped
+  powered/fire player tiers, and the whole editor palette. Nothing renders
+  as a vector fallback with the shipped skin.
 
 ## Content Boundary
 

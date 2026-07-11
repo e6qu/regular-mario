@@ -1,5 +1,13 @@
 # DO_NEXT.md
 
+## Landed: the parody skin is complete (2026-07-11, fifth pass)
+
+- Authored art for every visual element: 24 scenery tiles, mechanisms
+  (firebars, podoboos, lifts, flag), all projectile kinds, palette-swapped
+  powered/fire player tiers, and the full editor cast. No vector fallbacks
+  remain with the shipped skin. Plus three boyscout fixes (hidden-block
+  scenery holes, projectile render-pool leak, timeline scrub key leak).
+
 ## Landed: scenery + checkpoints + scoring (2026-07-11, third pass)
 
 - **Scenery layer decoded** — clouds/bushes/hills/fences/trees, trunks and

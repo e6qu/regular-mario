@@ -299,15 +299,15 @@ const grumblerSquashed = [
   "................",
 ];
 
-function drawSprite(grid, paletteMap) {
-  const pixels = new Uint8Array(spriteSize * spriteSize * 4);
+function drawSprite(grid, paletteMap, width = spriteSize, height = spriteSize) {
+  const pixels = new Uint8Array(width * height * 4);
 
-  for (let y = 0; y < spriteSize; y += 1) {
+  for (let y = 0; y < height; y += 1) {
     const row = grid[y] ?? "";
-    for (let x = 0; x < spriteSize; x += 1) {
+    for (let x = 0; x < width; x += 1) {
       const key = row[x] ?? ".";
       const rgba = paletteMap[key] ?? paletteMap["."];
-      const offset = (y * spriteSize + x) * 4;
+      const offset = (y * width + x) * 4;
       pixels[offset] = rgba[0];
       pixels[offset + 1] = rgba[1];
       pixels[offset + 2] = rgba[2];
@@ -315,7 +315,12 @@ function drawSprite(grid, paletteMap) {
     }
   }
 
-  return encodeRgbaPng({ width: spriteSize, height: spriteSize, pixels });
+  return encodeRgbaPng({ width, height, pixels });
+}
+
+// Mirror a pixel grid horizontally (for right-facing variants of caps/slopes).
+function mirrorGrid(grid, width = spriteSize) {
+  return grid.map((row) => [...row.padEnd(width, ".")].reverse().join(""));
 }
 
 // Original "shabby island" tile palette: sand, driftwood, bamboo, rope, shell.
@@ -638,6 +643,66 @@ const kelpTrapPalette = {
   L: [168, 200, 120, 255],
 };
 
+// The "hurler" (hammer-thrower stand-in): a lanky crab-armored islander with
+// a driftwood helm, one claw raised to throw.
+const hurler = [
+  "................",
+  "....dddddd......",
+  "...dddddddd..S..",
+  "...eGGGGGGe..S..",
+  "...GwGGwGGG.dd..",
+  "...GeGGeGG..dd..",
+  "...GGGGGGG.dd...",
+  "....GGGGG.dd....",
+  "..eGGGGGGGd.....",
+  ".eGLLGLLGGe.....",
+  ".eGLLGLLGGe.....",
+  ".eGLLGLLGGe.....",
+  "..eeeeeeee......",
+  "...L....L.......",
+  "..LL....LL......",
+  "..mm....mm......",
+];
+
+// The "cloud tosser" (Lakitu stand-in): a hooded drifter peeking over the rim
+// of his cloud, egg in claw.
+const cloudTosser = [
+  "................",
+  "....eeeeee......",
+  "...eGGGGGGe.....",
+  "...eGwGwGGe.....",
+  "...eGeGeGGe..P..",
+  "...eGGGGGGe.PPP.",
+  "....eGGGGe...P..",
+  "..wwwwwwwwwww...",
+  ".wwwwwwwwwwwww..",
+  "wwwwwwwwwwwwwww.",
+  "wwwwwwwwwwwwwwww",
+  "wwwwwwwwwwwwwwww",
+  ".wwwwwwwwwwwwww.",
+  "..cccccccccccc..",
+  "................",
+  "................",
+];
+const cloudTosserPalette = {
+  ".": [0, 0, 0, 0],
+  e: [24, 20, 18, 255],
+  G: [96, 120, 70, 255],
+  w: [252, 252, 252, 255],
+  c: [202, 226, 242, 255],
+  P: [104, 58, 96, 255],
+};
+
+// Buzzy stand-in: a bare shell walking on stubby legs, kiln-fired charcoal.
+const buzzyPalette = {
+  ".": [0, 0, 0, 0],
+  G: [64, 70, 92, 255],
+  L: [108, 118, 148, 255],
+  e: [24, 20, 18, 255],
+  w: [245, 245, 245, 255],
+  m: [36, 40, 54, 255],
+};
+
 // The big castle "warden" (Bowser stand-in): charcoal hide, ember accents.
 const wardenPalette = {
   ".": [0, 0, 0, 0],
@@ -778,10 +843,10 @@ const greenRationPalette = {
   e: [24, 20, 18, 255],
 };
 
-function spriteEntry(fileName) {
+function spriteEntry(fileName, width = spriteSize, height = spriteSize) {
   return {
     source: { kind: "url", url: fileName },
-    frame: { x: 0, y: 0, width: spriteSize, height: spriteSize },
+    frame: { x: 0, y: 0, width, height },
   };
 }
 
@@ -827,27 +892,589 @@ function wingedEnemySprite(walkFileName, shellFileName, wingedFileName) {
 }
 
 function playerStateSprites() {
-  // Map every engine player state key to an authored frame; powered/recovering
-  // reuse the small frames (this parody skin has one body size), and fall/run
-  // reuse jump/walk.
-  const small = {
-    "small-idle": "castaway-idle.png",
-    "small-walk": "castaway-walk-1.png",
-    "small-run": "castaway-walk-2.png",
-    "small-jump": "castaway-jump.png",
-    "small-fall": "castaway-jump.png",
-    "small-climb": "castaway-climb.png",
-    "small-swim": "castaway-swim.png",
-    "small-swim-2": "castaway-swim-2.png",
+  // Map every engine player state key to an authored frame. Powered and fire
+  // tiers are palette-swapped variants (crimson tunic / sun-bleached whites),
+  // the classic approach; recovering reuses the small frames while flashing.
+  const poses = {
+    idle: "castaway-idle",
+    walk: "castaway-walk-1",
+    run: "castaway-walk-2",
+    jump: "castaway-jump",
+    fall: "castaway-jump",
+    climb: "castaway-climb",
+    swim: "castaway-swim",
+    "swim-2": "castaway-swim-2",
   };
   const stateSprites = {};
-  for (const [key, file] of Object.entries(small)) {
-    stateSprites[key] = spriteEntry(file);
-    stateSprites[key.replace("small-", "powered-")] = spriteEntry(file);
-    stateSprites[key.replace("small-", "recovering-")] = spriteEntry(file);
+  for (const [pose, base] of Object.entries(poses)) {
+    stateSprites[`small-${pose}`] = spriteEntry(`${base}.png`);
+    stateSprites[`recovering-${pose}`] = spriteEntry(`${base}.png`);
+    stateSprites[`powered-${pose}`] = spriteEntry(`${base}-powered.png`);
+    stateSprites[`fire-${pose}`] = spriteEntry(`${base}-fire.png`);
   }
   return stateSprites;
 }
+
+// ---------------------------------------------------------------------------
+// Background scenery, mechanisms and furniture — so the decoded levels render
+// with authored art everywhere (no flat vector fallbacks). All original
+// "shabby island" designs.
+
+const sceneryPalette = {
+  ".": [0, 0, 0, 0],
+  w: [252, 252, 252, 255], // cloud white
+  c: [202, 226, 242, 255], // cloud underside shading
+  G: [64, 158, 74, 255], // leaf green
+  g: [116, 202, 112, 255], // sunlit leaf
+  D: [34, 100, 44, 255], // deep foliage shade
+  d: [142, 106, 66, 255], // driftwood
+  k: [92, 66, 40, 255], // dark wood
+  r: [198, 174, 130, 255], // rope
+  s: [222, 198, 150, 255], // pale sand
+};
+
+// Clouds: rounded caps and a puffier middle, flat shaded base so runs of
+// left/middle/right read as one drifting bank.
+const sceneryCloudLeft = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "......wwwwwwwwww",
+  "....wwwwwwwwwwww",
+  "...wwwwwwwwwwwww",
+  "..wwwwwwwwwwwwww",
+  ".wwwwwwwwwwwwwww",
+  ".wwwwwwwwwwwwwww",
+  "..cccccccccccccc",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+const sceneryCloudMiddle = [
+  "................",
+  "................",
+  "................",
+  "...ww......ww...",
+  "..wwww....wwww..",
+  "wwwwwwwwwwwwwwww",
+  "wwwwwwwwwwwwwwww",
+  "wwwwwwwwwwwwwwww",
+  "wwwwwwwwwwwwwwww",
+  "wwwwwwwwwwwwwwww",
+  "wwwwwwwwwwwwwwww",
+  "cccccccccccccccc",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+const sceneryCloudRight = mirrorGrid(sceneryCloudLeft);
+
+// Bushes: the cloud silhouette grown low to the ground in greens.
+const sceneryBushLeft = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "......GGGGGGGGGG",
+  "....GgGGGGGGGGGG",
+  "..GGGGGGGGGGGGGG",
+  ".GGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "DGGGGGGGGGGGGGGG",
+  "DDDDDDDDDDDDDDDD",
+];
+const sceneryBushMiddle = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "...gg......gg...",
+  "..gggg....gggg..",
+  "GGGGGGGGGGGGGGGG",
+  "GGgGGGGGGGGGgGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "DDDDDDDDDDDDDDDD",
+];
+const sceneryBushRight = mirrorGrid(sceneryBushLeft);
+
+// Hills: generated slopes with a sunlit edge, a speckled dome peak, and a
+// solid fill for the body rows.
+const sceneryHillLeft = Array.from({ length: spriteSize }, (_, y) => {
+  const start = 15 - y;
+  return `${".".repeat(start)}g${"G".repeat(15 - start)}`;
+});
+const sceneryHillRight = mirrorGrid(sceneryHillLeft);
+const sceneryHillPeak = [
+  "................",
+  "................",
+  ".......gg.......",
+  "......gGGg......",
+  ".....gGGGGg.....",
+  "....gGGGGGGg....",
+  "...gGGGDGGGGg...",
+  "..gGGGGGGGGGGg..",
+  ".gGGGDGGGGDGGGg.",
+  "gGGGGGGGGGGGGGGg",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGDGGGGGGDGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGDGGGGGDGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+];
+const sceneryHillFill = [
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGDGGGGGGGGDGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGGGGGDGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GDGGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGDGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGDGGGGGGGGGGG",
+  "GGGGGGGGGGDGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "GGDGGGGGGGGGGGGG",
+  "GGGGGGGGGGGGGDGG",
+  "GGGGGGGDGGGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+];
+
+// A driftwood picket fence lashed with two rope rails.
+const sceneryFence = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  ".dd..dd..dd..dd.",
+  "rrrrrrrrrrrrrrrr",
+  ".dd..dd..dd..dd.",
+  ".dd..dd..dd..dd.",
+  "rrrrrrrrrrrrrrrr",
+  ".dd..dd..dd..dd.",
+  ".kk..kk..kk..kk.",
+];
+
+// Tree canopies (tall crown and the one-tile shrub), bark trunk, and the pale
+// stem under the giant mushroom ledges.
+const sceneryTreeTop = [
+  "................",
+  "......gggg......",
+  "....ggGGGGgg....",
+  "...gGGGGGGGGg...",
+  "..gGGGGGGGGGGg..",
+  ".gGGGGGGGGGGGGg.",
+  "GGGGGGGGGGGGGGGG",
+  "GGGGDGGGGDGGGGGG",
+  "GGGGGGGGGGGGGGGG",
+  "DGGGGGGGGGGGGGGD",
+  ".DGGGGGGGGGGGGD.",
+  "..DDGGGGGGGGDD..",
+  "....DDGGGGDD....",
+  "................",
+  "................",
+  "................",
+];
+const sceneryTreeTopSmall = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "......gGGg......",
+  "....gGGGGGGg....",
+  "...GGGGGGGGGG...",
+  "...GGGDGGDGGG...",
+  "....DGGGGGGD....",
+  ".....DGGGGD.....",
+  ".......kk.......",
+  ".......kk.......",
+  ".......kk.......",
+  ".......kk.......",
+  ".......kk.......",
+];
+const sceneryTrunk = [
+  "......dkkd......",
+  "......dkkd......",
+  "......dkdd......",
+  "......dkkd......",
+  "......ddkd......",
+  "......dkkd......",
+  "......dkkd......",
+  "......dkdd......",
+  "......dkkd......",
+  "......dkkd......",
+  "......ddkd......",
+  "......dkkd......",
+  "......dkdd......",
+  "......dkkd......",
+  "......dkkd......",
+  "......dkkd......",
+];
+const sceneryMushroomStem = [
+  ".....kkkkkk.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+  ".....dssssd.....",
+];
+
+// The low rope railing that runs along the bridge levels.
+const sceneryRail = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "rrrrrrrrrrrrrrrr",
+  ".d...d...d...d..",
+  ".d...d...d...d..",
+  ".d...d...d...d..",
+  ".d...d...d...d..",
+  ".d...d...d...d..",
+];
+
+// Castle masonry: coursed stone with offset joints, merlons, a barred window
+// and the keep door.
+const stonePalette = {
+  ".": [0, 0, 0, 0],
+  S: [148, 150, 162, 255],
+  m: [104, 106, 120, 255],
+  k: [38, 38, 48, 255],
+};
+const castleWall = [
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "mmmmmmmmmmmmmmmm",
+];
+const castleBattlement = [
+  "SSSSS......SSSSS",
+  "SSSSS......SSSSS",
+  "SSSSS......SSSSS",
+  "SmSSS......SSSmS",
+  "SSSSS......SSSSS",
+  "SSSSS......SSSSS",
+  "mmmmm......mmmmm",
+  "SSSSSSSSSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "mmmmmmmmmmmmmmmm",
+];
+const castleWindow = [
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSSSSkkkkSSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSmSSSSSSSSmSSS",
+  "SSSmSSSSSSSSmSSS",
+  "mmmmmmmmmmmmmmmm",
+];
+const castleDoor = [
+  "SSSSSSSmSSSSSSSS",
+  "SSSSSSSmSSSSSSSS",
+  "mmmmmmmmmmmmmmmm",
+  "SSSmSSSSSSSSmSSS",
+  "SSSSSSkkkkSSSSSS",
+  "SSSSSkkkkkkSSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+  "SSSSkkkkkkkkSSSS",
+];
+
+// Water and lava bands (the "over water" fore scenery and castle pits).
+const waterPalette = {
+  ".": [0, 0, 0, 0],
+  W: [62, 132, 222, 255],
+  w: [122, 182, 240, 255],
+  f: [238, 248, 255, 255],
+  D: [40, 96, 180, 255],
+};
+const waterSurface = [
+  "fwwfwwwffwwwfwfw",
+  "wWWwWWwwWWwwWWww",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWwWWWWWWWWWWW",
+  "WWWWWWWWWWWDWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWDWWWWWWWWWWWWW",
+  "WWWWWWWWwWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWDWWWWWWWWWW",
+  "WWWWWWWWWWWWwWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+];
+const waterBody = [
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWDWWWWWWWWWWWW",
+  "WWWWWWWWWWWwWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWDWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WwWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWDWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWDWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+  "WWWWWWWWWWWWWWWW",
+];
+const lavaPalette = {
+  ".": [0, 0, 0, 0],
+  R: [214, 64, 42, 255],
+  O: [240, 140, 50, 255],
+  Y: [252, 214, 110, 255],
+  D: [150, 34, 26, 255],
+};
+const lavaSurface = [
+  "YOYYOOYYOYYOOYYO",
+  "OORROORROORROORR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRORRRRRRRRRRR",
+  "RRRRRRRRRRRDRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRDRRRRRRRRRRRRR",
+  "RRRRRRRRORRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRDRRRRRRRRRR",
+  "RRRRRRRRRRRRORRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+];
+const lavaBody = [
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRDRRRRRRRRRRRR",
+  "RRRRRRRRRRRORRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRDRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RORRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRDRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRDRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+  "RRRRRRRRRRRRRRRR",
+];
+
+// Mechanisms and projectiles: firebar orbs, podoboos, lift rafts, the
+// player's fireball, hammers, castle flame jets, and Lakitu's eggs.
+const flamePalette = {
+  ".": [0, 0, 0, 0],
+  Y: [255, 236, 150, 255],
+  O: [248, 150, 54, 255],
+  R: [220, 70, 40, 255],
+};
+const flameOrb = [
+  "..RRRR..",
+  ".RROORR.",
+  "RROYYORR",
+  "ROYYYYOR",
+  "ROYYYYOR",
+  "RROYYORR",
+  ".RROORR.",
+  "..RRRR..",
+];
+const podoboo = [
+  ".......R........",
+  "......RO........",
+  ".....ROY........",
+  "......ROY.......",
+  ".......ROY......",
+  "......ROYO......",
+  ".....ROOOOR.....",
+  "....RRRRRRR.....",
+  "...ROOOOOOR.....",
+  "..ROOYYYYOOR....",
+  "..ROYYYYYYOR....",
+  "..ROYYYYYYOR....",
+  "..ROOYYYYOOR....",
+  "...ROOOOOOR.....",
+  "....RRRRRR......",
+  "................",
+];
+const projectileFireball = [
+  ".OOOO...",
+  "OOYYOO..",
+  "OYYYYO..",
+  "OYYYYO..",
+  "OOYYOO..",
+  ".OOOO...",
+  "........",
+  "........",
+];
+const flameJet = [
+  "................",
+  "....OO..OOO.....",
+  ".YYOOORROOOORR..",
+  "YYYYOOOOOOORRRR.",
+  "YYYYOOOOOOORRRR.",
+  ".YYOOORROOOORR..",
+  "....OO..OOO.....",
+  "................",
+];
+const hammerPalette = {
+  ".": [0, 0, 0, 0],
+  S: [176, 178, 188, 255],
+  d: [142, 106, 66, 255],
+};
+const projectileHammer = [
+  "SSSSS...",
+  "SSSSS...",
+  "SSSSS...",
+  "..dd....",
+  "...dd...",
+  "....dd..",
+  ".....dd.",
+  "......dd",
+];
+const eggPalette = {
+  ".": [0, 0, 0, 0],
+  e: [24, 20, 18, 255],
+  P: [104, 58, 96, 255],
+  w: [210, 120, 170, 255],
+};
+const projectileEgg = [
+  ".e.ee.e.",
+  "ePPPPPPe",
+  "PPwPPwPP",
+  "PPPPPPPP",
+  "ePPPPPPe",
+  ".ePPPPe.",
+  "..eeee..",
+  "........",
+];
+const liftPlank = [
+  "rrrrrrrrrrrrrrrr",
+  "dddddddddddddddd",
+  "dkdddddkdddddkdd",
+  "dddddddddddddddd",
+  "ddkdddddkdddddkd",
+  "dddddddddddddddd",
+  "kkkkkkkkkkkkkkkk",
+  "................",
+];
+
+// The goal pennant: patched sailcloth pointing left off the pole.
+const flagPennant = [
+  "..............ss",
+  "............ssss",
+  "..........ssssss",
+  "........ssssssss",
+  "......ssssssssss",
+  "....ssssssssssss",
+  "..ssssssssppssss",
+  "ssssssssssppssss",
+  "..ssssssssssssss",
+  "....ssssssssssss",
+  "......ssssssssss",
+  "........ssssssss",
+  "..........ssssss",
+  "............ssss",
+  "..............ss",
+  "................",
+];
+const flagPalette = {
+  ".": [0, 0, 0, 0],
+  s: [222, 198, 150, 255],
+  p: [156, 92, 60, 255],
+};
+
+// Powered / fire tiers: the classic palette swap. The powered castaway wears
+// a crimson-dyed tunic; the fire tier bleaches it bone-white with red patches.
+const poweredPlayerPalette = {
+  ...palette,
+  T: [158, 54, 44, 255],
+  p: [214, 150, 70, 255],
+};
+const firePlayerPalette = {
+  ...palette,
+  T: [236, 226, 204, 255],
+  p: [196, 62, 46, 255],
+};
 
 async function main() {
   const outDir = assertUserLevelCachePath(
@@ -890,13 +1517,68 @@ async function main() {
     ["snapper-red-winged.png", snapperWinged, redEnemyPalette],
     ["urchin-walk.png", snapperShell, spinyPalette],
     ["kelp-trap.png", kelpTrap, kelpTrapPalette],
+    ["hurler.png", hurler, enemyPalette],
+    ["cloud-tosser.png", cloudTosser, cloudTosserPalette],
+    ["buzzy-shell.png", snapperShell, buzzyPalette],
     ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
     ["bullet-slug.png", bulletSlug, bulletPalette],
     ["castaway-fish.png", castawayFish, waterEnemyPalette],
     ["castaway-squid.png", castawaySquid, waterEnemyPalette],
+    // Powered / fire player tiers (palette-swapped castaway frames).
+    ["castaway-idle-powered.png", castawayIdle, poweredPlayerPalette],
+    ["castaway-walk-1-powered.png", castawayWalk1, poweredPlayerPalette],
+    ["castaway-walk-2-powered.png", castawayWalk2, poweredPlayerPalette],
+    ["castaway-jump-powered.png", castawayJump, poweredPlayerPalette],
+    ["castaway-climb-powered.png", castawayClimb, poweredPlayerPalette],
+    ["castaway-swim-powered.png", castawaySwimA, poweredPlayerPalette],
+    ["castaway-swim-2-powered.png", castawaySwimB, poweredPlayerPalette],
+    ["castaway-idle-fire.png", castawayIdle, firePlayerPalette],
+    ["castaway-walk-1-fire.png", castawayWalk1, firePlayerPalette],
+    ["castaway-walk-2-fire.png", castawayWalk2, firePlayerPalette],
+    ["castaway-jump-fire.png", castawayJump, firePlayerPalette],
+    ["castaway-climb-fire.png", castawayClimb, firePlayerPalette],
+    ["castaway-swim-fire.png", castawaySwimA, firePlayerPalette],
+    ["castaway-swim-2-fire.png", castawaySwimB, firePlayerPalette],
+    // Background scenery.
+    ["scenery-cloud-left.png", sceneryCloudLeft, sceneryPalette],
+    ["scenery-cloud-middle.png", sceneryCloudMiddle, sceneryPalette],
+    ["scenery-cloud-right.png", sceneryCloudRight, sceneryPalette],
+    ["scenery-bush-left.png", sceneryBushLeft, sceneryPalette],
+    ["scenery-bush-middle.png", sceneryBushMiddle, sceneryPalette],
+    ["scenery-bush-right.png", sceneryBushRight, sceneryPalette],
+    ["scenery-hill-left.png", sceneryHillLeft, sceneryPalette],
+    ["scenery-hill-peak.png", sceneryHillPeak, sceneryPalette],
+    ["scenery-hill-right.png", sceneryHillRight, sceneryPalette],
+    ["scenery-hill-fill.png", sceneryHillFill, sceneryPalette],
+    ["scenery-fence.png", sceneryFence, sceneryPalette],
+    ["scenery-tree-top.png", sceneryTreeTop, sceneryPalette],
+    ["scenery-tree-top-small.png", sceneryTreeTopSmall, sceneryPalette],
+    ["scenery-trunk.png", sceneryTrunk, sceneryPalette],
+    ["scenery-mushroom-stem.png", sceneryMushroomStem, sceneryPalette],
+    ["scenery-rail.png", sceneryRail, sceneryPalette],
+    ["castle-wall.png", castleWall, stonePalette],
+    ["castle-battlement.png", castleBattlement, stonePalette],
+    ["castle-window.png", castleWindow, stonePalette],
+    ["castle-door.png", castleDoor, stonePalette],
+    ["water-surface.png", waterSurface, waterPalette],
+    ["water-body.png", waterBody, waterPalette],
+    ["lava-surface.png", lavaSurface, lavaPalette],
+    ["lava-body.png", lavaBody, lavaPalette],
+    // Mechanisms, projectiles, and the goal pennant.
+    ["flame-orb.png", flameOrb, flamePalette, 8, 8],
+    ["podoboo.png", podoboo, flamePalette],
+    ["projectile-fireball.png", projectileFireball, flamePalette, 8, 8],
+    ["flame-jet.png", flameJet, flamePalette, 16, 8],
+    ["projectile-hammer.png", projectileHammer, hammerPalette, 8, 8],
+    ["projectile-egg.png", projectileEgg, eggPalette, 8, 8],
+    ["lift-plank.png", liftPlank, sceneryPalette, 16, 8],
+    ["flag-pennant.png", flagPennant, flagPalette],
   ];
-  for (const [fileName, grid, paletteMap] of sprites) {
-    await writeFile(resolve(outDir, fileName), drawSprite(grid, paletteMap));
+  for (const [fileName, grid, paletteMap, width, height] of sprites) {
+    await writeFile(
+      resolve(outDir, fileName),
+      drawSprite(grid, paletteMap, width, height),
+    );
   }
 
   // Map the VGLC SMB 1-1 tile ids to the original island tiles.
@@ -927,6 +1609,33 @@ async function main() {
     stone: spriteEntry("tile-crate.png"),
     thorn: spriteEntry("tile-spikes.png"),
     gate: spriteEntry("tile-pole.png"),
+    // Decoded background scenery (empty-collision decorative tiles).
+    "scenery-cloud-left": spriteEntry("scenery-cloud-left.png"),
+    "scenery-cloud-middle": spriteEntry("scenery-cloud-middle.png"),
+    "scenery-cloud-right": spriteEntry("scenery-cloud-right.png"),
+    "scenery-bush-left": spriteEntry("scenery-bush-left.png"),
+    "scenery-bush-middle": spriteEntry("scenery-bush-middle.png"),
+    "scenery-bush-right": spriteEntry("scenery-bush-right.png"),
+    "scenery-hill-left": spriteEntry("scenery-hill-left.png"),
+    "scenery-hill-peak": spriteEntry("scenery-hill-peak.png"),
+    "scenery-hill-right": spriteEntry("scenery-hill-right.png"),
+    "scenery-hill-fill": spriteEntry("scenery-hill-fill.png"),
+    "scenery-fence": spriteEntry("scenery-fence.png"),
+    "scenery-tree-top": spriteEntry("scenery-tree-top.png"),
+    "scenery-tree-top-small": spriteEntry("scenery-tree-top-small.png"),
+    "scenery-trunk": spriteEntry("scenery-trunk.png"),
+    "scenery-mushroom-stem": spriteEntry("scenery-mushroom-stem.png"),
+    "scenery-rail": spriteEntry("scenery-rail.png"),
+    "castle-wall": spriteEntry("castle-wall.png"),
+    "castle-battlement": spriteEntry("castle-battlement.png"),
+    "castle-window": spriteEntry("castle-window.png"),
+    "castle-door": spriteEntry("castle-door.png"),
+    "water-surface": spriteEntry("water-surface.png"),
+    "water-body": spriteEntry("water-body.png"),
+    "lava-surface": spriteEntry("lava-surface.png"),
+    "lava-body": spriteEntry("lava-body.png"),
+    // Goal furniture (looked up by the shell's flagpole renderer).
+    "flagpole-flag": spriteEntry("flag-pennant.png"),
   };
 
   const descriptor = {
@@ -946,8 +1655,8 @@ async function main() {
       // Every vglc-smb actor id the importer can emit is covered so any decoded
       // SMB level renders fully (no vector fallbacks), reusing this skin's art.
       "vglc-smb-enemy": walkingEnemySprite("grumbler-idle.png"),
-      "vglc-smb-throwing-enemy": walkingEnemySprite("grumbler-idle.png"),
-      "vglc-smb-aerial-throwing-enemy": walkingEnemySprite("grumbler-idle.png"),
+      "vglc-smb-throwing-enemy": walkingEnemySprite("hurler.png"),
+      "vglc-smb-aerial-throwing-enemy": walkingEnemySprite("cloud-tosser.png"),
       "vglc-smb-koopa": shelledEnemySprite(
         "snapper-walk.png",
         "snapper-shell.png",
@@ -958,8 +1667,8 @@ async function main() {
         "snapper-winged.png",
       ),
       "vglc-smb-turtle": shelledEnemySprite(
-        "snapper-walk.png",
-        "snapper-shell.png",
+        "buzzy-shell.png",
+        "buzzy-shell.png",
       ),
       "vglc-smb-cheep": walkingEnemySprite("castaway-fish.png"),
       "vglc-smb-blooper": walkingEnemySprite("castaway-squid.png"),
@@ -979,6 +1688,15 @@ async function main() {
       ),
       "vglc-smb-spiny": walkingEnemySprite("urchin-walk.png"),
       "vglc-smb-piranha": walkingEnemySprite("kelp-trap.png"),
+      // Mechanism/projectile art (looked up by the shell's dedicated
+      // renderers, not by level actors).
+      "mechanism-flame-orb": spriteEntry("flame-orb.png", 8, 8),
+      "mechanism-podoboo": spriteEntry("podoboo.png"),
+      "mechanism-lift": spriteEntry("lift-plank.png", 16, 8),
+      "projectile-fireball": spriteEntry("projectile-fireball.png", 8, 8),
+      "projectile-hammer": spriteEntry("projectile-hammer.png", 8, 8),
+      "projectile-flame": spriteEntry("flame-jet.png", 16, 8),
+      "projectile-egg": spriteEntry("projectile-egg.png", 8, 8),
       "vglc-smb-bowser": walkingEnemySprite("warden.png"),
       "vglc-smb-bowser-hammers": walkingEnemySprite("warden.png"),
       "vglc-smb-bullet": walkingEnemySprite("bullet-slug.png"),
@@ -992,10 +1710,27 @@ async function main() {
       "vglc-smb-transition-pipe-a": spriteEntry("tile-bamboo.png"),
       "vglc-smb-transition-pipe-b": spriteEntry("tile-bamboo.png"),
       "open-gate": spriteEntry("tile-pole.png"),
-      // Level-editor actor ids (Goomba/Koopa/Flyer, item, power-up).
+      // Level-editor actor ids — the editor's whole cast renders with this
+      // skin's art (no fallback capsules).
       beetle: walkingEnemySprite("grumbler-idle.png"),
       flutterby: walkingEnemySprite("grumbler-idle.png"),
       shellback: shelledEnemySprite("snapper-walk.png", "snapper-shell.png"),
+      "buzzy-beetle": shelledEnemySprite("buzzy-shell.png", "buzzy-shell.png"),
+      "chomp-bud": walkingEnemySprite("kelp-trap.png"),
+      "hammer-bro": walkingEnemySprite("hurler.png"),
+      "cloud-tosser": walkingEnemySprite("cloud-tosser.png"),
+      "spike-hunter": walkingEnemySprite("urchin-walk.png"),
+      "snapper-red": shelledEnemySprite(
+        "snapper-red-walk.png",
+        "snapper-red-shell.png",
+      ),
+      "snapper-winged": wingedEnemySprite(
+        "snapper-walk.png",
+        "snapper-shell.png",
+        "snapper-winged.png",
+      ),
+      urchin: walkingEnemySprite("urchin-walk.png"),
+      "keep-warden": walkingEnemySprite("warden.png"),
       "star-shard": spriteEntry("tile-shell.png"),
       "spark-cap": spriteEntry("castaway-powerup.png"),
     },

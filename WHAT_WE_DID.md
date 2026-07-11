@@ -5,6 +5,37 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — The parody skin is complete: art for every visual element
+
+- **Scenery sprites** (24 tiles): clouds, bushes, generated hill slopes with
+  speckled peaks, driftwood fence, tree canopies + bark trunks, mushroom
+  stems, bridge rope rails, castle masonry (wall/battlement/window/door),
+  and water/lava surface+body bands. The tile renderer already preferred
+  skin images, so decoded levels now draw them everywhere.
+- **Mechanism art + renderer wiring**: firebar orbs and podoboos (pooled by
+  kind), lift rafts (stretched driftwood plank), the goal pennant, player
+  fireballs, and the pooled timed hazards routed by id prefix — cannon
+  bullets (the slug), castle flame jets, hurled hammers, Lakitu's eggs —
+  all render skin art with direction flips, falling back to the old shapes
+  for sets without it.
+- **Player tiers look different now**: powered wears a crimson-dyed tunic
+  and the fire tier sun-bleached whites (palette swaps, the classic way);
+  the shell resolves fire → powered → bare for sets without fire art.
+- **New cast art**: the "hurler" (hammer-bro stand-in) and "cloud tosser"
+  (Lakitu peeking over his cloud) replace the goomba-lookalike rendering;
+  buzzies are now bare charcoal shells. Every editor palette actor id
+  (buzzy-beetle, chomp-bud, hammer-bro, cloud-tosser, spike-hunter,
+  snapper-red/winged, urchin, keep-warden) is covered — no fallback
+  capsules anywhere. 86 sprites total (was 37).
+- **Boyscout fixes**: (1) hidden blocks placed over background scenery no
+  longer punch a sky-colored hole that telegraphs them — the renderer
+  continues the neighboring scenery art behind the invisible cell; (2) the
+  projectile render pool destroyed nothing, leaking one hidden container
+  per shot forever — stale entries are destroyed now; (3) dying while
+  holding a direction key no longer instantly rewinds the death-replay
+  timeline (held keys are ignored by the scrubber until re-pressed) — this
+  was also the root cause of the flaky enemy-contact browser test.
+
 ## 2026-07-11 — ROM-exact player physics: speed-indexed jump tiers, real accel/friction
 
 - **Jump tiers** (JumpMForceData/FallMForceData/PlayerYSpdData): jump physics
