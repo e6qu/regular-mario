@@ -12,6 +12,10 @@ import type { TilePoint } from "../../engine/domain/units";
 import { assertValidCollectibleInteractionState } from "../../engine/simulation/collectible-interaction";
 import { liveFrenzyCheeps } from "../../engine/simulation/cheep-frenzy-state";
 import {
+  computeFirebarOrbs,
+  computePodobooPositions,
+} from "../../engine/simulation/flame-hazards";
+import {
   computeTotalScore,
   timeBonusFramesPerDisplayUnit,
 } from "../../engine/simulation/game-score";
@@ -565,6 +569,7 @@ export class BootScene extends Phaser.Scene {
     string,
     Phaser.GameObjects.Container
   > = new Map();
+  private readonly flameHazardRenderObjects: Phaser.GameObjects.Arc[] = [];
   private levelRenderedObjects: readonly Phaser.GameObjects.GameObject[] = [];
   private readonly levelSequence: readonly LevelSpecInput[] | undefined;
   private readonly warpLevelsByName:
@@ -1293,6 +1298,7 @@ export class BootScene extends Phaser.Scene {
     this.projectileRenderObjects.clear();
     this.timedHazardProjectileRenderObjects.clear();
     this.frenzyCheepRenderObjects.clear();
+    this.flameHazardRenderObjects.length = 0;
   }
 
   private advanceToNextLevel(): void {
@@ -2383,7 +2389,46 @@ export class BootScene extends Phaser.Scene {
     this.renderProjectiles();
     this.renderTimedHazardProjectiles();
     this.renderFrenzyCheeps();
+    this.renderFlameHazards();
     this.renderPipes();
+  }
+
+  // Rotating firebar orbs and leaping podoboos are pure functions of the
+  // frame; a pool of circles is repositioned (and hidden when a podoboo dips
+  // below the pit) each frame.
+  private renderFlameHazards(): void {
+    if (
+      this.levelSpec.firebars.length === 0 &&
+      this.levelSpec.podoboos.length === 0
+    ) {
+      return;
+    }
+    const frameIndex = this.simulationState.clock.frameIndex;
+    const points = [
+      ...computeFirebarOrbs(this.levelSpec, frameIndex),
+      ...computePodobooPositions(this.levelSpec, frameIndex),
+    ];
+    for (const [index, point] of points.entries()) {
+      let orb = this.flameHazardRenderObjects[index];
+      if (orb === undefined) {
+        orb = this.add.circle(0, 0, point.sizePixels / 2, flameHazardCoreColor);
+        orb.setStrokeStyle(1, flameHazardRimColor);
+        this.flameHazardRenderObjects.push(orb);
+      }
+      orb.setRadius(point.sizePixels / 2);
+      orb.setPosition(
+        point.x + point.sizePixels / 2,
+        point.y + point.sizePixels / 2,
+      );
+      orb.setVisible(true);
+    }
+    for (
+      let index = points.length;
+      index < this.flameHazardRenderObjects.length;
+      index += 1
+    ) {
+      this.flameHazardRenderObjects[index]?.setVisible(false);
+    }
   }
 
   private renderBreakableTiles(): void {
@@ -5136,6 +5181,8 @@ function renderThrowingEnemyActor(
   ]);
 }
 
+const flameHazardCoreColor = 0xf97316;
+const flameHazardRimColor = 0xfde047;
 const piranhaStalkColor = 0x15803d;
 const piranhaHeadColor = 0x22c55e;
 const piranhaMouthColor = 0x7f1d1d;

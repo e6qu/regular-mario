@@ -22,5 +22,24 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "castle"
+  "theme": "castle",
+  "firebars": [
+    {
+      "x": 103,
+      "y": 8,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    }
+  ],
+  "podoboos": [
+    {
+      "x": 20,
+      "phaseOffsetFrames": 244
+    },
+    {
+      "x": 196,
+      "phaseOffsetFrames": 164
+    }
+  ]
 }

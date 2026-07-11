@@ -143,6 +143,9 @@ describe("makeLevelSpec", () => {
       pathAnnotations: [],
       timedHazardProjectileSpawners: [],
       spawnedPowerUpMovement: undefined,
+      cheepFrenzy: undefined,
+      firebars: [],
+      podoboos: [],
     });
   });
 

@@ -183,6 +183,8 @@ export type LevelSpecInput = {
   readonly pathAnnotations?: readonly PathAnnotationInput[];
   readonly spawnedPowerUpMovement?: SpawnedPowerUpMovementInput;
   readonly cheepFrenzy?: CheepFrenzyInput;
+  readonly firebars?: readonly FirebarInput[];
+  readonly podoboos?: readonly PodobooInput[];
 };
 
 // An underwater Cheep-cheep frenzy: while the player is within this tile-column
@@ -195,6 +197,43 @@ export type CheepFrenzyInput = {
 export type CheepFrenzyRegion = {
   readonly startTileX: number;
   readonly endTileX: number;
+};
+
+// A rotating bar of fire orbs anchored to a block (castle hazard). Purely a
+// function of the frame index — no mutable state.
+export type FirebarInput = {
+  readonly firebarId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly orbCount: number;
+  readonly direction: string; // "clockwise" | "counter-clockwise"
+  readonly speed: string; // "slow" | "fast"
+};
+
+export type FirebarRotationDirection = "clockwise" | "counter-clockwise";
+export type FirebarRotationSpeed = "slow" | "fast";
+
+export type FirebarDefinition = {
+  readonly firebarId: string;
+  readonly anchorTileX: number;
+  readonly anchorTileY: number;
+  readonly orbCount: number;
+  readonly direction: FirebarRotationDirection;
+  readonly speed: FirebarRotationSpeed;
+};
+
+// A fireball that periodically leaps out of the lava/pit at a fixed column
+// and falls back down (castle hazard). Also purely a function of the frame.
+export type PodobooInput = {
+  readonly podobooId: string;
+  readonly x: number;
+  readonly phaseOffsetFrames: number;
+};
+
+export type PodobooDefinition = {
+  readonly podobooId: string;
+  readonly tileX: number;
+  readonly phaseOffsetFrames: number;
 };
 
 type LevelTimerId = Brand<string, "LevelTimerId">;
@@ -291,6 +330,8 @@ export type LevelSpec = {
   readonly timedHazardProjectileSpawners: readonly TimedHazardProjectileSpawner[];
   readonly spawnedPowerUpMovement: SpawnedPowerUpMovement | undefined;
   readonly cheepFrenzy: CheepFrenzyRegion | undefined;
+  readonly firebars: readonly FirebarDefinition[];
+  readonly podoboos: readonly PodobooDefinition[];
 };
 
 type ValidatedDimensions = {
@@ -1119,6 +1160,8 @@ export function makeLevelSpec(
   const timedHazardProjectileSpawnersResult =
     validateTimedHazardProjectileSpawners(input);
   const spawnedPowerUpMovementResult = validateSpawnedPowerUpMovement(input);
+  const firebarsResult = validateFirebars(input);
+  const podoboosResult = validatePodoboos(input);
 
   if (!enemyPatrolSpeedResult.ok) {
     errors.push(...enemyPatrolSpeedResult.errors);
@@ -1140,6 +1183,14 @@ export function makeLevelSpec(
     errors.push(...spawnedPowerUpMovementResult.errors);
   }
 
+  if (!firebarsResult.ok) {
+    errors.push(...firebarsResult.errors);
+  }
+
+  if (!podoboosResult.ok) {
+    errors.push(...podoboosResult.errors);
+  }
+
   const interactiveBlockContentsErrors = validateInteractiveBlockContents(
     definitionsResult.value.tileDefinitions,
     definitionsResult.value.actorRoles,
@@ -1158,7 +1209,9 @@ export function makeLevelSpec(
     !levelTimersResult.ok ||
     !pathAnnotationsResult.ok ||
     !timedHazardProjectileSpawnersResult.ok ||
-    !spawnedPowerUpMovementResult.ok
+    !spawnedPowerUpMovementResult.ok ||
+    !firebarsResult.ok ||
+    !podoboosResult.ok
   ) {
     throw new Error("Level metadata result is invalid after validation.");
   }
@@ -1184,7 +1237,173 @@ export function makeLevelSpec(
       input.cheepFrenzy,
       dimensionsResult.value.widthTiles,
     ),
+    firebars: firebarsResult.value,
+    podoboos: podoboosResult.value,
   });
+}
+
+const maxFirebarOrbCount = 16;
+
+function validateFirebars(
+  input: LevelSpecInput,
+): DomainResult<readonly FirebarDefinition[], ValidationError> {
+  const firebars = input.firebars ?? [];
+  const errors: ValidationError[] = [];
+  const seenIds = new Set<string>();
+  const validated: FirebarDefinition[] = [];
+
+  for (const [index, firebar] of firebars.entries()) {
+    const path = `firebars[${index}]`;
+    if (
+      typeof firebar.firebarId !== "string" ||
+      !metadataIdPattern.test(firebar.firebarId) ||
+      seenIds.has(firebar.firebarId)
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.EntityIdInvalid,
+          `${path}.firebarId must be a unique well-formed id.`,
+          `${path}.firebarId`,
+        ),
+      );
+      continue;
+    }
+    seenIds.add(firebar.firebarId);
+
+    const anchorInBounds =
+      Number.isSafeInteger(firebar.x) &&
+      Number.isSafeInteger(firebar.y) &&
+      firebar.x >= 0 &&
+      firebar.x < input.widthTiles &&
+      firebar.y >= 0 &&
+      firebar.y < input.heightTiles;
+    if (!anchorInBounds) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorPositionOutOfBounds,
+          `${path} anchor must be inside the level bounds.`,
+          path,
+        ),
+      );
+      continue;
+    }
+
+    if (
+      !Number.isSafeInteger(firebar.orbCount) ||
+      firebar.orbCount < 1 ||
+      firebar.orbCount > maxFirebarOrbCount
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.DimensionInvalid,
+          `${path}.orbCount must be an integer between 1 and ${String(maxFirebarOrbCount)}.`,
+          `${path}.orbCount`,
+        ),
+      );
+      continue;
+    }
+
+    if (
+      firebar.direction !== "clockwise" &&
+      firebar.direction !== "counter-clockwise"
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorRoleInvalid,
+          `${path}.direction must be "clockwise" or "counter-clockwise".`,
+          `${path}.direction`,
+        ),
+      );
+      continue;
+    }
+
+    if (firebar.speed !== "slow" && firebar.speed !== "fast") {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorRoleInvalid,
+          `${path}.speed must be "slow" or "fast".`,
+          `${path}.speed`,
+        ),
+      );
+      continue;
+    }
+
+    validated.push({
+      firebarId: firebar.firebarId,
+      anchorTileX: firebar.x,
+      anchorTileY: firebar.y,
+      orbCount: firebar.orbCount,
+      direction: firebar.direction,
+      speed: firebar.speed,
+    });
+  }
+
+  return errors.length > 0 ? fail(errors) : succeed(validated);
+}
+
+function validatePodoboos(
+  input: LevelSpecInput,
+): DomainResult<readonly PodobooDefinition[], ValidationError> {
+  const podoboos = input.podoboos ?? [];
+  const errors: ValidationError[] = [];
+  const seenIds = new Set<string>();
+  const validated: PodobooDefinition[] = [];
+
+  for (const [index, podoboo] of podoboos.entries()) {
+    const path = `podoboos[${index}]`;
+    if (
+      typeof podoboo.podobooId !== "string" ||
+      !metadataIdPattern.test(podoboo.podobooId) ||
+      seenIds.has(podoboo.podobooId)
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.EntityIdInvalid,
+          `${path}.podobooId must be a unique well-formed id.`,
+          `${path}.podobooId`,
+        ),
+      );
+      continue;
+    }
+    seenIds.add(podoboo.podobooId);
+
+    if (
+      !Number.isSafeInteger(podoboo.x) ||
+      podoboo.x < 0 ||
+      podoboo.x >= input.widthTiles
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorPositionOutOfBounds,
+          `${path}.x must be inside the level bounds.`,
+          `${path}.x`,
+        ),
+      );
+      continue;
+    }
+
+    if (
+      !Number.isSafeInteger(podoboo.phaseOffsetFrames) ||
+      podoboo.phaseOffsetFrames < 0
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.FrameIndexInvalid,
+          `${path}.phaseOffsetFrames must be a non-negative integer.`,
+          `${path}.phaseOffsetFrames`,
+        ),
+      );
+      continue;
+    }
+
+    validated.push({
+      podobooId: podoboo.podobooId,
+      tileX: podoboo.x,
+      phaseOffsetFrames: podoboo.phaseOffsetFrames,
+    });
+  }
+
+  return errors.length > 0 ? fail(errors) : succeed(validated);
 }
 
 // Clamp a decoded frenzy region to the level's tile bounds (start <= end,

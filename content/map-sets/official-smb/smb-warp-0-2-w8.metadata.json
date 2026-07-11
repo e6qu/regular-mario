@@ -28,5 +28,42 @@
       "x": 3,
       "y": 11
     }
+  ],
+  "firebars": [
+    {
+      "x": 20,
+      "y": 8,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 31,
+      "y": 11,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 40,
+      "y": 7,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 56,
+      "y": 9,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 64,
+      "y": 8,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    }
   ]
 }

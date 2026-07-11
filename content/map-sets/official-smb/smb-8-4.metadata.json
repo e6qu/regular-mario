@@ -141,5 +141,11 @@
       "x": 266,
       "y": 11
     }
+  ],
+  "podoboos": [
+    {
+      "x": 279,
+      "phaseOffsetFrames": 255
+    }
   ]
 }

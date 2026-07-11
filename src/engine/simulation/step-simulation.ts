@@ -100,6 +100,7 @@ import {
 } from "./simulation-units";
 import { advancePseudoRandom } from "./pseudo-random";
 import { resolveCheepFrenzyState } from "./cheep-frenzy-state";
+import { playerTouchesFlameHazard } from "./flame-hazards";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -543,7 +544,15 @@ function stepActiveSimulation(
     Number(nextClock.frameIndex),
   );
   const outcomeLevelContacts =
-    timedHazardProjectiles.playerContact || cheepFrenzy.playerContacted
+    timedHazardProjectiles.playerContact ||
+    cheepFrenzy.playerContacted ||
+    // Rotating firebars and leaping podoboos are stateless flame hazards —
+    // contact harms exactly like touching a hazard tile.
+    playerTouchesFlameHazard(
+      playerAfterProjectileStomp,
+      levelSpec,
+      nextClock.frameIndex,
+    )
       ? {
           ...levelContacts,
           hazard: true,

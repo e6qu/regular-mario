@@ -1,5 +1,10 @@
 import { ActorRole, TileCollisionKind } from "../../domain/level-spec";
-import type { CheepFrenzyInput, LevelSpecInput } from "../../domain/level-spec";
+import type {
+  CheepFrenzyInput,
+  FirebarInput,
+  LevelSpecInput,
+  PodobooInput,
+} from "../../domain/level-spec";
 import type { DomainResult } from "../../domain/result";
 import { fail } from "../../domain/result";
 import type { ValidationError } from "../../domain/validation-error";
@@ -501,6 +506,8 @@ type VglcSmbTextImportMetadata = {
   readonly multiLayer: VglcSmbMultiLayerMetadata | undefined;
   readonly cheepFrenzy: CheepFrenzyInput | undefined;
   readonly piranhaPlants: readonly VglcSmbPoint[];
+  readonly firebars: readonly FirebarInput[];
+  readonly podoboos: readonly PodobooInput[];
 };
 
 export function parseVglcSmbTextLevel(
@@ -781,8 +788,17 @@ function parseConvertedVglcSmbRows(
       ? parsed.value
       : { ...parsed.value, cheepFrenzy: input.metadata.cheepFrenzy };
 
+  const withFlames: LevelSpecInput =
+    input.metadata.firebars.length === 0 && input.metadata.podoboos.length === 0
+      ? withFrenzy
+      : {
+          ...withFrenzy,
+          firebars: input.metadata.firebars,
+          podoboos: input.metadata.podoboos,
+        };
+
   const withPlants = withPiranhaPlants(
-    withFrenzy,
+    withFlames,
     input.metadata.piranhaPlants,
   );
 
@@ -887,6 +903,8 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     multiLayer: undefined,
     cheepFrenzy: undefined,
     piranhaPlants: [],
+    firebars: [],
+    podoboos: [],
   };
 }
 
@@ -957,7 +975,117 @@ function parseVglcSmbTextImportMetadata(
       "metadata.piranhaPlants",
       errors,
     ),
+    firebars: parseFirebarArray(
+      candidate.firebars,
+      "metadata.firebars",
+      errors,
+    ),
+    podoboos: parsePodobooArray(
+      candidate.podoboos,
+      "metadata.podoboos",
+      errors,
+    ),
   };
+}
+
+// Firebar/podoboo metadata is validated in depth by the level spec; the
+// importer only checks the container shape and required field types.
+function parseFirebarArray(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): readonly FirebarInput[] {
+  if (input === undefined) {
+    return [];
+  }
+  if (!Array.isArray(input)) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        `${path} must be an array of firebar metadata objects.`,
+        path,
+      ),
+    );
+    return [];
+  }
+  const firebars: FirebarInput[] = [];
+  for (const [index, value] of input.entries()) {
+    const itemPath = `${path}[${index}]`;
+    const candidate = value as Readonly<Record<string, unknown>> | null;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      typeof candidate.x !== "number" ||
+      typeof candidate.y !== "number" ||
+      typeof candidate.orbCount !== "number" ||
+      typeof candidate.direction !== "string" ||
+      typeof candidate.speed !== "string"
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.VglcMetadataInvalid,
+          `${itemPath} must have numeric x/y/orbCount and string direction/speed.`,
+          itemPath,
+        ),
+      );
+      continue;
+    }
+    firebars.push({
+      firebarId: `vglc-smb-firebar-${String(index)}`,
+      x: candidate.x,
+      y: candidate.y,
+      orbCount: candidate.orbCount,
+      direction: candidate.direction,
+      speed: candidate.speed,
+    });
+  }
+  return firebars;
+}
+
+function parsePodobooArray(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): readonly PodobooInput[] {
+  if (input === undefined) {
+    return [];
+  }
+  if (!Array.isArray(input)) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        `${path} must be an array of podoboo metadata objects.`,
+        path,
+      ),
+    );
+    return [];
+  }
+  const podoboos: PodobooInput[] = [];
+  for (const [index, value] of input.entries()) {
+    const itemPath = `${path}[${index}]`;
+    const candidate = value as Readonly<Record<string, unknown>> | null;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      typeof candidate.x !== "number" ||
+      typeof candidate.phaseOffsetFrames !== "number"
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.VglcMetadataInvalid,
+          `${itemPath} must have numeric x and phaseOffsetFrames.`,
+          itemPath,
+        ),
+      );
+      continue;
+    }
+    podoboos.push({
+      podobooId: `vglc-smb-podoboo-${String(index)}`,
+      x: candidate.x,
+      phaseOffsetFrames: candidate.phaseOffsetFrames,
+    });
+  }
+  return podoboos;
 }
 
 // Parse the underwater Cheep-cheep frenzy region ({startTileX,endTileX}) the

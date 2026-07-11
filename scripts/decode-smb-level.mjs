@@ -310,12 +310,32 @@ function enemyIdName(id) {
   if (id === 0x06) return "goomba";
   if (id === 0x07) return "blooper"; // squid — pulses toward the swimmer
   if (id === 0x0a || id === 0x0b) return "cheep"; // cheep-cheep (swimming fish)
+  if (id === 0x0c) return "podoboo"; // lava fireball (metadata, not a glyph)
   if (id === 0x0e) return "paratroopa-hop"; // green paratroopa (hops forward)
   if (id === 0x0f) return "paratroopa-red"; // red paratroopa (vertical flyer)
   if (id === 0x10) return "paratroopa-fly"; // green paratroopa (glides)
   if (id === 0x11) return "lakitu";
   if (id === 0x12) return "spiny";
+  if (id >= 0x1b && id <= 0x1f) return "firebar"; // metadata, not a glyph
   return `enemy-${id.toString(16)}`;
+}
+
+// Firebar variants $1B-$1F: direction/speed from the init tables
+// (FirebarSpinDirData/FirebarSpinSpdData), $1F is the long 12-orb bar.
+const firebarVariants = {
+  0x1b: { direction: "clockwise", speed: "slow", orbCount: 6 },
+  0x1c: { direction: "clockwise", speed: "fast", orbCount: 6 },
+  0x1d: { direction: "counter-clockwise", speed: "slow", orbCount: 6 },
+  0x1e: { direction: "counter-clockwise", speed: "fast", orbCount: 6 },
+  0x1f: { direction: "clockwise", speed: "slow", orbCount: 12 },
+};
+
+// Stagger podoboo leaps deterministically by column (the original uses its
+// pseudo-random register; we keep replays exact instead).
+const podobooCycleFrames = 384;
+
+function podobooPhaseForColumn(col) {
+  return (col * 89) % podobooCycleFrames;
 }
 
 // Grid symbol per modeled enemy kind (matches the runtime multi-layer legend).
@@ -631,6 +651,8 @@ export function buildMetadata(grid, header, options = {}) {
     transitions = [],
     cannons = [],
     piranhaPlants = [],
+    firebars = [],
+    podoboos = [],
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
   } = options;
@@ -664,6 +686,12 @@ export function buildMetadata(grid, header, options = {}) {
   };
   if (piranhaPlants.length > 0) {
     metadata.piranhaPlants = piranhaPlants;
+  }
+  if (firebars.length > 0) {
+    metadata.firebars = firebars;
+  }
+  if (podoboos.length > 0) {
+    metadata.podoboos = podoboos;
   }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
@@ -903,10 +931,28 @@ export async function decodeAllLevels(romPath) {
             .filter((o) => o.kind === "pipe" || o.kind === "pipe-warp")
             .map((o) => ({ x: o.col, y: o.row + rowOffset }));
 
+    // Flame hazards from the enemy stream: firebars anchor to the block at
+    // their position; podoboos leap from the pit at their column.
+    const firebars = enemies
+      .filter((e) => e.kind === "firebar")
+      .map((e) => ({
+        x: e.col,
+        y: e.row + rowOffset - 1,
+        ...firebarVariants[e.id],
+      }));
+    const podoboos = enemies
+      .filter((e) => e.kind === "podoboo")
+      .map((e) => ({
+        x: e.col,
+        phaseOffsetFrames: podobooPhaseForColumn(e.col),
+      }));
+
     entry.metadata = buildMetadata(grid, header, {
       transitions,
       cannons,
       piranhaPlants,
+      firebars,
+      podoboos,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,
     });

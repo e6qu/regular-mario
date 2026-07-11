@@ -22,5 +22,96 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "castle"
+  "theme": "castle",
+  "firebars": [
+    {
+      "x": 19,
+      "y": 12,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 24,
+      "y": 12,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 29,
+      "y": 12,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 54,
+      "y": 6,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 54,
+      "y": 12,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 64,
+      "y": 6,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 64,
+      "y": 12,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 80,
+      "y": 6,
+      "direction": "clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    },
+    {
+      "x": 80,
+      "y": 12,
+      "direction": "counter-clockwise",
+      "speed": "slow",
+      "orbCount": 6
+    }
+  ],
+  "podoboos": [
+    {
+      "x": 16,
+      "phaseOffsetFrames": 272
+    },
+    {
+      "x": 26,
+      "phaseOffsetFrames": 10
+    },
+    {
+      "x": 88,
+      "phaseOffsetFrames": 152
+    },
+    {
+      "x": 97,
+      "phaseOffsetFrames": 185
+    },
+    {
+      "x": 103,
+      "phaseOffsetFrames": 335
+    },
+    {
+      "x": 109,
+      "phaseOffsetFrames": 101
+    }
+  ]
 }
