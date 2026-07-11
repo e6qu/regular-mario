@@ -391,6 +391,9 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
   ["N", { tileId: "castle-door", collision: TileCollisionKind.Empty }],
   [",", { tileId: "water-surface", collision: TileCollisionKind.Empty }],
   [";", { tileId: "water-body", collision: TileCollisionKind.Empty }],
+  // Swim-through coral banks in water areas (the ROM's water terrain sits
+  // above the player-solidity bound — decoration, not walls).
+  ["~", { tileId: "coral", collision: TileCollisionKind.Empty }],
   ["^", { tileId: "lava-surface", collision: TileCollisionKind.Empty }],
   [":", { tileId: "lava-body", collision: TileCollisionKind.Empty }],
 ]);

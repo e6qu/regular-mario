@@ -281,9 +281,25 @@ function findEnteredPipe(
   const playerCenterY = player.position.y + player.collider.height / 2;
   const playerTileX = Math.floor(playerCenterX / levelSpec.tileSizePixels);
   const playerTileY = Math.floor(playerCenterY / levelSpec.tileSizePixels);
+  // A sideways mouth is solid, so a walking/swimming player rests flush
+  // against it and the centre never enters the mouth tile. Probe one pixel
+  // past the leading edge instead — the ROM triggers on side collision with
+  // the mouth tile the same way.
+  const leadingRightTileX = Math.floor(
+    (player.position.x + player.collider.width + 1) / levelSpec.tileSizePixels,
+  );
+  const leadingLeftTileX = Math.floor(
+    (player.position.x - 1) / levelSpec.tileSizePixels,
+  );
 
   for (const pipe of levelSpec.pipes) {
-    if (pipe.position.x !== playerTileX || pipe.position.y !== playerTileY) {
+    const columnMatches =
+      pipe.entryDirection === "right"
+        ? pipe.position.x === leadingRightTileX
+        : pipe.entryDirection === "left"
+          ? pipe.position.x === leadingLeftTileX
+          : pipe.position.x === playerTileX;
+    if (!columnMatches || pipe.position.y !== playerTileY) {
       continue;
     }
     if (

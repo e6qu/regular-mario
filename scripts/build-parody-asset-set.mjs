@@ -1296,6 +1296,32 @@ const waterBody = [
   "WWWWWWWWWWWWWWWW",
   "WWWWWWWWWWWWWWWW",
 ];
+// Swim-through coral banks (water-area terrain the player passes through).
+const coralPalette = {
+  ".": [0, 0, 0, 0],
+  C: [47, 158, 110, 255],
+  c: [99, 230, 190, 255],
+  D: [27, 108, 78, 255],
+};
+const coralBank = [
+  "cCCcCCCCcCCCCCcC",
+  "CCCCCCCCCCCCCCCC",
+  "CCDCCCCCCCCDCCCC",
+  "CCCCCCCDCCCCCCCC",
+  "CCCCcCCCCCCCCCCC",
+  "CDCCCCCCCCCCCDCC",
+  "CCCCCCCCCcCCCCCC",
+  "CCCCCDCCCCCCCCCC",
+  "CCcCCCCCCCCCCCcC",
+  "CCCCCCCCDCCCCCCC",
+  "CCCCCCCCCCCCCCCC",
+  "CDCCCCcCCCCCDCCC",
+  "CCCCCCCCCCCCCCCC",
+  "CCCCCCCCCcCCCCCC",
+  "CCCDCCCCCCCCCCCC",
+  "CCCCCCCCCCCCCCCC",
+];
+
 const lavaPalette = {
   ".": [0, 0, 0, 0],
   R: [214, 64, 42, 255],
@@ -1564,6 +1590,7 @@ async function main() {
     ["water-body.png", waterBody, waterPalette],
     ["lava-surface.png", lavaSurface, lavaPalette],
     ["lava-body.png", lavaBody, lavaPalette],
+    ["coral.png", coralBank, coralPalette],
     // Mechanisms, projectiles, and the goal pennant.
     ["flame-orb.png", flameOrb, flamePalette, 8, 8],
     ["podoboo.png", podoboo, flamePalette],
@@ -1634,6 +1661,7 @@ async function main() {
     "water-body": spriteEntry("water-body.png"),
     "lava-surface": spriteEntry("lava-surface.png"),
     "lava-body": spriteEntry("lava-body.png"),
+    coral: spriteEntry("coral.png"),
     // Goal furniture (looked up by the shell's flagpole renderer).
     "flagpole-flag": spriteEntry("flag-pennant.png"),
   };

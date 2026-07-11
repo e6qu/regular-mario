@@ -1,5 +1,13 @@
 # DO_NEXT.md
 
+## Landed: full-pack verification (2026-07-11, sixth pass)
+
+- Machine proofs over all 54 levels: start-to-end completability (movement
+  envelope + transfers + loop gates), a pinned per-level content census,
+  and a live browser check that every menu level's running game holds its
+  full decoded content. Four fidelity bugs found and fixed (loop-zone rows,
+  water coral solidity, walk-in pipe triggers, SecondaryHardMode enemies).
+
 ## Landed: the parody skin is complete (2026-07-11, fifth pass)
 
 - Authored art for every visual element: 24 scenery tiles, mechanisms

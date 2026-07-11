@@ -367,7 +367,7 @@ function special13Name(kind) {
 
 // ---- Enemy stream ----------------------------------------------------------
 // Each enemy is 2 bytes (one 3-byte area-connection); stream ends at $FF.
-function decodeEnemies(prg, enemyAddr) {
+function decodeEnemies(prg, enemyAddr, secondaryHard = false) {
   let off = cpuAddressToPrgOffset(enemyAddr);
   const enemies = [];
   let page = 0;
@@ -403,9 +403,11 @@ function decodeEnemies(prg, enemyAddr) {
       page = b1 & 0x3f; // enemy page-set
       continue;
     }
-    // Hard-mode-only enemies belong to the second quest; the decoded pack
-    // targets the first playthrough, so they are skipped entirely.
-    const hardOnly = (b1 & 0x40) !== 0;
+    // The hard bit gates entries on SecondaryHardMode, which the FIRST quest
+    // activates from 5-3 onward (and all of worlds 6-8) — that is how the
+    // ROM reuses earlier areas with extra enemies (e.g. 5-3's offscreen
+    // Bullet Bill generators over 1-3's layout).
+    const hardOnly = (b1 & 0x40) !== 0 && !secondaryHard;
     const id = b1 & 0x3f;
     if (id >= 0x37 && id <= 0x3e) {
       if (hardOnly) continue;
@@ -628,7 +630,12 @@ function renderArea(header, objects, enemies, options = {}) {
 
   for (let x = 0; x < widthCols; x += 1) {
     for (const r of terrainSolidRows(terrainByCol[x], header.cloudOverride)) {
-      set(grid, x, r + rowOffset, "#");
+      // In water areas the ROM's player-solidity bound ($61) puts the water
+      // terrain metatile ($69) above it: pattern rows over the floor are
+      // swim-through coral, not walls. The floor rows stay solid as the
+      // engine's bottom bound.
+      const glyph = areaTypeName === "water" && r < 8 ? "~" : "#";
+      set(grid, x, r + rowOffset, glyph);
     }
   }
 
@@ -661,7 +668,10 @@ function renderArea(header, objects, enemies, options = {}) {
         for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "B");
         break;
       case "row-solid":
-        for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "#");
+        // Solid-block rows ($61) sit exactly at the water solidity bound —
+        // swim-through coral in water areas, real blocks elsewhere.
+        for (let i = 0; i < len; i += 1)
+          set(grid, o.col + i, gr, areaTypeName === "water" ? "~" : "#");
         break;
       case "row-coins":
         for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "o");
@@ -670,7 +680,8 @@ function renderArea(header, objects, enemies, options = {}) {
         for (let i = 0; i < len; i += 1) set(grid, o.col, gr + i, "B");
         break;
       case "col-solid":
-        for (let i = 0; i < len; i += 1) set(grid, o.col, gr + i, "#");
+        for (let i = 0; i < len; i += 1)
+          set(grid, o.col, gr + i, areaTypeName === "water" ? "~" : "#");
         break;
       case "areastyle": {
         if (header.areaStyle === 2) {
@@ -903,11 +914,20 @@ function computeBulletBillFrenzy(
   );
 }
 
+// SecondaryHardMode: on for 5-3 and every area beyond it in the first quest.
+function secondaryHardModeActive(world, slot) {
+  return world >= 5 || (world === 4 && slot >= 2);
+}
+
 export async function decodeLevel(romPath, world, level) {
   const prg = extractPrgData(await readFile(romPath));
   const area = resolveArea(prg, world, level);
   const { header, objects } = decodeObjects(prg, area.levelAddr);
-  const enemies = decodeEnemies(prg, area.enemyAddr);
+  const enemies = decodeEnemies(
+    prg,
+    area.enemyAddr,
+    secondaryHardModeActive(world, level),
+  );
   const { grid, widthCols, cannons } = renderArea(header, objects, enemies);
   return { area, header, objects, enemies, grid, widthCols, cannons };
 }
@@ -1061,7 +1081,9 @@ function computeLoopZones(world, objects) {
   }
   const entries = loopCommandTable.filter((entry) => entry.world === world);
   return entries.map((entry, index) => {
-    const row = Math.floor(entry.yPixel / 16);
+    // LoopCmdYPosition is an NES screen pixel; the grid sits rowOffset rows
+    // below screen row 0, and the runtime compares grid rows.
+    const row = Math.floor(entry.yPixel / 16) + rowOffset;
     const reachable = row < gridHeight;
     return {
       checkTileX: entry.page * 16,
@@ -1157,8 +1179,15 @@ export async function decodeAllLevels(romPath) {
   const materialize = (area, world, name, inheritedTimerUnits) => {
     if (materialized.has(name)) return materialized.get(name);
     const { header, objects } = decodeObjects(prg, area.levelAddr);
-    const enemies = decodeEnemies(prg, area.enemyAddr);
     const mainInfo = mainByName.get(name);
+    const enemies = decodeEnemies(
+      prg,
+      area.enemyAddr,
+      secondaryHardModeActive(
+        world,
+        mainInfo !== undefined ? mainInfo.slot : 0,
+      ),
+    );
     // Bowser throws hammers from world 6 on (0-based world index 5).
     const { grid, widthCols, cannons } = renderArea(header, objects, enemies, {
       bowserSymbol: world >= 5 ? "W" : "w",

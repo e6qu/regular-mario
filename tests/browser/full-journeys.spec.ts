@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { ActorRole } from "../../src/engine/domain/level-spec";
+import { loadOfficialSmbPack } from "../../src/engine/levels/import/official-smb-pack.test-support";
 import { bootPlayTest, playerX } from "./support";
 
 // Screenshots are written here for manual/visual review; they are not committed
@@ -211,11 +213,14 @@ test("journey: shared #play URL boots straight into a running game", async ({
 
 // Guards the whole pack against boot regressions (a missing actor sprite once
 // made every piranha-bearing level fail from the menu): every level offered
-// by the menu must boot into a running simulation.
-test("journey: every menu level boots into a running game", async ({
+// by the menu must boot into a running simulation, and the live game must
+// hold exactly the level content the parsed spec places — every actor id, in
+// its role, in the running scene.
+test("journey: every menu level boots and holds its full decoded content", async ({
   page,
 }) => {
   test.setTimeout(300_000);
+  const pack = loadOfficialSmbPack();
   await page.goto("/");
   // The menu fills the level list asynchronously after the map set loads.
   await page.waitForFunction(() => {
@@ -250,5 +255,38 @@ test("journey: every menu level boots into a running game", async ({
       .catch(() => {
         throw new Error(`level ${level} did not boot into a running game`);
       });
+
+    // The live scene must place exactly what the decoded spec places.
+    const spec = pack.get(level)?.levelSpec;
+    if (spec === undefined) {
+      throw new Error(`level ${level} missing from the committed pack`);
+    }
+    const snapshot = await page.evaluate(() => {
+      const api = window.__originalBrowserPlatformerDebug;
+      if (api === undefined) {
+        throw new Error("debug api gone");
+      }
+      const state = api.getSimulationSnapshot();
+      return {
+        widthTiles: state.level.widthTiles,
+        heightTiles: state.level.heightTiles,
+        renderedTileCount: state.level.renderedTileCount,
+        renderedActorCount: state.actors.renderedActorCount,
+      };
+    });
+    expect(snapshot.widthTiles, `${level} width`).toBe(spec.widthTiles);
+    expect(snapshot.heightTiles, `${level} height`).toBe(spec.heightTiles);
+    expect(snapshot.renderedTileCount, `${level} tiles`).toBeGreaterThan(0);
+    const expectedActors = spec.actors.filter((actor) => {
+      const definition = spec.actorDefinitions.find(
+        (candidate) => candidate.actorId === actor.actorId,
+      );
+      return (
+        definition !== undefined &&
+        definition.role !== ActorRole.PlayerStart &&
+        definition.role !== ActorRole.Pipe
+      );
+    }).length;
+    expect(snapshot.renderedActorCount, `${level} actors`).toBe(expectedActors);
   }
 });

@@ -13,6 +13,7 @@
     "pnpm-lock.yaml",
     "*.tsbuildinfo",
     "scripts/data/smb-rom-extraction-map.json",
-    "src/shell/smb-rom-music.json"
+    "src/shell/smb-rom-music.json",
+    "src/engine/levels/import/official-smb-census.json"
   ]
 }

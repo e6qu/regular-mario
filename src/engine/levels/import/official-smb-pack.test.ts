@@ -4,56 +4,19 @@
 // checkpoints plus the pipes that bypass them). This guards the decoded pack
 // against regressions without needing the ROM.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { makeLevelSpec } from "../../domain/level-spec";
-import type { LevelSpec } from "../../domain/level-spec";
-import { parseVglcSmbMultiLayerLevel } from "./vglc-smb-text-level";
+import {
+  loadOfficialSmbPack,
+  officialSmbPackDir,
+} from "./official-smb-pack.test-support";
 
-const packDir = resolve("content/map-sets/official-smb");
+const packDir = officialSmbPackDir;
 
-type PackLevel = {
-  readonly name: string;
-  readonly metadata: Readonly<Record<string, unknown>>;
-  readonly levelSpec: LevelSpec;
-};
-
-function loadPack(): ReadonlyMap<string, PackLevel> {
-  const levels = new Map<string, PackLevel>();
-  for (const file of readdirSync(packDir)) {
-    if (!file.endsWith(".txt")) {
-      continue;
-    }
-    const name = file.replace(/\.txt$/, "");
-    const text = readFileSync(resolve(packDir, file), "utf8");
-    const metadata = JSON.parse(
-      readFileSync(resolve(packDir, `${name}.metadata.json`), "utf8"),
-    ) as Readonly<Record<string, unknown>>;
-    const parsed = parseVglcSmbMultiLayerLevel(text, metadata);
-    if (!parsed.ok) {
-      throw new Error(
-        `${name} failed to parse: ${parsed.errors
-          .map((error) => error.message)
-          .join(", ")}`,
-      );
-    }
-    const spec = makeLevelSpec(parsed.value);
-    if (!spec.ok) {
-      throw new Error(
-        `${name} failed to validate: ${spec.errors
-          .map((error) => error.message)
-          .join(", ")}`,
-      );
-    }
-    levels.set(name, { name, metadata, levelSpec: spec.value });
-  }
-  return levels;
-}
-
-const pack = loadPack();
+const pack = loadOfficialSmbPack();
 
 function expectTargetInBounds(
   source: string,

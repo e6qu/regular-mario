@@ -5,6 +5,43 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — Every level machine-verified start-to-end; four fidelity bugs fixed
+
+- **Completability proof (new test)**: from every one of the 54 levels'
+  player starts, a movement-envelope search (walk, ledge drops,
+  rise-then-glide jumps, swimming, springs, moving lifts, pipe/vine/fall
+  transfers, loop-zone row gates) must reach a finish. All 54 pass; every
+  sub-area is also proven reachable from a main level. The proof caught
+  three runtime bugs the test suite had never exercised:
+  1. **4-4/7-4 maze checkpoints were impassable** — the decoder emitted
+     loop-zone rows in NES screen space while the sim compares grid rows
+     (two rows lower); no path could ever satisfy the check.
+  2. **2-2/7-2/8-4-water exits were sealed** — water-area terrain painted
+     solid walls, but the ROM's player-solidity bound ($61 in
+     SolidMTileUpperExt) makes water terrain ($69) and solid-block objects
+     ($61) swim-through coral. Water terrain above the floor now decodes as
+     a non-solid coral tile (new art in both fallback shapes and the skin).
+  3. **Walk-in pipes could never trigger** — the sim required the player's
+     centre inside the mouth tile, but sideways mouths are solid, so a
+     walking/swimming player rests flush and never overlaps. The trigger
+     now probes one pixel past the leading edge, like the ROM's
+     side-collision rule.
+- **SecondaryHardMode enemies restored (fourth bug)**: the "hard bit" in
+  enemy streams isn't second-quest-only — the first quest sets
+  SecondaryHardMode from 5-3 onward. The old filter stripped those enemies
+  everywhere; now 5-3+ correctly gains its extra cast (5-3's offscreen
+  Bullet Bill generators over 1-3's layout, red koopas/paratroopas, extra
+  hammer bros in worlds 6-8).
+- **Content census (new test)**: per-level counts of every actor id, tile
+  id, and mechanism pinned to a committed census for all 54 levels, plus
+  assertions of well-known original facts (1-1's 16 goombas + 1 koopa,
+  halfway at 82, one boss per castle, the frenzy placements, 5-3's
+  bullets).
+- **Live-content browser check**: the every-menu-level boot test now also
+  compares the running game's snapshot against the parsed spec — level
+  dimensions and the full rendered-actor census must match live, for every
+  level (it immediately caught a stale release bundle).
+
 ## 2026-07-11 — The parody skin is complete: art for every visual element
 
 - **Scenery sprites** (24 tiles): clouds, bushes, generated hill slopes with

@@ -2,12 +2,14 @@
 
 ## Known Bugs
 
-- None currently recorded. (2026-07-11: fixed — the parody skin had no
-  piranha sprite, so 31 of 36 levels failed skin validation at boot; an
-  every-level boot test now guards this. Earlier same day: warp progression
-  fixed — a run keeps its origin's HUD number and next-level chain through
-  flag-tail and bonus-room warps, and a warp-zone jump retitles the run to
-  the target world and advances from there.)
+- None currently recorded. (2026-07-11, latest sweep: four fidelity bugs
+  found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
+  were in screen space and impassable; water-area terrain sealed the
+  2-2/7-2/8-4 exits (now swim-through coral per the ROM's solidity bound);
+  walk-in pipes could never trigger against their solid mouths (now
+  leading-edge probed); and the first-quest filter wrongly stripped
+  SecondaryHardMode enemies that belong to 5-3+. Earlier same day: missing
+  piranha sprite failed 31 levels at boot; warp progression fixes.)
 
 ## Risks To Track
 

@@ -59,10 +59,13 @@ function pipeLevelSpec(direction: string): LevelSpec {
   return result.value;
 }
 
-// Player centred inside pipe tile (4, 4) — centre pixel (72, 72).
-function playerOnPipe(velocityX: number) {
+// Sideways mouths are solid, so a walking player rests flush against tile
+// (4, 4) — approaching from the left puts the right edge at pixel 64,
+// approaching from the right puts the left edge at pixel 80. Down pipes are
+// entered standing centred over the mouth tile.
+function playerAgainstPipe(velocityX: number, playerX: number) {
   return playerWithTestState({
-    position: { x: 65, y: 60 },
+    position: { x: playerX, y: 60 },
     velocity: { x: velocityX, y: 0 },
     movement: {
       horizontal: HorizontalMovementState.Walking,
@@ -75,10 +78,11 @@ function resolveAt(
   level: LevelSpec,
   downHeld: boolean,
   velocityX: number,
+  playerX = 65,
 ): ReturnType<typeof resolvePipeState> {
   return resolvePipeState(
     { downHeld },
-    playerOnPipe(velocityX),
+    playerAgainstPipe(velocityX, playerX),
     makeInitialPipeEntryState(),
     initialMovementConstants,
     level,
@@ -86,9 +90,14 @@ function resolveAt(
   );
 }
 
+// Flush against the mouth from the left (collider width 14: right edge 64).
+const flushLeftX = 50;
+// Flush against the mouth from the right (left edge at pixel 80).
+const flushRightX = 80;
+
 describe("pipe entry direction", () => {
-  it("enters a right walk-in pipe when moving right into its mouth", () => {
-    const result = resolveAt(pipeLevelSpec("right"), false, 90);
+  it("enters a right walk-in pipe when pressed flush against its mouth", () => {
+    const result = resolveAt(pipeLevelSpec("right"), false, 90, flushLeftX);
     expect(result.pipeEntry.phase).toBe(PipeEntryPhase.Entering);
     if (result.pipeEntry.phase === PipeEntryPhase.Entering) {
       expect(result.pipeEntry.targetLevelName).toBe("sub-area");
@@ -97,22 +106,24 @@ describe("pipe entry direction", () => {
 
   it("does not enter a walk-in pipe while standing still or pressing down", () => {
     const level = pipeLevelSpec("right");
-    expect(resolveAt(level, false, 0).pipeEntry.phase).toBe(
+    expect(resolveAt(level, false, 0, flushLeftX).pipeEntry.phase).toBe(
       PipeEntryPhase.None,
     );
-    expect(resolveAt(level, true, 0).pipeEntry.phase).toBe(PipeEntryPhase.None);
+    expect(resolveAt(level, true, 0, flushLeftX).pipeEntry.phase).toBe(
+      PipeEntryPhase.None,
+    );
     // Walking the wrong way (left) doesn't enter a right pipe either.
-    expect(resolveAt(level, false, -90).pipeEntry.phase).toBe(
+    expect(resolveAt(level, false, -90, flushLeftX).pipeEntry.phase).toBe(
       PipeEntryPhase.None,
     );
   });
 
   it("enters a left walk-in pipe only when moving left", () => {
     const level = pipeLevelSpec("left");
-    expect(resolveAt(level, false, -90).pipeEntry.phase).toBe(
+    expect(resolveAt(level, false, -90, flushRightX).pipeEntry.phase).toBe(
       PipeEntryPhase.Entering,
     );
-    expect(resolveAt(level, false, 90).pipeEntry.phase).toBe(
+    expect(resolveAt(level, false, 90, flushRightX).pipeEntry.phase).toBe(
       PipeEntryPhase.None,
     );
   });

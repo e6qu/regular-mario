@@ -4855,6 +4855,7 @@ const decorativeSceneryTileIds: ReadonlySet<string> = new Set([
   "water-body",
   "lava-surface",
   "lava-body",
+  "coral",
 ]);
 
 const sceneryCloudColor = 0xf7fbff;
@@ -4870,6 +4871,8 @@ const sceneryCastleWallColor = 0x8d99ae;
 const sceneryCastleShadeColor = 0x5c677d;
 const sceneryCastleDoorColor = 0x1b263b;
 const sceneryWaterColor = 0x4dabf7;
+const sceneryCoralColor = 0x2f9e6e;
+const sceneryCoralGlintColor = 0x63e6be;
 const sceneryWaterDeepColor = 0x339af0;
 const sceneryLavaColor = 0xf03e3e;
 const sceneryLavaDeepColor = 0xc92a2a;
@@ -5050,6 +5053,18 @@ function renderDecorativeSceneryTile(
           size,
           tileId === "lava-body" ? sceneryLavaDeepColor : sceneryWaterDeepColor,
         )
+        .setOrigin(0)
+        .setDepth(-18);
+      return;
+    case "coral":
+      // A swim-through coral bank: a solid-looking block the water palette
+      // renders behind the swimmer.
+      scene.add
+        .rectangle(x, y, size, size, sceneryCoralColor)
+        .setOrigin(0)
+        .setDepth(-18);
+      scene.add
+        .rectangle(x + 2, y + 2, size - 4, 2, sceneryCoralGlintColor)
         .setOrigin(0)
         .setDepth(-18);
       return;
