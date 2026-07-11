@@ -807,19 +807,25 @@ function playLevel(
 }
 
 describe("official-smb headless playthroughs", () => {
-  // The exhaustive 36-level sweep is a long verification run
-  // (SMB_PLAY_FULL=1, optionally SMB_PLAY_BUDGET_SCALE=6+); the default suite
-  // plays a representative smoke set end-to-end: the overworld classic, the
-  // intro-strip -> underground -> exit chain, and a firebar castle.
+  // The exhaustive sweeps are long verification runs; the default suite plays a
+  // representative smoke set end-to-end: the overworld classic, the intro-strip
+  // -> underground -> exit chain, and a firebar castle. Env overrides:
+  //   SMB_PLAY_ONLY=a,b,c  — play exactly these start levels
+  //   SMB_PLAY_ALL=1       — every one of the 54 pack levels (mains + warp and
+  //                          bonus sub-areas), each played from its own start
+  //   SMB_PLAY_FULL=1      — the 36 classic main levels
+  //   SMB_PLAY_BUDGET_SCALE=6+  — more steps per level for the deep mazes
   const smokeSet = ["smb-1-1", "smb-1-2", "smb-1-5"];
   const mains = (
     process.env.SMB_PLAY_ONLY?.split(",") ??
-    (process.env.SMB_PLAY_FULL !== undefined
-      ? [...pack.keys()].filter((name) => /^smb-\d+-\d+$/.test(name))
-      : smokeSet)
+    (process.env.SMB_PLAY_ALL !== undefined
+      ? [...pack.keys()]
+      : process.env.SMB_PLAY_FULL !== undefined
+        ? [...pack.keys()].filter((name) => /^smb-\d+-\d+$/.test(name))
+        : smokeSet)
   ).sort();
 
-  it("plays every main level to a finish against the real engine", () => {
+  it("plays every selected level to a finish against the real engine", () => {
     const failures: string[] = [];
     const budgetScale = Number(process.env.SMB_PLAY_BUDGET_SCALE ?? "2");
     for (const name of mains) {
