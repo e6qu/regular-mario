@@ -595,28 +595,55 @@ function stepActiveSimulation(
     aerialFrenzy.stompedCount > 0
       ? reboundPlayerFromStomp(playerAfterProjectileStomp, movementConstants)
       : playerAfterProjectileStomp;
-  const outcomeLevelContacts =
+  // Hazard-like contact (hazard tiles, hammers/bullets, frenzy cheeps,
+  // firebars/podoboos) damages with the same tiering as enemy contact:
+  // a small player is defeated, a powered one shrinks into the recovery
+  // window, and star invincibility or an active recovery window protects.
+  const hazardContacted =
+    levelContacts.hazard ||
     timedHazardProjectiles.playerContact ||
     cheepFrenzy.playerContacted ||
     aerialFrenzy.playerContacted ||
-    // Rotating firebars and leaping podoboos are stateless flame hazards —
-    // contact harms exactly like touching a hazard tile.
     playerTouchesFlameHazard(
       playerAfterProjectileStomp,
       levelSpec,
       nextClock.frameIndex,
-    )
+    );
+  const hazardProtected =
+    playerInvincibility.remainingFrames > 0 ||
+    playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Recovering;
+  const effectiveHazardContact = hazardContacted && !hazardProtected;
+  const playerVitalityAfterHazard =
+    effectiveHazardContact &&
+    (playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Powered ||
+      playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Fire)
       ? {
-          ...levelContacts,
-          hazard: true,
+          kind: PlayerVitalityKind.Recovering as const,
+          sourceEnemyEntityId: "hazard-contact" as EntityId,
+          contactSide: EnemySideContactSide.Left,
+          startFrameIndex: nextClock.frameIndex,
+          remainingKnockbackFrames:
+            movementConstants.damageRecoveryKnockbackFrameCount,
+          remainingInvulnerabilityFrames:
+            movementConstants.damageRecoveryInvulnerabilityFrameCount,
         }
-      : levelContacts;
+      : playerVitalityAfterEnemyContact;
+  const playerAfterHazardResize = resizePlayerForVitality(
+    playerAfterAerialStomp,
+    playerVitalityAfterHazard,
+  );
+  const outcomeLevelContacts = {
+    ...levelContacts,
+    hazard:
+      effectiveHazardContact &&
+      playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Small,
+  };
 
   const playerOutcome = resolvePlayerOutcomeState(
     state.playerOutcome,
     outcomeLevelContacts,
     enemies,
-    playerVitalityAfterEnemyContact,
+    playerVitalityAfterHazard,
     levelSpec.fallExitTransition === undefined &&
       hasPlayerFallenIntoPit(playerAfterContactResponse, levelSpec),
     hasLevelTimerExpired(levelTimer),
@@ -678,8 +705,8 @@ function stepActiveSimulation(
 
   return {
     clock: nextClock,
-    player: playerAfterAerialStomp,
-    playerVitality: playerVitalityAfterEnemyContact,
+    player: playerAfterHazardResize,
+    playerVitality: playerVitalityAfterHazard,
     playerInvincibility,
     levelContacts: outcomeLevelContacts,
     playerOutcome,
