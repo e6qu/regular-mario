@@ -4,7 +4,7 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **733 unit tests + 101 browser tests
+Preparing for a public beta/demo release. **742 unit tests + browser journeys
 pass; all gates green.**
 
 What exists now:
