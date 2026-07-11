@@ -202,27 +202,41 @@ function runtimeFor(name: string): LevelRuntime {
   return runtime;
 }
 
-function pitAhead(runtime: LevelRuntime, col: number): boolean {
-  for (const dx of [1, 2, 3]) {
-    const target = col + dx;
-    if (target >= runtime.level.levelSpec.widthTiles) {
-      continue;
-    }
-    let solid = false;
-    for (
-      let row = Math.floor(runtime.level.levelSpec.heightTiles / 2);
-      row <= runtime.level.levelSpec.heightTiles;
-      row += 1
-    ) {
-      if (runtime.solid(target, row)) {
-        solid = true;
-      }
-    }
-    if (!solid) {
+function columnHasFooting(runtime: LevelRuntime, col: number): boolean {
+  if (col >= runtime.level.levelSpec.widthTiles) {
+    return true; // level edge, not a pit
+  }
+  for (
+    let row = Math.floor(runtime.level.levelSpec.heightTiles / 2);
+    row <= runtime.level.levelSpec.heightTiles;
+    row += 1
+  ) {
+    if (runtime.solid(col, row)) {
       return true;
     }
   }
   return false;
+}
+
+// Width of the pit starting within the next 3 columns (0 = no pit ahead).
+function pitWidthAhead(runtime: LevelRuntime, col: number): number {
+  for (const dx of [1, 2, 3]) {
+    if (!columnHasFooting(runtime, col + dx)) {
+      let width = 0;
+      while (
+        !columnHasFooting(runtime, col + dx + width) &&
+        col + dx + width < runtime.level.levelSpec.widthTiles
+      ) {
+        width += 1;
+      }
+      return width;
+    }
+  }
+  return 0;
+}
+
+function pitAhead(runtime: LevelRuntime, col: number): boolean {
+  return pitWidthAhead(runtime, col) > 0;
 }
 
 type Checkpoint = {
@@ -253,8 +267,9 @@ function playLevel(
     throw new Error(`${startName} initial state invalid`);
   }
   let state = initial.value;
-  let rng = makeRng(1);
-  let seed = 1;
+  const baseSeed = Number(process.env.SMB_PLAY_SEED ?? "1");
+  let rng = makeRng(baseSeed);
+  let seed = baseSeed;
   const checkpoints: Checkpoint[] = [{ state, levelName: startName }];
   // The state as of entering the current level, with its full timer — the
   // recovery point for time-up deaths.
@@ -520,7 +535,8 @@ function playLevel(
       // Near the goal pole: short hops climb the end staircase without
       // sailing over the flagpole; pits still get a committed medium jump.
       if (grounded && pitAhead(runtime, col)) {
-        jumpFramesLeft = 16 + Math.floor(rng() * 6);
+        const width = pitWidthAhead(runtime, col);
+        jumpFramesLeft = Math.max(8, Math.min(22, width * 4));
       } else if (grounded && rng() < 0.3) {
         jumpFramesLeft = 6 + Math.floor(rng() * 4);
       }
@@ -533,11 +549,14 @@ function playLevel(
       // never jump through the gate column itself (unless a pit demands it).
       jumpFramesLeft = 0;
     } else if (grounded && pitAhead(runtime, col)) {
-      // Pits outrank all route biases. Mix edge-takeoff full jumps (wide
-      // pits) with shorter hops (ceilinged corridors where a full hold
-      // bonks and drops in).
-      jumpFramesLeft =
-        rng() < 0.5 ? 30 + Math.floor(rng() * 8) : 14 + Math.floor(rng() * 10);
+      // Pits outrank all route biases. Match the hold to the measured gap
+      // (short hops land 1-wide islands; full holds clear wide lava), with
+      // a little jitter for retry diversity.
+      const width = pitWidthAhead(runtime, col);
+      jumpFramesLeft = Math.max(
+        8,
+        Math.min(38, width * 4 + Math.floor(rng() * 7) - 3),
+      );
     } else if (
       !nearDownPipe &&
       runtime.reachableGates.some(

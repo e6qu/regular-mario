@@ -5,6 +5,33 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-12 — The playthrough driver learns the game; two more fidelity bugs
+
+- **Sixth and seventh fidelity bugs fixed**: (6) the loop-command check is
+  a STANDING check — the ROM compares Player_Y_Position exactly and
+  requires solid ground, when the renderer (a screen ahead) crosses the
+  command's page; the old airborne-crossing model could never pass 4-4/7-4
+  legitimately. The decoder, the runtime, and the completability proof all
+  model the standing+lead mechanism now. (7) a player standing on a solid
+  down-pipe mouth could never enter (centre-row mismatch); both the
+  standing row and the overlap row now match, with a permanent regression
+  test.
+- **Driver route intelligence** (all generic, no per-level scripts): trap
+  pipes (backward self-warps) refused, only required pipes (forward
+  self-warps) taken deliberately, standing gate crossings with
+  climb/ground biases from the next gate's band, pit edge-takeoffs mixed
+  with ceiling-safe hops, Bowser-flame hops from live projectile state,
+  firebar/podoboo wait-outs, springboard held-jump launches, scripted pipe
+  mounts, roof-walk dead-end detection, and a monotone per-level progress
+  frontier with clock-healthy resume points.
+- **Result**: every main level except the two deepest mazes (4-4, 8-4) has
+  a verified full headless completion; a three-level smoke playthrough
+  runs in the default suite, and SMB_PLAY_FULL=1 runs the exhaustive
+  36-level sweep (28/36 in a single stochastic run, rotating with seed).
+  4-4 and 8-4 reach ~60-70% depth (gate 2 / checkpoint 2); their
+  completability is proven statically and their mechanics unit- and
+  live-verified.
+
 ## 2026-07-11 — Headless playthroughs of every main level; ROM dev skin completed
 
 - **Headless playthrough test (new)**: a frame-perfect driver steps the real

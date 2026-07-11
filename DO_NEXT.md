@@ -66,6 +66,15 @@ Everything from the previous "known deltas" list is now in:
   bug). The local ROM-extracted skin now covers the entire cast, mechanisms,
   scenery, and fire-tier player frames (86 numeric compositions).
 
+## Remaining: the stochastic player vs the two deepest mazes
+
+- The headless driver has fully completed every main level except 4-4 and
+  8-4 (it reaches their second gates/checkpoints). Their completability is
+  machine-proven and their mechanics are unit- and live-verified; what is
+  missing is only an automated player skilled enough for the full maze
+  chains. Options: seed sweeps (SMB_PLAY_SEED), longer budgets, or an
+  authored TAS-style input plan per maze executed on the real engine.
+
 ## Remaining backlog (pre-existing, unchanged)
 
 - Loop zones and frenzy regions are decoder-level region mechanics — not
