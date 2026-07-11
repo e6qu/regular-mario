@@ -5,6 +5,30 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — The scenery layer + halfway checkpoints, flag scoring, first quest
+
+- **Scenery decoded — levels read populated.** The decoder now paints the
+  ROM's background scenery tables (three styles × 48 columns, repeating
+  every three pages, tracked through mid-level alter-attributes): clouds,
+  bushes, hills, fences and trees land in their original columns. Tree
+  ledges grow trunks and mushroom ledges grow stems; bridges get rails;
+  every level with a start/end castle draws it from CastleMetatiles
+  (walls, battlements, windows, door). All of it imports as 24 new
+  decorative empty-collision tile ids rendered as flat shapes at
+  background depth (skin coverage exempts empty/hidden collision tiles).
+- **Castle pits are lava, not water**: both the "hole with water" objects
+  and the fore-scenery band render with lava glyphs/colors inside castle
+  areas — the ROM draws the same tiles and lets the palette make them red.
+- **Halfway checkpoints**: HalfwayPageNybbles decoded per world/slot
+  (castles have none); dying at/past the checkpoint column respawns there
+  (defeat only — never after a warp, never on time-up back-at-start rules).
+- **Flagpole height scoring**: the grab height pays 100–5000 like the
+  original's slide bands; tracked separately in the sim state and added
+  into the total score.
+- **First-quest filtering**: enemy connections flagged hard-mode-only in
+  the stream are skipped, matching a first playthrough.
+- Pack regenerated: **54 levels committed** (numeric glyph grids only).
+
 ## 2026-07-11 — Polish deltas: true endings, hatching spinies, cinematics, editor mechanics
 
 - **Warp progression fixed**: the scene tracks the main level a run belongs

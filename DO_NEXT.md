@@ -1,5 +1,14 @@
 # DO_NEXT.md
 
+## Landed: scenery + checkpoints + scoring (2026-07-11, third pass)
+
+- **Scenery layer decoded** — clouds/bushes/hills/fences/trees, trunks and
+  stems under ledges, bridge rails, start/end castle buildings, water bands,
+  and lava (not water) in castle pits. Levels no longer read as empty.
+- **Halfway respawn checkpoints** (ROM HalfwayPageNybbles; castles none),
+  **flagpole height scoring** (100–5000 by grab height), and **first-quest
+  hardOnly enemy filtering** are in.
+
 ## Landed: the polish deltas are done (2026-07-11, second pass)
 
 Everything from the previous "known deltas" list is now in:

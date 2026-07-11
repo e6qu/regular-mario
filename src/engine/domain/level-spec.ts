@@ -225,6 +225,9 @@ export type LevelSpecInput = {
   // areas' fall-off-the-end return trip.
   readonly vineTransitions?: readonly VineTransitionInput[];
   readonly fallExitTransition?: FallExitTransitionInput;
+  // Halfway respawn checkpoint: a defeated player who had reached this
+  // column retries from here rather than the level start.
+  readonly halfwayTileX?: number;
 };
 
 export type VineTransitionInput = {
@@ -452,6 +455,7 @@ export type LevelSpec = {
   readonly loopZones: readonly LoopZoneDefinition[];
   readonly vineTransitions: readonly VineTransitionDefinition[];
   readonly fallExitTransition: FallExitTransitionDefinition | undefined;
+  readonly halfwayTileX: number | undefined;
 };
 
 type ValidatedDimensions = {
@@ -1400,7 +1404,20 @@ export function makeLevelSpec(
     loopZones: loopZonesResult.value,
     vineTransitions: vineTransitionsResult.value,
     fallExitTransition: fallExitResult.value,
+    halfwayTileX: resolveHalfwayTileX(input),
   });
+}
+
+// Clamp the halfway checkpoint into the level (decoder-generated).
+function resolveHalfwayTileX(input: LevelSpecInput): number | undefined {
+  const halfway = input.halfwayTileX;
+  if (halfway === undefined) {
+    return undefined;
+  }
+  if (!Number.isSafeInteger(halfway) || halfway <= 0) {
+    return undefined;
+  }
+  return Math.min(halfway, input.widthTiles - 1);
 }
 
 const maxPlatformWidthTiles = 6;

@@ -741,6 +741,7 @@ describe("simulation primitives", () => {
         timeBonusScore: 0,
         breakableBlockScore: 0,
         bulletBillStompScore: 0,
+        goalHeightScore: 0,
         livesRemaining: initialLivesCount,
         playerReaction: { kind: PlayerReactionKind.None, remainingFrames: 0 },
         enemyStompReaction: {
@@ -2548,6 +2549,7 @@ describe("simulation primitives", () => {
           levelTimer: validInitialState().levelTimer,
           timedHazardProjectiles: validInitialState().timedHazardProjectiles,
           timeBonusScore: validInitialState().timeBonusScore,
+          goalHeightScore: validInitialState().goalHeightScore,
           breakableBlockScore: validInitialState().breakableBlockScore,
           bulletBillStompScore: validInitialState().bulletBillStompScore,
           livesRemaining: validInitialState().livesRemaining,

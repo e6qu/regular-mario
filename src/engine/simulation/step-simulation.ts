@@ -119,6 +119,7 @@ import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
   computeTimeBonusScore,
+  scoreForGoalContactHeight,
   scorePerBreakableBlock,
   scorePerBulletBillStomp,
   scorePerProjectileKill,
@@ -684,6 +685,15 @@ function stepActiveSimulation(
     ? computeTimeBonusScore(state.levelTimer.remainingFrames)
     : state.timeBonusScore;
 
+  // The goal grab awards by height (the flagpole's 100..5000 bands).
+  const goalHeightScore = justFinished
+    ? ((state.goalHeightScore +
+        scoreForGoalContactHeight(
+          playerAfterContactResponse.position.y,
+          levelSpec.tileSizePixels,
+        )) as SimulationState["goalHeightScore"])
+    : state.goalHeightScore;
+
   const newlyBrokenBlockCount =
     breakableBlocks.brokenBlockTilePositions.length -
     state.breakableBlocks.brokenBlockTilePositions.length;
@@ -757,6 +767,7 @@ function stepActiveSimulation(
     levelTimer,
     timedHazardProjectiles,
     timeBonusScore,
+    goalHeightScore,
     breakableBlockScore,
     bulletBillStompScore,
     livesRemaining,

@@ -128,6 +128,7 @@ export type SimulationState = {
   readonly timeBonusScore: Score;
   readonly breakableBlockScore: Score;
   readonly bulletBillStompScore: Score;
+  readonly goalHeightScore: Score;
   readonly livesRemaining: number;
   readonly playerReaction: PlayerReactionState;
   readonly enemyStompReaction: StompReactionState;
@@ -207,6 +208,7 @@ export function makeInitialSimulationStateWithPlayerVitality(
     timeBonusScore: 0 as Score,
     breakableBlockScore: 0 as Score,
     bulletBillStompScore: 0 as Score,
+    goalHeightScore: 0 as Score,
     livesRemaining: initialLivesCount,
     playerReaction: makeEmptyPlayerReactionState(),
     enemyStompReaction: makeEmptyStompReactionState(),

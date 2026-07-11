@@ -143,6 +143,7 @@
       "widthTiles": 3
     }
   ],
+  "halfwayTileX": 98,
   "bulletBillFrenzy": {
     "startTileX": 104,
     "endTileX": 137

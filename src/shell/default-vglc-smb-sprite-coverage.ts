@@ -98,8 +98,10 @@ export function validateDefaultVglcSmbSpriteCoverage(
 // the authored fallback, so an asset set need not provide a sprite for it.
 const nonRenderedTileIds = new Set(["empty"]);
 // Hidden blocks are invisible until bumped (the reveal shows the shared used-
-// block art), so they never need their own sprite either.
+// block art), and Empty-collision tiles are decorative scenery drawn by the
+// authored fallback shapes — neither needs a skin sprite.
 const hiddenTileCollisionValue = "hidden";
+const emptyTileCollisionValue = "empty";
 
 function findMissingTileSpriteIds(
   manifest: UserAssetManifest,
@@ -107,7 +109,11 @@ function findMissingTileSpriteIds(
 ): readonly string[] {
   const hiddenTileIds = new Set(
     levelInput.tileDefinitions
-      .filter((tile) => tile.collision === hiddenTileCollisionValue)
+      .filter(
+        (tile) =>
+          tile.collision === hiddenTileCollisionValue ||
+          tile.collision === emptyTileCollisionValue,
+      )
       .map((tile) => tile.tileId),
   );
   const tileIds = new Set<string>();

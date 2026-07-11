@@ -128,6 +128,134 @@ function terrainSolidRows(terrainControl, cloudOverride) {
   return rows;
 }
 
+// ---- Background / foreground scenery ----------------------------------------
+// The in-level scenery layer (clouds, bushes, hills, fences, trees, water and
+// castle walls) from the disassembly's BackSceneryData/BackSceneryMetatiles/
+// ForeSceneryData tables. Purely decorative: every glyph maps to an
+// Empty-collision tile, painted first so terrain and objects overwrite it.
+const backSceneryData = [
+  // style 1: clouds
+  [
+    0x93, 0x00, 0x00, 0x11, 0x12, 0x12, 0x13, 0x00, 0x00, 0x51, 0x52, 0x53,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x02, 0x03, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x91, 0x92, 0x93, 0x00, 0x00, 0x00, 0x00, 0x51,
+    0x52, 0x53, 0x41, 0x42, 0x43, 0x00, 0x00, 0x00, 0x00, 0x00, 0x91, 0x92,
+  ],
+  // style 2: mountains and bushes
+  [
+    0x97, 0x87, 0x88, 0x89, 0x99, 0x00, 0x00, 0x00, 0x11, 0x12, 0x13, 0xa4,
+    0xa5, 0xa5, 0xa5, 0xa6, 0x97, 0x98, 0x99, 0x01, 0x02, 0x03, 0x00, 0xa4,
+    0xa5, 0xa6, 0x00, 0x11, 0x12, 0x12, 0x12, 0x13, 0x00, 0x00, 0x00, 0x00,
+    0x01, 0x02, 0x02, 0x03, 0x00, 0xa4, 0xa5, 0xa5, 0xa6, 0x00, 0x00, 0x00,
+  ],
+  // style 3: trees and fences
+  [
+    0x11, 0x12, 0x12, 0x13, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9c,
+    0x00, 0x8b, 0xaa, 0xaa, 0xaa, 0xaa, 0x11, 0x12, 0x13, 0x8b, 0x00, 0x9c,
+    0x9c, 0x00, 0x00, 0x01, 0x02, 0x03, 0x11, 0x12, 0x12, 0x13, 0x00, 0x00,
+    0x00, 0x00, 0xaa, 0xaa, 0x9c, 0xaa, 0x00, 0x8b, 0x00, 0x01, 0x02, 0x03,
+  ],
+];
+
+// Item (low nybble 1-12) -> up to three glyphs drawn downward. null skips a
+// row (the table's $00 filler).
+const backSceneryItems = {
+  1: ["1", "1", null], // cloud left (two soft rows)
+  2: ["2", "2", null], // cloud middle
+  3: ["3", "3", null], // cloud right
+  4: ["4", null, null], // bush left
+  5: ["5", null, null], // bush middle
+  6: ["6", null, null], // bush right
+  7: [null, "7", "0"], // hill left slope
+  8: ["8", "0", "0"], // hill peak
+  9: [null, "9", "0"], // hill right slope
+  10: ["%", null, null], // fence
+  11: ["T", "T", "!"], // tall tree
+  12: ["f", "!", "!"], // short tree
+};
+
+function paintBackSceneryColumn(grid, col, backgroundScenery) {
+  if (backgroundScenery === 0) return;
+  const styleData = backSceneryData[backgroundScenery - 1];
+  if (styleData === undefined) return;
+  const page = Math.floor(col / 16);
+  const byte = styleData[(page % 3) * 16 + (col % 16)];
+  if (byte === undefined || byte === 0) return;
+  const startRow = byte >> 4;
+  const item = backSceneryItems[byte & 0xf];
+  if (item === undefined) return;
+  for (let step = 0; step < 3; step += 1) {
+    const glyph = item[step];
+    const row = startRow + step;
+    if (glyph === null || glyph === undefined || row > 0x0a) continue;
+    set(grid, col, row + rowOffset, glyph);
+  }
+}
+
+// Foreground scenery types: 2 fills castle-wall columns, 3 lays the water
+// band under the bridge levels. (Type 1, the full water fill of underwater
+// areas, is covered by the water theme instead.)
+function paintForeScenery(grid, widthCols, foregroundScenery, areaTypeName) {
+  if (foregroundScenery === 3) {
+    // The "over water" band: water under bridges, lava under the castle
+    // palette.
+    const surface = areaTypeName === "castle" ? "^" : ",";
+    const body = areaTypeName === "castle" ? ":" : ";";
+    for (let col = 0; col < widthCols; col += 1) {
+      set(grid, col, 11 + rowOffset, surface);
+      set(grid, col, 12 + rowOffset, body);
+    }
+  }
+  if (foregroundScenery === 2) {
+    for (let col = 0; col < widthCols; col += 1) {
+      set(grid, col, 5 + rowOffset, "&");
+      for (let row = 6; row <= 10; row += 1) {
+        set(grid, col, row + rowOffset, "@");
+      }
+    }
+  }
+}
+
+// CastleMetatiles: the 5-column start/end castle buildings, row-major from
+// the starting row down to buffer row 10. Values map to battlement/wall/
+// window/door glyphs; zero draws nothing.
+const castleMetatileRows = [
+  [0x00, 0x45, 0x45, 0x45, 0x00],
+  [0x00, 0x48, 0x47, 0x46, 0x00],
+  [0x45, 0x49, 0x49, 0x49, 0x45],
+  [0x47, 0x47, 0x4a, 0x47, 0x47],
+  [0x47, 0x47, 0x4b, 0x47, 0x47],
+  [0x49, 0x49, 0x49, 0x49, 0x49],
+  [0x47, 0x4a, 0x47, 0x4a, 0x47],
+  [0x47, 0x4b, 0x47, 0x4b, 0x47],
+  [0x47, 0x47, 0x47, 0x47, 0x47],
+  [0x4a, 0x47, 0x4a, 0x47, 0x4a],
+  [0x4b, 0x47, 0x4b, 0x47, 0x4b],
+];
+
+const castleGlyphByMetatile = {
+  0x45: "&",
+  0x49: "&",
+  0x47: "@",
+  0x46: "Q",
+  0x48: "Q",
+  0x4a: "N",
+  0x4b: "N",
+};
+
+function paintCastleBuilding(grid, col, startRow) {
+  for (let row = startRow; row <= 0x0a; row += 1) {
+    const tableRow = castleMetatileRows[row - startRow];
+    if (tableRow === undefined) break;
+    for (let i = 0; i < 5; i += 1) {
+      const glyph = castleGlyphByMetatile[tableRow[i]];
+      if (glyph !== undefined) {
+        set(grid, col + i, row + rowOffset, glyph);
+      }
+    }
+  }
+}
+
 // ---- Object stream ---------------------------------------------------------
 // Each object is 2 bytes; the stream ends at $FD. See docs for the bit layout.
 function decodeObjects(prg, levelAddr) {
@@ -275,9 +403,12 @@ function decodeEnemies(prg, enemyAddr) {
       page = b1 & 0x3f; // enemy page-set
       continue;
     }
+    // Hard-mode-only enemies belong to the second quest; the decoded pack
+    // targets the first playthrough, so they are skipped entirely.
     const hardOnly = (b1 & 0x40) !== 0;
     const id = b1 & 0x3f;
     if (id >= 0x37 && id <= 0x3e) {
+      if (hardOnly) continue;
       // group enemies: n = id - 0x37
       const n = id - 0x37;
       const koopa = n >= 4;
@@ -288,13 +419,13 @@ function decodeEnemies(prg, enemyAddr) {
           kind: koopa ? "koopa" : "goomba",
           col: col + i,
           row: raised ? 7 : 11,
-          hardOnly,
           group: true,
         });
       }
       continue;
     }
-    enemies.push({ kind: enemyIdName(id), id, col, row: y, hardOnly });
+    if (hardOnly) continue;
+    enemies.push({ kind: enemyIdName(id), id, col, row: y });
   }
   return enemies;
 }
@@ -407,6 +538,15 @@ function set(grid, col, row, symbol) {
   grid[row][col] = symbol;
 }
 
+// Decorations painted during the object pass must never clobber terrain or
+// blocks — they only fill still-empty cells.
+function setIfEmpty(grid, col, row, symbol) {
+  if (row < 0 || row >= gridHeight || col < 0 || col >= grid[0].length) return;
+  if (grid[row][col] === emptySymbol) {
+    grid[row][col] = symbol;
+  }
+}
+
 // small-object (Y0-11, C=0) sub-types -> block symbol
 const smallObjectSymbols = {
   0: "M", // ? power-up
@@ -442,7 +582,10 @@ const cannonBulletHeightPixels = 14;
 const cannonBulletLifetimeFrames = 900;
 
 function renderArea(header, objects, enemies, options = {}) {
-  const { bowserSymbol = "w" } = options;
+  const { bowserSymbol = "w", areaTypeName = "ground" } = options;
+  // Castle "water holes" are lava under the castle palette.
+  const holeSurfaceGlyph = areaTypeName === "castle" ? "^" : ",";
+  const holeBodyGlyph = areaTypeName === "castle" ? ":" : ";";
   // width: from the furthest object/enemy column, rounded up to a page,
   // min 16 pages
   let maxCol = 16;
@@ -452,10 +595,13 @@ function renderArea(header, objects, enemies, options = {}) {
   const grid = makeGrid(widthCols);
   const cannons = [];
 
-  // Terrain (floor/ceiling pattern) per column: the header's pattern, updated
-  // mid-level by alter-attributes objects (d6 clear variant).
+  // Terrain (floor/ceiling pattern) and background scenery per column: the
+  // header's values, updated mid-level by alter-attributes objects (the d6
+  // clear variant carries both).
   let terrainControl = header.terrainControl;
+  let backgroundScenery = header.backgroundScenery;
   const terrainByCol = new Array(widthCols);
+  const sceneryByCol = new Array(widthCols);
   const alterObjects = objects
     .filter((o) => o.kind === "alter-attributes" && (o.b1 & 0x40) === 0)
     .sort((a, b) => a.col - b.col);
@@ -466,10 +612,20 @@ function renderArea(header, objects, enemies, options = {}) {
       alterObjects[alterIndex].col <= x
     ) {
       terrainControl = alterObjects[alterIndex].b1 & 0xf;
+      backgroundScenery = (alterObjects[alterIndex].b1 >> 4) & 0x3;
       alterIndex += 1;
     }
     terrainByCol[x] = terrainControl;
+    sceneryByCol[x] = backgroundScenery;
   }
+
+  // Scenery first (decorative), then foreground bands, then terrain and
+  // objects overwrite — matching the NES column renderer's order.
+  for (let x = 0; x < widthCols; x += 1) {
+    paintBackSceneryColumn(grid, x, sceneryByCol[x]);
+  }
+  paintForeScenery(grid, widthCols, header.foregroundScenery, areaTypeName);
+
   for (let x = 0; x < widthCols; x += 1) {
     for (const r of terrainSolidRows(terrainByCol[x], header.cloudOverride)) {
       set(grid, x, r + rowOffset, "#");
@@ -484,7 +640,7 @@ function renderArea(header, objects, enemies, options = {}) {
       case "hole":
       case "hole-water": {
         // Holes clear playfield rows 8-12 (grid 10-14) regardless of floor
-        // thickness; water holes differ only in (unmodelled) visuals.
+        // thickness; water holes fill with (decorative) water below the waves.
         for (let i = 0; i < len; i += 1) {
           for (
             let r = holeTopPlayfieldRow + rowOffset;
@@ -492,6 +648,11 @@ function renderArea(header, objects, enemies, options = {}) {
             r += 1
           ) {
             set(grid, o.col + i, r, emptySymbol);
+          }
+          if (o.kind === "hole-water") {
+            set(grid, o.col + i, 10 + rowOffset, holeSurfaceGlyph);
+            set(grid, o.col + i, 11 + rowOffset, holeBodyGlyph);
+            set(grid, o.col + i, 12 + rowOffset, holeBodyGlyph);
           }
         }
         break;
@@ -523,6 +684,20 @@ function renderArea(header, objects, enemies, options = {}) {
           // Tree/mushroom (and cloud) ledge: the top row is the platform; the
           // trunk/stem below is background-only scenery.
           for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "#");
+          if (header.areaStyle === 1) {
+            // Mushroom stem under the centre column.
+            const stemCol = o.col + (len >> 1);
+            for (let r = gr + 1; r < gridHeight; r += 1) {
+              setIfEmpty(grid, stemCol, r, "j");
+            }
+          } else if (!header.cloudOverride) {
+            // Tree trunks under the middle sections (never the caps).
+            for (let i = 1; i < len - 1; i += 1) {
+              for (let r = gr + 1; r < gridHeight; r += 1) {
+                setIfEmpty(grid, o.col + i, r, "!");
+              }
+            }
+          }
         }
         break;
       }
@@ -530,7 +705,10 @@ function renderArea(header, objects, enemies, options = {}) {
       case "bridge-mid":
       case "bridge-lo": {
         const floor = bridgeFloorRows[o.kind] + rowOffset;
-        for (let i = 0; i < len; i += 1) set(grid, o.col + i, floor, "#");
+        for (let i = 0; i < len; i += 1) {
+          set(grid, o.col + i, floor, "#");
+          setIfEmpty(grid, o.col + i, floor - 1, '"');
+        }
         break;
       }
       case "qblock-row-hi":
@@ -564,8 +742,9 @@ function renderArea(header, objects, enemies, options = {}) {
         break;
       }
       case "castle":
-        // The start/end castle is background scenery the player walks past —
-        // nothing solid to emit.
+        // The start/end castle building: decorative masonry the player walks
+        // in front of (its starting row selects the tall or small variant).
+        paintCastleBuilding(grid, o.col, o.low & 0xf);
         break;
       case "exit-pipe": {
         // Side pipe out of a bonus room: vertical shaft from the top of the
@@ -579,11 +758,16 @@ function renderArea(header, objects, enemies, options = {}) {
         break;
       }
       case "pulley-rope":
+        // The crossbar the balance-lift ropes hang from, along the top row.
+        for (let i = 0; i < len; i += 1) {
+          setIfEmpty(grid, o.col + i, rowOffset, '"');
+        }
+        break;
       case "endless-rope":
       case "balance-rope":
       case "flagballs":
-        // Rope/pulley furniture for the balance lifts and the castle flag
-        // balls are visual-only; the lifts themselves are enemy objects.
+        // Rope furniture and the castle flag balls stay unpainted; the lifts
+        // themselves are enemy objects and draw their own ropes at runtime.
         break;
       default: {
         if (o.kind.startsWith("small:")) {
@@ -764,6 +948,7 @@ export function buildMetadata(grid, header, options = {}) {
     vineTransitions = [],
     fallExitTransition = undefined,
     axeTileX = undefined,
+    halfwayTileX = undefined,
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
   } = options;
@@ -822,6 +1007,9 @@ export function buildMetadata(grid, header, options = {}) {
   }
   if (fallExitTransition !== undefined) {
     metadata.fallExitTransition = fallExitTransition;
+  }
+  if (halfwayTileX !== undefined) {
+    metadata.halfwayTileX = halfwayTileX;
   }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
@@ -890,6 +1078,31 @@ function computeLoopZones(world, objects) {
   });
 }
 
+// ---- Halfway respawn checkpoints ---------------------------------------------
+// HalfwayPageNybbles: per world, the page a defeated player respawns from
+// once they've reached it (0 = restart from the top). Indexed by the
+// DISPLAYED level number (1..4) — worlds with a side-pipe intro fragment
+// count it with the level it introduces.
+const halfwayPagesByWorld = [
+  [5, 6, 4, 0],
+  [6, 5, 7, 0],
+  [6, 6, 4, 0],
+  [6, 6, 4, 0],
+  [6, 6, 4, 0],
+  [6, 6, 6, 0],
+  [6, 5, 7, 0],
+  [0, 0, 0, 0],
+];
+
+function halfwayTileXFor(world, slot, slotCount) {
+  // 5-slot worlds hide the intro fragment (slot 1): displayed levels are
+  // slots [0, 2, 3, 4]; 4-slot worlds map directly.
+  const displayIndex = slotCount >= 5 ? [0, -1, 1, 2, 3][slot] : slot;
+  if (displayIndex === undefined || displayIndex < 0) return undefined;
+  const page = halfwayPagesByWorld[world]?.[displayIndex] ?? 0;
+  return page === 0 ? undefined : page * 16 + 2;
+}
+
 // ---- Warp zones -------------------------------------------------------------
 // A scroll-lock-warp object turns the pipes that follow it into the warp zone.
 // The zone number is picked exactly like the game: world 1 -> zone {4,3,2};
@@ -921,12 +1134,13 @@ export async function decodeAllLevels(romPath) {
   for (let world = 0; world < 8; world += 1) {
     const count = levelCountForWorld(prg, world);
     for (let slot = 0; slot < count; slot += 1) {
+      const halfwayTileX = halfwayTileXFor(world, slot, count);
       const area = resolveArea(prg, world, slot);
       // Skip slots whose pointers do not resolve into the PRG window (only
       // happens for malformed/partial ROMs, e.g. test fixtures).
       if (area.levelAddr < 0x8000 || area.enemyAddr < 0x8000) continue;
       const name = `smb-${world + 1}-${slot + 1}`;
-      mains.push({ world, slot, area, name });
+      mains.push({ world, slot, area, name, halfwayTileX });
       // Key by area type+index: connection commands may carry stray high bits
       // in their AreaPointer byte (e.g. $a5 and $25 both mean ground #5).
       mainNameByWorldAndPointer.set(
@@ -948,6 +1162,7 @@ export async function decodeAllLevels(romPath) {
     // Bowser throws hammers from world 6 on (0-based world index 5).
     const { grid, widthCols, cannons } = renderArea(header, objects, enemies, {
       bowserSymbol: world >= 5 ? "W" : "w",
+      areaTypeName: area.areaTypeName,
     });
     const entry = {
       world: mainInfo !== undefined ? mainInfo.world + 1 : world + 1,
@@ -1228,6 +1443,7 @@ export async function decodeAllLevels(romPath) {
       vineTransitions,
       fallExitTransition,
       axeTileX,
+      halfwayTileX: mainInfo?.halfwayTileX,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,
     });

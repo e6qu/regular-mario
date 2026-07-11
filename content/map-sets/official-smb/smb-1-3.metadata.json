@@ -120,5 +120,6 @@
       "y": 10,
       "widthTiles": 3
     }
-  ]
+  ],
+  "halfwayTileX": 98
 }

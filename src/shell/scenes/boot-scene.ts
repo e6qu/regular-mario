@@ -1947,6 +1947,15 @@ export class BootScene extends Phaser.Scene {
 
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
+    // Halfway checkpoint: a player defeated (not finished) past the level's
+    // halfway column, in the main level itself, retries from the checkpoint
+    // rather than the top — like the original's HalfwayPage respawn.
+    const respawnAtHalfway =
+      this.warpedLevelInput === undefined &&
+      this.levelSpec.halfwayTileX !== undefined &&
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated &&
+      this.simulationState.player.position.x >=
+        this.levelSpec.halfwayTileX * this.levelSpec.tileSizePixels;
     // A retry after a pipe warp returns to the main-sequence level, so rebuild
     // it before resetting the simulation state.
     if (this.warpedLevelInput !== undefined) {
@@ -1964,6 +1973,20 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
       this.browserGameBootstrap,
     );
+    if (respawnAtHalfway && this.levelSpec.halfwayTileX !== undefined) {
+      // Drop in from the top of the checkpoint column; the landing collision
+      // settles the player onto the ground there.
+      this.simulationState = {
+        ...this.simulationState,
+        player: teleportPlayerToTilePosition(
+          this.simulationState.player,
+          { x: this.levelSpec.halfwayTileX, y: 2 } as Parameters<
+            typeof teleportPlayerToTilePosition
+          >[1],
+          this.levelSpec,
+        ),
+      };
+    }
     this.lastSoundEvents = [];
     this.levelAdvanceDelayFramesRemaining = 0;
     this.levelCompleteSoundPlayed = false;
@@ -2440,6 +2463,7 @@ export class BootScene extends Phaser.Scene {
       this.simulationState.timeBonusScore,
       this.simulationState.breakableBlockScore,
       this.simulationState.bulletBillStompScore,
+      this.simulationState.goalHeightScore,
     );
     this.scoreText.setText(
       classicCompatibilityHudText(
@@ -3073,6 +3097,7 @@ export class BootScene extends Phaser.Scene {
           this.simulationState.timeBonusScore,
           this.simulationState.breakableBlockScore,
           this.simulationState.bulletBillStompScore,
+          this.simulationState.goalHeightScore,
         ),
         coinCount:
           this.simulationState.collectibles.collectedCoinEntityIds.length,
@@ -4509,6 +4534,11 @@ function renderAuthoredTile(
     renderBrickTile(scene, x, y, size);
     return;
   }
+  if (decorativeSceneryTileIds.has(tileId)) {
+    requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
+    renderDecorativeSceneryTile(scene, x, y, size, tileId);
+    return;
+  }
   switch (tileId) {
     case "empty":
       requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
@@ -4626,6 +4656,237 @@ function requireTileAssetCollision(
     throw new Error(
       `Authored tile asset ${tileId} expected ${expectedCollision} collision but received ${actualCollision}.`,
     );
+  }
+}
+
+// Decorative scenery tiles (Empty collision): the in-level clouds, bushes,
+// hills, fences, trees, water bands and castle masonry. Simple flat shapes
+// behind the action — sprites can override them per skin.
+const decorativeSceneryTileIds: ReadonlySet<string> = new Set([
+  "scenery-cloud-left",
+  "scenery-cloud-middle",
+  "scenery-cloud-right",
+  "scenery-bush-left",
+  "scenery-bush-middle",
+  "scenery-bush-right",
+  "scenery-hill-left",
+  "scenery-hill-peak",
+  "scenery-hill-right",
+  "scenery-hill-fill",
+  "scenery-fence",
+  "scenery-tree-top",
+  "scenery-tree-top-small",
+  "scenery-trunk",
+  "scenery-mushroom-stem",
+  "scenery-rail",
+  "castle-wall",
+  "castle-battlement",
+  "castle-window",
+  "castle-door",
+  "water-surface",
+  "water-body",
+  "lava-surface",
+  "lava-body",
+]);
+
+const sceneryCloudColor = 0xf7fbff;
+const sceneryBushColor = 0x2f9e44;
+const sceneryHillColor = 0x37b24d;
+const sceneryHillShadeColor = 0x2b8a3e;
+const sceneryFenceColor = 0xb08968;
+const sceneryTreeColor = 0x2b8a3e;
+const sceneryTrunkColor = 0xb08968;
+const sceneryMushroomStemColor = 0xf1e4d0;
+const sceneryRailColor = 0xd9a066;
+const sceneryCastleWallColor = 0x8d99ae;
+const sceneryCastleShadeColor = 0x5c677d;
+const sceneryCastleDoorColor = 0x1b263b;
+const sceneryWaterColor = 0x4dabf7;
+const sceneryWaterDeepColor = 0x339af0;
+const sceneryLavaColor = 0xf03e3e;
+const sceneryLavaDeepColor = 0xc92a2a;
+
+function renderDecorativeSceneryTile(
+  scene: Phaser.Scene,
+  x: number,
+  y: number,
+  size: number,
+  tileId: string,
+): void {
+  const half = Math.round(size / 2);
+  switch (tileId) {
+    case "scenery-cloud-left":
+    case "scenery-bush-left":
+      scene.add
+        .ellipse(
+          x + size,
+          y + size,
+          size * 2,
+          size * 1.6,
+          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
+        )
+        .setOrigin(1, 1)
+        .setDepth(-20);
+      return;
+    case "scenery-cloud-right":
+    case "scenery-bush-right":
+      scene.add
+        .ellipse(
+          x,
+          y + size,
+          size * 2,
+          size * 1.6,
+          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
+        )
+        .setOrigin(0, 1)
+        .setDepth(-20);
+      return;
+    case "scenery-cloud-middle":
+    case "scenery-bush-middle":
+      scene.add
+        .rectangle(
+          x,
+          y + Math.round(size * 0.2),
+          size,
+          Math.round(size * 0.8),
+          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
+        )
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-hill-left":
+      scene.add
+        .triangle(x, y, 0, size, size, 0, size, size, sceneryHillColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-hill-right":
+      scene.add
+        .triangle(x, y, 0, 0, size, size, 0, size, sceneryHillColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-hill-peak":
+      scene.add
+        .triangle(x, y, half, 0, size, size, 0, size, sceneryHillShadeColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-hill-fill":
+      scene.add
+        .rectangle(x, y, size, size, sceneryHillColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-fence": {
+      for (const postX of [2, 7, 12]) {
+        scene.add
+          .rectangle(x + postX, y + 4, 2, size - 4, sceneryFenceColor)
+          .setOrigin(0)
+          .setDepth(-20);
+      }
+      scene.add
+        .rectangle(x, y + 6, size, 2, sceneryFenceColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    }
+    case "scenery-tree-top":
+    case "scenery-tree-top-small":
+      scene.add
+        .ellipse(x + half, y + half, size * 0.95, size * 1.1, sceneryTreeColor)
+        .setDepth(-20);
+      return;
+    case "scenery-trunk":
+      scene.add
+        .rectangle(x + half - 2, y, 4, size, sceneryTrunkColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-mushroom-stem":
+      scene.add
+        .rectangle(x + 3, y, size - 6, size, sceneryMushroomStemColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "scenery-rail":
+      scene.add
+        .rectangle(x, y + size - 4, size, 2, sceneryRailColor)
+        .setOrigin(0)
+        .setDepth(-20);
+      return;
+    case "castle-wall":
+      scene.add
+        .rectangle(x, y, size, size, sceneryCastleWallColor)
+        .setOrigin(0)
+        .setStrokeStyle(1, sceneryCastleShadeColor)
+        .setDepth(-19);
+      return;
+    case "castle-battlement": {
+      scene.add
+        .rectangle(x, y + half, size, half, sceneryCastleWallColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      scene.add
+        .rectangle(x + 1, y, half - 2, half, sceneryCastleWallColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      scene.add
+        .rectangle(x + half + 1, y, half - 2, half, sceneryCastleWallColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      return;
+    }
+    case "castle-window":
+      scene.add
+        .rectangle(x, y, size, size, sceneryCastleWallColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      scene.add
+        .rectangle(x + 5, y + 3, size - 10, size - 6, sceneryCastleDoorColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      return;
+    case "castle-door":
+      scene.add
+        .rectangle(x, y, size, size, sceneryCastleWallColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      scene.add
+        .rectangle(x + 3, y + 2, size - 6, size - 2, sceneryCastleDoorColor)
+        .setOrigin(0)
+        .setDepth(-19);
+      return;
+    case "water-surface":
+    case "lava-surface": {
+      const surfaceColor =
+        tileId === "lava-surface" ? sceneryLavaColor : sceneryWaterColor;
+      const glintColor = tileId === "lava-surface" ? 0xffc078 : 0xd0ebff;
+      scene.add
+        .rectangle(x, y + 4, size, size - 4, surfaceColor)
+        .setOrigin(0)
+        .setDepth(-18);
+      scene.add
+        .rectangle(x, y + 2, size, 2, glintColor)
+        .setOrigin(0)
+        .setDepth(-18);
+      return;
+    }
+    case "water-body":
+    case "lava-body":
+      scene.add
+        .rectangle(
+          x,
+          y,
+          size,
+          size,
+          tileId === "lava-body" ? sceneryLavaDeepColor : sceneryWaterDeepColor,
+        )
+        .setOrigin(0)
+        .setDepth(-18);
+      return;
+    default:
+      throw new Error(`Unsupported decorative scenery tile: ${tileId}`);
   }
 }
 

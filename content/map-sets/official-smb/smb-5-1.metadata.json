@@ -50,6 +50,7 @@
       "y": 11
     }
   ],
+  "halfwayTileX": 98,
   "cannonProjectiles": [
     {
       "spawnerId": "cannon-0",

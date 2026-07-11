@@ -59,10 +59,34 @@ export function computeTotalScore(
   timeBonusScore: Score = 0 as Score,
   breakableBlockScore: Score = 0 as Score,
   bulletBillStompScore: Score = 0 as Score,
+  goalHeightScore: Score = 0 as Score,
 ): Score {
   return (computeCollectibleScore(collectibles) +
     computeEnemyScore(enemies) +
     timeBonusScore +
     breakableBlockScore +
-    bulletBillStompScore) as Score;
+    bulletBillStompScore +
+    goalHeightScore) as Score;
+}
+
+// The flagpole grab awards by height, like the original's 100/400/800/2000/
+// 5000 bands from the base to the very top.
+const goalHeightScoreBands: readonly (readonly [number, number])[] = [
+  [4, 5000],
+  [6, 2000],
+  [8, 800],
+  [10, 400],
+];
+
+export function scoreForGoalContactHeight(
+  playerTopPixelY: number,
+  tileSizePixels: number,
+): Score {
+  const row = Math.floor(playerTopPixelY / tileSizePixels);
+  for (const [maxRow, points] of goalHeightScoreBands) {
+    if (row <= maxRow) {
+      return points as Score;
+    }
+  }
+  return 100 as Score;
 }

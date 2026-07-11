@@ -142,5 +142,6 @@
       "targetTileX": 2,
       "targetTileY": 12
     }
-  ]
+  ],
+  "halfwayTileX": 98
 }

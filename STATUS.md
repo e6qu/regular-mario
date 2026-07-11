@@ -4,7 +4,7 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **709 unit tests + 100 browser tests
+Preparing for a public beta/demo release. **719 unit tests + 100 browser tests
 pass; all gates green.**
 
 What exists now:
@@ -36,13 +36,24 @@ What exists now:
   gate), Bullet Bill cannons, **Bowser guarding every castle bridge** (spiky,
   five fireballs to fell, flame volleys; throws hammers from world 6) with the
   **axe ending the level** where the original's bridge chop does.
-- **ROM-decoded levels — all 52 areas.** Full terrain (floor/ceiling patterns
+- **ROM-decoded levels — all 54 areas.** Full terrain (floor/ceiling patterns
   with mid-level alter-attributes, tree/mushroom ledges, bullet-bill cannon
   columns, bridges, exact pipe heights, castle bridges), stream-ordered
   world-scoped area connections (every warp pipe, side exit pipe, intro pipe
   and vine goes to its true destination; the shared underground bonus room
   returns each world to its own level; 1-2's exit really lands in 1-1's flag
   tail, as in the ROM), per-world bonus/cloud sub-areas, and hidden blocks.
+- **The scenery layer** — levels read populated, not empty: background
+  clouds/bushes/hills/fences from the ROM's repeating three-page scenery
+  tables, tree trunks and mushroom stems under ledges, bridge rails, start/end
+  castle buildings (walls, battlements, windows, door), water bands under
+  bridges and **lava in castle pits** (the castle palette's take on the same
+  "hole with water" objects and the fore-scenery band). All drawn as
+  decorative empty-collision tiles at background depth.
+- **Halfway checkpoints, flag-height scoring, first-quest filtering.** Dying
+  past a level's ROM halfway page respawns there instead of the start (castles
+  faithfully have none); flagpole scoring pays by grab height (100–5000); the
+  ROM's hard-mode-only enemy connections are excluded like a first quest.
 - **Level editor / designer** (unchanged surface): paint tiles, blocks, hidden
   blocks, cannons, piranha plants, enemies; multiple areas with warp pipes;
   themes; guided tutorial.

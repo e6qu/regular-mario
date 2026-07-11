@@ -25,22 +25,8 @@
   "theme": "castle",
   "firebars": [
     {
-      "x": 23,
-      "y": 7,
-      "direction": "counter-clockwise",
-      "speed": "slow",
-      "orbCount": 6
-    },
-    {
       "x": 30,
       "y": 11,
-      "direction": "counter-clockwise",
-      "speed": "slow",
-      "orbCount": 6
-    },
-    {
-      "x": 37,
-      "y": 7,
       "direction": "counter-clockwise",
       "speed": "slow",
       "orbCount": 6
@@ -74,13 +60,6 @@
       "orbCount": 6
     },
     {
-      "x": 80,
-      "y": 5,
-      "direction": "clockwise",
-      "speed": "slow",
-      "orbCount": 6
-    },
-    {
       "x": 84,
       "y": 10,
       "direction": "counter-clockwise",
@@ -93,27 +72,6 @@
       "direction": "clockwise",
       "speed": "slow",
       "orbCount": 6
-    },
-    {
-      "x": 92,
-      "y": 10,
-      "direction": "counter-clockwise",
-      "speed": "slow",
-      "orbCount": 6
-    }
-  ],
-  "podoboos": [
-    {
-      "x": 27,
-      "phaseOffsetFrames": 99
-    },
-    {
-      "x": 33,
-      "phaseOffsetFrames": 249
-    },
-    {
-      "x": 131,
-      "phaseOffsetFrames": 139
     }
   ],
   "platforms": [

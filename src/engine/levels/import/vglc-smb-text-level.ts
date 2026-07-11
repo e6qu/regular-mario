@@ -360,6 +360,39 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
   ["y", { tileId: "spring-bottom", collision: TileCollisionKind.Solid }],
   // The castle-bridge planks Bowser guards (chopped by reaching the axe).
   ["=", { tileId: "castle-bridge", collision: TileCollisionKind.Solid }],
+  // Decorative scenery (all Empty collision): the in-level clouds, bushes,
+  // hills, fences and trees of the ROM's background scenery tables, plus
+  // trunks/stems, bridge rails, water bands and the castle buildings.
+  ["1", { tileId: "scenery-cloud-left", collision: TileCollisionKind.Empty }],
+  ["2", { tileId: "scenery-cloud-middle", collision: TileCollisionKind.Empty }],
+  ["3", { tileId: "scenery-cloud-right", collision: TileCollisionKind.Empty }],
+  ["4", { tileId: "scenery-bush-left", collision: TileCollisionKind.Empty }],
+  ["5", { tileId: "scenery-bush-middle", collision: TileCollisionKind.Empty }],
+  ["6", { tileId: "scenery-bush-right", collision: TileCollisionKind.Empty }],
+  ["7", { tileId: "scenery-hill-left", collision: TileCollisionKind.Empty }],
+  ["8", { tileId: "scenery-hill-peak", collision: TileCollisionKind.Empty }],
+  ["9", { tileId: "scenery-hill-right", collision: TileCollisionKind.Empty }],
+  ["0", { tileId: "scenery-hill-fill", collision: TileCollisionKind.Empty }],
+  ["%", { tileId: "scenery-fence", collision: TileCollisionKind.Empty }],
+  ["T", { tileId: "scenery-tree-top", collision: TileCollisionKind.Empty }],
+  [
+    "f",
+    { tileId: "scenery-tree-top-small", collision: TileCollisionKind.Empty },
+  ],
+  ["!", { tileId: "scenery-trunk", collision: TileCollisionKind.Empty }],
+  [
+    "j",
+    { tileId: "scenery-mushroom-stem", collision: TileCollisionKind.Empty },
+  ],
+  ['"', { tileId: "scenery-rail", collision: TileCollisionKind.Empty }],
+  ["@", { tileId: "castle-wall", collision: TileCollisionKind.Empty }],
+  ["&", { tileId: "castle-battlement", collision: TileCollisionKind.Empty }],
+  ["Q", { tileId: "castle-window", collision: TileCollisionKind.Empty }],
+  ["N", { tileId: "castle-door", collision: TileCollisionKind.Empty }],
+  [",", { tileId: "water-surface", collision: TileCollisionKind.Empty }],
+  [";", { tileId: "water-body", collision: TileCollisionKind.Empty }],
+  ["^", { tileId: "lava-surface", collision: TileCollisionKind.Empty }],
+  [":", { tileId: "lava-body", collision: TileCollisionKind.Empty }],
 ]);
 
 const multiLayerTileLegendCharacters: ReadonlyMap<
@@ -554,6 +587,7 @@ type VglcSmbTextImportMetadata = {
   readonly loopZones: readonly LoopZoneInput[];
   readonly vineTransitions: readonly VineTransitionInput[];
   readonly fallExitTransition: FallExitTransitionInput | undefined;
+  readonly halfwayTileX: number | undefined;
 };
 
 export function parseVglcSmbTextLevel(
@@ -872,6 +906,9 @@ function parseConvertedVglcSmbRows(
     ...(input.metadata.fallExitTransition === undefined
       ? {}
       : { fallExitTransition: input.metadata.fallExitTransition }),
+    ...(input.metadata.halfwayTileX === undefined
+      ? {}
+      : { halfwayTileX: input.metadata.halfwayTileX }),
   };
 
   const withPlants = withPiranhaPlants(
@@ -989,6 +1026,7 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     loopZones: [],
     vineTransitions: [],
     fallExitTransition: undefined,
+    halfwayTileX: undefined,
   };
 }
 
@@ -1096,6 +1134,10 @@ function parseVglcSmbTextImportMetadata(
       "metadata.fallExitTransition",
       errors,
     ),
+    halfwayTileX:
+      typeof candidate.halfwayTileX === "number"
+        ? candidate.halfwayTileX
+        : undefined,
   };
 }
 

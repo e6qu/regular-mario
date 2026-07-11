@@ -33,6 +33,7 @@
   },
   "questionBlockContentsDefault": "power-up",
   "theme": "water",
+  "halfwayTileX": 82,
   "cheepFrenzy": {
     "startTileX": 80,
     "endTileX": 192

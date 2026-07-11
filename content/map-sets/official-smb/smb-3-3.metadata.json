@@ -105,5 +105,6 @@
       "widthTiles": 2,
       "balancePartnerId": "lift-9"
     }
-  ]
+  ],
+  "halfwayTileX": 66
 }
