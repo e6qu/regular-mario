@@ -608,6 +608,36 @@ const spinyPalette = {
   m: [46, 26, 44, 255],
 };
 
+// Original "kelp trap" (piranha-plant stand-in): a carnivorous beach pod on a
+// kelp stalk, toothy jaws agape.
+const kelpTrap = [
+  "................",
+  "....eeeeee......",
+  "...errrrrre.....",
+  "..errDrrDrre....",
+  "..errrrrrrre....",
+  "..ewrwrwrwre....",
+  "..errrrrrrre....",
+  "..erwrwrwrwe....",
+  "...errrrrre.....",
+  "....eeGGee......",
+  "..Le..GG..eL....",
+  ".eLLe.GG.eLLe...",
+  "..eLLeGGeLLe....",
+  "...eeeGGeee.....",
+  ".....eGGe.......",
+  "................",
+];
+const kelpTrapPalette = {
+  ".": [0, 0, 0, 0],
+  e: [24, 20, 18, 255],
+  r: [178, 62, 56, 255],
+  D: [110, 30, 30, 255],
+  w: [245, 245, 245, 255],
+  G: [96, 140, 70, 255],
+  L: [168, 200, 120, 255],
+};
+
 // The big castle "warden" (Bowser stand-in): charcoal hide, ember accents.
 const wardenPalette = {
   ".": [0, 0, 0, 0],
@@ -859,6 +889,7 @@ async function main() {
     ["snapper-winged.png", snapperWinged, enemyPalette],
     ["snapper-red-winged.png", snapperWinged, redEnemyPalette],
     ["urchin-walk.png", snapperShell, spinyPalette],
+    ["kelp-trap.png", kelpTrap, kelpTrapPalette],
     ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
     ["bullet-slug.png", bulletSlug, bulletPalette],
     ["castaway-fish.png", castawayFish, waterEnemyPalette],
@@ -947,6 +978,7 @@ async function main() {
         "snapper-winged.png",
       ),
       "vglc-smb-spiny": walkingEnemySprite("urchin-walk.png"),
+      "vglc-smb-piranha": walkingEnemySprite("kelp-trap.png"),
       "vglc-smb-bowser": walkingEnemySprite("warden.png"),
       "vglc-smb-bowser-hammers": walkingEnemySprite("warden.png"),
       "vglc-smb-bullet": walkingEnemySprite("bullet-slug.png"),

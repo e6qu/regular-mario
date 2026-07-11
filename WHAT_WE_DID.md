@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — Playthrough sweep: parody skin covers the piranha (boot fix)
+
+- **An automated playthrough sweep** (bot walks every main level via the
+  menu's #play route) caught that **31 of 36 levels failed to boot with the
+  parody skin**: the skin had no sprite for `vglc-smb-piranha`, and boot
+  validation rejects a level whose actors lack sprites — every level with a
+  pipe-dwelling snapping plant. Previous probes had coincidentally used
+  piranha-free levels (1-1, castles, bridges).
+- Added an original "kelp trap" sprite (carnivorous beach pod on a kelp
+  stalk) to the parody set and mapped it to the piranha actor id.
+- **New browser test boots every menu level** into a running simulation
+  (with a real reload per level) so a missing sprite or import failure on
+  any level can't slip through again.
+- Verified the fore-scenery decode byte-exactly against the ROM table while
+  investigating: type 2 walls (2-1/3-1 style) and type 3 water bands are
+  correct; the bridge levels genuinely have no drawn water in the original.
+
 ## 2026-07-11 — The scenery layer + halfway checkpoints, flag scoring, first quest
 
 - **Scenery decoded — levels read populated.** The decoder now paints the

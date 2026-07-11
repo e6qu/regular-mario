@@ -208,3 +208,47 @@ test("journey: shared #play URL boots straight into a running game", async ({
   });
   expect(await playerX(page)).toBeGreaterThan(-1);
 });
+
+// Guards the whole pack against boot regressions (a missing actor sprite once
+// made every piranha-bearing level fail from the menu): every level offered
+// by the menu must boot into a running simulation.
+test("journey: every menu level boots into a running game", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await page.goto("/");
+  // The menu fills the level list asynchronously after the map set loads.
+  await page.waitForFunction(() => {
+    const select = document.querySelector('select[aria-label="Level"]');
+    return select instanceof HTMLSelectElement && select.options.length >= 32;
+  });
+  const levelValues = await page
+    .locator('select[aria-label="Level"]')
+    .evaluate((select: HTMLSelectElement) =>
+      [...select.options].map((option) => option.value),
+    );
+  expect(levelValues.length).toBeGreaterThanOrEqual(32);
+  for (const level of levelValues) {
+    await page.goto(
+      `/#play?skin=castaway-parody&map=official-smb&level=${level}` +
+        "&mode=classic&sound=classic",
+    );
+    // A hash-only navigation doesn't reload the page; force a fresh boot so
+    // each level is genuinely exercised (not the previous level's live game).
+    await page.reload();
+    await page.waitForFunction(
+      () => window.__originalBrowserPlatformerDebug !== undefined,
+      undefined,
+      { timeout: 15_000 },
+    );
+    await page.keyboard.press("Space");
+    await page
+      .waitForFunction(() => {
+        const api = window.__originalBrowserPlatformerDebug;
+        return api !== undefined && api.getSimulationSnapshot().frameIndex > 5;
+      })
+      .catch(() => {
+        throw new Error(`level ${level} did not boot into a running game`);
+      });
+  }
+});

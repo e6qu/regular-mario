@@ -206,7 +206,8 @@ export function assertValidSpawnedActorsState(
     if (
       candidateActor.collectionMode !==
         SpawnedActorCollectionMode.PlayerOverlap &&
-      candidateActor.collectionMode !== SpawnedActorCollectionMode.OnSpawn
+      candidateActor.collectionMode !== SpawnedActorCollectionMode.OnSpawn &&
+      candidateActor.collectionMode !== SpawnedActorCollectionMode.None
     ) {
       throw new Error(
         `Spawned actor at index ${index} must have a valid collectionMode.`,

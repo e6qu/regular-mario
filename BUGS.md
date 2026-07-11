@@ -2,10 +2,12 @@
 
 ## Known Bugs
 
-- None currently recorded. (2026-07-11: warp progression fixed — a run keeps
-  its origin's HUD number and next-level chain through flag-tail and
-  bonus-room warps, and a warp-zone jump retitles the run to the target
-  world and advances from there.)
+- None currently recorded. (2026-07-11: fixed — the parody skin had no
+  piranha sprite, so 31 of 36 levels failed skin validation at boot; an
+  every-level boot test now guards this. Earlier same day: warp progression
+  fixed — a run keeps its origin's HUD number and next-level chain through
+  flag-tail and bonus-room warps, and a warp-zone jump retitles the run to
+  the target world and advances from there.)
 
 ## Risks To Track
 

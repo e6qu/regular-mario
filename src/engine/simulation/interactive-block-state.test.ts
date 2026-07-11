@@ -247,6 +247,26 @@ describe("spawned actors state", () => {
     });
   });
 
+  it("steps a state holding a spawned climbable (vine blocks must not crash the next frame)", () => {
+    const levelSpec = interactiveClimbableBlockLevelSpec();
+    const spawned = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 4)],
+    );
+
+    // The climbable's collection mode is None; validation and the next
+    // frame's step must both accept it.
+    expect(() => assertValidSpawnedActorsState(spawned)).not.toThrow();
+    const stepped = stepSpawnedActorsState(
+      spawned,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      levelSpec,
+      makeEmptyBreakableBlockState(),
+    );
+    expect(stepped.spawnedActors).toHaveLength(1);
+  });
+
   it("uses profile-backed movement constants for spawned power-up actors", () => {
     const spawnedPowerUpMovement: SpawnedPowerUpMovement = {
       velocityX: 48 as SpawnedPowerUpMovement["velocityX"],
