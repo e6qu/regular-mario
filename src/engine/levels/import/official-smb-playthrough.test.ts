@@ -140,15 +140,14 @@ function runtimeFor(name: string): LevelRuntime {
     },
     downPipeCols: transitions
       .filter((transition) => (transition.entryDirection ?? "down") === "down")
-      // A self-warp that lands BEHIND its own entrance is a maze trap
-      // (8-4's first pipe) — never take those on purpose.
+      // The only down pipes a completion ever REQUIRES are forward self-warps
+      // (maze bypasses). Bonus rooms and warp zones are optional side content
+      // that just burns the clock — and backward self-warps are maze traps.
       .filter(
         (transition) =>
-          !(
-            transition.targetLevelName === name &&
-            typeof transition.targetTileX === "number" &&
-            transition.targetTileX < transition.x
-          ),
+          transition.targetLevelName === name &&
+          typeof transition.targetTileX === "number" &&
+          transition.targetTileX > transition.x,
       )
       .map((transition) => transition.x),
     walkIns: transitions
