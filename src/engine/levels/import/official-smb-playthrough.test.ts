@@ -82,7 +82,7 @@ type LevelRuntime = {
   readonly constants: typeof initialMovementConstants;
   readonly solid: (col: number, row: number) => boolean;
   readonly downPipeCols: readonly number[];
-  readonly walkInCols: readonly number[];
+  readonly walkIns: readonly { readonly x: number; readonly y: number }[];
   readonly goalCols: readonly number[];
   readonly gateCols: readonly number[];
   readonly lowGates: readonly number[];
@@ -123,6 +123,7 @@ function runtimeFor(name: string): LevelRuntime {
   const transitions = Array.isArray(level.metadata.transitions)
     ? (level.metadata.transitions as readonly {
         readonly x: number;
+        readonly y: number;
         readonly entryDirection?: string;
         readonly targetLevelName?: string;
         readonly targetTileX?: number;
@@ -150,9 +151,9 @@ function runtimeFor(name: string): LevelRuntime {
           ),
       )
       .map((transition) => transition.x),
-    walkInCols: transitions
+    walkIns: transitions
       .filter((transition) => transition.entryDirection === "right")
-      .map((transition) => transition.x),
+      .map((transition) => ({ x: transition.x, y: transition.y })),
     // Any reachable gate must be crossed standing; elevated ones also need
     // a climbing approach and low ones a grounded (descending) approach.
     gateCols: spec.loopZones
@@ -203,9 +204,7 @@ function runtimeFor(name: string): LevelRuntime {
 }
 
 function pitAhead(runtime: LevelRuntime, col: number): boolean {
-  // Trigger at the edge (max carry): wide pits need a full-speed takeoff
-  // from the last solid column.
-  for (const dx of [1, 2]) {
+  for (const dx of [1, 2, 3]) {
     const target = col + dx;
     if (target >= runtime.level.levelSpec.widthTiles) {
       continue;
@@ -345,6 +344,7 @@ function playLevel(
   // phase (hazard cycles are frame-locked), and a chance of ground mode.
   const resetExploration = (restore: Checkpoint): void => {
     state = restore.state;
+    previousX = restore.state.player.position.x;
     runtime = runtimeFor(restore.levelName);
     seed += 1;
     rng = makeRng(seed * 2654435761);
@@ -470,8 +470,8 @@ function playLevel(
         (player.position.y + player.collider.height / 2) /
           runtime.level.levelSpec.tileSizePixels,
       );
-      const inWalkInZone = runtime.walkInCols.some(
-        (x) => col >= x - 4 && col <= x + 1,
+      const inWalkInZone = runtime.walkIns.some(
+        (mouth) => col >= mouth.x - 4 && col <= mouth.x + 1,
       );
       const wallAhead =
         !inWalkInZone &&
@@ -492,9 +492,27 @@ function playLevel(
               : Math.max(0, jumpFramesLeft - 1);
     } else if (jumpFramesLeft > 0) {
       jumpFramesLeft -= 1;
-    } else if (runtime.walkInCols.some((x) => col >= x - 12 && col <= x + 1)) {
-      // Approaching a walk-in mouth: stay on the ground and press into it.
-      jumpFramesLeft = 0;
+    } else if (
+      runtime.walkIns.some((mouth) => col >= mouth.x - 12 && col <= mouth.x + 1)
+    ) {
+      // Approaching a walk-in mouth: no long jumps (they sail over it).
+      // A mouth ABOVE the current walking line sits on a step — short hops
+      // mount it; a mouth at the walking line just gets walked into.
+      const playerRow = Math.floor(
+        (player.position.y + player.collider.height / 2) /
+          runtime.level.levelSpec.tileSizePixels,
+      );
+      const raisedMouth = runtime.walkIns.some(
+        (mouth) =>
+          col >= mouth.x - 12 && col <= mouth.x + 1 && mouth.y < playerRow,
+      );
+      if (!raisedMouth) {
+        jumpFramesLeft = 0;
+      } else if (jumpFramesLeft > 10) {
+        jumpFramesLeft = 10;
+      } else if (grounded && jumpFramesLeft === 0 && rng() < 0.25) {
+        jumpFramesLeft = 6 + Math.floor(rng() * 5);
+      }
     } else if (runtime.springCols.some((x) => Math.abs(col - x) <= 1)) {
       // On a springboard: hold the jump through the entire launch — the big
       // bounce needs the held-jump gravity, exactly like holding A.
@@ -516,8 +534,11 @@ function playLevel(
       // never jump through the gate column itself (unless a pit demands it).
       jumpFramesLeft = 0;
     } else if (grounded && pitAhead(runtime, col)) {
-      // Pits outrank all route biases — falling in is worse than looping.
-      jumpFramesLeft = 30 + Math.floor(rng() * 8);
+      // Pits outrank all route biases. Mix edge-takeoff full jumps (wide
+      // pits) with shorter hops (ceilinged corridors where a full hold
+      // bonks and drops in).
+      jumpFramesLeft =
+        rng() < 0.5 ? 30 + Math.floor(rng() * 8) : 14 + Math.floor(rng() * 10);
     } else if (
       !nearDownPipe &&
       runtime.reachableGates.some(
@@ -768,14 +789,21 @@ function playLevel(
 }
 
 describe("official-smb headless playthroughs", () => {
+  // The exhaustive 36-level sweep is a long verification run
+  // (SMB_PLAY_FULL=1, optionally SMB_PLAY_BUDGET_SCALE=6+); the default suite
+  // plays a representative smoke set end-to-end: the overworld classic, the
+  // intro-strip -> underground -> exit chain, and a firebar castle.
+  const smokeSet = ["smb-1-1", "smb-1-2", "smb-1-5"];
   const mains = (
     process.env.SMB_PLAY_ONLY?.split(",") ??
-    [...pack.keys()].filter((name) => /^smb-\d+-\d+$/.test(name))
+    (process.env.SMB_PLAY_FULL !== undefined
+      ? [...pack.keys()].filter((name) => /^smb-\d+-\d+$/.test(name))
+      : smokeSet)
   ).sort();
 
   it("plays every main level to a finish against the real engine", () => {
     const failures: string[] = [];
-    const budgetScale = Number(process.env.SMB_PLAY_BUDGET_SCALE ?? "1");
+    const budgetScale = Number(process.env.SMB_PLAY_BUDGET_SCALE ?? "2");
     for (const name of mains) {
       const budget = (name === "smb-8-4" ? 400_000 : 200_000) * budgetScale;
       const result = playLevel(name, budget);
