@@ -544,6 +544,9 @@ type VglcSmbCannonProjectileMetadata = {
   readonly widthPixels: number;
   readonly heightPixels: number;
   readonly lifetimeFrames: number;
+  // Bullet Bills are stompable (defeated by a descending player); Bowser flames
+  // and other hazards are not. Defaults to non-stompable when absent.
+  readonly stompable?: boolean;
 };
 
 type VglcSmbPathAnnotationMetadata = {
@@ -2174,6 +2177,7 @@ function parseCannonProjectile(
     widthPixels,
     heightPixels,
     lifetimeFrames,
+    ...(candidate.stompable === true ? { stompable: true } : {}),
   };
 }
 

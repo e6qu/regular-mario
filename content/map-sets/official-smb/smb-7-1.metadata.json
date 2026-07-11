@@ -66,7 +66,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-1",
@@ -78,7 +79,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-2",
@@ -90,7 +92,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-3",
@@ -102,7 +105,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-4",
@@ -114,7 +118,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-5",
@@ -126,7 +131,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-6",
@@ -138,7 +144,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-7",
@@ -150,7 +157,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-8",
@@ -162,7 +170,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-9",
@@ -174,7 +183,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-10",
@@ -186,7 +196,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-11",
@@ -198,7 +209,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-12",
@@ -210,7 +222,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     }
   ]
 }

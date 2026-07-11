@@ -1043,6 +1043,9 @@ export function buildMetadata(grid, header, options = {}) {
       widthPixels: cannonBulletWidthPixels,
       heightPixels: cannonBulletHeightPixels,
       lifetimeFrames: cannonBulletLifetimeFrames,
+      // Bullet Bills are in the ROM's EnemyStomped set: a descending player
+      // lands on one and defeats it (rather than taking damage).
+      stompable: true,
     }));
   }
   return metadata;

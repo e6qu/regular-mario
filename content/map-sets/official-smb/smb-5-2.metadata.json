@@ -67,7 +67,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     },
     {
       "spawnerId": "cannon-1",
@@ -79,7 +80,8 @@
       "speedPixelsPerSecond": 120,
       "widthPixels": 16,
       "heightPixels": 14,
-      "lifetimeFrames": 900
+      "lifetimeFrames": 900,
+      "stompable": true
     }
   ]
 }
