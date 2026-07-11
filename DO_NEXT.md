@@ -14,6 +14,17 @@
   to make room; cross D-pad + A/B + START); landscape browser test drives it.
 - **ROM hitbox audit** + two discrete collision fixes (Bullet Bills stompable;
   stomp-on-descent).
+- **All-54 headless playthrough mode** (`SMB_PLAY_ALL=1`) added. Measurement at
+  budget scale 2: the mains behave as documented (single-run stochastic
+  variance; the union across rounds finishes all but 4-4/8-4). The warp/bonus
+  sub-areas do NOT complete from a _cold_ start — e.g. the `smb-warp-2-2-w*`
+  rooms are full 160-wide sub-levels whose real entry is a walk-in pipe reached
+  in-context, so their bare `PlayerStart` leaves the stochastic driver with no
+  route (it stalls at x≈34). This is a cold-start/context limitation of the
+  driver, not a level defect: every sub-area is proven completable by the
+  static BFS, live-verified for exact content/positions, and traversed
+  in-context when a main run takes its entering pipe. Making the cold-start
+  all-54 pass would need context-aware warp-room pipe entry + seed sweeps.
 
 ## Remaining: the collision-geometry overhaul (characterised in BUGS.md)
 
