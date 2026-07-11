@@ -1285,7 +1285,9 @@ describe("simulation primitives", () => {
 
     let state = initialStateResult.value;
 
-    for (let frame = 0; frame < 92; frame += 1) {
+    // ROM-rate acceleration takes ~45 frames to reach full run speed, so the
+    // route runs a little longer than it used to.
+    for (let frame = 0; frame < 110; frame += 1) {
       const playerNearGap =
         state.player.position.x >= 112 && state.player.position.x <= 148;
       state = stepSimulation(

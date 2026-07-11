@@ -323,7 +323,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 32,
       playerPosition: {
-        x: 15.822_222_222_215_11,
+        x: 15.944_333_333_331_107,
         y: 56,
       },
       playerVelocity: {
@@ -358,8 +358,8 @@ describe("replay fixture", () => {
 
     expectRightwardHazardReplayState(
       finalState,
-      67.166_666_668_063_34,
-      150,
+      66.267_000_002_010_68,
+      140.280_000_002_805_5,
       {
         kind: PlayerOutcomeKind.Defeated,
         reason: PlayerDefeatReason.HazardContact,
@@ -383,7 +383,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 58,
       playerPosition: {
-        x: 64.666_666_668_013_35,
+        x: 57.249_000_001_649_96,
         y: 56,
       },
       playerVelocity: {
@@ -399,7 +399,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "beetle-1",
         contactSide: EnemySideContactSide.Right,
-        frameIndex: 26,
+        frameIndex: 38,
         velocity: {
           x: -150,
         },
@@ -419,18 +419,18 @@ describe("replay fixture", () => {
     expectGoldenActiveState(finalState, {
       frameIndex: 48,
       playerPosition: {
-        x: 119.666_666_669_113_21,
-        y: -2.308_333_331_609_628,
+        x: 81.110_000_002_404_38,
+        y: -19.656_250_000_506_244,
       },
       playerVelocity: {
         x: 150,
-        y: 240,
+        y: -253.124_999_999_062_4,
       },
       playerMovement: {
         horizontal: HorizontalMovementState.Running,
-        vertical: VerticalMovementState.Falling,
+        vertical: VerticalMovementState.Jumping,
       },
-      collectedItemEntityIds: [],
+      collectedItemEntityIds: ["shard-1"],
       contactedEnemyEntityIds: [],
       defeatedEnemyEntityIds: [],
       enemyContactResponse: {
@@ -476,7 +476,7 @@ describe("replay fixture", () => {
     expectGoldenReplayState(finalState, {
       frameIndex: 200,
       playerPosition: {
-        x: 147.166_666_669_663_16,
+        x: 146.110_000_003_704_22,
         y: 56,
       },
       playerVelocity: {
@@ -520,12 +520,12 @@ describe("replay fixture", () => {
     expectGoldenReplayState(finalState, {
       frameIndex: 120,
       playerPosition: {
-        x: 222.166_666_671_162_97,
-        y: 97.125_000_001_085_03,
+        x: 226.110_000_005_304_02,
+        y: 98.062_500_001_322_5,
       },
       playerVelocity: {
         x: 150,
-        y: 240,
+        y: 270,
       },
       playerMovement: {
         horizontal: HorizontalMovementState.Running,
@@ -564,7 +564,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 60,
       playerPosition: {
-        x: 52.841_666_667_570_315,
+        x: 44.946_666_667_824_51,
         y: 56,
       },
       playerVelocity: {
@@ -580,7 +580,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "hunter-1",
         contactSide: EnemySideContactSide.Right,
-        frameIndex: 30,
+        frameIndex: 39,
         velocity: {
           x: -150,
         },
@@ -610,7 +610,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 80,
       playerPosition: {
-        x: 64.666_666_668_013_35,
+        x: 57.249_000_001_649_96,
         y: 56,
       },
       playerVelocity: {
@@ -626,7 +626,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "crab-1",
         contactSide: EnemySideContactSide.Right,
-        frameIndex: 26,
+        frameIndex: 38,
         velocity: {
           x: -150,
         },

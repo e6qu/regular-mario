@@ -50,7 +50,7 @@ describe("horizontal movement", () => {
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.x).toBe(45.5);
+    expect(nextPlayer.velocity.x).toBeCloseTo(13.36, 9);
     expect(nextPlayer.movement.horizontal).toBe(
       HorizontalMovementState.Walking,
     );
@@ -64,7 +64,7 @@ describe("horizontal movement", () => {
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.x).toBe(-45.5);
+    expect(nextPlayer.velocity.x).toBeCloseTo(-13.36, 9);
     expect(nextPlayer.movement.horizontal).toBe(
       HorizontalMovementState.Walking,
     );
@@ -129,7 +129,7 @@ describe("horizontal movement", () => {
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.x).toBe(32);
+    expect(nextPlayer.velocity.x).toBeCloseTo(71.72, 9);
     expect(nextPlayer.movement.horizontal).toBe(HorizontalMovementState.Idle);
   });
 

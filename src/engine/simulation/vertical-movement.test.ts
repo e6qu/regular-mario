@@ -88,7 +88,7 @@ describe("vertical movement", () => {
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.y).toBe(-143.7);
+    expect(nextPlayer.velocity.y).toBe(-155);
     expect(nextPlayer.movement.vertical).toBe(VerticalMovementState.Jumping);
   });
 
@@ -100,7 +100,7 @@ describe("vertical movement", () => {
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.y).toBe(240);
+    expect(nextPlayer.velocity.y).toBe(257.5);
     expect(nextPlayer.movement.vertical).toBe(VerticalMovementState.Falling);
   });
 
@@ -112,7 +112,7 @@ describe("vertical movement", () => {
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.y).toBe(0);
+    expect(nextPlayer.velocity.y).toBe(-42.5);
     expect(nextPlayer.movement.vertical).toBe(VerticalMovementState.Jumping);
   });
 
@@ -280,7 +280,7 @@ describe("vertical movement", () => {
     );
   });
 
-  it("uses running jump launch speed when run is held", () => {
+  it("launches the fast jump tier from full run speed (and latches it)", () => {
     const runningJumpInput = {
       horizontal: HorizontalInput.Neutral as const,
       jumpPressed: true,
@@ -290,16 +290,41 @@ describe("vertical movement", () => {
       downHeld: false,
     };
 
+    // SMB keys jump physics off |horizontal speed| at launch, not the run
+    // button: full run speed picks the -300 px/s launch tier.
     const nextPlayer = applyVerticalMovement(
-      makeInitialPlayerSimulationState(),
+      {
+        ...makeInitialPlayerSimulationState(),
+        velocity: {
+          x: initialMovementConstants.maxRunSpeed,
+          y: 0 as PlayerSimulationState["velocity"]["y"],
+        },
+      },
       runningJumpInput,
       testFrameDurationMilliseconds(100),
       initialMovementConstants,
     );
 
-    expect(nextPlayer.velocity.y).toBe(
-      0 - initialMovementConstants.runningJumpLaunchSpeed,
+    const fastTier =
+      initialMovementConstants.jumpTiers[
+        initialMovementConstants.jumpTiers.length - 1
+      ];
+    expect(nextPlayer.velocity.y).toBe(0 - (fastTier?.launchSpeed ?? 0));
+    expect(nextPlayer.jumpTierIndex).toBe(
+      initialMovementConstants.jumpTiers.length - 1,
     );
+
+    // A standing jump stays on the slow tier.
+    const standingPlayer = applyVerticalMovement(
+      makeInitialPlayerSimulationState(),
+      runningJumpInput,
+      testFrameDurationMilliseconds(100),
+      initialMovementConstants,
+    );
+    expect(standingPlayer.velocity.y).toBe(
+      0 - initialMovementConstants.jumpLaunchSpeed,
+    );
+    expect(standingPlayer.jumpTierIndex).toBe(0);
   });
 });
 
@@ -315,14 +340,14 @@ describe("swimming (underwater) vertical movement", () => {
       testFrameDurationMilliseconds(100),
       swimmingMovementConstants,
     );
-    // A stroke sets the upward launch speed (150 px/s).
-    expect(next.velocity.y).toBeCloseTo(-150, 0);
+    // A stroke sets the upward launch speed (the ROM's 90 px/s).
+    expect(next.velocity.y).toBeCloseTo(-90, 0);
   });
 
   it("does not re-stroke while the button stays held (buffer at max)", () => {
     const next = applyVerticalMovement(
       {
-        ...playerWithVerticalVelocity(-150, VerticalMovementState.Jumping),
+        ...playerWithVerticalVelocity(-90, VerticalMovementState.Jumping),
         jumpBufferFramesRemaining:
           swimmingMovementConstants.jumpBufferFrameCount,
       },
@@ -331,7 +356,7 @@ describe("swimming (underwater) vertical movement", () => {
       swimmingMovementConstants,
     );
     // No new stroke: the rise decays under buoyant gravity instead of resetting.
-    expect(next.velocity.y).toBeGreaterThan(-150);
+    expect(next.velocity.y).toBeGreaterThan(-90);
   });
 
   it("sinks slowly, capped at the low swim terminal speed", () => {

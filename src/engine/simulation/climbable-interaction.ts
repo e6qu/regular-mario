@@ -62,6 +62,7 @@ export function applyClimbableMovement(
       jumpBufferFramesRemaining:
         0 as PlayerSimulationState["jumpBufferFramesRemaining"],
       jumpCutApplied: false,
+      jumpTierIndex: player.jumpTierIndex,
     },
     climbing: true,
   };

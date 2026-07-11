@@ -133,6 +133,18 @@ export type MovementState = {
   readonly vertical: VerticalMovementState;
 };
 
+// SMB's speed-indexed jump physics (JumpMForceData / FallMForceData /
+// PlayerYSpdData): the tier is picked from |horizontal speed| when the jump
+// launches and stays latched for the whole arc — running jumps launch faster
+// and fall harder. Releasing the jump button while rising applies the tier's
+// falling gravity (the ROM dumps VerticalForceDown into VerticalForce).
+type JumpTier = {
+  readonly minHorizontalSpeed: VelocityPixelsPerSecond;
+  readonly launchSpeed: VelocityPixelsPerSecond;
+  readonly gravityRisingHeld: AccelerationPixelsPerSecondSquared;
+  readonly gravityFalling: AccelerationPixelsPerSecondSquared;
+};
+
 export type MovementConstants = {
   readonly walkAcceleration: AccelerationPixelsPerSecondSquared;
   readonly runAcceleration: AccelerationPixelsPerSecondSquared;
@@ -178,6 +190,9 @@ export type MovementConstants = {
   readonly gravityRisingHeld: AccelerationPixelsPerSecondSquared;
   readonly gravityRisingReleased: AccelerationPixelsPerSecondSquared;
   readonly gravityFalling: AccelerationPixelsPerSecondSquared;
+  // Speed-indexed jump tiers (ascending minHorizontalSpeed). Empty means the
+  // scalar launch/gravity fields above apply unconditionally (swimming).
+  readonly jumpTiers: readonly JumpTier[];
   readonly maxFallSpeed: VelocityPixelsPerSecond;
   readonly coyoteFrameCount: CoyoteFrameCount;
   readonly jumpBufferFrameCount: JumpBufferFrameCount;
@@ -237,15 +252,20 @@ function requirePositiveRecoveryFrameCount(
 }
 
 export const initialMovementConstants: MovementConstants = {
-  walkAcceleration: requireAcceleration(455, "movement.walkAcceleration"),
-  runAcceleration: requireAcceleration(640, "movement.runAcceleration"),
-  groundFriction: requireAcceleration(580, "movement.groundFriction"),
+  // Ground acceleration/friction from the ROM's FrictionData ($98 walking,
+  // $e4 running with B, $d0 decelerating from run speed), converted from
+  // 1/4096 px/frame^2 at 60 fps: value / 4096 * 3600 px/s^2.
+  walkAcceleration: requireAcceleration(133.6, "movement.walkAcceleration"),
+  runAcceleration: requireAcceleration(200.4, "movement.runAcceleration"),
+  groundFriction: requireAcceleration(182.8, "movement.groundFriction"),
   airFriction: requireAcceleration(70, "movement.airFriction"),
+  // MaxRightXSpdData: $18 walking, $28 running (1/16 px/frame at 60 fps).
   maxWalkSpeed: requireVelocity(90, "movement.maxWalkSpeed"),
   maxRunSpeed: requireVelocity(150, "movement.maxRunSpeed"),
-  jumpLaunchSpeed: requireVelocity(264, "movement.jumpLaunchSpeed"),
+  // Scalar fallbacks mirror the slow tier (used when jumpTiers is empty).
+  jumpLaunchSpeed: requireVelocity(240, "movement.jumpLaunchSpeed"),
   runningJumpLaunchSpeed: requireVelocity(
-    324,
+    300,
     "movement.runningJumpLaunchSpeed",
   ),
   enemyStompReboundSpeed: requireVelocity(
@@ -340,13 +360,43 @@ export const initialMovementConstants: MovementConstants = {
     6,
     "movement.throwingEnemyProjectileColliderHeight",
   ),
-  gravityRisingHeld: requireAcceleration(563, "movement.gravityRisingHeld"),
+  // Scalar gravity fallbacks mirror the slow tier; the tier table below is
+  // what actually drives land jumps.
+  gravityRisingHeld: requireAcceleration(450, "movement.gravityRisingHeld"),
   gravityRisingReleased: requireAcceleration(
-    2000,
+    1575,
     "movement.gravityRisingReleased",
   ),
-  gravityFalling: requireAcceleration(2250, "movement.gravityFalling"),
-  maxFallSpeed: requireVelocity(240, "movement.maxFallSpeed"),
+  gravityFalling: requireAcceleration(1575, "movement.gravityFalling"),
+  // JumpMForceData/FallMForceData/PlayerYSpdData by launch-speed band
+  // (thresholds $10 and $19 in 1/16 px/frame): forces are 1/256 px/frame^2
+  // (value / 256 * 3600 px/s^2), launches whole px/frame. Standing jumps
+  // apex 4 tiles, full-run jumps 5, exactly like the original.
+  jumpTiers: [
+    {
+      minHorizontalSpeed: requireVelocity(0, "movement.jumpTiers[0].min"),
+      launchSpeed: requireVelocity(240, "movement.jumpTiers[0].launch"),
+      gravityRisingHeld: requireAcceleration(450, "movement.jumpTiers[0].up"),
+      gravityFalling: requireAcceleration(1575, "movement.jumpTiers[0].down"),
+    },
+    {
+      minHorizontalSpeed: requireVelocity(60, "movement.jumpTiers[1].min"),
+      launchSpeed: requireVelocity(240, "movement.jumpTiers[1].launch"),
+      gravityRisingHeld: requireAcceleration(
+        421.875,
+        "movement.jumpTiers[1].up",
+      ),
+      gravityFalling: requireAcceleration(1350, "movement.jumpTiers[1].down"),
+    },
+    {
+      minHorizontalSpeed: requireVelocity(93.75, "movement.jumpTiers[2].min"),
+      launchSpeed: requireVelocity(300, "movement.jumpTiers[2].launch"),
+      gravityRisingHeld: requireAcceleration(562.5, "movement.jumpTiers[2].up"),
+      gravityFalling: requireAcceleration(2025, "movement.jumpTiers[2].down"),
+    },
+  ],
+  // $04 whole px/frame plus up to $80/256 fractional before the clamp.
+  maxFallSpeed: requireVelocity(270, "movement.maxFallSpeed"),
   coyoteFrameCount: requireCoyoteFrameCount(6, "movement.coyoteFrameCount"),
   jumpBufferFrameCount: requireJumpBufferFrameCount(
     6,
@@ -388,29 +438,33 @@ export const initialMovementConstants: MovementConstants = {
 export const swimmingMovementConstants: MovementConstants = {
   ...initialMovementConstants,
   swimming: true,
+  // Swim strokes are tier 5 of the same ROM tables: stroke launch -1.5
+  // px/frame ($fe + $80/256), rising force $0d, sinking force $0a.
+  jumpTiers: [],
   gravityRisingHeld: requireAcceleration(
-    320,
+    182.8,
     "movement.swim.gravityRisingHeld",
   ),
   gravityRisingReleased: requireAcceleration(
-    380,
+    140.6,
     "movement.swim.gravityRisingReleased",
   ),
-  gravityFalling: requireAcceleration(380, "movement.swim.gravityFalling"),
+  gravityFalling: requireAcceleration(140.6, "movement.swim.gravityFalling"),
   maxFallSpeed: requireVelocity(105, "movement.swim.maxFallSpeed"),
-  jumpLaunchSpeed: requireVelocity(150, "movement.swim.jumpLaunchSpeed"),
+  jumpLaunchSpeed: requireVelocity(90, "movement.swim.jumpLaunchSpeed"),
   runningJumpLaunchSpeed: requireVelocity(
-    150,
+    90,
     "movement.swim.runningJumpLaunchSpeed",
   ),
-  // Water resists horizontal motion: lower top speeds, sluggish acceleration,
-  // and more drag, so swimming feels slower and floatier than running on land.
-  // (SMB's exact swim constants aren't source-verified — see the compatibility
-  // study — so these are tuned toward that feel rather than measured.)
-  maxWalkSpeed: requireVelocity(52, "movement.swim.maxWalkSpeed"),
-  maxRunSpeed: requireVelocity(78, "movement.swim.maxRunSpeed"),
-  walkAcceleration: requireAcceleration(210, "movement.swim.walkAcceleration"),
-  runAcceleration: requireAcceleration(260, "movement.swim.runAcceleration"),
+  // Water caps horizontal speed at $10 (1 px/frame) regardless of B, with the
+  // swim-class friction $d0 as the acceleration.
+  maxWalkSpeed: requireVelocity(60, "movement.swim.maxWalkSpeed"),
+  maxRunSpeed: requireVelocity(60, "movement.swim.maxRunSpeed"),
+  walkAcceleration: requireAcceleration(
+    182.8,
+    "movement.swim.walkAcceleration",
+  ),
+  runAcceleration: requireAcceleration(182.8, "movement.swim.runAcceleration"),
   airFriction: requireAcceleration(120, "movement.swim.airFriction"),
   // A Blooper senses the swimmer across a somewhat taller slice of water than a
   // land chaser (so it can drift up/down to follow) but not the whole column —

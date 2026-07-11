@@ -2249,11 +2249,12 @@ test("reports an authored enemy stomp from explicit browser fixture", async ({
     },
   );
 
-  // Walk right toward the beetle, then jump to stomp it.
+  // Walk right toward the beetle, then jump to stomp it. The ROM-rate jump
+  // arc carries ~80px at walking speed, so the hop starts that far out.
   await page.keyboard.down("ArrowRight");
   await waitForPlayerPositionXGreaterThan(
     page,
-    stompEnemy.pixelPosition.x - 60,
+    stompEnemy.pixelPosition.x - 78,
   );
   await page.keyboard.down("Space");
   let stompSnapshot: BrowserSimulationSnapshot;

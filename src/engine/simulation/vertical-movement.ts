@@ -57,20 +57,40 @@ export function applyVerticalMovement(
     ? swimStroke
     : coyoteAvailable && bufferedPressAvailable;
 
-  const jumpLaunchSpeed = inputCommand.runHeld
-    ? movementConstants.runningJumpLaunchSpeed
-    : movementConstants.jumpLaunchSpeed;
+  // SMB latches jump physics from |horizontal speed| at launch: the tier's
+  // launch speed and gravities apply for the whole arc. With no tiers
+  // (swimming) the scalar constants apply instead.
+  const tiers = movementConstants.jumpTiers;
+  let jumpTierIndex = player.jumpTierIndex;
+  if (startsJump && tiers.length > 0) {
+    const launchSpeedX = Math.abs(player.velocity.x);
+    jumpTierIndex = 0;
+    for (const [index, tier] of tiers.entries()) {
+      if (launchSpeedX >= tier.minHorizontalSpeed) {
+        jumpTierIndex = index;
+      }
+    }
+  }
+  const tier = tiers[Math.min(jumpTierIndex, tiers.length - 1)];
+
+  const jumpLaunchSpeed =
+    tier?.launchSpeed ??
+    (inputCommand.runHeld
+      ? movementConstants.runningJumpLaunchSpeed
+      : movementConstants.jumpLaunchSpeed);
 
   const velocityBeforeGravity = startsJump
     ? 0 - jumpLaunchSpeed
     : player.velocity.y;
 
   const isRising = velocityBeforeGravity < 0;
+  // Releasing the jump button while rising applies the falling gravity (the
+  // ROM dumps the fall force into the main one) — that is the jump cut.
   const gravity = isRising
     ? inputCommand.jumpPressed
-      ? movementConstants.gravityRisingHeld
-      : movementConstants.gravityRisingReleased
-    : movementConstants.gravityFalling;
+      ? (tier?.gravityRisingHeld ?? movementConstants.gravityRisingHeld)
+      : (tier?.gravityFalling ?? movementConstants.gravityRisingReleased)
+    : (tier?.gravityFalling ?? movementConstants.gravityFalling);
 
   let nextVelocityY = startsJump
     ? velocityBeforeGravity
@@ -113,5 +133,6 @@ export function applyVerticalMovement(
     coyoteFramesRemaining: nextCoyoteFramesRemaining,
     jumpBufferFramesRemaining: nextJumpBufferFramesRemaining,
     jumpCutApplied: false,
+    jumpTierIndex,
   };
 }

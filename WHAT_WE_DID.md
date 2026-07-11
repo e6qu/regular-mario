@@ -5,6 +5,27 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — ROM-exact player physics: speed-indexed jump tiers, real accel/friction
+
+- **Jump tiers** (JumpMForceData/FallMForceData/PlayerYSpdData): jump physics
+  are latched from |horizontal speed| at launch — below 60 px/s launches
+  -240 px/s with 450/1575 rising/falling gravity, 60–93.75 gets the floatier
+  421.875/1350 band, and full run speed launches -300 px/s with 562.5/2025.
+  Standing jumps apex exactly 4 tiles and running jumps 5, like the
+  original. Releasing the button while rising applies the tier's falling
+  gravity (the ROM dumps VerticalForceDown into VerticalForce). The latched
+  tier lives on the player state (`jumpTierIndex`) so replays stay
+  deterministic.
+- **Ground accel/friction from FrictionData**: walking 133.6 px/s²,
+  running 200.4, deceleration 182.8 (was 455/640/580 — over 3× too strong).
+  Reaching full run speed now takes ~45 frames, like the game.
+- **Terminal fall speed** 270 px/s ($04 + $80/256 before the clamp).
+- **Swim strokes from tier 5**: stroke -90 px/s, rising 182.8, sinking
+  140.6, horizontal capped at 60 px/s regardless of B.
+- Replay-fixture golden values regenerated (every route keeps its semantic
+  scenario; the collectible route now genuinely collects its shard); the
+  browser stomp fixture jumps ~80px out to match the floatier walk-speed arc.
+
 ## 2026-07-11 — Playthrough sweep: parody skin covers the piranha (boot fix)
 
 - **An automated playthrough sweep** (bot walks every main level via the

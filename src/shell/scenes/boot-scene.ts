@@ -3311,6 +3311,7 @@ export class BootScene extends Phaser.Scene {
           jumpBufferFramesRemaining:
             this.simulationState.player.jumpBufferFramesRemaining,
           jumpCutApplied: this.simulationState.player.jumpCutApplied,
+          jumpTierIndex: this.simulationState.player.jumpTierIndex,
         },
         playerReaction: {
           kind: this.simulationState.playerReaction.kind,

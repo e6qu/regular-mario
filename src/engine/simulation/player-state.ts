@@ -32,6 +32,10 @@ export type PlayerSimulationState = {
   readonly coyoteFramesRemaining: CoyoteFrameCount;
   readonly jumpBufferFramesRemaining: JumpBufferFrameCount;
   readonly jumpCutApplied: boolean;
+  // The jump tier (index into MovementConstants.jumpTiers) latched from the
+  // horizontal speed when the current/last jump launched — SMB keeps the
+  // launch forces for the whole arc.
+  readonly jumpTierIndex: number;
 };
 
 export type InitialPlayerSimulationStateConfig = {
@@ -104,6 +108,7 @@ export function makeInitialPlayerSimulationState(): PlayerSimulationState {
     coyoteFramesRemaining: 0 as CoyoteFrameCount,
     jumpBufferFramesRemaining: 0 as JumpBufferFrameCount,
     jumpCutApplied: false,
+    jumpTierIndex: 0,
   };
 }
 

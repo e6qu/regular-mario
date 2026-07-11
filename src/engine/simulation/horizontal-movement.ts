@@ -117,5 +117,6 @@ export function applyHorizontalMovement(
     coyoteFramesRemaining: player.coyoteFramesRemaining,
     jumpBufferFramesRemaining: player.jumpBufferFramesRemaining,
     jumpCutApplied: player.jumpCutApplied,
+    jumpTierIndex: player.jumpTierIndex,
   };
 }

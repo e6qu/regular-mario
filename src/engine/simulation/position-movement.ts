@@ -40,5 +40,6 @@ export function applyPositionMovement(
     coyoteFramesRemaining: player.coyoteFramesRemaining,
     jumpBufferFramesRemaining: player.jumpBufferFramesRemaining,
     jumpCutApplied: player.jumpCutApplied,
+    jumpTierIndex: player.jumpTierIndex,
   };
 }

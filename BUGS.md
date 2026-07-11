@@ -19,8 +19,9 @@
 - **Mechanics tuning is sensible, not measured.** Cannon/flame cadences,
   flying-cheep arcs, lift speeds/amplitudes, podoboo leaps and Bowser's feel
   use documented structure + chosen constants; frame-by-frame measurement
-  against the original would tighten them. Exact movement constants,
-  per-state colliders and timer conversions remain unproven.
+  against the original would tighten them. Player movement constants are now
+  ROM-table-derived (jump tiers, accel/friction, terminal fall, swim
+  strokes); per-state colliders and timer conversions remain unproven.
 - **Cinematic staging is shell-side visual only** — the sim ends the level at
   the axe; the chop/fall/rescue overlay never affects replay determinism.
 - **8-4's maze wiring is machine-verified** (pack coherence test: checkpoint

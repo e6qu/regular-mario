@@ -35,12 +35,20 @@ Everything from the previous "known deltas" list is now in:
   five-fireball warden, plus firebars, podoboos and three lift kinds
   (share-URL codes J-Z); official-level imports round-trip their mechanisms.
 
+## Landed: ROM-exact player physics (2026-07-11, fourth pass)
+
+- Speed-indexed jump tiers (standing 4-tile / running 5-tile apex, latched
+  at launch), FrictionData ground accel/friction, terminal fall 270 px/s,
+  swim strokes from tier 5. Player movement constants are now source-derived
+  from the disassembly's tables, not tuned approximations.
+
 ## Remaining backlog (pre-existing, unchanged)
 
 - Loop zones and frenzy regions are decoder-level region mechanics — not
   editor paint objects (by design; author them via level JSON metadata).
 - Balance-lift pairs aren't editor-placeable (pairing UI); single lifts are.
-- Exact ROM movement constants / per-state colliders / timer conversions.
+- Per-state player colliders and exact timer conversions (movement constants
+  are now ROM-derived; enemy/lift/cadence tuning is still sensible-not-measured).
 - ROM-skin sprites for koopa/star/1-up and the new cast (authored skin covers
   them; the ROM skin falls back to shapes).
 - Frame verification (`verify:smb-frames` palette reconciliation), audio

@@ -206,6 +206,7 @@ function stopHorizontalMovementAt(
     coyoteFramesRemaining: movedPlayer.coyoteFramesRemaining,
     jumpBufferFramesRemaining: movedPlayer.jumpBufferFramesRemaining,
     jumpCutApplied: movedPlayer.jumpCutApplied,
+    jumpTierIndex: movedPlayer.jumpTierIndex,
   };
 }
 
@@ -353,6 +354,7 @@ function resolveDownwardSolidTileCollision(
         coyoteFramesRemaining: movedPlayer.coyoteFramesRemaining,
         jumpBufferFramesRemaining: movedPlayer.jumpBufferFramesRemaining,
         jumpCutApplied: movedPlayer.jumpCutApplied,
+        jumpTierIndex: movedPlayer.jumpTierIndex,
       };
     }
   });
@@ -437,6 +439,7 @@ function resolveUpwardSolidTileCollision(
         coyoteFramesRemaining: movedPlayer.coyoteFramesRemaining,
         jumpBufferFramesRemaining: movedPlayer.jumpBufferFramesRemaining,
         jumpCutApplied: movedPlayer.jumpCutApplied,
+        jumpTierIndex: movedPlayer.jumpTierIndex,
       };
       recordInteractiveBlockBump(
         levelSpec,

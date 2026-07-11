@@ -33,14 +33,14 @@ describe("movement model", () => {
 
   it("exposes explicit authored movement constants", () => {
     expect(initialMovementConstants).toEqual({
-      walkAcceleration: 455,
-      runAcceleration: 640,
-      groundFriction: 580,
+      walkAcceleration: 133.6,
+      runAcceleration: 200.4,
+      groundFriction: 182.8,
       airFriction: 70,
       maxWalkSpeed: 90,
       maxRunSpeed: 150,
-      jumpLaunchSpeed: 264,
-      runningJumpLaunchSpeed: 324,
+      jumpLaunchSpeed: 240,
+      runningJumpLaunchSpeed: 300,
       enemyStompReboundSpeed: 300,
       springLaunchSpeed: 360,
       enemyStompForgivenessPixels: 4,
@@ -72,10 +72,30 @@ describe("movement model", () => {
       throwingEnemyProjectileLifetimeFrameCount: 180,
       throwingEnemyProjectileColliderWidth: 6,
       throwingEnemyProjectileColliderHeight: 6,
-      gravityRisingHeld: 563,
-      gravityRisingReleased: 2000,
-      gravityFalling: 2250,
-      maxFallSpeed: 240,
+      gravityRisingHeld: 450,
+      gravityRisingReleased: 1575,
+      gravityFalling: 1575,
+      jumpTiers: [
+        {
+          minHorizontalSpeed: 0,
+          launchSpeed: 240,
+          gravityRisingHeld: 450,
+          gravityFalling: 1575,
+        },
+        {
+          minHorizontalSpeed: 60,
+          launchSpeed: 240,
+          gravityRisingHeld: 421.875,
+          gravityFalling: 1350,
+        },
+        {
+          minHorizontalSpeed: 93.75,
+          launchSpeed: 300,
+          gravityRisingHeld: 562.5,
+          gravityFalling: 2025,
+        },
+      ],
+      maxFallSpeed: 270,
       coyoteFrameCount: 6,
       jumpBufferFrameCount: 6,
       projectileSpeed: 240,
@@ -119,63 +139,64 @@ describe("movement model", () => {
       9.375,
       9,
     );
-    expect(measurements.horizontal.framesToMaxWalkSpeed).toBe(12);
+    expect(measurements.horizontal.framesToMaxWalkSpeed).toBe(41);
     expect(
       measurements.horizontal.secondsToMaxWalkSpeedAtFrameDuration,
-    ).toBeCloseTo(0.2, 9);
-    expect(measurements.horizontal.framesToMaxRunSpeed).toBe(15);
+    ).toBeCloseTo(0.683_333_333_347, 9);
+    expect(measurements.horizontal.framesToMaxRunSpeed).toBe(45);
     expect(
       measurements.horizontal.secondsToMaxRunSpeedAtFrameDuration,
-    ).toBeCloseTo(0.25, 9);
-    expect(measurements.horizontal.framesToStopFromMaxWalkSpeed).toBe(10);
+    ).toBeCloseTo(0.75, 9);
+    expect(measurements.horizontal.framesToStopFromMaxWalkSpeed).toBe(30);
     expect(
       measurements.horizontal.secondsToStopFromMaxWalkSpeedAtFrameDuration,
-    ).toBeCloseTo(0.166_666_666_666, 9);
-    expect(measurements.horizontal.framesToStopFromMaxRunSpeed).toBe(16);
+    ).toBeCloseTo(0.5, 9);
+    expect(measurements.horizontal.framesToStopFromMaxRunSpeed).toBe(50);
     expect(
       measurements.horizontal.secondsToStopFromMaxRunSpeedAtFrameDuration,
-    ).toBeCloseTo(0.266_666_666_672, 9);
+    ).toBeCloseTo(0.833_333_333_35, 9);
 
+    // The scalar (slow-tier) jump measures the ROM's 4-tile standing apex.
     expect(measurements.vertical.jumpLaunchSpeedTilesPerSecond).toBeCloseTo(
-      16.5,
+      15,
       9,
     );
     expect(measurements.vertical.gravityTilesPerSecondSquared).toBeCloseTo(
-      35.1875,
+      28.125,
       9,
     );
     expect(measurements.vertical.continuousJumpApexSeconds).toBeCloseTo(
-      0.468_916_518_650,
+      0.533_333_333_333,
       9,
     );
     expect(measurements.vertical.continuousJumpApexHeightPixels).toBeCloseTo(
-      61.896_980_461_812,
+      64,
       9,
     );
     expect(measurements.vertical.continuousJumpApexHeightTiles).toBeCloseTo(
-      3.868_561_278_863,
+      4,
       9,
     );
     expect(
       measurements.vertical.framesToContinuousJumpApexAtFrameDuration,
-    ).toBe(29);
+    ).toBe(32);
     expect(
       measurements.vertical.continuousReturnToLaunchHeightSeconds,
-    ).toBeCloseTo(0.937_833_037_300, 9);
+    ).toBeCloseTo(1.066_666_666_667, 9);
     expect(
       measurements.vertical
         .framesToContinuousReturnToLaunchHeightAtFrameDuration,
-    ).toBe(57);
-    expect(measurements.vertical.simulatedApexFrameAtFrameDuration).toBe(29);
+    ).toBe(64);
+    expect(measurements.vertical.simulatedApexFrameAtFrameDuration).toBe(32);
     expect(
       measurements.vertical.simulatedApexHeightPixelsAtFrameDuration,
-    ).toBeCloseTo(64.106_111_111_111, 9);
+    ).toBeCloseTo(66.000_000_000_08, 9);
     expect(
       measurements.vertical.simulatedApexHeightTilesAtFrameDuration,
-    ).toBeCloseTo(4.006_631_944_444, 9);
+    ).toBeCloseTo(4.125_000_000_005, 9);
     expect(
       measurements.vertical.simulatedReturnToLaunchHeightFrameAtFrameDuration,
-    ).toBe(58);
+    ).toBe(65);
   });
 
   it("rejects non-positive vertical measurement constants loudly", () => {

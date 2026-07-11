@@ -23,4 +23,5 @@ export const expectedInitialPlayerSimulationState = {
   coyoteFramesRemaining: 0,
   jumpBufferFramesRemaining: 0,
   jumpCutApplied: false,
+  jumpTierIndex: 0,
 } as const;

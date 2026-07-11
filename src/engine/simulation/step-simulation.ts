@@ -887,6 +887,7 @@ function reboundPlayerFromStomp(
     coyoteFramesRemaining: player.coyoteFramesRemaining,
     jumpBufferFramesRemaining: player.jumpBufferFramesRemaining,
     jumpCutApplied: player.jumpCutApplied,
+    jumpTierIndex: player.jumpTierIndex,
   };
 }
 
@@ -964,6 +965,7 @@ function applyEnemySideContactResponse(
         coyoteFramesRemaining: player.coyoteFramesRemaining,
         jumpBufferFramesRemaining: player.jumpBufferFramesRemaining,
         jumpCutApplied: player.jumpCutApplied,
+        jumpTierIndex: player.jumpTierIndex,
       };
     default: {
       const invalidResponse: never = enemyContactResponse;
@@ -1261,6 +1263,7 @@ function applyRecoveryKnockbackVelocity(
     coyoteFramesRemaining: player.coyoteFramesRemaining,
     jumpBufferFramesRemaining: player.jumpBufferFramesRemaining,
     jumpCutApplied: player.jumpCutApplied,
+    jumpTierIndex: player.jumpTierIndex,
   };
 }
 
