@@ -35,6 +35,20 @@ function metadataArray(
   return Array.isArray(value) ? value : [];
 }
 
+// A deterministic FNV-1a digest of the full tile grid. Storing every tile
+// position for all 54 levels would bloat the census to ~140k entries; the
+// digest still fails loudly if any single tile moves, is added, or is dropped,
+// while the actor/mechanism layouts below pin the dynamic elements exactly.
+function tileGridDigest(rows: readonly (readonly string[])[]): string {
+  let hash = 0x811c9dc5;
+  const joined = rows.map((row) => row.join(",")).join("\n");
+  for (let index = 0; index < joined.length; index += 1) {
+    hash ^= joined.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
 function buildCensus(level: OfficialPackLevel) {
   const spec = level.levelSpec;
   const placedActors = spec.actors.filter((actor) => {
@@ -68,6 +82,56 @@ function buildCensus(level: OfficialPackLevel) {
     hasFlyingCheepFrenzy: level.metadata.flyingCheepFrenzy !== undefined,
     hasBulletFrenzy: level.metadata.bulletBillFrenzy !== undefined,
     halfwayTileX: level.metadata.halfwayTileX ?? null,
+    // Precise positions of every dynamic element, sorted so the digest is
+    // order-independent. Any element that shifts by a single tile breaks the
+    // committed layout — positions are pinned, not just counts.
+    layout: {
+      actors: placedActors
+        .map(
+          (actor) => `${actor.actorId}@${actor.position.x},${actor.position.y}`,
+        )
+        .sort(),
+      pipes: spec.pipes
+        .map(
+          (pipe) =>
+            `${pipe.actorId}@${pipe.position.x},${pipe.position.y}:${pipe.entryDirection}` +
+            `>${pipe.targetLevelName ?? "self"}` +
+            `@${pipe.targetTilePosition.x},${pipe.targetTilePosition.y}`,
+        )
+        .sort(),
+      firebars: spec.firebars
+        .map(
+          (firebar) =>
+            `${firebar.anchorTileX},${firebar.anchorTileY}x${firebar.orbCount}:` +
+            `${firebar.direction}/${firebar.speed}`,
+        )
+        .sort(),
+      podoboos: spec.podoboos
+        .map((podoboo) => `${podoboo.tileX}@${podoboo.phaseOffsetFrames}`)
+        .sort(),
+      platforms: spec.platforms
+        .map(
+          (platform) =>
+            `${platform.kind}@${platform.tileX},${platform.tileY}w${platform.widthTiles}` +
+            `${platform.balancePartnerId === undefined ? "" : `~${platform.balancePartnerId}`}`,
+        )
+        .sort(),
+      loopZones: spec.loopZones
+        .map(
+          (zone) =>
+            `${zone.checkTileX}[${zone.requiredRowMin}-${zone.requiredRowMax}]` +
+            `${zone.groupId}/${zone.groupSize}`,
+        )
+        .sort(),
+      spawners: spec.timedHazardProjectileSpawners
+        .map(
+          (spawner) =>
+            `${spawner.position.x},${spawner.position.y}:${spawner.direction}` +
+            `@${spawner.intervalFrames}`,
+        )
+        .sort(),
+      tileGridDigest: tileGridDigest(spec.tiles),
+    },
   };
 }
 
@@ -90,6 +154,32 @@ describe("official-smb content census", () => {
     >;
     expect(Object.keys(census).length).toBe(54);
     expect(census).toEqual(committed);
+  });
+
+  it("pins an exact position for every dynamic element in every level", () => {
+    for (const [name, entry] of Object.entries(census)) {
+      const actorTotal = Object.values(entry.actors).reduce(
+        (sum, count) => sum + count,
+        0,
+      );
+      // Every placed actor contributes exactly one pinned position.
+      expect(entry.layout.actors.length, `${name} actor positions`).toBe(
+        actorTotal,
+      );
+      expect(entry.layout.firebars.length, `${name} firebars`).toBe(
+        entry.firebars,
+      );
+      expect(entry.layout.podoboos.length, `${name} podoboos`).toBe(
+        entry.podoboos,
+      );
+      expect(entry.layout.loopZones.length, `${name} loop zones`).toBe(
+        entry.loopZones,
+      );
+      // The tile grid is fingerprinted so any moved/added/dropped tile fails.
+      expect(entry.layout.tileGridDigest, `${name} tile digest`).toMatch(
+        /^[0-9a-f]{8}$/,
+      );
+    }
   });
 
   it("pins well-known original facts on famous levels", () => {

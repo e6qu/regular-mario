@@ -211,28 +211,48 @@ test("journey: shared #play URL boots straight into a running game", async ({
   expect(await playerX(page)).toBeGreaterThan(-1);
 });
 
+// The set of placed actors the live scene is expected to render, as an exact
+// sorted multiset of "actorId@tileX,tileY" — the PlayerStart and Pipe roles are
+// rendered by other machinery (the player sprite / pipe tiles), so they are
+// excluded here, matching the runtime's renderNonPlayerActors.
+function expectedActorPositions(spec: {
+  readonly actors: readonly {
+    readonly actorId: string;
+    readonly position: { readonly x: number; readonly y: number };
+  }[];
+  readonly actorDefinitions: readonly {
+    readonly actorId: string;
+    readonly role: ActorRole;
+  }[];
+}): string[] {
+  return spec.actors
+    .filter((actor) => {
+      const definition = spec.actorDefinitions.find(
+        (candidate) => candidate.actorId === actor.actorId,
+      );
+      return (
+        definition !== undefined &&
+        definition.role !== ActorRole.PlayerStart &&
+        definition.role !== ActorRole.Pipe
+      );
+    })
+    .map((actor) => `${actor.actorId}@${actor.position.x},${actor.position.y}`)
+    .sort();
+}
+
 // Guards the whole pack against boot regressions (a missing actor sprite once
-// made every piranha-bearing level fail from the menu): every level offered
-// by the menu must boot into a running simulation, and the live game must
-// hold exactly the level content the parsed spec places — every actor id, in
-// its role, in the running scene.
-test("journey: every menu level boots and holds its full decoded content", async ({
+// made every piranha-bearing level fail from the menu): EVERY one of the 54
+// pack levels — mains and warp/bonus sub-areas alike — must boot into a running
+// simulation, and the live game must render every decoded actor at its exact
+// decoded tile position (not merely the right count).
+test("journey: every pack level boots and renders its content at exact positions", async ({
   page,
 }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(600_000);
   const pack = loadOfficialSmbPack();
-  await page.goto("/");
-  // The menu fills the level list asynchronously after the map set loads.
-  await page.waitForFunction(() => {
-    const select = document.querySelector('select[aria-label="Level"]');
-    return select instanceof HTMLSelectElement && select.options.length >= 32;
-  });
-  const levelValues = await page
-    .locator('select[aria-label="Level"]')
-    .evaluate((select: HTMLSelectElement) =>
-      [...select.options].map((option) => option.value),
-    );
-  expect(levelValues.length).toBeGreaterThanOrEqual(32);
+  const levelValues = [...pack.keys()].sort();
+  expect(levelValues.length).toBe(54);
+
   for (const level of levelValues) {
     await page.goto(
       `/#play?skin=castaway-parody&map=official-smb&level=${level}` +
@@ -246,17 +266,10 @@ test("journey: every menu level boots and holds its full decoded content", async
       undefined,
       { timeout: 15_000 },
     );
-    await page.keyboard.press("Space");
-    await page
-      .waitForFunction(() => {
-        const api = window.__originalBrowserPlatformerDebug;
-        return api !== undefined && api.getSimulationSnapshot().frameIndex > 5;
-      })
-      .catch(() => {
-        throw new Error(`level ${level} did not boot into a running game`);
-      });
 
-    // The live scene must place exactly what the decoded spec places.
+    // Capture the placed content at frame 0 — before the simulation advances,
+    // so enemies are read at their decoded placement and not a few frames into
+    // their walk (a goomba by the spawn drifts a tile within five frames).
     const spec = pack.get(level)?.levelSpec;
     if (spec === undefined) {
       throw new Error(`level ${level} missing from the committed pack`);
@@ -268,25 +281,36 @@ test("journey: every menu level boots and holds its full decoded content", async
       }
       const state = api.getSimulationSnapshot();
       return {
+        frameIndex: state.frameIndex,
         widthTiles: state.level.widthTiles,
         heightTiles: state.level.heightTiles,
         renderedTileCount: state.level.renderedTileCount,
-        renderedActorCount: state.actors.renderedActorCount,
+        actorPositions: state.actors.actors
+          .map(
+            (actor) =>
+              `${actor.actorId}@${actor.tilePosition.x},${actor.tilePosition.y}`,
+          )
+          .sort(),
       };
     });
+    expect(snapshot.frameIndex, `${level} pre-run frame`).toBe(0);
     expect(snapshot.widthTiles, `${level} width`).toBe(spec.widthTiles);
     expect(snapshot.heightTiles, `${level} height`).toBe(spec.heightTiles);
     expect(snapshot.renderedTileCount, `${level} tiles`).toBeGreaterThan(0);
-    const expectedActors = spec.actors.filter((actor) => {
-      const definition = spec.actorDefinitions.find(
-        (candidate) => candidate.actorId === actor.actorId,
-      );
-      return (
-        definition !== undefined &&
-        definition.role !== ActorRole.PlayerStart &&
-        definition.role !== ActorRole.Pipe
-      );
-    }).length;
-    expect(snapshot.renderedActorCount, `${level} actors`).toBe(expectedActors);
+    // Exact positions, element by element, for every actor in the level.
+    expect(snapshot.actorPositions, `${level} actor positions`).toEqual(
+      expectedActorPositions(spec),
+    );
+
+    // And the level must still boot into a running simulation (boot guard).
+    await page.keyboard.press("Space");
+    await page
+      .waitForFunction(() => {
+        const api = window.__originalBrowserPlatformerDebug;
+        return api !== undefined && api.getSimulationSnapshot().frameIndex > 5;
+      })
+      .catch(() => {
+        throw new Error(`level ${level} did not boot into a running game`);
+      });
   }
 });

@@ -2088,12 +2088,30 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
 
   // A #play?... route pre-selects the knobs and starts the level immediately.
   if (autoplay !== undefined && !playButton.disabled) {
-    if ([...levelSelect.options].some((o) => o.value === autoplay.level)) {
-      levelSelect.value = autoplay.level;
-    }
     modeSelect.value = autoplay.mode;
     audioSelect.value = autoplay.sound;
-    playSelected();
+    if ([...levelSelect.options].some((o) => o.value === autoplay.level)) {
+      levelSelect.value = autoplay.level;
+      playSelected();
+    } else {
+      // A deep link may name a pack level the picker hides (a warp sub-area /
+      // bonus room, which are pipe destinations rather than menu entries). Boot
+      // it directly from the pack instead of falling back to the first main.
+      setRouteHash(
+        `play?skin=${encodeURIComponent(assetSelect.value)}` +
+          `&map=${encodeURIComponent(mapSelect.value)}` +
+          `&level=${encodeURIComponent(autoplay.level)}` +
+          `&mode=${modeSelect.value}&sound=${audioSelect.value}`,
+      );
+      void bootSelectedContentSet(
+        assetSelect.value,
+        mapSelect.value,
+        autoplay.level,
+        modeSelect.value === "shabby",
+        audioSelect.value === "shabby",
+        status,
+      );
+    }
   }
 }
 
