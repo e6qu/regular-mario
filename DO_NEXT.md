@@ -70,10 +70,13 @@ Everything from the previous "known deltas" list is now in:
 
 - The headless driver has fully completed every main level except 4-4 and
   8-4 (it reaches their second gates/checkpoints). Their completability is
-  machine-proven and their mechanics are unit- and live-verified; what is
-  missing is only an automated player skilled enough for the full maze
-  chains. Options: seed sweeps (SMB_PLAY_SEED), longer budgets, or an
-  authored TAS-style input plan per maze executed on the real engine.
+  machine-proven, their mechanics are unit- and live-verified, and a
+  direct regression test proves 4-4's second gate accepts the legitimate
+  grounded bottom crossing (the firebar guarding it remains lethal to a
+  small player — the real difficulty). What is missing is only an
+  automated player skilled enough to chain the full maze runs. Options:
+  seed sweeps (SMB_PLAY_SEED), longer budgets, or an authored TAS-style
+  input plan per maze executed on the real engine.
 
 ## Remaining backlog (pre-existing, unchanged)
 
