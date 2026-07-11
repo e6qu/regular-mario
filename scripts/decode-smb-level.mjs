@@ -310,8 +310,11 @@ function enemyIdName(id) {
   if (id === 0x06) return "goomba";
   if (id === 0x07) return "blooper"; // squid — pulses toward the swimmer
   if (id === 0x0a || id === 0x0b) return "cheep"; // cheep-cheep (swimming fish)
-  if (id === 0x0e) return "paratroopa"; // green flying koopa
+  if (id === 0x0e) return "paratroopa-hop"; // green paratroopa (hops forward)
+  if (id === 0x0f) return "paratroopa-red"; // red paratroopa (vertical flyer)
+  if (id === 0x10) return "paratroopa-fly"; // green paratroopa (glides)
   if (id === 0x11) return "lakitu";
+  if (id === 0x12) return "spiny";
   return `enemy-${id.toString(16)}`;
 }
 
@@ -319,11 +322,14 @@ function enemyIdName(id) {
 const enemyKindSymbol = {
   goomba: "g",
   koopa: "k",
-  "koopa-red": "k",
+  "koopa-red": "r",
   buzzy: "t",
   "hammer-bro": "h",
-  paratroopa: "K",
+  "paratroopa-hop": "J",
+  "paratroopa-red": "R",
+  "paratroopa-fly": "K",
   lakitu: "l",
+  spiny: "s",
   blooper: "q", // squid (b/c are taken by cannon/coin tiles)
   cheep: "F", // fish
 };
@@ -624,6 +630,7 @@ export function buildMetadata(grid, header, options = {}) {
   const {
     transitions = [],
     cannons = [],
+    piranhaPlants = [],
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
   } = options;
@@ -655,6 +662,9 @@ export function buildMetadata(grid, header, options = {}) {
       ? "overworld"
       : (themeByAreaTypeName[areaTypeName] ?? "overworld"),
   };
+  if (piranhaPlants.length > 0) {
+    metadata.piranhaPlants = piranhaPlants;
+  }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
       spawnerId: `cannon-${index}`,
@@ -883,9 +893,20 @@ export async function decodeAllLevels(romPath) {
       }
     }
 
+    // The game auto-spawns a Piranha Plant in every vertical pipe outside
+    // world 1-1 (the VerticalPipe handler); the plant shares the pipe-top
+    // cell, so it travels as metadata rather than a grid symbol.
+    const piranhaPlants =
+      name === "smb-1-1"
+        ? []
+        : objects
+            .filter((o) => o.kind === "pipe" || o.kind === "pipe-warp")
+            .map((o) => ({ x: o.col, y: o.row + rowOffset }));
+
     entry.metadata = buildMetadata(grid, header, {
       transitions,
       cannons,
+      piranhaPlants,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,
     });

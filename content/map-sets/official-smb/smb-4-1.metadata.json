@@ -31,5 +31,23 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "piranhaPlants": [
+    {
+      "x": 21,
+      "y": 10
+    },
+    {
+      "x": 116,
+      "y": 9
+    },
+    {
+      "x": 132,
+      "y": 9
+    },
+    {
+      "x": 163,
+      "y": 11
+    }
+  ]
 }

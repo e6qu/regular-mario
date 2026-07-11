@@ -23,6 +23,20 @@
   },
   "questionBlockContentsDefault": "power-up",
   "theme": "overworld",
+  "piranhaPlants": [
+    {
+      "x": 53,
+      "y": 9
+    },
+    {
+      "x": 126,
+      "y": 9
+    },
+    {
+      "x": 168,
+      "y": 10
+    }
+  ],
   "cannonProjectiles": [
     {
       "spawnerId": "cannon-0",

@@ -873,6 +873,7 @@ describe("enemy motion", () => {
             hitPoints: 2,
             behavior: ArmoredEnemyBehavior.Active,
             restingFrames: 0,
+            flightBaseY: 64,
           },
         ],
         throwingActors: [],
@@ -919,6 +920,7 @@ describe("enemy motion", () => {
         hitPoints: 1,
         behavior: ArmoredEnemyBehavior.Shell,
         restingFrames: 0,
+        flightBaseY: 64,
       });
     });
 
@@ -989,6 +991,7 @@ describe("enemy motion", () => {
         hitPoints: 2,
         behavior: ArmoredEnemyBehavior.Shell,
         restingFrames: 0,
+        flightBaseY: 64,
       });
     });
 

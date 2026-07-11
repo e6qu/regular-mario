@@ -134,7 +134,40 @@ type ActorDefinitionInput = {
   readonly colliderHeightPixels?: number;
   // Armored enemies with this set (Buzzy Beetle) shrug off fireballs.
   readonly fireproof?: boolean;
+  // Spiky walkers (Spiny) hurt the player on stomp instead of being defeated.
+  readonly spiky?: boolean;
+  // Ledge-staying walkers (red Koopa) turn around at ledges instead of
+  // walking off.
+  readonly turnsAtLedges?: boolean;
+  // Winged armored enemies (Paratroopas) start airborne and drop their wings
+  // on the first stomp: "horizontal" glides side to side with a bob,
+  // "vertical" oscillates in place, "hop" bounds along the ground.
+  readonly wingedFlight?: string;
 };
+
+// Flight pattern for a winged armored enemy (Paratroopa variants).
+export type WingedFlightPattern = "horizontal" | "vertical" | "hop";
+
+function resolveWingedFlightPattern(
+  value: string | undefined,
+  path: string,
+  errors: ValidationError[],
+): WingedFlightPattern | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === "horizontal" || value === "vertical" || value === "hop") {
+    return value;
+  }
+  errors.push(
+    makeValidationError(
+      ValidationErrorCode.ActorRoleInvalid,
+      `${path} must be "horizontal", "vertical", or "hop".`,
+      path,
+    ),
+  );
+  return undefined;
+}
 
 export type LevelSpecInput = {
   readonly widthTiles: number;
@@ -197,6 +230,9 @@ type ActorDefinition = {
   readonly colliderWidthPixels: ColliderDimensionPixels | undefined;
   readonly colliderHeightPixels: ColliderDimensionPixels | undefined;
   readonly fireproof: boolean;
+  readonly spiky: boolean;
+  readonly turnsAtLedges: boolean;
+  readonly wingedFlight: WingedFlightPattern | undefined;
 };
 
 type ActorPlacement = {
@@ -628,6 +664,13 @@ function validateDefinitions(
         colliderWidthPixels: colliderWidthResult.value,
         colliderHeightPixels: colliderHeightResult.value,
         fireproof: actorInput.fireproof === true,
+        spiky: actorInput.spiky === true,
+        turnsAtLedges: actorInput.turnsAtLedges === true,
+        wingedFlight: resolveWingedFlightPattern(
+          actorInput.wingedFlight,
+          `actorDefinitions[${actorIndex}].wingedFlight`,
+          errors,
+        ),
       });
       actorRoles.set(actorInput.actorId, roleResult.value);
     }

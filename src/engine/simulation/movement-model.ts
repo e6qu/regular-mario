@@ -153,6 +153,11 @@ export type MovementConstants = {
   readonly flyingEnemyPatrolSpeed: VelocityPixelsPerSecond;
   readonly flyingEnemyVerticalAmplitudePixels: number;
   readonly flyingEnemyVerticalPeriodFrames: number;
+  // Winged armored enemies (Paratroopas): the vertical-flyer's oscillation
+  // range/period and the hopper's take-off speed.
+  readonly wingedVerticalFlyerAmplitudePixels: number;
+  readonly wingedVerticalFlyerPeriodFrames: number;
+  readonly wingedHopTakeoffSpeed: VelocityPixelsPerSecond;
   readonly chasingEnemySpeed: VelocityPixelsPerSecond;
   readonly chasingEnemyDetectionWidthPixels: number;
   readonly chasingEnemyDetectionHeightPixels: number;
@@ -275,6 +280,9 @@ export const initialMovementConstants: MovementConstants = {
   ),
   flyingEnemyVerticalAmplitudePixels: 8,
   flyingEnemyVerticalPeriodFrames: 120,
+  wingedVerticalFlyerAmplitudePixels: 48,
+  wingedVerticalFlyerPeriodFrames: 240,
+  wingedHopTakeoffSpeed: requireVelocity(200, "movement.wingedHopTakeoffSpeed"),
   chasingEnemySpeed: requireVelocity(60, "movement.chasingEnemySpeed"),
   chasingEnemyDetectionWidthPixels: 112,
   chasingEnemyDetectionHeightPixels: 48,

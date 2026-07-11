@@ -884,7 +884,8 @@ describe("parseVglcSmbMultiLayerLevel", () => {
     });
     expect(value.actorDefinitions).toContainEqual({
       actorId: "vglc-smb-parakoopa",
-      role: ActorRole.FlyingEnemy,
+      role: ActorRole.ArmoredEnemy,
+      wingedFlight: "horizontal",
     });
     expect(value.actorDefinitions).toContainEqual({
       actorId: "vglc-smb-turtle",

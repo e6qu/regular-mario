@@ -104,6 +104,15 @@ function hasEnemyEntityId(
   return enemyEntityIds.includes(entityId);
 }
 
+// Spiky enemies (Spiny) cannot be stomped safely — landing on one hurts.
+function isSpikyActor(levelSpec: LevelSpec, actorId: string): boolean {
+  return (
+    levelSpec.actorDefinitions.find(
+      (definition) => definition.actorId === actorId,
+    )?.spiky === true
+  );
+}
+
 export function assertValidEnemyInteractionState(
   enemyState: unknown,
   levelSpec: LevelSpec,
@@ -278,6 +287,9 @@ export function resolveEnemyInteractionState(
       // Piranha Plants can't be stomped — landing on one hurts the player, so
       // it falls through to the harmful-contact branch below.
       role !== ActorRole.PiranhaPlant &&
+      // Spiky enemies (Spiny) hurt the player on stomp instead, so they also
+      // fall through to the harmful-contact branch.
+      !isSpikyActor(levelSpec, actor.actorId) &&
       isEnemyStomp(
         previousPlayer,
         player,
@@ -291,7 +303,12 @@ export function resolveEnemyInteractionState(
           actor.entityId,
         );
 
-        if (armoredActor.behavior === ArmoredEnemyBehavior.Active) {
+        if (
+          armoredActor.behavior === ArmoredEnemyBehavior.Active ||
+          // A winged Paratroopa's first stomp drops its wings; the motion
+          // layer demotes it to a walking koopa via the same channel.
+          armoredActor.behavior === ArmoredEnemyBehavior.Winged
+        ) {
           // A walking koopa retreats into a resting shell on the first stomp.
           if (!hasEnemyEntityId(shelledEnemyEntityIds, actor.entityId)) {
             shelledEnemyEntityIds.push(actor.entityId);

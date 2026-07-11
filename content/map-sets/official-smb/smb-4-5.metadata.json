@@ -22,5 +22,11 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "castle"
+  "theme": "castle",
+  "piranhaPlants": [
+    {
+      "x": 40,
+      "y": 10
+    }
+  ]
 }

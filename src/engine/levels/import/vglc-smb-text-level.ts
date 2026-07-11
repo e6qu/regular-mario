@@ -119,12 +119,49 @@ type SmbActorLegendValue = {
   readonly actorId: string;
   readonly role: ActorRole;
   readonly fireproof?: boolean;
+  readonly spiky?: boolean;
+  readonly turnsAtLedges?: boolean;
+  readonly wingedFlight?: "horizontal" | "vertical" | "hop";
 };
 
 const multiLayerActorLegendCharacters = new Map<string, SmbActorLegendValue>([
   ...actorLegendCharacters,
   ["k", { actorId: "vglc-smb-koopa", role: ActorRole.ArmoredEnemy }],
-  ["K", { actorId: "vglc-smb-parakoopa", role: ActorRole.FlyingEnemy }],
+  // Red Koopa: turns around at ledges instead of walking off.
+  [
+    "r",
+    {
+      actorId: "vglc-smb-koopa-red",
+      role: ActorRole.ArmoredEnemy,
+      turnsAtLedges: true,
+    },
+  ],
+  // Paratroopa variants: winged koopas that drop their wings on the first
+  // stomp. K glides horizontally, R oscillates vertically, J hops forward.
+  [
+    "K",
+    {
+      actorId: "vglc-smb-parakoopa",
+      role: ActorRole.ArmoredEnemy,
+      wingedFlight: "horizontal",
+    },
+  ],
+  [
+    "R",
+    {
+      actorId: "vglc-smb-parakoopa-red",
+      role: ActorRole.ArmoredEnemy,
+      wingedFlight: "vertical",
+    },
+  ],
+  [
+    "J",
+    {
+      actorId: "vglc-smb-parakoopa-hopper",
+      role: ActorRole.ArmoredEnemy,
+      wingedFlight: "hop",
+    },
+  ],
   // Buzzy Beetle: an armored shell like a Koopa, but fireballs bounce off it.
   [
     "t",
@@ -132,6 +169,15 @@ const multiLayerActorLegendCharacters = new Map<string, SmbActorLegendValue>([
       actorId: "vglc-smb-turtle",
       role: ActorRole.ArmoredEnemy,
       fireproof: true,
+    },
+  ],
+  // Spiny: a spiked walker — stomping it hurts the player.
+  [
+    "s",
+    {
+      actorId: "vglc-smb-spiny",
+      role: ActorRole.Enemy,
+      spiky: true,
     },
   ],
   ["h", { actorId: "vglc-smb-throwing-enemy", role: ActorRole.ThrowingEnemy }],
@@ -142,6 +188,9 @@ const multiLayerActorLegendCharacters = new Map<string, SmbActorLegendValue>([
       role: ActorRole.AerialThrowingEnemy,
     },
   ],
+  // Piranha Plant: rises out of a pipe on a cycle (also placeable via the
+  // piranhaPlants metadata so it can share a cell with the pipe mouth).
+  ["n", { actorId: "vglc-smb-piranha", role: ActorRole.PiranhaPlant }],
   // Water enemies (F=fish, q=squid; b/c are cannon/coin tiles): a Cheep-cheep
   // swims (flying behavior underwater) and a Blooper pulses toward the swimmer
   // (chasing behavior).
@@ -282,10 +331,15 @@ const multiLayerStructuralActorCharacters = new Map([
   ["g", { actorCharacter: "E" }],
   ["o", { actorCharacter: "o" }],
   ["k", { actorCharacter: "k" }],
+  ["r", { actorCharacter: "r" }],
   ["K", { actorCharacter: "K" }],
+  ["R", { actorCharacter: "R" }],
+  ["J", { actorCharacter: "J" }],
   ["t", { actorCharacter: "t" }],
+  ["s", { actorCharacter: "s" }],
   ["h", { actorCharacter: "h" }],
   ["l", { actorCharacter: "l" }],
+  ["n", { actorCharacter: "n" }],
   ["F", { actorCharacter: "F" }],
   ["q", { actorCharacter: "q" }],
 ]);
@@ -331,6 +385,14 @@ const rawTextUnsupportedMetadataFields: ReadonlyMap<
       featureId: "vglc-smb-multi-layer",
       reason:
         "multi-layer source data requires the vglc-smb-multi-layer import format.",
+    },
+  ],
+  [
+    "piranhaPlants",
+    {
+      featureId: "vglc-smb-piranha-plants",
+      reason:
+        "piranha plant metadata requires the vglc-smb-multi-layer import format.",
     },
   ],
 ]);
@@ -438,6 +500,7 @@ type VglcSmbTextImportMetadata = {
   readonly transitions: readonly VglcSmbTransitionMetadata[];
   readonly multiLayer: VglcSmbMultiLayerMetadata | undefined;
   readonly cheepFrenzy: CheepFrenzyInput | undefined;
+  readonly piranhaPlants: readonly VglcSmbPoint[];
 };
 
 export function parseVglcSmbTextLevel(
@@ -718,13 +781,44 @@ function parseConvertedVglcSmbRows(
       ? parsed.value
       : { ...parsed.value, cheepFrenzy: input.metadata.cheepFrenzy };
 
+  const withPlants = withPiranhaPlants(
+    withFrenzy,
+    input.metadata.piranhaPlants,
+  );
+
   if (input.metadata.transitions.length === 0) {
-    return { ok: true, value: withFrenzy };
+    return { ok: true, value: withPlants };
   }
 
   return {
     ok: true,
-    value: withTransitionPipes(withFrenzy, input.metadata.transitions),
+    value: withTransitionPipes(withPlants, input.metadata.transitions),
+  };
+}
+
+// Piranha Plants declared in metadata share their cell with a pipe-mouth tile
+// (a grid cell holds one symbol), so they are injected as extra actor
+// placements rather than actor-layer characters.
+const metadataPiranhaActorId = "vglc-smb-piranha";
+
+function withPiranhaPlants(
+  levelSpecInput: LevelSpecInput,
+  piranhaPlants: readonly VglcSmbPoint[],
+): LevelSpecInput {
+  if (piranhaPlants.length === 0) {
+    return levelSpecInput;
+  }
+  return {
+    ...levelSpecInput,
+    actors: [
+      ...levelSpecInput.actors,
+      ...piranhaPlants.map((plant, index) => ({
+        entityId: `vglc-smb-piranha-${String(index)}`,
+        actorId: metadataPiranhaActorId,
+        x: plant.x,
+        y: plant.y,
+      })),
+    ],
   };
 }
 
@@ -792,6 +886,7 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     transitions: [],
     multiLayer: undefined,
     cheepFrenzy: undefined,
+    piranhaPlants: [],
   };
 }
 
@@ -857,6 +952,11 @@ function parseVglcSmbTextImportMetadata(
         ? parseMultiLayerMetadata(candidate.multiLayer, errors)
         : undefined,
     cheepFrenzy: parseCheepFrenzy(candidate.cheepFrenzy, errors),
+    piranhaPlants: parsePointArray(
+      candidate.piranhaPlants,
+      "metadata.piranhaPlants",
+      errors,
+    ),
   };
 }
 

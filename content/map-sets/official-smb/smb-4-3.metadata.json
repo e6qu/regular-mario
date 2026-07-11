@@ -40,5 +40,47 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "underground"
+  "theme": "underground",
+  "piranhaPlants": [
+    {
+      "x": 72,
+      "y": 10
+    },
+    {
+      "x": 78,
+      "y": 6
+    },
+    {
+      "x": 84,
+      "y": 10
+    },
+    {
+      "x": 89,
+      "y": 10
+    },
+    {
+      "x": 107,
+      "y": 9
+    },
+    {
+      "x": 131,
+      "y": 11
+    },
+    {
+      "x": 138,
+      "y": 10
+    },
+    {
+      "x": 142,
+      "y": 9
+    },
+    {
+      "x": 180,
+      "y": 6
+    },
+    {
+      "x": 214,
+      "y": 10
+    }
+  ]
 }

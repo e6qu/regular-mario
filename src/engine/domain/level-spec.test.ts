@@ -108,6 +108,9 @@ describe("makeLevelSpec", () => {
         colliderWidthPixels: undefined,
         colliderHeightPixels: undefined,
         fireproof: false,
+        spiky: false,
+        turnsAtLedges: false,
+        wingedFlight: undefined,
       })),
       tiles: input.tiles,
       actors: [
@@ -419,6 +422,9 @@ describe("makeLevelSpec", () => {
       colliderWidthPixels: 10,
       colliderHeightPixels: 12,
       fireproof: false,
+      spiky: false,
+      turnsAtLedges: false,
+      wingedFlight: undefined,
     });
   });
 

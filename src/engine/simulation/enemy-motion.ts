@@ -32,6 +32,9 @@ export enum ChasingEnemyBehavior {
 }
 
 export enum ArmoredEnemyBehavior {
+  // Airborne with wings (Paratroopa): a stomp drops the wings, demoting the
+  // enemy to a regular walking koopa (Active).
+  Winged = "winged",
   Active = "active",
   Shell = "shell",
 }
@@ -94,6 +97,9 @@ export type ArmoredEnemyActorState = {
   // Frames the shell has sat still. A resting shell wakes back into a walking
   // koopa once this reaches `shellReviveFrames` (0 while walking or sliding).
   readonly restingFrames: number;
+  // The spawn altitude a winged (Paratroopa) actor oscillates around; unused
+  // once the wings are dropped.
+  readonly flightBaseY: PixelPosition;
 };
 
 export type ThrowingEnemyActorState = {
@@ -239,19 +245,26 @@ export function makeInitialEnemyMotionState(
         break;
       }
       case ActorRole.ArmoredEnemy: {
+        const wingedFlight = findWingedFlightPattern(levelSpec, actor.actorId);
         armoredActors.push({
           entityId: actor.entityId,
           position,
           velocity: {
             x: makeEnemyPatrolVelocity(
-              movementConstants.enemyPatrolSpeed,
+              wingedFlight === "vertical"
+                ? requireEnemyVelocity(0, "enemyMotion.wingedVelocity.x")
+                : movementConstants.enemyPatrolSpeed,
               direction,
             ),
             y: zeroEnemyVerticalVelocity,
           },
           hitPoints: 2,
-          behavior: ArmoredEnemyBehavior.Active,
+          behavior:
+            wingedFlight === undefined
+              ? ArmoredEnemyBehavior.Active
+              : ArmoredEnemyBehavior.Winged,
           restingFrames: 0,
+          flightBaseY: baseY,
         });
         break;
       }
@@ -616,7 +629,8 @@ export function stepEnemyMotionState(
           armoredActor.entityId,
           movementConstants.enemyPatrolSpeed,
         ),
-        movementConstants.shellSlideSpeed,
+        movementConstants,
+        frameIndex,
       );
     }),
     throwingActors: stopDefeatedThrowingEnemyActors(
@@ -652,7 +666,7 @@ export function stepEnemyMotionState(
           return piranhaPlantActor;
         }
 
-        return stepPiranhaPlantActor(piranhaPlantActor, levelSpec);
+        return stepPiranhaPlantActor(piranhaPlantActor, levelSpec, player);
       },
     ),
   };
@@ -705,7 +719,7 @@ export function stopDefeatedEnemyMotionState(
       }
 
       if (shelledEnemyEntityIds.has(armoredActor.entityId)) {
-        return shellArmoredEnemyActor(armoredActor);
+        return shellArmoredEnemyActor(armoredActor, movementConstants);
       }
 
       const nudgeDirection = nudgedShellDirectionByEntityId.get(
@@ -1129,6 +1143,11 @@ function assertValidArmoredEnemyActorState(
     candidate.behavior,
     `enemyMotion.armoredActors[${index}].behavior`,
   );
+
+  requireEnemyPixelPosition(
+    candidate.flightBaseY,
+    `enemyMotion.armoredActors[${index}].flightBaseY`,
+  );
 }
 
 function assertValidThrowingEnemyActorState(
@@ -1306,6 +1325,13 @@ function findActorRole(
   levelSpec: LevelSpec,
   actorId: string,
 ): LevelSpec["actorDefinitions"][number]["role"] {
+  return requireActorDefinitionByActorId(levelSpec, actorId).role;
+}
+
+function requireActorDefinitionByActorId(
+  levelSpec: LevelSpec,
+  actorId: string,
+): LevelSpec["actorDefinitions"][number] {
   const actorDefinition = levelSpec.actorDefinitions.find(
     (candidate) => candidate.actorId === actorId,
   );
@@ -1314,7 +1340,29 @@ function findActorRole(
     throw new Error("Validated level actor is missing an actor definition.");
   }
 
-  return actorDefinition.role;
+  return actorDefinition;
+}
+
+function findWingedFlightPattern(
+  levelSpec: LevelSpec,
+  actorId: string,
+): LevelSpec["actorDefinitions"][number]["wingedFlight"] {
+  return requireActorDefinitionByActorId(levelSpec, actorId).wingedFlight;
+}
+
+// Definition lookup by placed entity id (behavior flags live on the actor
+// definition, shared by every placement of that actor id).
+function findActorDefinitionByEntityId(
+  levelSpec: LevelSpec,
+  entityId: EntityId,
+): LevelSpec["actorDefinitions"][number] | undefined {
+  const placement = levelSpec.actors.find(
+    (candidate) => candidate.entityId === entityId,
+  );
+  if (placement === undefined) {
+    return undefined;
+  }
+  return requireActorDefinitionByActorId(levelSpec, placement.actorId);
 }
 
 function makeInitialEnemyPatrolDirection(): EnemyPatrolDirection {
@@ -1638,11 +1686,33 @@ function computePiranhaEmergeFraction(phase: number): number {
   return 0;
 }
 
+// A plant will not emerge while the player stands this close to its pipe
+// (as in the original, which suppresses the emerge when the player is near).
+const piranhaEmergeHoldDistancePixels = 40;
+
 function stepPiranhaPlantActor(
   piranhaPlantActor: PiranhaPlantActorState,
   levelSpec: LevelSpec,
+  player: PlayerSimulationState,
 ): PiranhaPlantActorState {
-  const nextPhase = piranhaPlantActor.phase + 1;
+  const nextPhaseCandidate = piranhaPlantActor.phase + 1;
+  const playerIsNear =
+    Math.abs(player.position.x - piranhaPlantActor.position.x) <=
+    piranhaEmergeHoldDistancePixels;
+  // Fully retracted with the player nearby: hold the phase so the plant stays
+  // hidden instead of emerging into the player standing on its pipe.
+  if (
+    playerIsNear &&
+    computePiranhaEmergeFraction(piranhaPlantActor.phase) === 0 &&
+    computePiranhaEmergeFraction(nextPhaseCandidate) > 0
+  ) {
+    return {
+      ...piranhaPlantActor,
+      position: { x: piranhaPlantActor.position.x, y: piranhaPlantActor.baseY },
+    };
+  }
+
+  const nextPhase = nextPhaseCandidate;
   const emergePixels = piranhaEmergeHeightTiles * levelSpec.tileSizePixels;
   const nextPositionY = requireEnemyPixelPosition(
     piranhaPlantActor.baseY -
@@ -1859,7 +1929,8 @@ function stepArmoredEnemyActor(
   levelSpec: LevelSpec,
   frameDurationSeconds: number,
   enemyPatrolSpeed: VelocityPixelsPerSecond,
-  shellSlideSpeed: VelocityPixelsPerSecond,
+  movementConstants: MovementConstants,
+  frameIndex: FrameIndex,
 ): ArmoredEnemyActorState {
   if (armoredActor.behavior === ArmoredEnemyBehavior.Shell) {
     return stepShellArmoredEnemyActor(
@@ -1867,7 +1938,23 @@ function stepArmoredEnemyActor(
       levelSpec,
       frameDurationSeconds,
       enemyPatrolSpeed,
-      shellSlideSpeed,
+      movementConstants.shellSlideSpeed,
+    );
+  }
+
+  const definition = findActorDefinitionByEntityId(
+    levelSpec,
+    armoredActor.entityId,
+  );
+
+  if (armoredActor.behavior === ArmoredEnemyBehavior.Winged) {
+    return stepWingedArmoredEnemyActor(
+      armoredActor,
+      levelSpec,
+      frameDurationSeconds,
+      movementConstants,
+      frameIndex,
+      definition?.wingedFlight ?? "horizontal",
     );
   }
 
@@ -1880,7 +1967,9 @@ function stepArmoredEnemyActor(
       enemyPatrolSpeed *
       frameDurationSeconds;
 
-  // Horizontal: reverse only at solid walls so the koopa walks off ledges.
+  // Horizontal: reverse at solid walls; ledge-staying walkers (red Koopa)
+  // also turn at ledges, everyone else walks off them.
+  const turnsAtLedges = definition?.turnsAtLedges === true;
   let nextDirection = direction;
   let nextX: number = armoredActor.position.x;
   let velocityX = 0;
@@ -1895,7 +1984,7 @@ function stepArmoredEnemyActor(
       armoredActorAsPatrol,
       attemptedPositionX,
       levelSpec,
-      false,
+      turnsAtLedges && armoredActor.velocity.y === 0,
     );
     if (obstacleCheck.blocked) {
       nextDirection = obstacleCheck.nextDirection;
@@ -1915,6 +2004,153 @@ function stepArmoredEnemyActor(
       frameDurationSeconds,
       levelSpec,
     ),
+  };
+}
+
+// Airborne Paratroopa movement, by flight pattern: "horizontal" glides side to
+// side with a gentle bob, "vertical" oscillates in place over a tall range,
+// "hop" bounds along the ground taking off again on every landing.
+function stepWingedArmoredEnemyActor(
+  armoredActor: ArmoredEnemyActorState,
+  levelSpec: LevelSpec,
+  frameDurationSeconds: number,
+  movementConstants: MovementConstants,
+  frameIndex: FrameIndex,
+  pattern: NonNullable<LevelSpec["actorDefinitions"][number]["wingedFlight"]>,
+): ArmoredEnemyActorState {
+  if (pattern === "vertical") {
+    const phaseIncrement =
+      (2 * Math.PI) / movementConstants.wingedVerticalFlyerPeriodFrames;
+    const nextY = requireEnemyPixelPosition(
+      armoredActor.flightBaseY +
+        movementConstants.wingedVerticalFlyerAmplitudePixels *
+          Math.sin(frameIndex * phaseIncrement),
+      "enemyMotion.armoredActors[].position.y",
+    );
+    return {
+      ...armoredActor,
+      position: { x: armoredActor.position.x, y: nextY },
+      velocity: {
+        x: requireEnemyVelocity(0, "enemyMotion.armoredActors[].velocity.x"),
+        y: zeroEnemyVerticalVelocity,
+      },
+    };
+  }
+
+  if (pattern === "hop") {
+    const direction = makeEnemyPatrolDirectionFromVelocity(
+      armoredActor.velocity.x,
+    );
+    const attemptedPositionX =
+      armoredActor.position.x +
+      makeEnemyPatrolDirectionSign(direction) *
+        movementConstants.enemyPatrolSpeed *
+        frameDurationSeconds;
+    let nextDirection = direction;
+    let nextX: number = armoredActor.position.x;
+    if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
+      const asPatrol: EnemyPatrolActorState = {
+        entityId: armoredActor.entityId,
+        position: armoredActor.position,
+        velocity: { x: armoredActor.velocity.x, y: armoredActor.velocity.y },
+        direction,
+      };
+      const obstacleCheck = checkEnemyMotionObstacle(
+        asPatrol,
+        attemptedPositionX,
+        levelSpec,
+        false,
+      );
+      if (obstacleCheck.blocked) {
+        nextDirection = obstacleCheck.nextDirection;
+      } else {
+        nextX = attemptedPositionX;
+      }
+    }
+    const moved = resolveEnemyMotionFields(
+      armoredActor.position.y,
+      armoredActor.velocity.y,
+      nextX,
+      makeEnemyPatrolVelocity(
+        movementConstants.enemyPatrolSpeed,
+        nextDirection,
+      ),
+      frameDurationSeconds,
+      levelSpec,
+    );
+    // Grounded after the move? Take off again.
+    const grounded =
+      moved.velocity.y === 0 &&
+      enemyHasFloorBelow(moved.position.x, moved.position.y, levelSpec);
+    return {
+      ...armoredActor,
+      position: moved.position,
+      velocity: {
+        x: moved.velocity.x,
+        y: grounded
+          ? requireEnemyVelocity(
+              0 - movementConstants.wingedHopTakeoffSpeed,
+              "enemyMotion.armoredActors[].velocity.y",
+            )
+          : moved.velocity.y,
+      },
+    };
+  }
+
+  // "horizontal": glide like a flying enemy, bobbing around the spawn height.
+  const direction = makeEnemyPatrolDirectionFromVelocity(
+    armoredActor.velocity.x,
+  );
+  const attemptedPositionX =
+    armoredActor.position.x +
+    makeEnemyPatrolDirectionSign(direction) *
+      movementConstants.flyingEnemyPatrolSpeed *
+      frameDurationSeconds;
+  let nextDirection = direction;
+  let nextX: number = armoredActor.position.x;
+  if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
+    const asPatrol: EnemyPatrolActorState = {
+      entityId: armoredActor.entityId,
+      position: armoredActor.position,
+      velocity: { x: armoredActor.velocity.x, y: zeroEnemyVerticalVelocity },
+      direction,
+    };
+    const obstacleCheck = checkEnemyMotionObstacle(
+      asPatrol,
+      attemptedPositionX,
+      levelSpec,
+      false,
+    );
+    if (obstacleCheck.blocked) {
+      nextDirection = obstacleCheck.nextDirection;
+    } else {
+      nextX = attemptedPositionX;
+    }
+  }
+  const phaseIncrement =
+    (2 * Math.PI) / movementConstants.flyingEnemyVerticalPeriodFrames;
+  const nextY = requireEnemyPixelPosition(
+    armoredActor.flightBaseY +
+      movementConstants.flyingEnemyVerticalAmplitudePixels *
+        Math.sin(frameIndex * phaseIncrement),
+    "enemyMotion.armoredActors[].position.y",
+  );
+  return {
+    ...armoredActor,
+    position: {
+      x: requireEnemyPixelPosition(
+        nextX,
+        "enemyMotion.armoredActors[].position.x",
+      ),
+      y: nextY,
+    },
+    velocity: {
+      x: makeEnemyPatrolVelocity(
+        movementConstants.flyingEnemyPatrolSpeed,
+        nextDirection,
+      ),
+      y: zeroEnemyVerticalVelocity,
+    },
   };
 }
 
@@ -1949,7 +2185,25 @@ export function shellReviveShakeOffsetPixels(
 
 function shellArmoredEnemyActor(
   armoredActor: ArmoredEnemyActorState,
+  movementConstants: MovementConstants,
 ): ArmoredEnemyActorState {
+  if (armoredActor.behavior === ArmoredEnemyBehavior.Winged) {
+    // A stomped Paratroopa loses its wings and drops to the ground as a
+    // regular walking koopa (as in the original).
+    return {
+      ...armoredActor,
+      hitPoints: 2,
+      behavior: ArmoredEnemyBehavior.Active,
+      velocity: {
+        x: makeEnemyPatrolVelocity(
+          movementConstants.enemyPatrolSpeed,
+          EnemyPatrolDirection.Left,
+        ),
+        y: zeroEnemyVerticalVelocity,
+      },
+      restingFrames: 0,
+    };
+  }
   return {
     ...armoredActor,
     hitPoints: 1,
@@ -2375,12 +2629,14 @@ function makeArmoredEnemyBehavior(
   path: string,
 ): ArmoredEnemyBehavior {
   switch (value) {
+    case "winged":
+      return ArmoredEnemyBehavior.Winged;
     case "active":
       return ArmoredEnemyBehavior.Active;
     case "shell":
       return ArmoredEnemyBehavior.Shell;
     default:
-      throw new Error(`${path} must be active or shell.`);
+      throw new Error(`${path} must be winged, active, or shell.`);
   }
 }
 

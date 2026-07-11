@@ -22,5 +22,11 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "water"
+  "theme": "water",
+  "piranhaPlants": [
+    {
+      "x": 3,
+      "y": 11
+    }
+  ]
 }
