@@ -29,6 +29,10 @@ type VglcActorLegendEntry = {
   // Winged armored enemy flight pattern (Paratroopas): "horizontal",
   // "vertical", or "hop"; the first stomp drops the wings.
   readonly wingedFlight?: string;
+  // Fireball hits needed to defeat this enemy (Bowser takes five).
+  readonly projectileHitPoints?: number;
+  readonly colliderWidthPixels?: number;
+  readonly colliderHeightPixels?: number;
 };
 
 export type VglcTextLevelInput = {
@@ -236,6 +240,15 @@ function collectActorDefinitions(
       ...(entry.wingedFlight === undefined
         ? {}
         : { wingedFlight: entry.wingedFlight }),
+      ...(entry.projectileHitPoints === undefined
+        ? {}
+        : { projectileHitPoints: entry.projectileHitPoints }),
+      ...(entry.colliderWidthPixels === undefined
+        ? {}
+        : { colliderWidthPixels: entry.colliderWidthPixels }),
+      ...(entry.colliderHeightPixels === undefined
+        ? {}
+        : { colliderHeightPixels: entry.colliderHeightPixels }),
     });
   }
 

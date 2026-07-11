@@ -111,6 +111,7 @@ describe("makeLevelSpec", () => {
         spiky: false,
         turnsAtLedges: false,
         wingedFlight: undefined,
+        projectileHitPoints: 1,
       })),
       tiles: input.tiles,
       actors: [
@@ -429,6 +430,7 @@ describe("makeLevelSpec", () => {
       spiky: false,
       turnsAtLedges: false,
       wingedFlight: undefined,
+      projectileHitPoints: 1,
     });
   });
 

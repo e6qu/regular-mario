@@ -5,7 +5,7 @@
   },
   "exits": [
     {
-      "x": 334,
+      "x": 301,
       "y": 11
     }
   ],
@@ -155,6 +155,20 @@
       "x": 70,
       "y": 14,
       "widthTiles": 3
+    }
+  ],
+  "flameSpawners": [
+    {
+      "spawnerId": "flame-0",
+      "x": 293,
+      "y": 12,
+      "direction": "left",
+      "intervalFrames": 240,
+      "initialDelayFrames": 203,
+      "speedPixelsPerSecond": 90,
+      "widthPixels": 24,
+      "heightPixels": 8,
+      "lifetimeFrames": 600
     }
   ],
   "flyingCheepFrenzy": {

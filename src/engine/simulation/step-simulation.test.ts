@@ -685,6 +685,7 @@ describe("simulation primitives", () => {
         projectiles: {
           projectiles: [],
           cooldownRemainingFrames: 0,
+          fireballHitsByEntityId: {},
         },
         pipeEntry: {
           phase: "none",

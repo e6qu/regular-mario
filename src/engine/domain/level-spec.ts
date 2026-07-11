@@ -143,10 +143,40 @@ type ActorDefinitionInput = {
   // on the first stomp: "horizontal" glides side to side with a bob,
   // "vertical" oscillates in place, "hop" bounds along the ground.
   readonly wingedFlight?: string;
+  // Fireball hits needed to defeat this enemy (Bowser takes five); defaults
+  // to one.
+  readonly projectileHitPoints?: number;
 };
 
 // Flight pattern for a winged armored enemy (Paratroopa variants).
 export type WingedFlightPattern = "horizontal" | "vertical" | "hop";
+
+const maxProjectileHitPoints = 10;
+
+function resolveProjectileHitPoints(
+  value: number | undefined,
+  path: string,
+  errors: ValidationError[],
+): number {
+  if (value === undefined) {
+    return 1;
+  }
+  if (
+    Number.isSafeInteger(value) &&
+    value >= 1 &&
+    value <= maxProjectileHitPoints
+  ) {
+    return value;
+  }
+  errors.push(
+    makeValidationError(
+      ValidationErrorCode.DimensionInvalid,
+      `${path} must be an integer between 1 and ${String(maxProjectileHitPoints)}.`,
+      path,
+    ),
+  );
+  return 1;
+}
 
 function resolveWingedFlightPattern(
   value: string | undefined,
@@ -310,6 +340,7 @@ type ActorDefinition = {
   readonly spiky: boolean;
   readonly turnsAtLedges: boolean;
   readonly wingedFlight: WingedFlightPattern | undefined;
+  readonly projectileHitPoints: number;
 };
 
 type ActorPlacement = {
@@ -751,6 +782,11 @@ function validateDefinitions(
         wingedFlight: resolveWingedFlightPattern(
           actorInput.wingedFlight,
           `actorDefinitions[${actorIndex}].wingedFlight`,
+          errors,
+        ),
+        projectileHitPoints: resolveProjectileHitPoints(
+          actorInput.projectileHitPoints,
+          `actorDefinitions[${actorIndex}].projectileHitPoints`,
           errors,
         ),
       });

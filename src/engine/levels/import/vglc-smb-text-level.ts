@@ -128,6 +128,9 @@ type SmbActorLegendValue = {
   readonly spiky?: boolean;
   readonly turnsAtLedges?: boolean;
   readonly wingedFlight?: "horizontal" | "vertical" | "hop";
+  readonly projectileHitPoints?: number;
+  readonly colliderWidthPixels?: number;
+  readonly colliderHeightPixels?: number;
 };
 
 const multiLayerActorLegendCharacters = new Map<string, SmbActorLegendValue>([
@@ -197,6 +200,32 @@ const multiLayerActorLegendCharacters = new Map<string, SmbActorLegendValue>([
   // Piranha Plant: rises out of a pipe on a cycle (also placeable via the
   // piranhaPlants metadata so it can share a cell with the pipe mouth).
   ["n", { actorId: "vglc-smb-piranha", role: ActorRole.PiranhaPlant }],
+  // Bowser: spiked (stomping hurts), stays on his bridge, and soaks five
+  // fireballs. From world 6 on he throws hammers (the throwing-enemy
+  // variant); earlier castles get the pacing variant plus flame spawners.
+  [
+    "w",
+    {
+      actorId: "vglc-smb-bowser",
+      role: ActorRole.Enemy,
+      spiky: true,
+      turnsAtLedges: true,
+      projectileHitPoints: 5,
+      colliderWidthPixels: 28,
+      colliderHeightPixels: 28,
+    },
+  ],
+  [
+    "W",
+    {
+      actorId: "vglc-smb-bowser-hammers",
+      role: ActorRole.ThrowingEnemy,
+      spiky: true,
+      projectileHitPoints: 5,
+      colliderWidthPixels: 28,
+      colliderHeightPixels: 28,
+    },
+  ],
   // Water enemies (F=fish, q=squid; b/c are cannon/coin tiles): a Cheep-cheep
   // swims (flying behavior underwater) and a Blooper pulses toward the swimmer
   // (chasing behavior).
@@ -326,6 +355,8 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
   ["X", { tileId: "plant-hazard", collision: TileCollisionKind.Hazard }],
   ["Y", { tileId: "spring-top", collision: TileCollisionKind.Spring }],
   ["y", { tileId: "spring-bottom", collision: TileCollisionKind.Solid }],
+  // The castle-bridge planks Bowser guards (chopped by reaching the axe).
+  ["=", { tileId: "castle-bridge", collision: TileCollisionKind.Solid }],
 ]);
 
 const multiLayerTileLegendCharacters: ReadonlyMap<
@@ -346,6 +377,8 @@ const multiLayerStructuralActorCharacters = new Map([
   ["h", { actorCharacter: "h" }],
   ["l", { actorCharacter: "l" }],
   ["n", { actorCharacter: "n" }],
+  ["w", { actorCharacter: "w" }],
+  ["W", { actorCharacter: "W" }],
   ["F", { actorCharacter: "F" }],
   ["q", { actorCharacter: "q" }],
 ]);
@@ -502,6 +535,9 @@ type VglcSmbTextImportMetadata = {
     | undefined;
   readonly timers: readonly VglcSmbTimerMetadata[];
   readonly cannonProjectiles: readonly VglcSmbCannonProjectileMetadata[];
+  // Flame volleys (Bowser's breath, the castles' \$15 spawners): the same
+  // spawner shape as cannonProjectiles but not anchored to a cannon tile.
+  readonly flameSpawners: readonly VglcSmbCannonProjectileMetadata[];
   readonly pathAnnotations: readonly VglcSmbPathAnnotationMetadata[];
   readonly transitions: readonly VglcSmbTransitionMetadata[];
   readonly multiLayer: VglcSmbMultiLayerMetadata | undefined;
@@ -775,7 +811,10 @@ function parseConvertedVglcSmbRows(
       timerId: timer.id,
       frames: timer.frames,
     })),
-    timedHazardProjectileSpawners: input.metadata.cannonProjectiles,
+    timedHazardProjectileSpawners: [
+      ...input.metadata.cannonProjectiles,
+      ...input.metadata.flameSpawners,
+    ],
     pathAnnotations: mergePathAnnotations(
       input.pathPoints,
       input.metadata.pathAnnotations,
@@ -915,6 +954,7 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     questionBlockContentsDefault: undefined,
     timers: [],
     cannonProjectiles: [],
+    flameSpawners: [],
     pathAnnotations: [],
     transitions: [],
     multiLayer: undefined,
@@ -973,6 +1013,11 @@ function parseVglcSmbTextImportMetadata(
     cannonProjectiles: parseCannonProjectileArray(
       candidate.cannonProjectiles,
       "metadata.cannonProjectiles",
+      errors,
+    ),
+    flameSpawners: parseCannonProjectileArray(
+      candidate.flameSpawners,
+      "metadata.flameSpawners",
       errors,
     ),
     pathAnnotations: parsePathAnnotationArray(

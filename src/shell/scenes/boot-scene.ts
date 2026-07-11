@@ -4287,6 +4287,10 @@ function renderAuthoredTile(
       requireTileAssetCollision(tileId, collision, TileCollisionKind.Breakable);
       renderBrickTile(scene, x, y, size);
       return;
+    case "castle-bridge":
+      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
+      renderBrickTile(scene, x, y, size);
+      return;
     case "cracked-stone":
       requireTileAssetCollision(tileId, collision, TileCollisionKind.Breakable);
       renderSolidTile(scene, x, y, size, "stone");

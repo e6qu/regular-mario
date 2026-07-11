@@ -316,6 +316,8 @@ function enemyIdName(id) {
   if (id === 0x10) return "paratroopa-fly"; // green paratroopa (glides)
   if (id === 0x11) return "lakitu";
   if (id === 0x12) return "spiny";
+  if (id === 0x15) return "bowser-flame"; // flame spawner (metadata)
+  if (id === 0x2d) return "bowser";
   if (id === 0x14) return "frenzy-flying-cheep-cmd"; // enemy-stream frenzy
   if (id === 0x17) return "frenzy-bbill-cmd";
   if (id === 0x18) return "frenzy-stop-cmd";
@@ -359,6 +361,8 @@ function podobooPhaseForColumn(col) {
 }
 
 // Grid symbol per modeled enemy kind (matches the runtime multi-layer legend).
+// Bowser's symbol is world-dependent (hammers from world 6 on) and resolved
+// by renderArea's options.
 const enemyKindSymbol = {
   goomba: "g",
   koopa: "k",
@@ -408,6 +412,8 @@ const qblockRowLow = 7; // QuestionBlockRow_Low
 const bridgeFloorRows = { "bridge-hi": 7, "bridge-mid": 8, "bridge-lo": 10 };
 const holeTopPlayfieldRow = 8; // holes clear playfield rows 8-12
 const introPipeMouthRow = 9; // sideways intro pipe mouth rows 9-10
+const castleBridgePlayfieldRow = 8; // the bridge planks Bowser paces
+const castleBridgeLengthTiles = 13;
 
 // Bullet-Bill cannon fire pattern for decoded levels: SMB fires roughly every
 // few seconds while the cannon is near the screen; we stagger cannons by
@@ -418,7 +424,8 @@ const cannonBulletWidthPixels = 16;
 const cannonBulletHeightPixels = 14;
 const cannonBulletLifetimeFrames = 900;
 
-function renderArea(header, objects, enemies) {
+function renderArea(header, objects, enemies, options = {}) {
+  const { bowserSymbol = "w" } = options;
   // width: from the furthest object/enemy column, rounded up to a page,
   // min 16 pages
   let maxCol = 16;
@@ -580,6 +587,11 @@ function renderArea(header, objects, enemies) {
           break;
         }
         const special = special13Name(o.kind);
+        if (special === "castle-bridge") {
+          for (let i = 0; i < castleBridgeLengthTiles; i += 1) {
+            set(grid, o.col + i, castleBridgePlayfieldRow + rowOffset, "=");
+          }
+        }
         if (special === "flagpole") {
           for (let r = 2; r <= floorRow - 1; r += 1) set(grid, o.col, r, "|");
         } else if (special === "intro-pipe") {
@@ -603,7 +615,7 @@ function renderArea(header, objects, enemies) {
   // the 32px status-bar offset that objects carry, so a data-row-R enemy stands
   // one grid row above a data-row-R object — i.e. on top of it / on the floor.
   for (const e of enemies) {
-    const symbol = enemyKindSymbol[e.kind];
+    const symbol = e.kind === "bowser" ? bowserSymbol : enemyKindSymbol[e.kind];
     if (symbol !== undefined) {
       set(grid, e.col, e.row + rowOffset - 1, symbol);
     }
@@ -740,16 +752,22 @@ export function buildMetadata(grid, header, options = {}) {
     firebars = [],
     podoboos = [],
     platforms = [],
+    flameSpawners = [],
+    axeTileX = undefined,
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
   } = options;
   const walkRow = floorRow - 1; // standing row on top of the floor
-  let exitX = grid[0].length - 2;
-  outer: for (let x = 0; x < grid[0].length; x += 1) {
-    for (let y = 0; y < gridHeight; y += 1) {
-      if (grid[y][x] === "|") {
-        exitX = x;
-        break outer;
+  // The castle axe ends the level where it hangs; otherwise the flagpole,
+  // falling back to the level's tail.
+  let exitX = axeTileX ?? grid[0].length - 2;
+  if (axeTileX === undefined) {
+    outer: for (let x = 0; x < grid[0].length; x += 1) {
+      for (let y = 0; y < gridHeight; y += 1) {
+        if (grid[y][x] === "|") {
+          exitX = x;
+          break outer;
+        }
       }
     }
   }
@@ -782,6 +800,9 @@ export function buildMetadata(grid, header, options = {}) {
   }
   if (platforms.length > 0) {
     metadata.platforms = platforms;
+  }
+  if (flameSpawners.length > 0) {
+    metadata.flameSpawners = flameSpawners;
   }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
@@ -854,8 +875,11 @@ export async function decodeAllLevels(romPath) {
     if (materialized.has(name)) return materialized.get(name);
     const { header, objects } = decodeObjects(prg, area.levelAddr);
     const enemies = decodeEnemies(prg, area.enemyAddr);
-    const { grid, widthCols, cannons } = renderArea(header, objects, enemies);
     const mainInfo = mainByName.get(name);
+    // Bowser throws hammers from world 6 on (0-based world index 5).
+    const { grid, widthCols, cannons } = renderArea(header, objects, enemies, {
+      bowserSymbol: world >= 5 ? "W" : "w",
+    });
     const entry = {
       world: mainInfo !== undefined ? mainInfo.world + 1 : world + 1,
       slot: mainInfo !== undefined ? mainInfo.slot + 1 : area.index5 + 1,
@@ -1037,6 +1061,28 @@ export async function decodeAllLevels(romPath) {
         phaseOffsetFrames: podobooPhaseForColumn(e.col),
       }));
 
+    // The castle axe: reaching it ends the level (the goal column paints at
+    // its column).
+    const axeObject = objects.find((o) => special13Name(o.kind) === "axe");
+    const axeTileX = axeObject?.col;
+
+    // Bowser-flame spawners ($15): flames fly in leftward at the spawner's
+    // height on a steady cadence.
+    const flameSpawners = enemies
+      .filter((e) => e.kind === "bowser-flame")
+      .map((e, index) => ({
+        spawnerId: `flame-${index}`,
+        x: e.col,
+        y: e.row + rowOffset - 1,
+        direction: "left",
+        intervalFrames: 240,
+        initialDelayFrames: (e.col * 31) % 240,
+        speedPixelsPerSecond: 90,
+        widthPixels: 24,
+        heightPixels: 8,
+        lifetimeFrames: 600,
+      }));
+
     // Lift platforms from the enemy stream. Balance ($24) platforms pair up
     // in stream order — each consecutive couple shares one rope.
     const platforms = [];
@@ -1078,6 +1124,8 @@ export async function decodeAllLevels(romPath) {
       firebars,
       podoboos,
       platforms,
+      flameSpawners,
+      axeTileX,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,
     });

@@ -5,7 +5,7 @@
   },
   "exits": [
     {
-      "x": 174,
+      "x": 141,
       "y": 11
     }
   ],
@@ -121,6 +121,20 @@
       "x": 138,
       "y": 7,
       "widthTiles": 3
+    }
+  ],
+  "flameSpawners": [
+    {
+      "spawnerId": "flame-0",
+      "x": 103,
+      "y": 1,
+      "direction": "left",
+      "intervalFrames": 240,
+      "initialDelayFrames": 73,
+      "speedPixelsPerSecond": 90,
+      "widthPixels": 24,
+      "heightPixels": 8,
+      "lifetimeFrames": 600
     }
   ]
 }

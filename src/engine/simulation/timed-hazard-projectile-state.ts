@@ -65,6 +65,7 @@ export function assertValidTimedHazardProjectilesState(
   assertValidProjectilesState({
     projectiles: candidate.projectiles,
     cooldownRemainingFrames: 0,
+    fireballHitsByEntityId: {},
   });
 }
 

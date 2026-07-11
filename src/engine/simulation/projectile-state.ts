@@ -54,6 +54,8 @@ export type Projectile = {
 export type ProjectilesState = {
   readonly projectiles: readonly Projectile[];
   readonly cooldownRemainingFrames: ProjectileFrameCount;
+  // Landed fireball hits per multi-hit enemy (Bowser); absent means zero.
+  readonly fireballHitsByEntityId: Readonly<Record<string, number>>;
 };
 
 export type ResolvedProjectilesState = {
@@ -66,6 +68,7 @@ export function makeEmptyProjectilesState(): ProjectilesState {
   return {
     projectiles: [],
     cooldownRemainingFrames: 0 as ProjectileFrameCount,
+    fireballHitsByEntityId: {},
   };
 }
 
@@ -85,6 +88,15 @@ export function assertValidProjectilesState(
   if (typeof candidate.cooldownRemainingFrames !== "number") {
     throw new Error(
       "projectilesState.cooldownRemainingFrames must be a number.",
+    );
+  }
+
+  if (
+    typeof candidate.fireballHitsByEntityId !== "object" ||
+    candidate.fireballHitsByEntityId === null
+  ) {
+    throw new Error(
+      "projectilesState.fireballHitsByEntityId must be an object.",
     );
   }
 
@@ -176,11 +188,13 @@ export function resolveProjectilesState(
   const {
     projectiles: projectilesAfterCollisions,
     newlyDefeatedEnemyEntityIds,
+    fireballHitsByEntityId,
   } = resolveProjectileEnemyCollisions(
     existingProjectiles,
     enemyMotion,
     levelSpec,
     defeatedEnemyEntityIdSet,
+    previousState.fireballHitsByEntityId,
   );
   const cooldownRemainingFrames = decrementCooldown(
     previousState.cooldownRemainingFrames,
@@ -195,6 +209,7 @@ export function resolveProjectilesState(
       state: {
         projectiles: projectilesAfterCollisions,
         cooldownRemainingFrames,
+        fireballHitsByEntityId,
       },
       newlyDefeatedEnemyEntityIds,
       firedProjectile: false,
@@ -225,6 +240,7 @@ export function resolveProjectilesState(
     state: {
       projectiles: [...projectilesAfterCollisions, newProjectile],
       cooldownRemainingFrames: movementConstants.projectileCooldownFrameCount,
+      fireballHitsByEntityId,
     },
     newlyDefeatedEnemyEntityIds,
     firedProjectile: true,
@@ -400,13 +416,16 @@ function resolveProjectileEnemyCollisions(
   enemyMotion: EnemyMotionState,
   levelSpec: LevelSpec,
   alreadyDefeatedEnemyEntityIds: ReadonlySet<EntityId>,
+  previousFireballHits: Readonly<Record<string, number>>,
 ): {
   readonly projectiles: readonly Projectile[];
   readonly newlyDefeatedEnemyEntityIds: readonly EntityId[];
+  readonly fireballHitsByEntityId: Readonly<Record<string, number>>;
 } {
   const survivingProjectiles: Projectile[] = [];
   const newlyDefeatedEnemyEntityIds: EntityId[] = [];
   const newlyDefeatedSet = new Set<EntityId>();
+  const fireballHits: Record<string, number> = { ...previousFireballHits };
 
   for (const projectile of projectiles) {
     if (!projectile.active) {
@@ -422,8 +441,23 @@ function resolveProjectileEnemyCollisions(
     );
 
     if (hitEnemyEntityId !== undefined) {
-      newlyDefeatedEnemyEntityIds.push(hitEnemyEntityId);
-      newlyDefeatedSet.add(hitEnemyEntityId);
+      // Multi-hit enemies (Bowser) soak fireballs until their hit points run
+      // out; everyone else is defeated by the first hit.
+      const placement = levelSpec.actors.find(
+        (actor) => actor.entityId === hitEnemyEntityId,
+      );
+      const hitPointsNeeded =
+        placement === undefined
+          ? 1
+          : (levelSpec.actorDefinitions.find(
+              (definition) => definition.actorId === placement.actorId,
+            )?.projectileHitPoints ?? 1);
+      const landedHits = (fireballHits[hitEnemyEntityId] ?? 0) + 1;
+      fireballHits[hitEnemyEntityId] = landedHits;
+      if (landedHits >= hitPointsNeeded) {
+        newlyDefeatedEnemyEntityIds.push(hitEnemyEntityId);
+        newlyDefeatedSet.add(hitEnemyEntityId);
+      }
       continue;
     }
 
@@ -433,6 +467,7 @@ function resolveProjectileEnemyCollisions(
   return {
     projectiles: survivingProjectiles,
     newlyDefeatedEnemyEntityIds,
+    fireballHitsByEntityId: fireballHits,
   };
 }
 
