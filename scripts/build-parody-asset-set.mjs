@@ -332,6 +332,79 @@ const tilePalette = {
   k: [40, 32, 24, 255],
 };
 
+const tileCannonTop = [
+  "....kkkkkkkk....",
+  "...kWWWWWWWWk...",
+  "...kWkkkkkkWk...",
+  "...kWkkkkkkWk...",
+  "...kWWWWWWWWk...",
+  "..kkWWWWWWWWkk..",
+  "..kWWWWWWWWWWk..",
+  "..kWWWWWWWWWWk..",
+  "..kWWWWWWWWWWk..",
+  "..kWWWWWWWWWWk..",
+  "..kWWWWWWWWWWk..",
+  "..kkWWWWWWWWkk..",
+  "...kkkkkkkkkk...",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+];
+const tileCannonBottom = [
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+];
+const tileSpringTop = [
+  "................",
+  "................",
+  "..yyyyyyyyyyyy..",
+  "..yssssssssssy..",
+  "..yyyyyyyyyyyy..",
+  "....g......g....",
+  "...gGgggggGg....",
+  "....g......g....",
+  "...gGgggggGg....",
+  "....g......g....",
+  "...gGgggggGg....",
+  "....g......g....",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+  "................",
+];
+const tileSpringBottom = [
+  "................",
+  "....g......g....",
+  "...gGgggggGg....",
+  "....g......g....",
+  "...gGgggggGg....",
+  "....g......g....",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+  "..wWWWWWWWWWWw..",
+  "..wWWWWWWWWWWw..",
+  "..wwwwwwwwwwww..",
+];
+
 function repeatRow(row) {
   return Array.from({ length: spriteSize }, () => row);
 }
@@ -515,6 +588,74 @@ const castawayPowerUp = [
   "................",
 ];
 
+// Red-shelled snapper variant (ledge-staying koopas and the red winged one).
+const redEnemyPalette = {
+  ".": [0, 0, 0, 0],
+  G: [168, 66, 48, 255],
+  L: [232, 160, 120, 255],
+  e: [24, 20, 18, 255],
+  w: [245, 245, 245, 255],
+  m: [70, 46, 40, 255],
+};
+
+// Spike-backed "urchin" (spiny stand-in): dark body under a thorny crown.
+const spinyPalette = {
+  ".": [0, 0, 0, 0],
+  G: [104, 58, 96, 255],
+  L: [210, 120, 170, 255],
+  e: [24, 20, 18, 255],
+  w: [245, 245, 245, 255],
+  m: [46, 26, 44, 255],
+};
+
+// The big castle "warden" (Bowser stand-in): charcoal hide, ember accents.
+const wardenPalette = {
+  ".": [0, 0, 0, 0],
+  G: [58, 54, 60, 255],
+  L: [214, 118, 52, 255],
+  e: [24, 20, 18, 255],
+  w: [245, 240, 220, 255],
+  m: [120, 34, 26, 255],
+};
+
+// A dark finned slug for the bullet volleys.
+const bulletPalette = {
+  ".": [0, 0, 0, 0],
+  G: [40, 40, 46, 255],
+  L: [90, 90, 100, 255],
+  e: [24, 20, 18, 255],
+  w: [245, 245, 245, 255],
+};
+
+const bulletSlug = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "....GGGGGGGG....",
+  "..GGGGGGGGGGLL..",
+  ".GweGGGGGGGGLLL.",
+  ".GweGGGGGGGGLLL.",
+  "..GGGGGGGGGGLL..",
+  "....GGGGGGGG....",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+
+// The warden reuses the snapper body doubled to fill the frame.
+function scaleGridDouble(grid) {
+  const scaled = [];
+  for (const row of grid.slice(0, 8)) {
+    const wide = [...row.slice(0, 8)].map((cell) => cell + cell).join("");
+    scaled.push(wide, wide);
+  }
+  return scaled;
+}
+
 // Original "snapper" — the shabby castaway's turtle. Green mossy shell, cross
 // stubborn eyes; becomes a bare shell when jumped on.
 const snapperWalk = [
@@ -669,11 +810,20 @@ async function main() {
     ["tile-pole.png", tilePole, tilePalette],
     ["tile-shell.png", tileShell, tilePalette],
     ["tile-spikes.png", tileSpikes, tilePalette],
+    ["tile-cannon-top.png", tileCannonTop, tilePalette],
+    ["tile-cannon-bottom.png", tileCannonBottom, tilePalette],
+    ["tile-spring-top.png", tileSpringTop, tilePalette],
+    ["tile-spring-bottom.png", tileSpringBottom, tilePalette],
     ["castaway-powerup.png", castawayPowerUp, powerUpPalette],
     ["castaway-1up.png", castawayPowerUp, greenRationPalette],
     ["castaway-star.png", castawayStar, starPalette],
     ["snapper-walk.png", snapperWalk, enemyPalette],
     ["snapper-shell.png", snapperShell, enemyPalette],
+    ["snapper-red-walk.png", snapperWalk, redEnemyPalette],
+    ["snapper-red-shell.png", snapperShell, redEnemyPalette],
+    ["urchin-walk.png", snapperShell, spinyPalette],
+    ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
+    ["bullet-slug.png", bulletSlug, bulletPalette],
     ["castaway-fish.png", castawayFish, waterEnemyPalette],
     ["castaway-squid.png", castawaySquid, waterEnemyPalette],
   ];
@@ -697,6 +847,12 @@ async function main() {
     "pipe-left": spriteEntry("tile-bamboo.png"),
     "pipe-right": spriteEntry("tile-bamboo.png"),
     flagpole: spriteEntry("tile-pole.png"),
+    "castle-bridge": spriteEntry("tile-plank.png"),
+    "power-up-brick": spriteEntry("tile-plank.png"),
+    "cannon-top": spriteEntry("tile-cannon-top.png"),
+    "cannon-bottom": spriteEntry("tile-cannon-bottom.png"),
+    "spring-top": spriteEntry("tile-spring-top.png"),
+    "spring-bottom": spriteEntry("tile-spring-bottom.png"),
     coin: spriteEntry("tile-shell.png"),
     // Level-editor tile ids, so editor-made levels render with this skin too.
     grass: spriteEntry("tile-sand.png"),
@@ -738,6 +894,22 @@ async function main() {
       ),
       "vglc-smb-cheep": walkingEnemySprite("castaway-fish.png"),
       "vglc-smb-blooper": walkingEnemySprite("castaway-squid.png"),
+      "vglc-smb-koopa-red": shelledEnemySprite(
+        "snapper-red-walk.png",
+        "snapper-red-shell.png",
+      ),
+      "vglc-smb-parakoopa-red": shelledEnemySprite(
+        "snapper-red-walk.png",
+        "snapper-red-shell.png",
+      ),
+      "vglc-smb-parakoopa-hopper": shelledEnemySprite(
+        "snapper-walk.png",
+        "snapper-shell.png",
+      ),
+      "vglc-smb-spiny": walkingEnemySprite("urchin-walk.png"),
+      "vglc-smb-bowser": walkingEnemySprite("warden.png"),
+      "vglc-smb-bowser-hammers": walkingEnemySprite("warden.png"),
+      "vglc-smb-bullet": walkingEnemySprite("bullet-slug.png"),
       "vglc-smb-coin": spriteEntry("tile-shell.png"),
       "vglc-smb-question-block-contents": spriteEntry("tile-shell.png"),
       "vglc-smb-power-up": spriteEntry("castaway-powerup.png"),

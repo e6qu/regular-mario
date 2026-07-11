@@ -97,11 +97,19 @@ export function validateDefaultVglcSmbSpriteCoverage(
 // The "empty" tile is the transparent sky sentinel; it renders as nothing via
 // the authored fallback, so an asset set need not provide a sprite for it.
 const nonRenderedTileIds = new Set(["empty"]);
+// Hidden blocks are invisible until bumped (the reveal shows the shared used-
+// block art), so they never need their own sprite either.
+const hiddenTileCollisionValue = "hidden";
 
 function findMissingTileSpriteIds(
   manifest: UserAssetManifest,
   levelInput: LevelSpecInput,
 ): readonly string[] {
+  const hiddenTileIds = new Set(
+    levelInput.tileDefinitions
+      .filter((tile) => tile.collision === hiddenTileCollisionValue)
+      .map((tile) => tile.tileId),
+  );
   const tileIds = new Set<string>();
 
   for (const tileRow of levelInput.tiles) {
@@ -112,6 +120,7 @@ function findMissingTileSpriteIds(
 
   return [...tileIds]
     .filter((tileId) => !nonRenderedTileIds.has(tileId))
+    .filter((tileId) => !hiddenTileIds.has(tileId))
     .filter((tileId) => manifest.tileSprites[tileId] === undefined)
     .sort();
 }

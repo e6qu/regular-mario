@@ -323,6 +323,11 @@ function enemyIdName(id) {
   if (id === 0x18) return "frenzy-stop-cmd";
   if (id >= 0x1b && id <= 0x1f) return "firebar"; // metadata, not a glyph
   if (id >= 0x24 && id <= 0x2c) return "platform"; // lifts (metadata)
+  // Intentionally inert: $34 marks the warp zone (we derive it from the
+  // object stream's scroll-lock-warp command) and $35 is the rescue
+  // retainer standing past the axe, where the level has already ended.
+  if (id === 0x34) return "warp-zone-marker";
+  if (id === 0x35) return "retainer";
   return `enemy-${id.toString(16)}`;
 }
 
