@@ -51,7 +51,30 @@ export type Projectile = {
   readonly stompable?: boolean;
   // Lakitu's eggs hatch into walking Spinies when they land on solid ground.
   readonly hatchesOnLanding?: boolean;
+  // The hazardous collision box can be inset from the rendered sprite (the ROM
+  // Bowser flame is a wide sprite with a tiny hitbox). Absent means no inset.
+  readonly hazardInsetXPixels?: number;
+  readonly hazardInsetYPixels?: number;
 };
+
+// The rectangle a projectile actually collides with — its render box shrunk by
+// the (optional) symmetric hazard inset and re-centred. For most projectiles
+// this is just the render box.
+export function projectileHazardBox(projectile: Projectile): {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+} {
+  const insetX = projectile.hazardInsetXPixels ?? 0;
+  const insetY = projectile.hazardInsetYPixels ?? 0;
+  return {
+    x: projectile.position.x + insetX,
+    y: projectile.position.y + insetY,
+    width: projectile.width - insetX * 2,
+    height: projectile.height - insetY * 2,
+  };
+}
 
 export type ProjectilesState = {
   readonly projectiles: readonly Projectile[];

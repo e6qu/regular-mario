@@ -53,7 +53,7 @@ type LevelTimerDefinitionInput = {
   readonly frames: number;
 };
 
-type TimedHazardProjectileSpawnerInput = {
+export type TimedHazardProjectileSpawnerInput = {
   readonly spawnerId: string;
   readonly x: number;
   readonly y: number;
@@ -66,6 +66,11 @@ type TimedHazardProjectileSpawnerInput = {
   readonly lifetimeFrames: number;
   // Stompable projectiles (Bullet Bills) can be defeated by jumping on them.
   readonly stompable?: boolean;
+  // The hazardous collision box can be smaller than the rendered sprite (the
+  // ROM's Bowser flame is a 24×8 sprite with a tiny 4×4 hitbox): these inset
+  // the collision box symmetrically from each edge. Default 0 (box = sprite).
+  readonly hazardInsetXPixels?: number;
+  readonly hazardInsetYPixels?: number;
 };
 
 type PathAnnotationPointInput = {
@@ -421,6 +426,9 @@ type TimedHazardProjectileSpawner = {
   readonly heightPixels: ColliderDimensionPixels;
   readonly lifetimeFrames: TimedHazardProjectileFrameCount;
   readonly stompable: boolean;
+  // Symmetric inset of the collision box from the rendered sprite (see input).
+  readonly hazardInsetXPixels: number;
+  readonly hazardInsetYPixels: number;
 };
 
 export type SpawnedPowerUpMovement = {
@@ -2223,6 +2231,14 @@ function validateTimedHazardProjectileSpawners(
         heightPixels: height.value,
         lifetimeFrames: lifetimeFrames.value,
         stompable: spawnerInput.stompable === true,
+        hazardInsetXPixels: sanitizeHazardInset(
+          spawnerInput.hazardInsetXPixels,
+          width.value,
+        ),
+        hazardInsetYPixels: sanitizeHazardInset(
+          spawnerInput.hazardInsetYPixels,
+          height.value,
+        ),
       });
     }
   }
@@ -2232,6 +2248,16 @@ function validateTimedHazardProjectileSpawners(
   }
 
   return succeed(validatedSpawners);
+}
+
+// Clamp a hazard-box inset to a sane range: a non-negative integer that can't
+// collapse the collision box past its centre (so it never inverts). Absent or
+// invalid values mean no inset (the box equals the rendered sprite).
+function sanitizeHazardInset(value: unknown, dimensionPixels: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return 0;
+  }
+  return Math.min(Math.floor(value), Math.floor((dimensionPixels - 1) / 2));
 }
 
 function makeTimedHazardProjectileSpawnerId(

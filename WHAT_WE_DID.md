@@ -21,6 +21,12 @@ committed — only numeric metadata, code, docs, and scripts.
   overlap + downward motion; we additionally required the feet to have been
   above the enemy's top last frame, so a deep descending overlap was wrongly
   harmful. `isEnemyStomp` now keys purely on the descent.
+- **BUG 2 — Bowser flame collision box.** Introduced a projectile collision box
+  decoupled from the render sprite (`hazardInsetXPixels/YPixels`): the flame
+  still renders 24×8 but only its centred ~8×6 core is lethal, so flames are
+  dodgeable like the ROM's tiny 4×4 hitbox. Threaded through the decoder,
+  metadata, parser, spec, and collision; the player/enemy hitboxes (BUG 3/5)
+  and crouch (BUG 4) remain the dedicated playtested change (see BUGS.md).
 
 ## 2026-07-12 — Mobile NES control deck outside the drawing surface
 

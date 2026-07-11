@@ -325,6 +325,8 @@ describe("makeLevelSpec", () => {
         heightPixels: 8,
         lifetimeFrames: 180,
         stompable: false,
+        hazardInsetXPixels: 0,
+        hazardInsetYPixels: 0,
       },
     ]);
   });

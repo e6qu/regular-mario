@@ -25,6 +25,7 @@ import {
 } from "./player-vitality";
 import {
   makeEmptyProjectilesState,
+  projectileHazardBox,
   resolveProjectilesState,
   stepExistingProjectiles,
   type Projectile,
@@ -529,5 +530,38 @@ describe("projectile-state", () => {
     const projectile = activeProjectiles(result)[0];
 
     expect(projectile?.position.x).toBeGreaterThan(48);
+  });
+
+  describe("projectileHazardBox", () => {
+    const baseProjectile = {
+      id: "flame-1" as Projectile["id"],
+      position: { x: 100, y: 200 } as Projectile["position"],
+      velocity: { x: 0, y: 0 } as Projectile["velocity"],
+      width: 24,
+      height: 8,
+      active: true,
+      remainingLifetimeFrames: 60 as Projectile["remainingLifetimeFrames"],
+    };
+
+    it("returns the full render box when there is no inset", () => {
+      expect(projectileHazardBox(baseProjectile)).toEqual({
+        x: 100,
+        y: 200,
+        width: 24,
+        height: 8,
+      });
+    });
+
+    it("shrinks and re-centres the box by a symmetric inset (Bowser flame)", () => {
+      // A 24×8 flame inset by 8/1 → a centred 8×6 hazard box, dodgeable at the
+      // sprite's wide edges just like the ROM's tiny flame hitbox.
+      expect(
+        projectileHazardBox({
+          ...baseProjectile,
+          hazardInsetXPixels: 8,
+          hazardInsetYPixels: 1,
+        }),
+      ).toEqual({ x: 108, y: 201, width: 8, height: 6 });
+    });
   });
 });

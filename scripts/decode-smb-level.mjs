@@ -1430,6 +1430,11 @@ export async function decodeAllLevels(romPath) {
         widthPixels: 24,
         heightPixels: 8,
         lifetimeFrames: 600,
+        // The ROM's flame (BoundBoxCtrlData entry 8) is a tiny 4×4 hitbox
+        // inside a wide sprite: inset the collision box so the flame is
+        // dodgeable rather than filling its whole 24×8 render.
+        hazardInsetXPixels: 8,
+        hazardInsetYPixels: 1,
       }));
 
     // Lift platforms from the enemy stream. Balance ($24) platforms pair up

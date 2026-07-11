@@ -7,6 +7,7 @@ import type {
   LoopZoneInput,
   PlatformInput,
   PodobooInput,
+  TimedHazardProjectileSpawnerInput,
   VineTransitionInput,
 } from "../../domain/level-spec";
 import type { DomainResult } from "../../domain/result";
@@ -533,20 +534,14 @@ type VglcSmbTimerMetadata = {
   readonly frames: number;
 };
 
-type VglcSmbCannonProjectileMetadata = {
-  readonly spawnerId: string;
-  readonly x: number;
-  readonly y: number;
+// Cannon Bullet Bills and Bowser flames decode straight into the level spec's
+// timed-hazard spawner input, so they share its shape — only the direction is
+// narrowed to the two the SMB stream emits.
+type VglcSmbCannonProjectileMetadata = Omit<
+  TimedHazardProjectileSpawnerInput,
+  "direction"
+> & {
   readonly direction: "left" | "right";
-  readonly intervalFrames: number;
-  readonly initialDelayFrames: number;
-  readonly speedPixelsPerSecond: number;
-  readonly widthPixels: number;
-  readonly heightPixels: number;
-  readonly lifetimeFrames: number;
-  // Bullet Bills are stompable (defeated by a descending player); Bowser flames
-  // and other hazards are not. Defaults to non-stompable when absent.
-  readonly stompable?: boolean;
 };
 
 type VglcSmbPathAnnotationMetadata = {
@@ -2178,6 +2173,12 @@ function parseCannonProjectile(
     heightPixels,
     lifetimeFrames,
     ...(candidate.stompable === true ? { stompable: true } : {}),
+    ...(typeof candidate.hazardInsetXPixels === "number"
+      ? { hazardInsetXPixels: candidate.hazardInsetXPixels }
+      : {}),
+    ...(typeof candidate.hazardInsetYPixels === "number"
+      ? { hazardInsetYPixels: candidate.hazardInsetYPixels }
+      : {}),
   };
 }
 

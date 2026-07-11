@@ -15,6 +15,7 @@ import type { PlayerSimulationState } from "./player-state";
 import type { Projectile } from "./projectile-state";
 import {
   assertValidProjectilesState,
+  projectileHazardBox,
   requireProjectileFrameCount,
   stepExistingProjectiles,
 } from "./projectile-state";
@@ -164,12 +165,14 @@ export function resolveTimedHazardProjectilesState(
 
   return {
     projectiles,
-    playerContact: projectiles.some((projectile) =>
-      playerOverlapsActorPixel(player, projectile.position, {
-        width: projectile.width,
-        height: projectile.height,
-      }),
-    ),
+    playerContact: projectiles.some((projectile) => {
+      const box = projectileHazardBox(projectile);
+      return playerOverlapsActorPixel(
+        player,
+        { x: box.x, y: box.y },
+        { width: box.width, height: box.height },
+      );
+    }),
     stompedProjectileCount,
     hatchedPositions,
   };
@@ -197,10 +200,14 @@ function isProjectileStomp(
     previousPlayerBottom <=
       projectileTop + movementConstants.enemyStompForgivenessPixels &&
     playerBottom >= projectileTop &&
-    playerOverlapsActorPixel(player, projectile.position, {
-      width: projectile.width,
-      height: projectile.height,
-    })
+    (() => {
+      const box = projectileHazardBox(projectile);
+      return playerOverlapsActorPixel(
+        player,
+        { x: box.x, y: box.y },
+        { width: box.width, height: box.height },
+      );
+    })()
   );
 }
 
@@ -418,6 +425,8 @@ function makeTimedHazardProjectile(
       "timedHazardProjectile.remainingLifetimeFrames",
     ),
     stompable: spawner.stompable,
+    hazardInsetXPixels: spawner.hazardInsetXPixels,
+    hazardInsetYPixels: spawner.hazardInsetYPixels,
   };
 }
 

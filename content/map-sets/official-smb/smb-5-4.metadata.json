@@ -162,7 +162,9 @@
       "speedPixelsPerSecond": 90,
       "widthPixels": 24,
       "heightPixels": 8,
-      "lifetimeFrames": 600
+      "lifetimeFrames": 600,
+      "hazardInsetXPixels": 8,
+      "hazardInsetYPixels": 1
     }
   ]
 }
