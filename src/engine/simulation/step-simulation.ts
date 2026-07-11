@@ -101,6 +101,10 @@ import {
 import { advancePseudoRandom } from "./pseudo-random";
 import { resolveCheepFrenzyState } from "./cheep-frenzy-state";
 import { playerTouchesFlameHazard } from "./flame-hazards";
+import {
+  assertValidPlatformsState,
+  resolvePlatformsState,
+} from "./platform-state";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -159,6 +163,7 @@ export function stepSimulation(
   assertValidPipeEntryState(state.pipeEntry);
   assertValidLevelTimerState(state.levelTimer);
   assertValidTimedHazardProjectilesState(state.timedHazardProjectiles);
+  assertValidPlatformsState(state.platforms, levelSpec);
 
   switch (state.playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -310,14 +315,26 @@ function stepActiveSimulation(
         }
       : resolvedPlayerWithBumpsPlayer;
 
+  // Moving platforms: advance the lifts and settle the player onto whichever
+  // one they ride (carried by its motion). Runs after tile collision so solid
+  // ground still wins where both apply.
+  const platformsResolution = resolvePlatformsState(
+    state.platforms,
+    levelSpec,
+    resolvedPlayer,
+    Number(state.clock.frameDurationMilliseconds),
+    state.clock.frameIndex,
+  );
+  const platformAdjustedPlayer = platformsResolution.player;
+
   const teleportedPlayer =
     teleportResult.kind === "same-level"
       ? teleportPlayerToTilePosition(
-          resolvedPlayer,
+          platformAdjustedPlayer,
           teleportResult.targetTilePosition,
           levelSpec,
         )
-      : resolvedPlayer;
+      : platformAdjustedPlayer;
 
   const interactiveBlocks = resolveInteractiveBlockInteractionState(
     state.interactiveBlocks,
@@ -649,6 +666,7 @@ function stepActiveSimulation(
     bloodiness,
     pseudoRandom: nextPseudoRandom,
     cheepFrenzy: cheepFrenzy.state,
+    platforms: platformsResolution.state,
   };
 }
 

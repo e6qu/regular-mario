@@ -317,8 +317,25 @@ function enemyIdName(id) {
   if (id === 0x11) return "lakitu";
   if (id === 0x12) return "spiny";
   if (id >= 0x1b && id <= 0x1f) return "firebar"; // metadata, not a glyph
+  if (id >= 0x24 && id <= 0x2c) return "platform"; // lifts (metadata)
   return `enemy-${id.toString(16)}`;
 }
+
+// Lift enemy ids -> platform kinds/widths. $24 balance platforms pair up in
+// stream order; $26/$27 and $2B/$2C are the wrapping elevator lifts (large 3
+// tiles / small 2 tiles); $28/$2A oscillate horizontally; $29 falls when
+// ridden; $25 oscillates vertically.
+const platformVariants = {
+  0x24: { kind: "balance", widthTiles: 2 },
+  0x25: { kind: "vertical", widthTiles: 3 },
+  0x26: { kind: "lift-up", widthTiles: 3 },
+  0x27: { kind: "lift-down", widthTiles: 3 },
+  0x28: { kind: "horizontal", widthTiles: 3 },
+  0x29: { kind: "drop", widthTiles: 3 },
+  0x2a: { kind: "horizontal", widthTiles: 3 },
+  0x2b: { kind: "lift-up", widthTiles: 2 },
+  0x2c: { kind: "lift-down", widthTiles: 2 },
+};
 
 // Firebar variants $1B-$1F: direction/speed from the init tables
 // (FirebarSpinDirData/FirebarSpinSpdData), $1F is the long 12-orb bar.
@@ -653,6 +670,7 @@ export function buildMetadata(grid, header, options = {}) {
     piranhaPlants = [],
     firebars = [],
     podoboos = [],
+    platforms = [],
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
   } = options;
@@ -692,6 +710,9 @@ export function buildMetadata(grid, header, options = {}) {
   }
   if (podoboos.length > 0) {
     metadata.podoboos = podoboos;
+  }
+  if (platforms.length > 0) {
+    metadata.platforms = platforms;
   }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
@@ -947,12 +968,47 @@ export async function decodeAllLevels(romPath) {
         phaseOffsetFrames: podobooPhaseForColumn(e.col),
       }));
 
+    // Lift platforms from the enemy stream. Balance ($24) platforms pair up
+    // in stream order — each consecutive couple shares one rope.
+    const platforms = [];
+    let pendingBalanceId;
+    for (const e of enemies) {
+      if (e.kind !== "platform") continue;
+      const variant = platformVariants[e.id];
+      const id = `lift-${platforms.length}`;
+      const platform = {
+        id,
+        kind: variant.kind,
+        x: e.col,
+        y: e.row + rowOffset - 1,
+        widthTiles: variant.widthTiles,
+      };
+      if (variant.kind === "balance") {
+        if (pendingBalanceId === undefined) {
+          pendingBalanceId = id;
+        } else {
+          platform.balancePartnerId = pendingBalanceId;
+          const pending = platforms.find((q) => q.id === pendingBalanceId);
+          pending.balancePartnerId = id;
+          pendingBalanceId = undefined;
+        }
+      }
+      platforms.push(platform);
+    }
+    // An unpaired balance platform (data quirk) falls back to a drop lift so
+    // validation cannot fail on a dangling rope.
+    if (pendingBalanceId !== undefined) {
+      const pending = platforms.find((q) => q.id === pendingBalanceId);
+      pending.kind = "drop";
+    }
+
     entry.metadata = buildMetadata(grid, header, {
       transitions,
       cannons,
       piranhaPlants,
       firebars,
       podoboos,
+      platforms,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,
     });

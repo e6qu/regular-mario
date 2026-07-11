@@ -3,6 +3,7 @@ import type {
   CheepFrenzyInput,
   FirebarInput,
   LevelSpecInput,
+  PlatformInput,
   PodobooInput,
 } from "../../domain/level-spec";
 import type { DomainResult } from "../../domain/result";
@@ -508,6 +509,7 @@ type VglcSmbTextImportMetadata = {
   readonly piranhaPlants: readonly VglcSmbPoint[];
   readonly firebars: readonly FirebarInput[];
   readonly podoboos: readonly PodobooInput[];
+  readonly platforms: readonly PlatformInput[];
 };
 
 export function parseVglcSmbTextLevel(
@@ -797,8 +799,13 @@ function parseConvertedVglcSmbRows(
           podoboos: input.metadata.podoboos,
         };
 
+  const withPlatforms: LevelSpecInput =
+    input.metadata.platforms.length === 0
+      ? withFlames
+      : { ...withFlames, platforms: input.metadata.platforms };
+
   const withPlants = withPiranhaPlants(
-    withFlames,
+    withPlatforms,
     input.metadata.piranhaPlants,
   );
 
@@ -905,6 +912,7 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     piranhaPlants: [],
     firebars: [],
     podoboos: [],
+    platforms: [],
   };
 }
 
@@ -985,7 +993,68 @@ function parseVglcSmbTextImportMetadata(
       "metadata.podoboos",
       errors,
     ),
+    platforms: parsePlatformArray(
+      candidate.platforms,
+      "metadata.platforms",
+      errors,
+    ),
   };
+}
+
+function parsePlatformArray(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): readonly PlatformInput[] {
+  if (input === undefined) {
+    return [];
+  }
+  if (!Array.isArray(input)) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        `${path} must be an array of platform metadata objects.`,
+        path,
+      ),
+    );
+    return [];
+  }
+  const platforms: PlatformInput[] = [];
+  for (const [index, value] of input.entries()) {
+    const itemPath = `${path}[${index}]`;
+    const candidate = value as Readonly<Record<string, unknown>> | null;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      typeof candidate.id !== "string" ||
+      typeof candidate.kind !== "string" ||
+      typeof candidate.x !== "number" ||
+      typeof candidate.y !== "number" ||
+      typeof candidate.widthTiles !== "number" ||
+      (candidate.balancePartnerId !== undefined &&
+        typeof candidate.balancePartnerId !== "string")
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.VglcMetadataInvalid,
+          `${itemPath} must have string id/kind, numeric x/y/widthTiles, and an optional string balancePartnerId.`,
+          itemPath,
+        ),
+      );
+      continue;
+    }
+    platforms.push({
+      platformId: candidate.id,
+      kind: candidate.kind,
+      x: candidate.x,
+      y: candidate.y,
+      widthTiles: candidate.widthTiles,
+      ...(candidate.balancePartnerId === undefined
+        ? {}
+        : { balancePartnerId: candidate.balancePartnerId }),
+    });
+  }
+  return platforms;
 }
 
 // Firebar/podoboo metadata is validated in depth by the level spec; the

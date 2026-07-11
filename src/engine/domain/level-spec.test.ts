@@ -146,6 +146,7 @@ describe("makeLevelSpec", () => {
       cheepFrenzy: undefined,
       firebars: [],
       podoboos: [],
+      platforms: [],
     });
   });
 

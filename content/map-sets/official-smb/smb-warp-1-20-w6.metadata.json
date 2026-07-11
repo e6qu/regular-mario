@@ -22,5 +22,14 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "horizontal",
+      "x": 16,
+      "y": 11,
+      "widthTiles": 3
+    }
+  ]
 }

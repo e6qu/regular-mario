@@ -15,6 +15,7 @@ import {
   computeFirebarOrbs,
   computePodobooPositions,
 } from "../../engine/simulation/flame-hazards";
+import { computePlatformPlacements } from "../../engine/simulation/platform-state";
 import {
   computeTotalScore,
   timeBonusFramesPerDisplayUnit,
@@ -570,6 +571,7 @@ export class BootScene extends Phaser.Scene {
     Phaser.GameObjects.Container
   > = new Map();
   private readonly flameHazardRenderObjects: Phaser.GameObjects.Arc[] = [];
+  private readonly platformRenderObjects: Phaser.GameObjects.Rectangle[] = [];
   private levelRenderedObjects: readonly Phaser.GameObjects.GameObject[] = [];
   private readonly levelSequence: readonly LevelSpecInput[] | undefined;
   private readonly warpLevelsByName:
@@ -1299,6 +1301,7 @@ export class BootScene extends Phaser.Scene {
     this.timedHazardProjectileRenderObjects.clear();
     this.frenzyCheepRenderObjects.clear();
     this.flameHazardRenderObjects.length = 0;
+    this.platformRenderObjects.length = 0;
   }
 
   private advanceToNextLevel(): void {
@@ -2390,6 +2393,7 @@ export class BootScene extends Phaser.Scene {
     this.renderTimedHazardProjectiles();
     this.renderFrenzyCheeps();
     this.renderFlameHazards();
+    this.renderPlatforms();
     this.renderPipes();
   }
 
@@ -2428,6 +2432,37 @@ export class BootScene extends Phaser.Scene {
       index += 1
     ) {
       this.flameHazardRenderObjects[index]?.setVisible(false);
+    }
+  }
+
+  // Moving lift platforms: one pooled rectangle per platform, repositioned
+  // every frame from the platform state.
+  private renderPlatforms(): void {
+    if (this.levelSpec.platforms.length === 0) {
+      return;
+    }
+    const placements = computePlatformPlacements(
+      this.simulationState.platforms,
+      this.levelSpec,
+      this.simulationState.clock.frameIndex,
+    );
+    for (const [index, placement] of placements.entries()) {
+      let rectangle = this.platformRenderObjects[index];
+      if (rectangle === undefined) {
+        rectangle = this.add
+          .rectangle(
+            0,
+            0,
+            placement.widthPixels,
+            placement.heightPixels,
+            platformFillColor,
+          )
+          .setOrigin(0)
+          .setStrokeStyle(1, platformEdgeColor);
+        this.platformRenderObjects.push(rectangle);
+      }
+      rectangle.setPosition(placement.x, placement.y);
+      rectangle.setSize(placement.widthPixels, placement.heightPixels);
     }
   }
 
@@ -5182,6 +5217,8 @@ function renderThrowingEnemyActor(
 }
 
 const flameHazardCoreColor = 0xf97316;
+const platformFillColor = 0xd9a066;
+const platformEdgeColor = 0x8a5a2b;
 const flameHazardRimColor = 0xfde047;
 const piranhaStalkColor = 0x15803d;
 const piranhaHeadColor = 0x22c55e;

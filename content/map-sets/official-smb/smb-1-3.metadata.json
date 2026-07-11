@@ -90,5 +90,35 @@
       "x": 186,
       "y": 10
     }
+  ],
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "lift-down",
+      "x": 155,
+      "y": 8,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-1",
+      "kind": "lift-down",
+      "x": 155,
+      "y": 14,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-2",
+      "kind": "lift-up",
+      "x": 170,
+      "y": 2,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-3",
+      "kind": "lift-up",
+      "x": 170,
+      "y": 10,
+      "widthTiles": 3
+    }
   ]
 }

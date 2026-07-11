@@ -23,6 +23,22 @@
   },
   "questionBlockContentsDefault": "power-up",
   "theme": "water",
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "lift-down",
+      "x": 22,
+      "y": 7,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-1",
+      "kind": "lift-down",
+      "x": 28,
+      "y": 13,
+      "widthTiles": 3
+    }
+  ],
   "cheepFrenzy": {
     "startTileX": 32,
     "endTileX": 71

@@ -185,6 +185,40 @@ export type LevelSpecInput = {
   readonly cheepFrenzy?: CheepFrenzyInput;
   readonly firebars?: readonly FirebarInput[];
   readonly podoboos?: readonly PodobooInput[];
+  readonly platforms?: readonly PlatformInput[];
+};
+
+// Rideable moving platforms (SMB lifts):
+// - "vertical"/"horizontal": oscillate around their start position.
+// - "lift-up"/"lift-down": travel continuously and wrap around the playfield
+//   (the elevator shafts).
+// - "drop": fall while ridden and never recover.
+// - "balance": rope-linked pairs — riding one pulls it down and its partner
+//   up; past the rope limit both fall.
+export type PlatformInput = {
+  readonly platformId: string;
+  readonly kind: string;
+  readonly x: number;
+  readonly y: number;
+  readonly widthTiles: number;
+  readonly balancePartnerId?: string;
+};
+
+export type PlatformKind =
+  | "vertical"
+  | "horizontal"
+  | "lift-up"
+  | "lift-down"
+  | "drop"
+  | "balance";
+
+export type PlatformDefinition = {
+  readonly platformId: string;
+  readonly kind: PlatformKind;
+  readonly tileX: number;
+  readonly tileY: number;
+  readonly widthTiles: number;
+  readonly balancePartnerId: string | undefined;
 };
 
 // An underwater Cheep-cheep frenzy: while the player is within this tile-column
@@ -332,6 +366,7 @@ export type LevelSpec = {
   readonly cheepFrenzy: CheepFrenzyRegion | undefined;
   readonly firebars: readonly FirebarDefinition[];
   readonly podoboos: readonly PodobooDefinition[];
+  readonly platforms: readonly PlatformDefinition[];
 };
 
 type ValidatedDimensions = {
@@ -1162,6 +1197,7 @@ export function makeLevelSpec(
   const spawnedPowerUpMovementResult = validateSpawnedPowerUpMovement(input);
   const firebarsResult = validateFirebars(input);
   const podoboosResult = validatePodoboos(input);
+  const platformsResult = validatePlatforms(input);
 
   if (!enemyPatrolSpeedResult.ok) {
     errors.push(...enemyPatrolSpeedResult.errors);
@@ -1191,6 +1227,10 @@ export function makeLevelSpec(
     errors.push(...podoboosResult.errors);
   }
 
+  if (!platformsResult.ok) {
+    errors.push(...platformsResult.errors);
+  }
+
   const interactiveBlockContentsErrors = validateInteractiveBlockContents(
     definitionsResult.value.tileDefinitions,
     definitionsResult.value.actorRoles,
@@ -1211,7 +1251,8 @@ export function makeLevelSpec(
     !timedHazardProjectileSpawnersResult.ok ||
     !spawnedPowerUpMovementResult.ok ||
     !firebarsResult.ok ||
-    !podoboosResult.ok
+    !podoboosResult.ok ||
+    !platformsResult.ok
   ) {
     throw new Error("Level metadata result is invalid after validation.");
   }
@@ -1239,7 +1280,122 @@ export function makeLevelSpec(
     ),
     firebars: firebarsResult.value,
     podoboos: podoboosResult.value,
+    platforms: platformsResult.value,
   });
+}
+
+const maxPlatformWidthTiles = 6;
+const platformKinds: ReadonlySet<string> = new Set([
+  "vertical",
+  "horizontal",
+  "lift-up",
+  "lift-down",
+  "drop",
+  "balance",
+]);
+
+function validatePlatforms(
+  input: LevelSpecInput,
+): DomainResult<readonly PlatformDefinition[], ValidationError> {
+  const platforms = input.platforms ?? [];
+  const errors: ValidationError[] = [];
+  const seenIds = new Set<string>();
+  const validated: PlatformDefinition[] = [];
+
+  for (const [index, platform] of platforms.entries()) {
+    const path = `platforms[${index}]`;
+    if (
+      typeof platform.platformId !== "string" ||
+      !metadataIdPattern.test(platform.platformId) ||
+      seenIds.has(platform.platformId)
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.EntityIdInvalid,
+          `${path}.platformId must be a unique well-formed id.`,
+          `${path}.platformId`,
+        ),
+      );
+      continue;
+    }
+    seenIds.add(platform.platformId);
+
+    if (!platformKinds.has(platform.kind)) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorRoleInvalid,
+          `${path}.kind must be one of ${[...platformKinds].join(", ")}.`,
+          `${path}.kind`,
+        ),
+      );
+      continue;
+    }
+
+    const inBounds =
+      Number.isSafeInteger(platform.x) &&
+      Number.isSafeInteger(platform.y) &&
+      platform.x >= 0 &&
+      platform.x < input.widthTiles &&
+      platform.y >= 0 &&
+      platform.y < input.heightTiles;
+    if (!inBounds) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorPositionOutOfBounds,
+          `${path} must be inside the level bounds.`,
+          path,
+        ),
+      );
+      continue;
+    }
+
+    if (
+      !Number.isSafeInteger(platform.widthTiles) ||
+      platform.widthTiles < 1 ||
+      platform.widthTiles > maxPlatformWidthTiles
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.DimensionInvalid,
+          `${path}.widthTiles must be an integer between 1 and ${String(maxPlatformWidthTiles)}.`,
+          `${path}.widthTiles`,
+        ),
+      );
+      continue;
+    }
+
+    validated.push({
+      platformId: platform.platformId,
+      kind: platform.kind as PlatformKind,
+      tileX: platform.x,
+      tileY: platform.y,
+      widthTiles: platform.widthTiles,
+      balancePartnerId: platform.balancePartnerId,
+    });
+  }
+
+  // Balance platforms must reference an existing balance partner.
+  const byId = new Map(validated.map((p) => [p.platformId, p]));
+  for (const platform of validated) {
+    if (platform.kind !== "balance") {
+      continue;
+    }
+    const partner =
+      platform.balancePartnerId === undefined
+        ? undefined
+        : byId.get(platform.balancePartnerId);
+    if (partner === undefined || partner.kind !== "balance") {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.EntityIdInvalid,
+          `platforms balance platform ${platform.platformId} must reference an existing balance partner.`,
+          "platforms",
+        ),
+      );
+    }
+  }
+
+  return errors.length > 0 ? fail(errors) : succeed(validated);
 }
 
 const maxFirebarOrbCount = 16;

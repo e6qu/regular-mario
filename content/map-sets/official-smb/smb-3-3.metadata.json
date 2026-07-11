@@ -22,5 +22,88 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "horizontal",
+      "x": 30,
+      "y": 5,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-1",
+      "kind": "horizontal",
+      "x": 33,
+      "y": 9,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-2",
+      "kind": "drop",
+      "x": 60,
+      "y": 7,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-3",
+      "kind": "balance",
+      "x": 81,
+      "y": 7,
+      "widthTiles": 2,
+      "balancePartnerId": "lift-4"
+    },
+    {
+      "id": "lift-4",
+      "kind": "balance",
+      "x": 88,
+      "y": 9,
+      "widthTiles": 2,
+      "balancePartnerId": "lift-3"
+    },
+    {
+      "id": "lift-5",
+      "kind": "horizontal",
+      "x": 94,
+      "y": 10,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-6",
+      "kind": "horizontal",
+      "x": 96,
+      "y": 6,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-7",
+      "kind": "horizontal",
+      "x": 103,
+      "y": 12,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-8",
+      "kind": "horizontal",
+      "x": 132,
+      "y": 7,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-9",
+      "kind": "balance",
+      "x": 136,
+      "y": 6,
+      "widthTiles": 2,
+      "balancePartnerId": "lift-10"
+    },
+    {
+      "id": "lift-10",
+      "kind": "balance",
+      "x": 140,
+      "y": 9,
+      "widthTiles": 2,
+      "balancePartnerId": "lift-9"
+    }
+  ]
 }

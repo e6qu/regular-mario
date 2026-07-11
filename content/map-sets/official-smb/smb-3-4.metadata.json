@@ -113,5 +113,14 @@
       "x": 109,
       "phaseOffsetFrames": 101
     }
+  ],
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "horizontal",
+      "x": 138,
+      "y": 7,
+      "widthTiles": 3
+    }
   ]
 }

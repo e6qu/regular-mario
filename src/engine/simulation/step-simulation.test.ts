@@ -754,6 +754,7 @@ describe("simulation primitives", () => {
           respawnTimerFrames: 0,
           usedYBands: 0,
         },
+        platforms: { platforms: [] },
       },
     });
   });
@@ -2547,6 +2548,7 @@ describe("simulation primitives", () => {
           bloodiness: validInitialState().bloodiness,
           pseudoRandom: validInitialState().pseudoRandom,
           cheepFrenzy: validInitialState().cheepFrenzy,
+          platforms: validInitialState().platforms,
         },
         validInputCommand(),
         initialMovementConstants,

@@ -22,5 +22,35 @@
     "playerPathRows": []
   },
   "questionBlockContentsDefault": "power-up",
-  "theme": "overworld"
+  "theme": "overworld",
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "vertical",
+      "x": 55,
+      "y": 7,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-1",
+      "kind": "horizontal",
+      "x": 86,
+      "y": 9,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-2",
+      "kind": "horizontal",
+      "x": 94,
+      "y": 10,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-3",
+      "kind": "horizontal",
+      "x": 131,
+      "y": 7,
+      "widthTiles": 3
+    }
+  ]
 }

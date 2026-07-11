@@ -41,5 +41,21 @@
       "x": 196,
       "phaseOffsetFrames": 164
     }
+  ],
+  "platforms": [
+    {
+      "id": "lift-0",
+      "kind": "drop",
+      "x": 18,
+      "y": 8,
+      "widthTiles": 3
+    },
+    {
+      "id": "lift-1",
+      "kind": "drop",
+      "x": 22,
+      "y": 9,
+      "widthTiles": 3
+    }
   ]
 }
