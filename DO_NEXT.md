@@ -85,8 +85,6 @@ Everything from the previous "known deltas" list is now in:
 - Balance-lift pairs aren't editor-placeable (pairing UI); single lifts are.
 - Per-state player colliders and exact timer conversions (movement constants
   are now ROM-derived; enemy/lift/cadence tuning is still sensible-not-measured).
-- ROM-skin sprites for koopa/star/1-up and the new cast (authored skin covers
-  them; the ROM skin falls back to shapes).
 - Frame verification (`verify:smb-frames` palette reconciliation), audio
   parity, editor UI for connecting walk-in pipes.
 - A human playthrough pass over the full 32-level run for feel/pacing.
