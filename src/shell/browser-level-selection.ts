@@ -71,7 +71,13 @@ export type BrowserGameBootstrap = {
   readonly onExitToMenu?: () => void;
   // When provided, the finish overlay offers a "Next level" action that tears the
   // game down and launches the next level (the following one in the map set).
-  readonly onAdvanceToNextLevel?: () => void;
+  // The scene passes the main level the run currently belongs to, so that a
+  // warp-zone jump mid-run advances from the warped-to world, not the level
+  // the session started on.
+  readonly onAdvanceToNextLevel?: (currentMainLevelName?: string) => void;
+  // Classic HUD labels per main level name, so a warp-zone jump can retitle
+  // the HUD (e.g. smb-4-1 -> "4-1").
+  readonly worldLevelLabelByName?: ReadonlyMap<string, string>;
   // The classic "world-level" label for the HUD (e.g. "1-2"); falls back to the
   // level name when absent.
   readonly worldLevelLabel?: string;

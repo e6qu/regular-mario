@@ -49,6 +49,8 @@ export type Projectile = {
   // Bullet Bills can be stomped; other projectiles (fireballs, thrown hammers)
   // leave this undefined and are never stompable.
   readonly stompable?: boolean;
+  // Lakitu's eggs hatch into walking Spinies when they land on solid ground.
+  readonly hatchesOnLanding?: boolean;
 };
 
 export type ProjectilesState = {

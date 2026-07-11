@@ -697,6 +697,7 @@ describe("simulation primitives", () => {
           projectiles: [],
           playerContact: false,
           stompedProjectileCount: 0,
+          hatchedPositions: [],
         },
         enemies: makeEmptyEnemyInteractionState(),
         enemyContactResponse: {
@@ -761,6 +762,7 @@ describe("simulation primitives", () => {
         },
         platforms: { platforms: [] },
         loopZones: { groupProgress: {} },
+        hatchedSpinies: { spinies: [] },
       },
     });
   });
@@ -2557,6 +2559,7 @@ describe("simulation primitives", () => {
           aerialFrenzy: validInitialState().aerialFrenzy,
           platforms: validInitialState().platforms,
           loopZones: validInitialState().loopZones,
+          hatchedSpinies: validInitialState().hatchedSpinies,
         },
         validInputCommand(),
         initialMovementConstants,

@@ -158,6 +158,7 @@ describe("timed-hazard-projectile-state", () => {
       projectiles: [],
       playerContact: false,
       stompedProjectileCount: 0,
+      hatchedPositions: [],
     });
   });
 

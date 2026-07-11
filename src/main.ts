@@ -2269,19 +2269,40 @@ async function bootSelectedContentSet(
         vocalSoundtrack: shabbyAudio,
         // The classic "world-level" label shown in the HUD (e.g. "1-2").
         ...(worldLevelLabel !== undefined ? { worldLevelLabel } : {}),
+        // Labels per main level, so a warp-zone jump retitles the HUD.
+        worldLevelLabelByName: new Map(
+          mainLevelNames.flatMap((name) => {
+            const label = classicMap.get(name)?.label;
+            return label === undefined ? [] : [[name, label] as const];
+          }),
+        ),
         // The level's world theme (overworld / underground / castle / water)
         // drives its palette, backdrop, and — for water — swim physics.
         ...(selectedLevel.theme !== undefined
           ? { theme: selectedLevel.theme }
           : {}),
-        // "Next level" launches the following main level in the map set.
+        // "Next level" launches the following main level in the map set —
+        // relative to the main level the run currently belongs to, so a
+        // warp-zone jump advances within the warped-to world.
         ...(nextLevelName !== undefined
           ? {
-              onAdvanceToNextLevel: () => {
+              onAdvanceToNextLevel: (currentMainLevelName?: string) => {
+                const fromIndex = mainLevelNames.indexOf(
+                  currentMainLevelName ?? selectedLevel.name,
+                );
+                const next =
+                  fromIndex >= 0
+                    ? mainLevelNames[fromIndex + 1]
+                    : nextLevelName;
+                if (next === undefined) {
+                  // Past the last level (8-4 cleared): back to the menu.
+                  void renderStartMenu();
+                  return;
+                }
                 void bootSelectedContentSet(
                   assetSetId,
                   mapSetId,
-                  nextLevelName,
+                  next,
                   exaggeratedReactions,
                   shabbyAudio,
                   status,

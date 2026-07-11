@@ -94,6 +94,10 @@ import {
   makeEmptyLoopZoneState,
   type LoopZoneRuntimeState,
 } from "./loop-zone-state";
+import {
+  makeEmptyHatchedSpinyState,
+  type HatchedSpinyState,
+} from "./hatched-spiny-state";
 
 export const initialLivesCount = 3;
 
@@ -137,6 +141,7 @@ export type SimulationState = {
   readonly aerialFrenzy: AerialFrenzyState;
   readonly platforms: PlatformsState;
   readonly loopZones: LoopZoneRuntimeState;
+  readonly hatchedSpinies: HatchedSpinyState;
 };
 
 export function makeInitialSimulationState(
@@ -211,5 +216,6 @@ export function makeInitialSimulationStateWithPlayerVitality(
     aerialFrenzy: makeEmptyAerialFrenzyState(),
     platforms: makeEmptyPlatformsState(levelSpec),
     loopZones: makeEmptyLoopZoneState(),
+    hatchedSpinies: makeEmptyHatchedSpinyState(),
   });
 }

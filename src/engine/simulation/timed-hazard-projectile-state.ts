@@ -10,6 +10,7 @@ import type {
   ThrowingEnemyActorState,
 } from "./enemy-motion";
 import { playerOverlapsActorPixel } from "./player-actor-overlap";
+import { makeSolidTileIds, tileIsSolid } from "./tile-collision-support";
 import type { PlayerSimulationState } from "./player-state";
 import type { Projectile } from "./projectile-state";
 import {
@@ -26,6 +27,12 @@ import type { MovementConstants } from "./movement-model";
 export type TimedHazardProjectilesState = {
   readonly projectiles: readonly Projectile[];
   readonly playerContact: boolean;
+  // Landing spots of Lakitu eggs that hatched this frame (consumed by the
+  // hatched-spiny subsystem; not serialized between frames).
+  readonly hatchedPositions: readonly {
+    readonly x: number;
+    readonly y: number;
+  }[];
   // Stompable projectiles (Bullet Bills) the player defeated this frame — the
   // step drives the stomp rebound and score from this count.
   readonly stompedProjectileCount: number;
@@ -36,6 +43,7 @@ export function makeEmptyTimedHazardProjectilesState(): TimedHazardProjectilesSt
     projectiles: [],
     playerContact: false,
     stompedProjectileCount: 0,
+    hatchedPositions: [],
   };
 }
 
@@ -124,10 +132,35 @@ export function resolveTimedHazardProjectilesState(
   const stompedProjectileCount = allProjectiles.filter((projectile) =>
     isProjectileStomp(previousPlayer, player, projectile, movementConstants),
   ).length;
-  const projectiles = allProjectiles.filter(
+  const unstompedProjectiles = allProjectiles.filter(
     (projectile) =>
       !isProjectileStomp(previousPlayer, player, projectile, movementConstants),
   );
+
+  // Lakitu's eggs convert into Spinies where they touch solid ground: the
+  // landed egg leaves the projectile list and reports its landing spot.
+  const solidTileIds = makeSolidTileIds(levelSpec);
+  const hatchedPositions: { readonly x: number; readonly y: number }[] = [];
+  const projectiles = unstompedProjectiles.filter((projectile) => {
+    if (projectile.hatchesOnLanding !== true) {
+      return true;
+    }
+    const tileSize = levelSpec.tileSizePixels;
+    const column = Math.floor(
+      (projectile.position.x + projectile.width / 2) / tileSize,
+    );
+    const row = Math.floor(
+      (projectile.position.y + projectile.height) / tileSize,
+    );
+    if (!tileIsSolid(levelSpec, solidTileIds, row, column)) {
+      return true;
+    }
+    hatchedPositions.push({
+      x: projectile.position.x,
+      y: row * tileSize - projectile.height,
+    });
+    return false;
+  });
 
   return {
     projectiles,
@@ -138,6 +171,7 @@ export function resolveTimedHazardProjectilesState(
       }),
     ),
     stompedProjectileCount,
+    hatchedPositions,
   };
 }
 
@@ -232,6 +266,7 @@ function makeAerialThrowingEnemyProjectile(
       ),
     },
     width: movementConstants.aerialThrowingEnemyProjectileColliderWidth,
+    hatchesOnLanding: true,
     height: movementConstants.aerialThrowingEnemyProjectileColliderHeight,
     active: true,
     remainingLifetimeFrames: requireProjectileFrameCount(

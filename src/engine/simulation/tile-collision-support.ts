@@ -104,6 +104,22 @@ export const emptyHiddenBlockCollisionContext: HiddenBlockCollisionContext = {
   revealedPositionKeys: new Set<string>(),
 };
 
+// True when the tile at (rowIndex, columnIndex) is one of the solid ids.
+export function tileIsSolid(
+  levelSpec: LevelSpec,
+  solidTileIds: ReadonlySet<TileId>,
+  rowIndex: number,
+  columnIndex: number,
+): boolean {
+  const tileId = levelSpec.tiles[rowIndex]?.[columnIndex];
+
+  if (tileId === undefined) {
+    return false;
+  }
+
+  return solidTileIds.has(tileId);
+}
+
 export function hiddenBlockPositionKey(
   columnIndex: number,
   rowIndex: number,

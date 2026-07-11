@@ -1,4 +1,4 @@
-import type { EntityId, TileId } from "../domain/identifiers";
+import type { EntityId } from "../domain/identifiers";
 import { ActorRole } from "../domain/level-spec";
 import type { LevelSpec } from "../domain/level-spec";
 import type {
@@ -19,7 +19,7 @@ import {
   makeFrameDurationSeconds,
   requireSimulationVelocity,
 } from "./simulation-units";
-import { makeSolidTileIds } from "./tile-collision-support";
+import { makeSolidTileIds, tileIsSolid } from "./tile-collision-support";
 
 export enum EnemyPatrolDirection {
   Left = "left",
@@ -2531,21 +2531,6 @@ function makeSweptEnemyLeadingColumns(
   }
 
   return columnIndexes;
-}
-
-function tileIsSolid(
-  levelSpec: LevelSpec,
-  solidTileIds: ReadonlySet<TileId>,
-  rowIndex: number,
-  columnIndex: number,
-): boolean {
-  const tileId = levelSpec.tiles[rowIndex]?.[columnIndex];
-
-  if (tileId === undefined) {
-    return false;
-  }
-
-  return solidTileIds.has(tileId);
 }
 
 function makeEnemyPatrolDirectionSign(direction: EnemyPatrolDirection): -1 | 1 {

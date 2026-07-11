@@ -15,6 +15,7 @@ import {
   AerialFrenzyKind,
   liveAerialFrenzyEntities,
 } from "../../engine/simulation/aerial-frenzy-state";
+import { liveHatchedSpinies } from "../../engine/simulation/hatched-spiny-state";
 import {
   computeFirebarOrbs,
   computePodobooPositions,
@@ -580,6 +581,10 @@ export class BootScene extends Phaser.Scene {
     string,
     Phaser.GameObjects.Container
   > = new Map();
+  private readonly hatchedSpinyRenderObjects: Map<
+    string,
+    Phaser.GameObjects.Container
+  > = new Map();
   private levelRenderedObjects: readonly Phaser.GameObjects.GameObject[] = [];
   private readonly levelSequence: readonly LevelSpecInput[] | undefined;
   private readonly warpLevelsByName:
@@ -594,6 +599,11 @@ export class BootScene extends Phaser.Scene {
   // When a pipe warps to a named target level, that level's input overrides the
   // sequence lookup until the next reset/advance.
   private warpedLevelInput: LevelSpecInput | undefined = undefined;
+  // The main level this run currently belongs to: starts as the selected
+  // level and changes only when a warp lands at another main level's start
+  // (a warp-zone jump). Flag-tail and bonus-room warps keep it.
+  private currentMainLevelName: string | undefined = undefined;
+  private activeWorldLevelLabel: string | undefined = undefined;
   private pendingLevelWarp:
     | { targetLevelName: string; targetTilePosition: TilePoint }
     | undefined = undefined;
@@ -709,7 +719,9 @@ export class BootScene extends Phaser.Scene {
       this.hasFinishedOutcome() &&
       this.browserGameBootstrap.onAdvanceToNextLevel !== undefined
     ) {
-      this.browserGameBootstrap.onAdvanceToNextLevel();
+      this.browserGameBootstrap.onAdvanceToNextLevel(
+        this.currentMainLevelName,
+      );
       return;
     }
 
@@ -785,6 +797,8 @@ export class BootScene extends Phaser.Scene {
     this.warpLevelThemesByName = browserGameBootstrap.warpLevelThemesByName;
     this.currentTheme = browserGameBootstrap.theme;
     this.levelIndex = browserGameBootstrap.levelIndex;
+    this.currentMainLevelName = browserGameBootstrap.userLevelVisualName;
+    this.activeWorldLevelLabel = browserGameBootstrap.worldLevelLabel;
     window.addEventListener("keydown", this.handleEarlyStartKey);
   }
 
@@ -932,7 +946,7 @@ export class BootScene extends Phaser.Scene {
           0,
           undefined,
           0,
-          this.browserGameBootstrap.worldLevelLabel ??
+          this.activeWorldLevelLabel ??
             worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
         ),
         {
@@ -1311,6 +1325,7 @@ export class BootScene extends Phaser.Scene {
     this.flameHazardRenderObjects.length = 0;
     this.platformRenderObjects.length = 0;
     this.aerialFrenzyRenderObjects.clear();
+    this.hatchedSpinyRenderObjects.clear();
   }
 
   private advanceToNextLevel(): void {
@@ -1776,6 +1791,19 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.warpedLevelInput = targetInput;
+    // A warp landing at another MAIN level's start is a world jump (the warp
+    // zones): the run now belongs to that level — retitle the HUD and advance
+    // from there. Mid-page landings (flag tails, bonus-room returns) and
+    // sub-areas keep the origin's identity.
+    if (
+      /^smb-\d+-\d+$/.test(targetLevelName) &&
+      targetTilePosition.x <= mainLevelStartTileX
+    ) {
+      this.currentMainLevelName = targetLevelName;
+      this.activeWorldLevelLabel =
+        this.browserGameBootstrap.worldLevelLabelByName?.get(targetLevelName) ??
+        worldLevelLabelFor(targetLevelName);
+    }
     // Switch to the sub-section's theme before rebuilding, so its palette,
     // backdrop, physics, and (for water) swimming all match. buildLevelObjects
     // reads currentTheme for the palette + parallax background.
@@ -2073,7 +2101,13 @@ export class BootScene extends Phaser.Scene {
           this.exportRun(true);
         },
         ...(this.browserGameBootstrap.onAdvanceToNextLevel !== undefined
-          ? { onContinue: this.browserGameBootstrap.onAdvanceToNextLevel }
+          ? {
+              onContinue: () => {
+                this.browserGameBootstrap.onAdvanceToNextLevel?.(
+                  this.currentMainLevelName,
+                );
+              },
+            }
           : {}),
         ...(this.browserGameBootstrap.onExitToMenu !== undefined
           ? {
@@ -2311,7 +2345,7 @@ export class BootScene extends Phaser.Scene {
         score,
         this.simulationState.levelTimer.remainingFrames,
         this.simulationState.collectibles.collectedCoinEntityIds.length,
-        this.browserGameBootstrap.worldLevelLabel ??
+        this.activeWorldLevelLabel ??
           worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
       ),
     );
@@ -2404,6 +2438,7 @@ export class BootScene extends Phaser.Scene {
     this.renderFlameHazards();
     this.renderPlatforms();
     this.renderAerialFrenzyEntities();
+    this.renderHatchedSpinies();
     this.renderPipes();
   }
 
@@ -2751,6 +2786,44 @@ export class BootScene extends Phaser.Scene {
       if (!activeIds.has(id)) {
         renderObject.destroy();
         this.aerialFrenzyRenderObjects.delete(id);
+      }
+    }
+  }
+
+  // Spinies hatched from Lakitu's eggs: the spiky urchin sprite, or the
+  // chasing-enemy (spiked) fallback shape.
+  private renderHatchedSpinies(): void {
+    const activeIds = new Set<string>();
+    for (const spiny of liveHatchedSpinies(
+      this.simulationState.hatchedSpinies,
+    )) {
+      activeIds.add(spiny.spinyId);
+      let renderObject = this.hatchedSpinyRenderObjects.get(spiny.spinyId);
+      if (renderObject === undefined) {
+        const userImage =
+          this.userAssetBundle?.actorImages.get("vglc-smb-spiny");
+        if (userImage === undefined) {
+          renderObject = renderAuthoredActor(
+            this,
+            spiny.position,
+            ActorRole.ChasingEnemy,
+          );
+        } else {
+          renderObject = renderUserActorImage(
+            this,
+            spiny.position,
+            userImage,
+          ).container;
+        }
+        this.hatchedSpinyRenderObjects.set(spiny.spinyId, renderObject);
+      }
+      renderObject.setPosition(spiny.position.x, spiny.position.y);
+      renderObject.setDepth(0);
+    }
+    for (const [id, renderObject] of this.hatchedSpinyRenderObjects) {
+      if (!activeIds.has(id)) {
+        renderObject.destroy();
+        this.hatchedSpinyRenderObjects.delete(id);
       }
     }
   }
@@ -3684,6 +3757,9 @@ function classicCompatibilityHudText(
 }
 
 // Extracts the "W-L" label from a decoded level name like "smb-6-2".
+// Warp targets at or before this column count as a level start (world jump).
+const mainLevelStartTileX = 2;
+
 function worldLevelLabelFor(levelVisualName: string | undefined): string {
   const match = /(\d+-\d+)/.exec(levelVisualName ?? "");
   return match?.[1] ?? "1-1";

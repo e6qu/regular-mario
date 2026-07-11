@@ -111,6 +111,10 @@ import {
   resolveAerialFrenzyState,
 } from "./aerial-frenzy-state";
 import { assertValidLoopZoneState, resolveLoopZones } from "./loop-zone-state";
+import {
+  assertValidHatchedSpinyState,
+  resolveHatchedSpinyState,
+} from "./hatched-spiny-state";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -172,6 +176,7 @@ export function stepSimulation(
   assertValidPlatformsState(state.platforms, levelSpec);
   assertValidAerialFrenzyState(state.aerialFrenzy);
   assertValidLoopZoneState(state.loopZones);
+  assertValidHatchedSpinyState(state.hatchedSpinies);
 
   switch (state.playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -595,6 +600,27 @@ function stepActiveSimulation(
     aerialFrenzy.stompedCount > 0
       ? reboundPlayerFromStomp(playerAfterProjectileStomp, movementConstants)
       : playerAfterProjectileStomp;
+  // Lakitu's landed eggs hatch into walking Spinies; player fireballs defeat
+  // them (and are consumed doing it).
+  const hatchedSpinies = resolveHatchedSpinyState(
+    state.hatchedSpinies,
+    levelSpec,
+    playerAfterAerialStomp,
+    projectiles.state.projectiles,
+    timedHazardProjectiles.hatchedPositions,
+    Number(state.clock.frameDurationMilliseconds) / 1000,
+    Number(nextClock.frameIndex),
+  );
+  const projectilesAfterSpinyKills =
+    hatchedSpinies.consumedProjectileIds.length === 0
+      ? projectiles.state
+      : {
+          ...projectiles.state,
+          projectiles: projectiles.state.projectiles.filter(
+            (projectile) =>
+              !hatchedSpinies.consumedProjectileIds.includes(projectile.id),
+          ),
+        };
   // Hazard-like contact (hazard tiles, hammers/bullets, frenzy cheeps,
   // firebars/podoboos) damages with the same tiering as enemy contact:
   // a small player is defeated, a powered one shrinks into the recovery
@@ -604,6 +630,7 @@ function stepActiveSimulation(
     timedHazardProjectiles.playerContact ||
     cheepFrenzy.playerContacted ||
     aerialFrenzy.playerContacted ||
+    hatchedSpinies.playerContacted ||
     playerTouchesFlameHazard(
       playerAfterProjectileStomp,
       levelSpec,
@@ -668,7 +695,9 @@ function stepActiveSimulation(
   const bulletBillStompScore = (state.bulletBillStompScore +
     (timedHazardProjectiles.stompedProjectileCount +
       aerialFrenzy.stompedCount) *
-      scorePerBulletBillStomp) as SimulationState["bulletBillStompScore"];
+      scorePerBulletBillStomp +
+    hatchedSpinies.defeatedCount *
+      scorePerProjectileKill) as SimulationState["bulletBillStompScore"];
 
   const extraLifeMushroomsCollected =
     collectibles.collectedExtraLifeEntityIds.length -
@@ -718,7 +747,7 @@ function stepActiveSimulation(
     interactiveBlocks,
     breakableBlocks,
     spawnedActors,
-    projectiles: projectiles.state,
+    projectiles: projectilesAfterSpinyKills,
     pipeEntry: resolveAreaTransferPipeEntry(
       pipeState.pipeEntry,
       teleportedPlayer,
@@ -739,6 +768,7 @@ function stepActiveSimulation(
     aerialFrenzy: aerialFrenzy.state,
     platforms: platformsResolution.state,
     loopZones: loopZonesResolution.state,
+    hatchedSpinies: hatchedSpinies.state,
   };
 }
 

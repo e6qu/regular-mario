@@ -2,11 +2,10 @@
 
 ## Known Bugs
 
-- **Shared flag-tail progression** (2026-07-11): finishing 1-2 through its
-  exit pipe lands in 1-1's area (as the ROM does) — completing that flag
-  registers as completing 1-1, so "Next level" offers 1-2 again. The shell
-  needs to carry the originating level through cross-level warps. Same
-  applies to the other pipe-exit levels (2-2, 4-2, 7-2).
+- None currently recorded. (2026-07-11: warp progression fixed — a run keeps
+  its origin's HUD number and next-level chain through flag-tail and
+  bonus-room warps, and a warp-zone jump retitles the run to the target
+  world and advances from there.)
 
 ## Risks To Track
 
