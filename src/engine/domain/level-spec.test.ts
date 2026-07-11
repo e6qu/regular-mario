@@ -148,6 +148,7 @@ describe("makeLevelSpec", () => {
       firebars: [],
       podoboos: [],
       platforms: [],
+      loopZones: [],
     });
   });
 

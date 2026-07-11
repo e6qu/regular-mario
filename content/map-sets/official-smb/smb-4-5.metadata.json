@@ -85,5 +85,21 @@
       "heightPixels": 8,
       "lifetimeFrames": 600
     }
+  ],
+  "loopZones": [
+    {
+      "checkTileX": 80,
+      "requiredRowMin": 3,
+      "requiredRowMax": 5,
+      "groupId": "loop-group-0",
+      "groupSize": 1
+    },
+    {
+      "checkTileX": 144,
+      "requiredRowMin": 10,
+      "requiredRowMax": 12,
+      "groupId": "loop-group-1",
+      "groupSize": 1
+    }
   ]
 }

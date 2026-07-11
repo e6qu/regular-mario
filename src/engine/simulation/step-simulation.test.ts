@@ -760,6 +760,7 @@ describe("simulation primitives", () => {
           respawnTimerFrames: 0,
         },
         platforms: { platforms: [] },
+        loopZones: { groupProgress: {} },
       },
     });
   });
@@ -2555,6 +2556,7 @@ describe("simulation primitives", () => {
           cheepFrenzy: validInitialState().cheepFrenzy,
           aerialFrenzy: validInitialState().aerialFrenzy,
           platforms: validInitialState().platforms,
+          loopZones: validInitialState().loopZones,
         },
         validInputCommand(),
         initialMovementConstants,

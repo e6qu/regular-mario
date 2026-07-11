@@ -171,6 +171,29 @@
       "lifetimeFrames": 600
     }
   ],
+  "loopZones": [
+    {
+      "checkTileX": 96,
+      "requiredRowMin": 15,
+      "requiredRowMax": 15,
+      "groupId": "loop-group-0",
+      "groupSize": 1
+    },
+    {
+      "checkTileX": 176,
+      "requiredRowMin": 15,
+      "requiredRowMax": 15,
+      "groupId": "loop-group-1",
+      "groupSize": 1
+    },
+    {
+      "checkTileX": 256,
+      "requiredRowMin": 15,
+      "requiredRowMax": 15,
+      "groupId": "loop-group-2",
+      "groupSize": 1
+    }
+  ],
   "flyingCheepFrenzy": {
     "startTileX": 221,
     "endTileX": 234

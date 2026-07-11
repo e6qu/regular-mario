@@ -220,6 +220,29 @@ export type LevelSpecInput = {
   readonly firebars?: readonly FirebarInput[];
   readonly podoboos?: readonly PodobooInput[];
   readonly platforms?: readonly PlatformInput[];
+  readonly loopZones?: readonly LoopZoneInput[];
+};
+
+// Castle maze loop checkpoints (4-4 / 7-4 / 8-4): crossing the check column
+// on the wrong row sends the player back four pages. Multi-part groups
+// (7-4) evaluate after their last member; an unreachable row band (8-4's
+// water maze) forces the loop unless a pipe bypasses the checkpoint.
+export type LoopZoneInput = {
+  readonly loopZoneId: string;
+  readonly checkTileX: number;
+  readonly requiredRowMin: number;
+  readonly requiredRowMax: number;
+  readonly groupId: string;
+  readonly groupSize: number;
+};
+
+export type LoopZoneDefinition = {
+  readonly loopZoneId: string;
+  readonly checkTileX: number;
+  readonly requiredRowMin: number;
+  readonly requiredRowMax: number;
+  readonly groupId: string;
+  readonly groupSize: number;
 };
 
 // Rideable moving platforms (SMB lifts):
@@ -404,6 +427,7 @@ export type LevelSpec = {
   readonly firebars: readonly FirebarDefinition[];
   readonly podoboos: readonly PodobooDefinition[];
   readonly platforms: readonly PlatformDefinition[];
+  readonly loopZones: readonly LoopZoneDefinition[];
 };
 
 type ValidatedDimensions = {
@@ -1240,6 +1264,7 @@ export function makeLevelSpec(
   const firebarsResult = validateFirebars(input);
   const podoboosResult = validatePodoboos(input);
   const platformsResult = validatePlatforms(input);
+  const loopZonesResult = validateLoopZones(input);
 
   if (!enemyPatrolSpeedResult.ok) {
     errors.push(...enemyPatrolSpeedResult.errors);
@@ -1273,6 +1298,10 @@ export function makeLevelSpec(
     errors.push(...platformsResult.errors);
   }
 
+  if (!loopZonesResult.ok) {
+    errors.push(...loopZonesResult.errors);
+  }
+
   const interactiveBlockContentsErrors = validateInteractiveBlockContents(
     definitionsResult.value.tileDefinitions,
     definitionsResult.value.actorRoles,
@@ -1294,7 +1323,8 @@ export function makeLevelSpec(
     !spawnedPowerUpMovementResult.ok ||
     !firebarsResult.ok ||
     !podoboosResult.ok ||
-    !platformsResult.ok
+    !platformsResult.ok ||
+    !loopZonesResult.ok
   ) {
     throw new Error("Level metadata result is invalid after validation.");
   }
@@ -1331,6 +1361,7 @@ export function makeLevelSpec(
     firebars: firebarsResult.value,
     podoboos: podoboosResult.value,
     platforms: platformsResult.value,
+    loopZones: loopZonesResult.value,
   });
 }
 
@@ -1443,6 +1474,67 @@ function validatePlatforms(
         ),
       );
     }
+  }
+
+  return errors.length > 0 ? fail(errors) : succeed(validated);
+}
+
+function validateLoopZones(
+  input: LevelSpecInput,
+): DomainResult<readonly LoopZoneDefinition[], ValidationError> {
+  const loopZones = input.loopZones ?? [];
+  const errors: ValidationError[] = [];
+  const seenIds = new Set<string>();
+  const validated: LoopZoneDefinition[] = [];
+
+  for (const [index, zone] of loopZones.entries()) {
+    const path = `loopZones[${index}]`;
+    if (
+      typeof zone.loopZoneId !== "string" ||
+      !metadataIdPattern.test(zone.loopZoneId) ||
+      seenIds.has(zone.loopZoneId)
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.EntityIdInvalid,
+          `${path}.loopZoneId must be a unique well-formed id.`,
+          `${path}.loopZoneId`,
+        ),
+      );
+      continue;
+    }
+    seenIds.add(zone.loopZoneId);
+
+    if (
+      !Number.isSafeInteger(zone.checkTileX) ||
+      zone.checkTileX < 0 ||
+      zone.checkTileX >= input.widthTiles ||
+      !Number.isSafeInteger(zone.requiredRowMin) ||
+      !Number.isSafeInteger(zone.requiredRowMax) ||
+      zone.requiredRowMin > zone.requiredRowMax ||
+      typeof zone.groupId !== "string" ||
+      !metadataIdPattern.test(zone.groupId) ||
+      !Number.isSafeInteger(zone.groupSize) ||
+      zone.groupSize < 1
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.ActorPositionOutOfBounds,
+          `${path} must have a valid check column, row band, and group.`,
+          path,
+        ),
+      );
+      continue;
+    }
+
+    validated.push({
+      loopZoneId: zone.loopZoneId,
+      checkTileX: zone.checkTileX,
+      requiredRowMin: zone.requiredRowMin,
+      requiredRowMax: zone.requiredRowMax,
+      groupId: zone.groupId,
+      groupSize: zone.groupSize,
+    });
   }
 
   return errors.length > 0 ? fail(errors) : succeed(validated);

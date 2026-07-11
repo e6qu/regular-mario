@@ -109,6 +109,7 @@ import {
   assertValidAerialFrenzyState,
   resolveAerialFrenzyState,
 } from "./aerial-frenzy-state";
+import { assertValidLoopZoneState, resolveLoopZones } from "./loop-zone-state";
 import type { SimulationState } from "./simulation-state";
 import {
   computeCoinExtraLives,
@@ -169,6 +170,7 @@ export function stepSimulation(
   assertValidTimedHazardProjectilesState(state.timedHazardProjectiles);
   assertValidPlatformsState(state.platforms, levelSpec);
   assertValidAerialFrenzyState(state.aerialFrenzy);
+  assertValidLoopZoneState(state.loopZones);
 
   switch (state.playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -332,14 +334,24 @@ function stepActiveSimulation(
   );
   const platformAdjustedPlayer = platformsResolution.player;
 
+  // Castle maze checkpoints: crossing on the wrong row loops the player back
+  // four pages.
+  const loopZonesResolution = resolveLoopZones(
+    state.loopZones,
+    levelSpec,
+    state.player,
+    platformAdjustedPlayer,
+  );
+  const loopAdjustedPlayer = loopZonesResolution.player;
+
   const teleportedPlayer =
     teleportResult.kind === "same-level"
       ? teleportPlayerToTilePosition(
-          platformAdjustedPlayer,
+          loopAdjustedPlayer,
           teleportResult.targetTilePosition,
           levelSpec,
         )
-      : platformAdjustedPlayer;
+      : loopAdjustedPlayer;
 
   const interactiveBlocks = resolveInteractiveBlockInteractionState(
     state.interactiveBlocks,
@@ -692,6 +704,7 @@ function stepActiveSimulation(
     cheepFrenzy: cheepFrenzy.state,
     aerialFrenzy: aerialFrenzy.state,
     platforms: platformsResolution.state,
+    loopZones: loopZonesResolution.state,
   };
 }
 

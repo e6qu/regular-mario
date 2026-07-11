@@ -90,6 +90,10 @@ import {
   makeEmptyAerialFrenzyState,
   type AerialFrenzyState,
 } from "./aerial-frenzy-state";
+import {
+  makeEmptyLoopZoneState,
+  type LoopZoneRuntimeState,
+} from "./loop-zone-state";
 
 export const initialLivesCount = 3;
 
@@ -132,6 +136,7 @@ export type SimulationState = {
   readonly cheepFrenzy: CheepFrenzyState;
   readonly aerialFrenzy: AerialFrenzyState;
   readonly platforms: PlatformsState;
+  readonly loopZones: LoopZoneRuntimeState;
 };
 
 export function makeInitialSimulationState(
@@ -205,5 +210,6 @@ export function makeInitialSimulationStateWithPlayerVitality(
     cheepFrenzy: makeEmptyCheepFrenzyState(),
     aerialFrenzy: makeEmptyAerialFrenzyState(),
     platforms: makeEmptyPlatformsState(levelSpec),
+    loopZones: makeEmptyLoopZoneState(),
   });
 }

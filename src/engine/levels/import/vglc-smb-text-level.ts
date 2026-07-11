@@ -3,6 +3,7 @@ import type {
   CheepFrenzyInput,
   FirebarInput,
   LevelSpecInput,
+  LoopZoneInput,
   PlatformInput,
   PodobooInput,
 } from "../../domain/level-spec";
@@ -548,6 +549,7 @@ type VglcSmbTextImportMetadata = {
   readonly firebars: readonly FirebarInput[];
   readonly podoboos: readonly PodobooInput[];
   readonly platforms: readonly PlatformInput[];
+  readonly loopZones: readonly LoopZoneInput[];
 };
 
 export function parseVglcSmbTextLevel(
@@ -853,8 +855,13 @@ function parseConvertedVglcSmbRows(
       ? withFlames
       : { ...withFlames, platforms: input.metadata.platforms };
 
+  const withLoopZones: LevelSpecInput =
+    input.metadata.loopZones.length === 0
+      ? withPlatforms
+      : { ...withPlatforms, loopZones: input.metadata.loopZones };
+
   const withPlants = withPiranhaPlants(
-    withPlatforms,
+    withLoopZones,
     input.metadata.piranhaPlants,
   );
 
@@ -965,6 +972,7 @@ function makeEmptyImportMetadata(): VglcSmbTextImportMetadata {
     firebars: [],
     podoboos: [],
     platforms: [],
+    loopZones: [],
   };
 }
 
@@ -1057,7 +1065,64 @@ function parseVglcSmbTextImportMetadata(
       "metadata.platforms",
       errors,
     ),
+    loopZones: parseLoopZoneArray(
+      candidate.loopZones,
+      "metadata.loopZones",
+      errors,
+    ),
   };
+}
+
+function parseLoopZoneArray(
+  input: unknown,
+  path: string,
+  errors: ValidationError[],
+): readonly LoopZoneInput[] {
+  if (input === undefined) {
+    return [];
+  }
+  if (!Array.isArray(input)) {
+    errors.push(
+      makeValidationError(
+        ValidationErrorCode.VglcMetadataInvalid,
+        `${path} must be an array of loop zone metadata objects.`,
+        path,
+      ),
+    );
+    return [];
+  }
+  const loopZones: LoopZoneInput[] = [];
+  for (const [index, value] of input.entries()) {
+    const itemPath = `${path}[${index}]`;
+    const candidate = value as Readonly<Record<string, unknown>> | null;
+    if (
+      typeof candidate !== "object" ||
+      candidate === null ||
+      typeof candidate.checkTileX !== "number" ||
+      typeof candidate.requiredRowMin !== "number" ||
+      typeof candidate.requiredRowMax !== "number" ||
+      typeof candidate.groupId !== "string" ||
+      typeof candidate.groupSize !== "number"
+    ) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.VglcMetadataInvalid,
+          `${itemPath} must have numeric checkTileX/requiredRowMin/requiredRowMax/groupSize and a string groupId.`,
+          itemPath,
+        ),
+      );
+      continue;
+    }
+    loopZones.push({
+      loopZoneId: `vglc-smb-loop-${String(index)}`,
+      checkTileX: candidate.checkTileX,
+      requiredRowMin: candidate.requiredRowMin,
+      requiredRowMax: candidate.requiredRowMax,
+      groupId: candidate.groupId,
+      groupSize: candidate.groupSize,
+    });
+  }
+  return loopZones;
 }
 
 function parsePlatformArray(

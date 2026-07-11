@@ -753,6 +753,7 @@ export function buildMetadata(grid, header, options = {}) {
     podoboos = [],
     platforms = [],
     flameSpawners = [],
+    loopZones = [],
     axeTileX = undefined,
     areaTypeName = "ground",
     inheritedTimerUnits = 400,
@@ -804,6 +805,9 @@ export function buildMetadata(grid, header, options = {}) {
   if (flameSpawners.length > 0) {
     metadata.flameSpawners = flameSpawners;
   }
+  if (loopZones.length > 0) {
+    metadata.loopZones = loopZones;
+  }
   if (cannons.length > 0) {
     metadata.cannonProjectiles = cannons.map((cannon, index) => ({
       spawnerId: `cannon-${index}`,
@@ -819,6 +823,56 @@ export function buildMetadata(grid, header, options = {}) {
     }));
   }
   return metadata;
+}
+
+// ---- Castle maze loop checkpoints -------------------------------------------
+// LoopCmdWorldNumber/PageNumber/YPosition from the disassembly: 4-4 has two
+// independent checkpoints, 7-4 two three-part groups (every part must be
+// crossed on the right row), and 8-4 three always-failing checks that only
+// the correct pipes bypass. Player Y pixels map to grid rows (16 px/row);
+// $f0 lies below the playfield, i.e. unreachable on foot.
+const loopCommandTable = [
+  { world: 3, page: 5, yPixel: 0x40 },
+  { world: 3, page: 9, yPixel: 0xb0 },
+  { world: 6, page: 4, yPixel: 0xb0 },
+  { world: 6, page: 5, yPixel: 0x80 },
+  { world: 6, page: 6, yPixel: 0x40 },
+  { world: 6, page: 8, yPixel: 0x40 },
+  { world: 6, page: 9, yPixel: 0x80 },
+  { world: 6, page: 10, yPixel: 0x40 },
+  { world: 7, page: 6, yPixel: 0xf0 },
+  { world: 7, page: 11, yPixel: 0xf0 },
+  { world: 7, page: 16, yPixel: 0xf0 },
+];
+// 7-4's checkpoints resolve in three-part groups; everything else alone.
+const multiPartLoopWorld = 6;
+const multiPartLoopGroupSize = 3;
+const loopRowTolerance = 1;
+
+function computeLoopZones(world, objects) {
+  const hasLoopCommands = objects.some(
+    (o) => special13Name(o.kind) === "loop-command",
+  );
+  if (!hasLoopCommands) {
+    return [];
+  }
+  const entries = loopCommandTable.filter((entry) => entry.world === world);
+  return entries.map((entry, index) => {
+    const row = Math.floor(entry.yPixel / 16);
+    const reachable = row < gridHeight;
+    return {
+      checkTileX: entry.page * 16,
+      requiredRowMin: reachable
+        ? Math.max(0, row - loopRowTolerance)
+        : gridHeight,
+      requiredRowMax: reachable ? row + loopRowTolerance : gridHeight,
+      groupId:
+        world === multiPartLoopWorld
+          ? `loop-group-${Math.floor(index / multiPartLoopGroupSize)}`
+          : `loop-group-${index}`,
+      groupSize: world === multiPartLoopWorld ? multiPartLoopGroupSize : 1,
+    };
+  });
 }
 
 // ---- Warp zones -------------------------------------------------------------
@@ -1061,6 +1115,8 @@ export async function decodeAllLevels(romPath) {
         phaseOffsetFrames: podobooPhaseForColumn(e.col),
       }));
 
+    const loopZones = computeLoopZones(world, objects);
+
     // The castle axe: reaching it ends the level (the goal column paints at
     // its column).
     const axeObject = objects.find((o) => special13Name(o.kind) === "axe");
@@ -1125,6 +1181,7 @@ export async function decodeAllLevels(romPath) {
       podoboos,
       platforms,
       flameSpawners,
+      loopZones,
       axeTileX,
       areaTypeName: area.areaTypeName,
       inheritedTimerUnits,
