@@ -13,6 +13,7 @@ import { makeSimulationInputCommand } from "../../simulation/input-command";
 import type { SimulationInputCommand } from "../../simulation/input-command";
 import { HorizontalInput } from "../../simulation/input-command";
 import { TileCollisionKind } from "../../domain/level-spec";
+import { liveFrenzyCheeps } from "../../simulation/cheep-frenzy-state";
 import {
   initialMovementConstants,
   swimmingMovementConstants,
@@ -201,6 +202,46 @@ function playLevel(
   // The state as of entering the current level, with its full timer — the
   // recovery point for time-up deaths.
   let levelEntry: Checkpoint = { state, levelName: startName };
+  // Monotone progress: the frontier of best-x checkpoints per level (only
+  // recorded with a healthy timer). Deaths resume near the frontier instead
+  // of discarding progress.
+  const bestByLevel = new Map<
+    string,
+    { bestX: number; frontier: Checkpoint[] }
+  >();
+  const recordBest = (checkpoint: Checkpoint, x: number): void => {
+    const timer = checkpoint.state.levelTimer.remainingFrames;
+    if (timer !== undefined && timer < 3000) {
+      return; // poisoned clock — not a useful resume point
+    }
+    const entry = bestByLevel.get(checkpoint.levelName) ?? {
+      bestX: -1,
+      frontier: [],
+    };
+    if (x > entry.bestX + 32) {
+      entry.bestX = x;
+      entry.frontier.push(checkpoint);
+      if (entry.frontier.length > 30) {
+        entry.frontier.shift();
+      }
+      bestByLevel.set(checkpoint.levelName, entry);
+    }
+  };
+  const resumeFromFrontier = (timeUp: boolean): Checkpoint => {
+    const entry = bestByLevel.get(runtime.level.name);
+    if (entry === undefined || entry.frontier.length === 0) {
+      return levelEntry;
+    }
+    // Time-ups resume from an early frontier point (more clock headroom);
+    // ordinary deaths resume near the frontier's edge.
+    const pool = timeUp
+      ? entry.frontier.slice(
+          0,
+          Math.max(1, Math.ceil(entry.frontier.length / 3)),
+        )
+      : entry.frontier.slice(-8);
+    return pool[Math.floor(rng() * pool.length)] ?? levelEntry;
+  };
   let steps = 0;
   let maxX = 0;
   let jumpFramesLeft = 0;
@@ -286,11 +327,33 @@ function playLevel(
       groundModeFramesLeft -= 1;
     }
     if (runtime.water) {
-      // Hold a swim altitude band with an occasional random stroke.
-      jumpFramesLeft =
-        player.position.y > swimTargetY || rng() < 0.08
-          ? 4
-          : Math.max(0, jumpFramesLeft - 1);
+      // Weave around approaching frenzy cheeps; otherwise hold an altitude
+      // band with an occasional random stroke.
+      let evadeUp = false;
+      let threatened = false;
+      for (const cheep of liveFrenzyCheeps(state.cheepFrenzy)) {
+        const dx = cheep.position.x - player.position.x;
+        const dy = cheep.position.y - player.position.y;
+        if (dx > -8 && dx < 56 && Math.abs(dy) < 28) {
+          threatened = true;
+          evadeUp = dy >= 0; // cheep level-or-below: stroke over it
+        }
+      }
+      const playerRow = Math.floor(
+        (player.position.y + player.collider.height / 2) /
+          runtime.level.levelSpec.tileSizePixels,
+      );
+      const wallAhead =
+        runtime.solid(col + 1, playerRow) || runtime.solid(col + 2, playerRow);
+      jumpFramesLeft = wallAhead
+        ? 5
+        : threatened
+          ? evadeUp
+            ? 5
+            : 0
+          : player.position.y > swimTargetY || rng() < 0.08
+            ? 4
+            : Math.max(0, jumpFramesLeft - 1);
     } else if (jumpFramesLeft > 0) {
       jumpFramesLeft -= 1;
     } else if (runtime.walkInCols.some((x) => col >= x - 12 && col <= x + 1)) {
@@ -329,10 +392,12 @@ function playLevel(
     // Checkpoint every two seconds of sim time — but never a stalled state,
     // or the rollback ring fills with wedged positions.
     if (state.clock.frameIndex % 120 === 0 && stallSteps < 120) {
-      checkpoints.push({ state, levelName: runtime.level.name });
+      const checkpoint = { state, levelName: runtime.level.name };
+      checkpoints.push(checkpoint);
       if (checkpoints.length > 40) {
         checkpoints.shift();
       }
+      recordBest(checkpoint, player.position.x);
     }
 
     const outcome = state.playerOutcome.kind;
@@ -384,14 +449,15 @@ function playLevel(
         deathsSinceProgress += 1;
       }
       if (reason === PlayerDefeatReason.TimeUp || deathsSinceProgress > 50) {
-        // Re-enter the current level with its full timer and a new seed
-        // instead of throwing the whole chain away.
+        // Resume from the progress frontier (early points for time-ups) —
+        // never throw deep progress away.
         deathsSinceProgress = 0;
         progressHighWater = 0;
         restarts += 1;
+        const resume = resumeFromFrontier(reason === PlayerDefeatReason.TimeUp);
         checkpoints.length = 0;
-        checkpoints.push(levelEntry);
-        resetExploration(levelEntry);
+        checkpoints.push(resume);
+        resetExploration(resume);
         continue;
       }
       swimTargetY = (4 + Math.floor(rng() * 6)) * 16;
