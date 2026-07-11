@@ -5,6 +5,36 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-11 — Headless playthroughs of every main level; ROM dev skin completed
+
+- **Headless playthrough test (new)**: a frame-perfect driver steps the real
+  `stepSimulation` engine with a seeded exploring controller — run right,
+  bounce-jump, hop onto and press into known pipe entrances, swim altitude
+  bands, short-hop the goal staircases — keeping immutable state checkpoints
+  and rolling back with a fresh seed (and varied hazard-phase arrival) on
+  every death or stall; time-ups re-enter the current level with a full
+  clock. It follows pipe transfers across sub-areas exactly like the shell.
+  Every main level must reach a Finished outcome against the real engine —
+  movement, enemies, hazards, mechanisms, pipes, loop zones, timers and
+  scoring exercised end to end, everything but rendering.
+- **Fifth fidelity bug (the driver caught it)**: walk-in pipes gated on
+  `velocity.x`, but collision resolution zeroes velocity against the solid
+  mouth — the trigger could still never fire in real play. It now gates on
+  the input direction, like the ROM's facing-direction check on its $6c
+  side-collision rule.
+- **ROM-extracted dev skin completed** (local-only, never committed): the
+  extraction map grew from 29 to 86 numeric compositions — every enemy
+  metasprite from EnemyGraphicsTable (buzzy, red koopa, paratroopas, the
+  spiny and its egg, blooper, cheep, Lakitu, hammer bro, piranha, podoboo,
+  the 4x3 Bowser, bullet bill, jumpspring), the mechanism/projectile
+  sprites (firebar orb, hammer, flame, lift plank, flag), fire-tier Mario
+  palette clones, and all background scenery/castle/water/coral metatiles
+  from the Palette MTiles tables. All 32 menu levels now boot under the ROM
+  skin's strict coverage validation with correct themes and full casts.
+- `build:release-content` now also copies any locally built bundles (the
+  ROM skin) into the served dir, so the dev skin stays playable after a
+  release rebuild; fresh clones still ship the authored skin only.
+
 ## 2026-07-11 — Every level machine-verified start-to-end; four fidelity bugs fixed
 
 - **Completability proof (new test)**: from every one of the 54 levels'

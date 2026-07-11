@@ -58,6 +58,14 @@ Everything from the previous "known deltas" list is now in:
   swim strokes from tier 5. Player movement constants are now source-derived
   from the disassembly's tables, not tuned approximations.
 
+## Landed: headless playthroughs + complete ROM dev skin (2026-07-11, seventh pass)
+
+- A headless engine playthrough test drives every main level to a finish
+  (checkpointed exploring controller over the real stepSimulation); the
+  walk-in pipe trigger was fixed to gate on input direction (fifth fidelity
+  bug). The local ROM-extracted skin now covers the entire cast, mechanisms,
+  scenery, and fire-tier player frames (86 numeric compositions).
+
 ## Remaining backlog (pre-existing, unchanged)
 
 - Loop zones and frenzy regions are decoder-level region mechanics — not

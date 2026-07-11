@@ -1,4 +1,5 @@
 import type { EntityId } from "../domain/identifiers";
+import { HorizontalInput } from "./input-command";
 import type { LevelSpec } from "../domain/level-spec";
 import type { TilePoint } from "../domain/units";
 import type { MovementConstants, ProjectileFrameCount } from "./movement-model";
@@ -120,7 +121,10 @@ export function assertValidPipeEntryState(
 }
 
 export function resolvePipeState(
-  inputCommand: { readonly downHeld: boolean },
+  inputCommand: {
+    readonly downHeld: boolean;
+    readonly horizontal: HorizontalInput;
+  },
   player: PlayerSimulationState,
   previousPipeEntry: PipeEntryState,
   movementConstants: MovementConstants,
@@ -261,12 +265,11 @@ function stepPipeEntry(
   }
 }
 
-// A walk-in pipe is entered by moving into its mouth at a meaningful pace, so a
-// stray touch while standing still doesn't trigger it.
-const pipeWalkInSpeedThreshold = 20;
-
 function findEnteredPipe(
-  inputCommand: { readonly downHeld: boolean },
+  inputCommand: {
+    readonly downHeld: boolean;
+    readonly horizontal: HorizontalInput;
+  },
   player: PlayerSimulationState,
   levelSpec: LevelSpec,
   currentLevelName: string | undefined,
@@ -309,12 +312,15 @@ function findEnteredPipe(
       continue;
     }
 
-    // Down pipes are pressed into from on top; sideways pipes are walked into.
+    // Down pipes are pressed into from on top; sideways pipes are walked
+    // into. Collision resolution zeroes velocity against the solid mouth, so
+    // the walk-in gate is the input direction (the ROM gates its $6c side
+    // rule on the facing direction the same way).
     const entered =
       pipe.entryDirection === "right"
-        ? player.velocity.x >= pipeWalkInSpeedThreshold
+        ? inputCommand.horizontal === HorizontalInput.Right
         : pipe.entryDirection === "left"
-          ? player.velocity.x <= -pipeWalkInSpeedThreshold
+          ? inputCommand.horizontal === HorizontalInput.Left
           : inputCommand.downHeld;
 
     if (entered) {

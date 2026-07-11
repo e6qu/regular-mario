@@ -332,8 +332,18 @@ describe("extract-smb-rom-assets", () => {
       "overworld-pipe",
       "item-mushroom",
       "sprite-green",
+      "sprite-red",
+      "sprite-grey",
+      "sprite-fire",
+      "sprite-bowser",
+      "mario-fire",
+      "bg-cloud",
+      "bg-green",
+      "bg-castle",
+      "bg-water",
+      "bg-orange",
     ]);
-    expect(report.spriteCompositionCount).toBe(29);
+    expect(report.spriteCompositionCount).toBe(86);
     expect(report.outputs).toContain("sprites/mario-small-idle.png");
     expect(report.outputs).toContain("sprites/goomba-walk.png");
     expect(report.outputs).toContain("sprites/tile-brick.png");

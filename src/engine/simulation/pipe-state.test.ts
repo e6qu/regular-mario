@@ -9,6 +9,7 @@ import {
   makeSkyGrassTileDefinitions,
   makeSkyGroundTiles,
 } from "./level-test-support";
+import { HorizontalInput } from "./input-command";
 import {
   HorizontalMovementState,
   initialMovementConstants,
@@ -77,12 +78,12 @@ function playerAgainstPipe(velocityX: number, playerX: number) {
 function resolveAt(
   level: LevelSpec,
   downHeld: boolean,
-  velocityX: number,
+  horizontal: HorizontalInput,
   playerX = 65,
 ): ReturnType<typeof resolvePipeState> {
   return resolvePipeState(
-    { downHeld },
-    playerAgainstPipe(velocityX, playerX),
+    { downHeld, horizontal },
+    playerAgainstPipe(0, playerX),
     makeInitialPipeEntryState(),
     initialMovementConstants,
     level,
@@ -97,7 +98,12 @@ const flushRightX = 80;
 
 describe("pipe entry direction", () => {
   it("enters a right walk-in pipe when pressed flush against its mouth", () => {
-    const result = resolveAt(pipeLevelSpec("right"), false, 90, flushLeftX);
+    const result = resolveAt(
+      pipeLevelSpec("right"),
+      false,
+      HorizontalInput.Right,
+      flushLeftX,
+    );
     expect(result.pipeEntry.phase).toBe(PipeEntryPhase.Entering);
     if (result.pipeEntry.phase === PipeEntryPhase.Entering) {
       expect(result.pipeEntry.targetLevelName).toBe("sub-area");
@@ -106,34 +112,38 @@ describe("pipe entry direction", () => {
 
   it("does not enter a walk-in pipe while standing still or pressing down", () => {
     const level = pipeLevelSpec("right");
-    expect(resolveAt(level, false, 0, flushLeftX).pipeEntry.phase).toBe(
-      PipeEntryPhase.None,
-    );
-    expect(resolveAt(level, true, 0, flushLeftX).pipeEntry.phase).toBe(
-      PipeEntryPhase.None,
-    );
-    // Walking the wrong way (left) doesn't enter a right pipe either.
-    expect(resolveAt(level, false, -90, flushLeftX).pipeEntry.phase).toBe(
-      PipeEntryPhase.None,
-    );
+    expect(
+      resolveAt(level, false, HorizontalInput.Neutral, flushLeftX).pipeEntry
+        .phase,
+    ).toBe(PipeEntryPhase.None);
+    expect(
+      resolveAt(level, true, HorizontalInput.Neutral, flushLeftX).pipeEntry
+        .phase,
+    ).toBe(PipeEntryPhase.None);
+    // Pressing the wrong way (left) doesn't enter a right pipe either.
+    expect(
+      resolveAt(level, false, HorizontalInput.Left, flushLeftX).pipeEntry.phase,
+    ).toBe(PipeEntryPhase.None);
   });
 
   it("enters a left walk-in pipe only when moving left", () => {
     const level = pipeLevelSpec("left");
-    expect(resolveAt(level, false, -90, flushRightX).pipeEntry.phase).toBe(
-      PipeEntryPhase.Entering,
-    );
-    expect(resolveAt(level, false, 90, flushRightX).pipeEntry.phase).toBe(
-      PipeEntryPhase.None,
-    );
+    expect(
+      resolveAt(level, false, HorizontalInput.Left, flushRightX).pipeEntry
+        .phase,
+    ).toBe(PipeEntryPhase.Entering);
+    expect(
+      resolveAt(level, false, HorizontalInput.Right, flushRightX).pipeEntry
+        .phase,
+    ).toBe(PipeEntryPhase.None);
   });
 
   it("keeps down pipes press-to-enter (not walk-in)", () => {
     const level = pipeLevelSpec("down");
-    expect(resolveAt(level, true, 0).pipeEntry.phase).toBe(
-      PipeEntryPhase.Entering,
-    );
-    expect(resolveAt(level, false, 90).pipeEntry.phase).toBe(
+    expect(
+      resolveAt(level, true, HorizontalInput.Neutral).pipeEntry.phase,
+    ).toBe(PipeEntryPhase.Entering);
+    expect(resolveAt(level, false, HorizontalInput.Right).pipeEntry.phase).toBe(
       PipeEntryPhase.None,
     );
   });

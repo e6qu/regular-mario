@@ -4,7 +4,7 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **719 unit tests + 100 browser tests
+Preparing for a public beta/demo release. **725 unit tests + 101 browser tests
 pass; all gates green.**
 
 What exists now:
@@ -59,6 +59,13 @@ What exists now:
   themes; guided tutorial.
 - **Themes + water, audio, HUD, viewport, timeline replay, multi-session tabs,
   mobile** — as before (see git history).
+- **Verification layers**: a start-to-end completability proof and a pinned
+  content census over all 54 levels, a live browser check that every menu
+  level's running game holds its full decoded content, and headless engine
+  playthroughs that drive every main level to a finish.
+- **ROM-extracted dev skin (local-only)** covers the entire cast, mechanisms
+  and scenery from 86 numeric CHR compositions; all 32 menu levels boot
+  under its strict coverage validation.
 - **Authored "Shabby Castaway" skin is complete** — art for every visual
   element (86 sprites): the full enemy cast (including the hurler, cloud
   tosser, kelp traps, charcoal buzzies), all 24 scenery tiles, mechanisms

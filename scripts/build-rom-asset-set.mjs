@@ -31,7 +31,8 @@ const smallPlayerStateSources = {
 };
 
 // Powered/recovering states use the 16x32 big-Mario compositions (recovering
-// reuses the powered art; it only flashes at runtime).
+// reuses the powered art; it only flashes at runtime); the fire tier uses the
+// palette-swapped clones.
 const bigPlayerStateSources = {
   idle: "mario-big-idle.png",
   walk: "mario-big-walk-1.png",
@@ -40,6 +41,15 @@ const bigPlayerStateSources = {
   fall: "mario-big-jump.png",
   climb: "mario-big-idle.png",
 };
+const firePlayerStateSources = {
+  idle: "mario-fire-idle.png",
+  walk: "mario-fire-walk-1.png",
+  run: "mario-fire-walk-2.png",
+  jump: "mario-fire-jump.png",
+  fall: "mario-fire-jump.png",
+  climb: "mario-fire-idle.png",
+};
+const fireMarioFiles = Object.values(firePlayerStateSources);
 
 const enemyActorId = "vglc-smb-enemy";
 const enemyStateSources = {
@@ -53,6 +63,70 @@ const itemSpriteSources = {
   "vglc-smb-power-up": "item-super-mushroom.png",
   "vglc-smb-extra-life": "item-1up-mushroom.png",
   "vglc-smb-invincibility": "item-star.png",
+};
+
+// The rest of the cast: composed metasprites (heights vary), one entry per
+// actor id the importer can emit.
+const castSprites = {
+  "vglc-smb-throwing-enemy": ["hammer-bro.png", 24],
+  "vglc-smb-aerial-throwing-enemy": ["lakitu.png", 24],
+  "vglc-smb-koopa-red": ["koopa-red-walk.png", 24],
+  "vglc-smb-parakoopa": ["paratroopa-walk.png", 24],
+  "vglc-smb-parakoopa-red": ["paratroopa-red-walk.png", 24],
+  "vglc-smb-parakoopa-hopper": ["paratroopa-walk.png", 24],
+  "vglc-smb-turtle": ["buzzy-walk.png", 16],
+  "vglc-smb-spiny": ["spiny-walk.png", 16],
+  "vglc-smb-blooper": ["blooper.png", 16],
+  "vglc-smb-cheep": ["cheep-red.png", 16],
+  "vglc-smb-piranha": ["piranha-plant.png", 24],
+  "vglc-smb-bullet": ["bullet-bill.png", 16],
+  "vglc-smb-bowser": ["bowser.png", 24, 32],
+  "vglc-smb-bowser-hammers": ["bowser.png", 24, 32],
+  "vglc-smb-climbable": ["tile-flagpole-shaft.png", 16],
+  "vglc-smb-transition-pipe": ["tile-pipe-body-left.png", 16],
+  "mechanism-flame-orb": ["fire-orb.png", 8, 8],
+  "mechanism-podoboo": ["podoboo.png", 16],
+  "mechanism-lift": ["lift-plank.png", 8, 24],
+  "projectile-fireball": ["fire-orb.png", 8, 8],
+  "projectile-hammer": ["hammer.png", 16, 8],
+  "projectile-flame": ["bowser-flame.png", 8, 16],
+  "projectile-egg": ["spiny-egg-proj.png", 16],
+};
+
+// Extra tile ids: scenery, coral, mechanisms, and editor-facing tiles.
+const extraTileSpriteSources = {
+  "scenery-cloud-left": "scenery-cloud-left.png",
+  "scenery-cloud-middle": "scenery-cloud-middle.png",
+  "scenery-cloud-right": "scenery-cloud-right.png",
+  "scenery-bush-left": "scenery-bush-left.png",
+  "scenery-bush-middle": "scenery-bush-middle.png",
+  "scenery-bush-right": "scenery-bush-right.png",
+  "scenery-hill-left": "scenery-hill-left.png",
+  "scenery-hill-peak": "scenery-hill-peak.png",
+  "scenery-hill-right": "scenery-hill-right.png",
+  "scenery-hill-fill": "scenery-hill-fill.png",
+  "scenery-fence": "scenery-fence.png",
+  "scenery-tree-top": "scenery-tree-top.png",
+  "scenery-tree-top-small": "scenery-tree-top-small.png",
+  "scenery-trunk": "scenery-trunk.png",
+  "scenery-mushroom-stem": "scenery-mushroom-stem.png",
+  "scenery-rail": "scenery-rail.png",
+  "castle-wall": "castle-wall.png",
+  "castle-battlement": "castle-battlement.png",
+  "castle-window": "castle-window.png",
+  "castle-door": "castle-door.png",
+  "water-surface": "water-surface.png",
+  "water-body": "water-body.png",
+  "lava-surface": "lava-surface.png",
+  "lava-body": "lava-body.png",
+  coral: "coral.png",
+  "castle-bridge": "castle-bridge.png",
+  "cannon-top": "cannon-top.png",
+  "cannon-bottom": "cannon-bottom.png",
+  "spring-top": "jumpspring-rest.png",
+  "spring-bottom": "jumpspring-rest.png",
+  "power-up-brick": "tile-brick.png",
+  "flagpole-flag": "flag-pennant.png",
 };
 
 // Green Koopa Troopa: a 16x24 walking metasprite plus a 16x16 shell.
@@ -115,6 +189,9 @@ function buildPlayerStateSprites() {
     stateSprites[`powered-${suffix}`] = bigEntry;
     stateSprites[`recovering-${suffix}`] = bigEntry;
   }
+  for (const [suffix, fileName] of Object.entries(firePlayerStateSources)) {
+    stateSprites[`fire-${suffix}`] = spriteEntry(fileName, bigSpriteHeight);
+  }
   return stateSprites;
 }
 
@@ -144,6 +221,21 @@ async function copySprites(spritesDir, outDir, fileNames) {
     }
     await copyFile(sourcePath, resolve(outDir, fileName));
   }
+}
+
+// A shelled/armored actor entry: walking frames plus shell states.
+function shelledActorEntry(walkFileName, walkHeight, shellFileName) {
+  return {
+    ...spriteEntry(walkFileName, walkHeight),
+    stateSprites: {
+      "walk-left": spriteEntry(walkFileName, walkHeight),
+      "walk-right": spriteEntry(walkFileName, walkHeight),
+      shell: spriteEntry(shellFileName),
+      "shell-idle": spriteEntry(shellFileName),
+      "shell-left": spriteEntry(shellFileName),
+      "shell-right": spriteEntry(shellFileName),
+    },
+  };
 }
 
 function mapStateSprites(sources) {
@@ -181,6 +273,11 @@ async function main() {
       ...Object.values(enemyStateSources),
       ...Object.values(itemSpriteSources),
       ...Object.values(tileSpriteSources),
+      ...Object.values(castSprites).map((entry) => entry[0]),
+      ...Object.values(extraTileSpriteSources),
+      ...fireMarioFiles,
+      "koopa-red-shell.png",
+      "buzzy-shell.png",
       koopaWalkFile,
       koopaShellFile,
     ]),
@@ -209,20 +306,70 @@ async function main() {
       "vglc-smb-invincibility": spriteEntry(
         itemSpriteSources["vglc-smb-invincibility"],
       ),
-      "vglc-smb-koopa": {
-        ...spriteEntry(koopaWalkFile, koopaWalkHeight),
-        stateSprites: {
-          "walk-left": spriteEntry(koopaWalkFile, koopaWalkHeight),
-          "walk-right": spriteEntry(koopaWalkFile, koopaWalkHeight),
-          shell: spriteEntry(koopaShellFile),
-          "shell-idle": spriteEntry(koopaShellFile),
-          "shell-left": spriteEntry(koopaShellFile),
-          "shell-right": spriteEntry(koopaShellFile),
-        },
-      },
+      "vglc-smb-koopa": shelledActorEntry(
+        koopaWalkFile,
+        koopaWalkHeight,
+        koopaShellFile,
+      ),
       "open-gate": spriteEntry("tile-flagpole-shaft.png"),
+      ...Object.fromEntries(
+        Object.entries(castSprites).map(([actorId, entry]) => {
+          const [fileName, height, width] = entry;
+          const base = {
+            source: { kind: "url", url: fileName },
+            frame: {
+              x: 0,
+              y: 0,
+              width: width ?? spriteSize,
+              height: height ?? spriteSize,
+            },
+          };
+          return [
+            actorId,
+            {
+              ...base,
+              stateSprites: { "walk-left": base, "walk-right": base },
+            },
+          ];
+        }),
+      ),
+      // Winged armored enemies drop to walking shells when stomped.
+      "vglc-smb-parakoopa": shelledActorEntry(
+        "paratroopa-walk.png",
+        24,
+        koopaShellFile,
+      ),
+      "vglc-smb-parakoopa-hopper": shelledActorEntry(
+        "paratroopa-walk.png",
+        24,
+        koopaShellFile,
+      ),
+      "vglc-smb-parakoopa-red": shelledActorEntry(
+        "paratroopa-red-walk.png",
+        24,
+        "koopa-red-shell.png",
+      ),
+      // Shelled state art for red koopas and buzzies.
+      "vglc-smb-koopa-red": shelledActorEntry(
+        "koopa-red-walk.png",
+        24,
+        "koopa-red-shell.png",
+      ),
+      "vglc-smb-turtle": shelledActorEntry(
+        "buzzy-walk.png",
+        16,
+        "buzzy-shell.png",
+      ),
     },
-    tileSprites: mapTileSprites(tileSpriteSources),
+    tileSprites: {
+      ...mapTileSprites(tileSpriteSources),
+      ...mapTileSprites(extraTileSpriteSources),
+      // The extracted flag is a single 8x8 sprite tile.
+      "flagpole-flag": {
+        source: { kind: "url", url: "flag-pennant.png" },
+        frame: { x: 0, y: 0, width: 8, height: 8 },
+      },
+    },
     sounds: {},
     music: {},
   };

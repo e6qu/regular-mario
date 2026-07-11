@@ -239,7 +239,7 @@ function stepActiveSimulation(
   const levelTimer = stepLevelTimerState(state.levelTimer);
 
   const pipeState = resolvePipeState(
-    { downHeld: inputCommand.downHeld },
+    { downHeld: inputCommand.downHeld, horizontal: inputCommand.horizontal },
     state.player,
     state.pipeEntry,
     movementConstants,

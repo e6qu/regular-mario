@@ -10,7 +10,7 @@
 // (tile indices/coordinates/timings — never graphics or audio bytes).
 
 import { execFileSync } from "node:child_process";
-import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,13 +53,26 @@ async function main() {
     mapSetId,
   ]);
 
-  // 4. Copy the self-contained bundle into the served static dir.
+  // 4. Copy the self-contained bundle into the served static dir — plus any
+  // other locally built bundles (e.g. the ROM-extracted dev skin, which only
+  // ever exists in the ignored cache and is never committed or released).
   await rm(publicContentDir, { recursive: true, force: true });
-  const bundleOut = resolve(publicContentDir, "content-set-bundles", bundleId);
-  await mkdir(bundleOut, { recursive: true });
-  await cp(resolve(cacheRoot, "content-set-bundles", bundleId), bundleOut, {
-    recursive: true,
-  });
+  const bundlesRoot = resolve(cacheRoot, "content-set-bundles");
+  const localBundleIds = new Set([bundleId]);
+  try {
+    for (const entry of await readdir(bundlesRoot, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        localBundleIds.add(entry.name);
+      }
+    }
+  } catch {
+    // No extra local bundles — fresh clones ship the release bundle only.
+  }
+  for (const id of localBundleIds) {
+    const bundleOut = resolve(publicContentDir, "content-set-bundles", id);
+    await mkdir(bundleOut, { recursive: true });
+    await cp(resolve(bundlesRoot, id), bundleOut, { recursive: true });
+  }
 
   // 4b. Include the authored sound packs (synthesized WAVs; no ROM) so the
   // "Shabby (ouch voices)" option works statically; "Classic" is synthesized
