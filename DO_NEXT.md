@@ -1,5 +1,35 @@
 # DO_NEXT.md
 
+## Landed: fidelity sweep (2026-07-12, eighth pass)
+
+- **Piranha plants retract into their pipes** (sink 24px, render behind the
+  pipe; sim + occlusion tested).
+- **Flag-ball grab verified** end to end (top-of-pole = 5000; every height
+  band pinned).
+- **Exact-position verification for all 54 levels**: census pins every
+  actor/mechanism position + a tile-grid digest, and a browser journey boots
+  all 54 pack levels (deep-linking sub-areas) and compares live rendered actor
+  positions to the decoded spec at frame 0.
+- **Mobile NES control deck** moved outside the drawing surface (canvas shrinks
+  to make room; cross D-pad + A/B + START); landscape browser test drives it.
+- **ROM hitbox audit** + two discrete collision fixes (Bullet Bills stompable;
+  stomp-on-descent).
+
+## Remaining: the collision-geometry overhaul (characterised in BUGS.md)
+
+The audit's four systemic geometry bugs (player hitbox 14×24/14×32 vs ROM
+10×12/12×24; every enemy 16×16 vs ROM boxes; Bowser flame 24×8 vs 4×4; no
+crouch) are **specified but not yet done**. They all need the same missing
+piece: a collision box decoupled from the render/sprite size (the ROM's object
+bounding box is smaller than the 16px sprite and distinct from terrain
+collision). A first attempt at the player hurtbox revealed an entanglement —
+our small terrain collider is 24px tall, not the ROM's ~16px, so the hurtbox
+can't just be feet-anchored inside it. Do this as a dedicated, playtested
+change: reconcile the terrain collider height (re-tuning jump/ground), add
+per-entity hurtboxes with ROM offsets, add the crouch state, then regenerate
+the replay-fixture golden states. It makes the game _more forgiving_ (matches
+the original), so it should not threaten completability.
+
 ## Landed: full-pack verification (2026-07-11, sixth pass)
 
 - Machine proofs over all 54 levels: start-to-end completability (movement

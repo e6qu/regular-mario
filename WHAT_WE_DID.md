@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-12 — ROM hitbox audit; two discrete collision bugs fixed
+
+- **Full hitbox audit vs the ROM's `BoundBoxCtrlData`.** Traced every game
+  object's bounding-box index in the disassembly and compared it to our
+  colliders. The collision logic is faithful; the geometry is uniformly larger,
+  so the game plays harder than SMB. Two discrete wrong-outcome bugs fixed;
+  four systemic geometry bugs characterised in BUGS.md (they need a
+  render/collision decouple — see the entanglement note there).
+- **BUG 1 — cannon Bullet Bills are stompable.** They are in the ROM's
+  EnemyStomped set; our decoded metadata never set `stompable`, so a clean jump
+  onto one killed the player. Decoder + parser + the five cannon levels'
+  metadata now mark them stompable (Bowser flames stay lethal).
+- **BUG 6 — stomp on descent at any overlap depth.** The ROM grants a stomp on
+  overlap + downward motion; we additionally required the feet to have been
+  above the enemy's top last frame, so a deep descending overlap was wrongly
+  harmful. `isEnemyStomp` now keys purely on the descent.
+
 ## 2026-07-12 — Mobile NES control deck outside the drawing surface
 
 - **Touch controls moved out of the play area.** On coarse-pointer devices the
