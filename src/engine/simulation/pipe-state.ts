@@ -302,7 +302,15 @@ function findEnteredPipe(
         : pipe.entryDirection === "left"
           ? pipe.position.x === leadingLeftTileX
           : pipe.position.x === playerTileX;
-    if (!columnMatches || pipe.position.y !== playerTileY) {
+    // Down pipes have a solid mouth: a player standing ON it has their
+    // centre one row above the mouth tile — accept both rows (overlap for
+    // non-solid editor mouths, standing for the decoded solid ones).
+    const rowMatches =
+      pipe.entryDirection === "right" || pipe.entryDirection === "left"
+        ? pipe.position.y === playerTileY
+        : pipe.position.y === playerTileY ||
+          pipe.position.y === playerTileY + 1;
+    if (!columnMatches || !rowMatches) {
       continue;
     }
     if (

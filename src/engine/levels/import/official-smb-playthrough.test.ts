@@ -49,11 +49,12 @@ function requireInput(
   horizontal: HorizontalInput,
   jump: boolean,
   down: boolean,
+  run = true,
 ): SimulationInputCommand {
   const result = makeSimulationInputCommand(
     horizontal,
     jump,
-    true,
+    run,
     false,
     false,
     down,
@@ -83,6 +84,14 @@ type LevelRuntime = {
   readonly downPipeCols: readonly number[];
   readonly walkInCols: readonly number[];
   readonly goalCols: readonly number[];
+  readonly gateCols: readonly number[];
+  readonly lowGates: readonly number[];
+  readonly reachableGates: readonly {
+    readonly col: number;
+    readonly elevated: boolean;
+  }[];
+  readonly elevatedGates: readonly number[];
+  readonly springCols: readonly number[];
   readonly water: boolean;
 };
 
@@ -115,6 +124,8 @@ function runtimeFor(name: string): LevelRuntime {
     ? (level.metadata.transitions as readonly {
         readonly x: number;
         readonly entryDirection?: string;
+        readonly targetLevelName?: string;
+        readonly targetTileX?: number;
       }[])
     : [];
   const runtime: LevelRuntime = {
@@ -128,10 +139,52 @@ function runtimeFor(name: string): LevelRuntime {
     },
     downPipeCols: transitions
       .filter((transition) => (transition.entryDirection ?? "down") === "down")
+      // A self-warp that lands BEHIND its own entrance is a maze trap
+      // (8-4's first pipe) — never take those on purpose.
+      .filter(
+        (transition) =>
+          !(
+            transition.targetLevelName === name &&
+            typeof transition.targetTileX === "number" &&
+            transition.targetTileX < transition.x
+          ),
+      )
       .map((transition) => transition.x),
     walkInCols: transitions
       .filter((transition) => transition.entryDirection === "right")
       .map((transition) => transition.x),
+    // Any reachable gate must be crossed standing; elevated ones also need
+    // a climbing approach and low ones a grounded (descending) approach.
+    gateCols: spec.loopZones
+      .filter((zone) => zone.requiredRowMin < spec.heightTiles)
+      .map((zone) => zone.checkTileX),
+    lowGates: spec.loopZones
+      .filter(
+        (zone) =>
+          zone.requiredRowMin >= 9 && zone.requiredRowMin < spec.heightTiles,
+      )
+      .map((zone) => zone.checkTileX),
+    reachableGates: spec.loopZones
+      .filter((zone) => zone.requiredRowMin < spec.heightTiles)
+      .map((zone) => ({
+        col: zone.checkTileX,
+        elevated: zone.requiredRowMax < 9,
+      }))
+      .sort((a, b) => a.col - b.col),
+    elevatedGates: spec.loopZones
+      .filter((zone) => zone.requiredRowMax < 9)
+      .map((zone) => zone.checkTileX),
+    springCols: (() => {
+      const cols = new Set<number>();
+      for (const row of spec.tiles) {
+        for (const [column, tileId] of row.entries()) {
+          if (collisionByTileId.get(tileId) === TileCollisionKind.Spring) {
+            cols.add(column);
+          }
+        }
+      }
+      return [...cols];
+    })(),
     goalCols: (() => {
       const cols = new Set<number>();
       for (const row of spec.tiles) {
@@ -150,7 +203,9 @@ function runtimeFor(name: string): LevelRuntime {
 }
 
 function pitAhead(runtime: LevelRuntime, col: number): boolean {
-  for (const dx of [1, 2, 3, 4]) {
+  // Trigger at the edge (max carry): wide pits need a full-speed takeoff
+  // from the last solid column.
+  for (const dx of [1, 2]) {
     const target = col + dx;
     if (target >= runtime.level.levelSpec.widthTiles) {
       continue;
@@ -218,6 +273,9 @@ function playLevel(
     if (timer !== undefined && timer < 3000) {
       return; // poisoned clock — not a useful resume point
     }
+    if (checkpoint.state.player.position.y < 40) {
+      return; // on the roof above the ceiling — a dead-end route
+    }
     const entry = bestByLevel.get(checkpoint.levelName) ?? {
       bestX: -1,
       frontier: [],
@@ -235,6 +293,14 @@ function playLevel(
     const entry = bestByLevel.get(runtime.level.name);
     if (entry === undefined || entry.frontier.length === 0) {
       return levelEntry;
+    }
+    // Pipe-gated mazes: the frontier often sits past an un-taken mandatory
+    // pipe; resume early so the pipe approach is retried.
+    const pipeGated = runtime.level.levelSpec.loopZones.some(
+      (zone) => zone.requiredRowMin >= runtime.level.levelSpec.heightTiles,
+    );
+    if (pipeGated) {
+      timeUp = true;
     }
     // Time-ups resume from an early frontier point (more clock headroom);
     // ordinary deaths resume near the frontier's edge.
@@ -266,6 +332,14 @@ function playLevel(
   let stallX = 0;
   let stallSteps = 0;
   let swimTargetY = 6 * 16;
+  let loopBacks = 0;
+  let previousX = 0;
+  // Scripted pipe mount: straight-up jump beside the mouth, then a nudge
+  // onto it (frames > 13: rise; frames 1-13: nudge right).
+  let mountFramesLeft = 0;
+  // "Sky mode": an attempt that favors the high route from the start —
+  // elevated loop gates need it.
+  let skyMode = false;
 
   // Shared reset after any rollback/re-entry: fresh seed, varied arrival
   // phase (hazard cycles are frame-locked), and a chance of ground mode.
@@ -295,15 +369,33 @@ function playLevel(
       player.movement.vertical === VerticalMovementState.Grounded;
 
     // Controller policy.
+    const nearDownPipe = runtime.downPipeCols.some(
+      (x) => col >= x - 6 && col <= x + 1,
+    );
     if (
+      mountFramesLeft === 0 &&
+      downFramesLeft === 0 &&
+      grounded &&
+      jumpFramesLeft === 0 &&
+      runtime.downPipeCols.some((x) => col === x - 1) &&
+      runtime.solid(col + 1, Math.floor(player.position.y / 16) + 1)
+    ) {
+      // Flush beside a solid pipe: mount it with a straight-up jump.
+      mountFramesLeft = 30;
+    } else if (
       downFramesLeft === 0 &&
       grounded &&
       runtime.downPipeCols.includes(col)
     ) {
       // Stand on a known pipe entrance and press down (mostly — leave room
       // for exploration past a pipe the maze doesn't want).
-      if (rng() < 0.85) {
-        downFramesLeft = 30;
+      // In a pipe-gated maze (loop zones no route can pass) the pipes are
+      // mandatory; elsewhere leave a little room for exploration.
+      const mandatory = runtime.level.levelSpec.loopZones.some(
+        (zone) => zone.requiredRowMin >= runtime.level.levelSpec.heightTiles,
+      );
+      if (mandatory || rng() < 0.9) {
+        downFramesLeft = 40;
       } else {
         downFramesLeft = -45; // walk past it before reconsidering
       }
@@ -313,8 +405,12 @@ function playLevel(
       jumpFramesLeft === 0 &&
       runtime.downPipeCols.some((x) => col >= x - 3 && col <= x - 1)
     ) {
-      // Hop up onto an approaching pipe entrance instead of walking into it.
-      jumpFramesLeft = 18 + Math.floor(rng() * 10);
+      // Hop up onto an approaching pipe entrance instead of walking into
+      // it — pipe heights vary, so vary the hop.
+      jumpFramesLeft = 10 + Math.floor(rng() * 22);
+    } else if (nearDownPipe && jumpFramesLeft > 28) {
+      // Don't sail clean over the pipe with a long bounce.
+      jumpFramesLeft = 12;
     }
     if (downFramesLeft < 0) {
       downFramesLeft += 1;
@@ -332,6 +428,31 @@ function playLevel(
     if (groundModeFramesLeft > 0) {
       groundModeFramesLeft -= 1;
     }
+    // A loop-zone rejection teleports the player backward without a death;
+    // after a few cycles, restart the level with a different route bias.
+    if (
+      previousX - player.position.x > 48 &&
+      pendingWarp === undefined &&
+      state.pipeEntry.phase === PipeEntryPhase.None
+    ) {
+      loopBacks += 1;
+      // Pipe-gated mazes (8-4) loop back by design until the right pipe is
+      // taken — keep cycling there instead of restarting.
+      const pipeGated = runtime.level.levelSpec.loopZones.some(
+        (zone) => zone.requiredRowMin >= runtime.level.levelSpec.heightTiles,
+      );
+      if (!pipeGated && loopBacks >= 3) {
+        loopBacks = 0;
+        restarts += 1;
+        checkpoints.length = 0;
+        checkpoints.push(levelEntry);
+        resetExploration(levelEntry);
+        skyMode = rng() < 0.6;
+        previousX = 0;
+        continue;
+      }
+    }
+    previousX = player.position.x;
     if (runtime.water) {
       // Weave around approaching frenzy cheeps; otherwise hold an altitude
       // band with an occasional random stroke.
@@ -374,18 +495,67 @@ function playLevel(
     } else if (runtime.walkInCols.some((x) => col >= x - 12 && col <= x + 1)) {
       // Approaching a walk-in mouth: stay on the ground and press into it.
       jumpFramesLeft = 0;
+    } else if (runtime.springCols.some((x) => Math.abs(col - x) <= 1)) {
+      // On a springboard: hold the jump through the entire launch — the big
+      // bounce needs the held-jump gravity, exactly like holding A.
+      jumpFramesLeft = 50;
     } else if (runtime.goalCols.some((x) => col >= x - 16 && col <= x + 1)) {
-      // Near the goal pole: short hops only — enough to climb the end
-      // staircase, never enough to sail clean over the flagpole.
-      if (grounded && rng() < 0.3) {
+      // Near the goal pole: short hops climb the end staircase without
+      // sailing over the flagpole; pits still get a committed medium jump.
+      if (grounded && pitAhead(runtime, col)) {
+        jumpFramesLeft = 16 + Math.floor(rng() * 6);
+      } else if (grounded && rng() < 0.3) {
         jumpFramesLeft = 6 + Math.floor(rng() * 4);
       }
+    } else if (
+      !nearDownPipe &&
+      runtime.gateCols.some((x) => col >= x - 8 && col <= x + 1) &&
+      !(grounded && pitAhead(runtime, col))
+    ) {
+      // Loop gates require STANDING at the correct height when crossing —
+      // never jump through the gate column itself (unless a pit demands it).
+      jumpFramesLeft = 0;
     } else if (grounded && pitAhead(runtime, col)) {
-      jumpFramesLeft = 24 + Math.floor(rng() * 12);
+      // Pits outrank all route biases — falling in is worse than looping.
+      jumpFramesLeft = 30 + Math.floor(rng() * 8);
+    } else if (
+      !nearDownPipe &&
+      runtime.reachableGates.some(
+        (gate) => gate.elevated && col >= gate.col - 18 && col <= gate.col - 9,
+      )
+    ) {
+      // The next gate needs an elevated standing crossing: climb hard.
+      if (grounded && jumpFramesLeft === 0 && rng() < 0.5) {
+        jumpFramesLeft = 16 + Math.floor(rng() * 20);
+      }
+    } else if (
+      !nearDownPipe &&
+      runtime.reachableGates.some(
+        (gate) => !gate.elevated && col >= gate.col - 18 && col <= gate.col - 9,
+      )
+    ) {
+      // The next gate needs a low standing crossing: stay grounded so gaps
+      // drop the player onto the low route.
+      jumpFramesLeft = 0;
+    } else if (skyMode && grounded && jumpFramesLeft === 0 && rng() < 0.6) {
+      // Favor the high route: climb whatever is above.
+      jumpFramesLeft = 16 + Math.floor(rng() * 20);
     } else if (groundModeFramesLeft === 0 && rng() < 0.09) {
       jumpFramesLeft = 8 + Math.floor(rng() * 28);
     }
 
+    // Bowser flames and cannon shots fly in as timed projectiles — hop over
+    // one approaching at head height.
+    if (!runtime.water && grounded && jumpFramesLeft === 0) {
+      for (const projectile of state.timedHazardProjectiles.projectiles) {
+        const dx = projectile.position.x - player.position.x;
+        const dy = projectile.position.y - player.position.y;
+        if (dx > -8 && dx < 80 && Math.abs(dy) < 26) {
+          jumpFramesLeft = 20;
+          break;
+        }
+      }
+    }
     // Flame hazards are pure functions of the frame — wait out a bar or a
     // podoboo that is currently sweeping the path ahead.
     if (
@@ -395,10 +565,7 @@ function playLevel(
         runtime.level.levelSpec.podoboos.length > 0)
     ) {
       const hazards = [
-        ...computeFirebarOrbs(
-          runtime.level.levelSpec,
-          state.clock.frameIndex,
-        ),
+        ...computeFirebarOrbs(runtime.level.levelSpec, state.clock.frameIndex),
         ...computePodobooPositions(
           runtime.level.levelSpec,
           state.clock.frameIndex,
@@ -417,12 +584,33 @@ function playLevel(
       idleFramesLeft -= 1;
       jumpFramesLeft = 0;
     }
-    const input = requireInput(
+    // In a mandatory-pipe maze, walk flush into the pipe side (never hop
+    // around it) so the scripted mount can trigger from the ground.
+    if (
+      mountFramesLeft === 0 &&
+      runtime.level.levelSpec.loopZones.some(
+        (zone) => zone.requiredRowMin >= runtime.level.levelSpec.heightTiles,
+      ) &&
+      runtime.downPipeCols.some((x) => col >= x - 4 && col <= x - 1)
+    ) {
+      jumpFramesLeft = 0;
+    }
+    let horizontal =
       idleFramesLeft > 0 || pressingDown
         ? HorizontalInput.Neutral
-        : HorizontalInput.Right,
-      jumpFramesLeft > 0,
+        : HorizontalInput.Right;
+    let jumpHeld = jumpFramesLeft > 0;
+    if (mountFramesLeft > 0) {
+      horizontal =
+        mountFramesLeft > 13 ? HorizontalInput.Neutral : HorizontalInput.Right;
+      jumpHeld = mountFramesLeft > 13;
+      mountFramesLeft -= 1;
+    }
+    const input = requireInput(
+      horizontal,
+      jumpHeld,
       pressingDown,
+      !nearDownPipe,
     );
     state = stepSimulation(
       state,
@@ -458,7 +646,8 @@ function playLevel(
     }
     // A live stall (wedged on geometry with nothing lethal around) never
     // dies, so treat it like a death: roll back and explore differently.
-    if (player.position.x > stallX + 8) {
+    // Roof-walking above the ceiling is a dead end — count it as stalling.
+    if (player.position.x > stallX + 8 && player.position.y >= 40) {
       stallX = player.position.x;
       stallSteps = 0;
     } else {

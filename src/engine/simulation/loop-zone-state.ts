@@ -5,6 +5,7 @@
 // entering the correct pipe (whose transition lands past the checkpoint)
 // gets through.
 
+import { VerticalMovementState } from "./movement-model";
 import type { LevelSpec } from "../domain/level-spec";
 import type { PlayerSimulationState } from "./player-state";
 import { requireSimulationPixelPosition } from "./simulation-units";
@@ -75,9 +76,15 @@ export function resolveLoopZones(
       continue;
     }
 
+    // The ROM compares Player_Y_Position (the player's top) and requires
+    // solid ground — an airborne crossing always fails the check.
     const playerRow = Math.floor(adjustedPlayer.position.y / tileSize);
+    const grounded =
+      adjustedPlayer.movement.vertical === VerticalMovementState.Grounded;
     const onCorrectRow =
-      playerRow >= zone.requiredRowMin && playerRow <= zone.requiredRowMax;
+      grounded &&
+      playerRow >= zone.requiredRowMin &&
+      playerRow <= zone.requiredRowMax;
 
     const progress = groupProgress[zone.groupId] ?? {
       evaluated: 0,

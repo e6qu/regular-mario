@@ -198,10 +198,19 @@ function crossingAllowed(
   fromCol: number,
   toCol: number,
   row: number,
+  airborne: boolean,
 ): boolean {
   for (const zone of model.loopZones) {
     if (fromCol < zone.checkTileX && toCol >= zone.checkTileX) {
-      if (row < zone.requiredRowMin || row > zone.requiredRowMax) {
+      // The runtime requires solid ground and compares the player's TOP row;
+      // a node's row is the occupied (feet) cell, one row lower. Airborne
+      // crossings always fail the check.
+      const topRow = row - 1;
+      if (
+        airborne ||
+        topRow < zone.requiredRowMin ||
+        topRow > zone.requiredRowMax
+      ) {
         return false;
       }
     }
@@ -325,7 +334,7 @@ export function runSearch(startLevel: string): {
           nextRow >= 0 &&
           nextRow < model.height &&
           !model.solid(nextCol, nextRow) &&
-          crossingAllowed(model, col, nextCol, nextRow)
+          crossingAllowed(model, col, nextCol, nextRow, false)
         ) {
           enqueue(node.level, nextCol, nextRow);
         }
@@ -340,7 +349,7 @@ export function runSearch(startLevel: string): {
         nextCol >= 0 &&
         nextCol < model.width &&
         !model.solid(nextCol, row) &&
-        crossingAllowed(model, col, nextCol, row)
+        crossingAllowed(model, col, nextCol, row, false)
       ) {
         enqueue(node.level, nextCol, row);
       }
@@ -371,7 +380,7 @@ export function runSearch(startLevel: string): {
           ) {
             break;
           }
-          if (!crossingAllowed(model, col, glideCol, apexRow)) {
+          if (!crossingAllowed(model, col, glideCol, apexRow, true)) {
             break;
           }
           enqueue(node.level, glideCol, apexRow);

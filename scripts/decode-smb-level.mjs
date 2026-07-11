@@ -1081,12 +1081,15 @@ function computeLoopZones(world, objects) {
   }
   const entries = loopCommandTable.filter((entry) => entry.world === world);
   return entries.map((entry, index) => {
-    // LoopCmdYPosition is an NES screen pixel; the grid sits rowOffset rows
-    // below screen row 0, and the runtime compares grid rows.
-    const row = Math.floor(entry.yPixel / 16) + rowOffset;
+    // LoopCmdYPosition compares against Player_Y_Position (the player's top,
+    // in the same screen space as the grid); the ROM also requires solid
+    // ground, and the check fires when the RENDERER (a screen ahead of the
+    // player) reaches the command's page — so the player-relative check
+    // column sits one screen (16 tiles) before the page boundary.
+    const row = Math.floor(entry.yPixel / 16);
     const reachable = row < gridHeight;
     return {
-      checkTileX: entry.page * 16,
+      checkTileX: entry.page * 16 - (reachable ? 16 : 0),
       requiredRowMin: reachable
         ? Math.max(0, row - loopRowTolerance)
         : gridHeight,
