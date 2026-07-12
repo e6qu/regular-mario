@@ -457,7 +457,7 @@ function resolveProjectileEnemyCollisions(
       continue;
     }
 
-    const hitEnemyEntityId = findHitEnemyEntityId(
+    const hit = findHitEnemyEntityId(
       projectile,
       enemyMotion,
       levelSpec,
@@ -465,11 +465,17 @@ function resolveProjectileEnemyCollisions(
       newlyDefeatedSet,
     );
 
-    if (hitEnemyEntityId !== undefined) {
+    if (hit !== undefined) {
+      // A fireproof enemy (Buzzy) is not defeated, but the fireball still
+      // detonates on it — consume it (drop from the surviving list) without
+      // scoring a hit, so it can't pass through to an enemy behind.
+      if (hit.fireproof) {
+        continue;
+      }
       // Multi-hit enemies (Bowser) soak fireballs until their hit points run
       // out; everyone else is defeated by the first hit.
       const placement = levelSpec.actors.find(
-        (actor) => actor.entityId === hitEnemyEntityId,
+        (actor) => actor.entityId === hit.entityId,
       );
       const hitPointsNeeded =
         placement === undefined
@@ -477,11 +483,11 @@ function resolveProjectileEnemyCollisions(
           : (levelSpec.actorDefinitions.find(
               (definition) => definition.actorId === placement.actorId,
             )?.projectileHitPoints ?? 1);
-      const landedHits = (fireballHits[hitEnemyEntityId] ?? 0) + 1;
-      fireballHits[hitEnemyEntityId] = landedHits;
+      const landedHits = (fireballHits[hit.entityId] ?? 0) + 1;
+      fireballHits[hit.entityId] = landedHits;
       if (landedHits >= hitPointsNeeded) {
-        newlyDefeatedEnemyEntityIds.push(hitEnemyEntityId);
-        newlyDefeatedSet.add(hitEnemyEntityId);
+        newlyDefeatedEnemyEntityIds.push(hit.entityId);
+        newlyDefeatedSet.add(hit.entityId);
       }
       continue;
     }
@@ -502,7 +508,7 @@ function findHitEnemyEntityId(
   levelSpec: LevelSpec,
   alreadyDefeatedEnemyEntityIds: ReadonlySet<EntityId>,
   newlyDefeatedEnemyEntityIds: ReadonlySet<EntityId>,
-): EntityId | undefined {
+): { readonly entityId: EntityId; readonly fireproof: boolean } | undefined {
   for (const actor of levelSpec.actors) {
     if (
       alreadyDefeatedEnemyEntityIds.has(actor.entityId) ||
@@ -514,15 +520,6 @@ function findHitEnemyEntityId(
     const enemyActor = tryGetEnemyActorState(enemyMotion, actor.entityId);
 
     if (enemyActor === undefined) {
-      continue;
-    }
-
-    // Fireproof enemies (Buzzy Beetle) shrug off fireballs — the projectile
-    // passes over without defeating them.
-    const actorDefinition = levelSpec.actorDefinitions.find(
-      (definition) => definition.actorId === actor.actorId,
-    );
-    if (actorDefinition?.fireproof === true) {
       continue;
     }
 
@@ -541,7 +538,16 @@ function findHitEnemyEntityId(
         },
       )
     ) {
-      return actor.entityId;
+      // The fireball explodes on the first enemy it overlaps. A fireproof enemy
+      // (Buzzy Beetle) shrugs it off — the projectile is still consumed, but the
+      // enemy is not defeated (matching the ROM, where it can't tunnel through).
+      const actorDefinition = levelSpec.actorDefinitions.find(
+        (definition) => definition.actorId === actor.actorId,
+      );
+      return {
+        entityId: actor.entityId,
+        fireproof: actorDefinition?.fireproof === true,
+      };
     }
   }
 

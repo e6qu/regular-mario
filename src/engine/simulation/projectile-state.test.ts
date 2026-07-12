@@ -385,7 +385,7 @@ describe("projectile-state", () => {
     expect(activeProjectiles(steppedResult)).toHaveLength(0);
   });
 
-  it("does not defeat a fireproof enemy (Buzzy Beetle) with a projectile", () => {
+  it("detonates a fireball on a fireproof enemy (Buzzy) without defeating it", () => {
     const levelSpec = makeFireproofEnemyLevelSpec();
     const initialState = makeInitialTestState(levelSpec);
     const player = playerAt({ x: 32, y: 56 });
@@ -403,8 +403,11 @@ describe("projectile-state", () => {
       frameIndex(1),
     );
 
-    // The fireball travels through the Buzzy without ever defeating it.
+    // The fireball reaches the Buzzy and is consumed (it can't tunnel through),
+    // but the Buzzy is never defeated.
+    let projectileConsumed = false;
     for (let step = 0; step < 30; step += 1) {
+      const hadProjectile = activeProjectiles(steppedResult).length > 0;
       steppedResult = resolveProjectilesState(
         { firePressed: false },
         player,
@@ -419,7 +422,11 @@ describe("projectile-state", () => {
         frameIndex(2 + step),
       );
       expect(steppedResult.newlyDefeatedEnemyEntityIds).toEqual([]);
+      if (hadProjectile && activeProjectiles(steppedResult).length === 0) {
+        projectileConsumed = true;
+      }
     }
+    expect(projectileConsumed).toBe(true);
   });
 
   it("expires a projectile that hits a solid tile", () => {
