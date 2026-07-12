@@ -522,12 +522,29 @@ function ensureEditorResponsiveStyle(): void {
   style.id = "editor-responsive-style";
   style.textContent = `
 @media (max-height: 540px) {
-  .editor-root { margin: 4px auto !important; padding: 8px !important; min-height: 0 !important; }
+  /* Fill the viewport as a flex column so nothing scrolls the page; the grid
+     area flexes to take the remaining height and scrolls internally. */
+  .editor-root {
+    height: 100dvh !important; margin: 0 !important; padding: 6px !important;
+    min-height: 0 !important; border-radius: 0 !important; overflow: hidden !important;
+    display: flex !important; flex-direction: column; gap: 4px; box-sizing: border-box;
+  }
   .editor-root h1, .editor-root h2 { font-size: 15px !important; margin: 2px 0 !important; }
-  .editor-palette { gap: 4px !important; margin-bottom: 6px !important; }
-  .editor-palette button { padding: 3px 6px !important; font-size: 11px !important; gap: 4px !important; }
+  /* Palette and toolbar become single horizontally-scrolling strips instead of
+     wrapping into many rows that eat vertical space. */
+  .editor-palette, .editor-toolbar {
+    flex-wrap: nowrap !important; overflow-x: auto !important;
+    margin: 0 !important; padding-bottom: 2px; flex: 0 0 auto;
+  }
+  .editor-palette button { padding: 3px 6px !important; font-size: 11px !important; gap: 4px !important; white-space: nowrap; }
   .editor-palette button span { width: 11px !important; height: 11px !important; }
+  .editor-toolbar button, .editor-toolbar span, .editor-toolbar input, .editor-toolbar select { white-space: nowrap; flex: 0 0 auto; }
   .editor-root button { min-height: 30px; }
+  /* The grid work area takes the remaining height; its scroller drops the 56vh
+     cap and fills, and the minimap hides (space is precious). */
+  .editor-work-area { flex: 1 1 auto !important; min-height: 0 !important; }
+  .editor-grid-wrap { max-height: none !important; height: 100% !important; }
+  .editor-minimap { display: none !important; }
 }`;
   document.head.append(style);
 }
@@ -1035,6 +1052,7 @@ export function renderLevelEditor(
   status.style.cssText = "font-size:12px;color:#cbd5e1;min-width:180px;";
 
   const gridWrap = document.createElement("div");
+  gridWrap.classList.add("editor-grid-wrap");
   gridWrap.setAttribute("aria-label", "Level grid");
   gridWrap.style.cssText =
     "overflow:auto;border:2px solid #334155;border-radius:8px;background:#0b1220;padding:6px;max-height:56vh;";
@@ -1045,6 +1063,7 @@ export function renderLevelEditor(
   // Minimap: a scaled overview of the whole level with a viewport box; click or
   // drag it to scroll a large level into view.
   const minimapCanvas = document.createElement("canvas");
+  minimapCanvas.classList.add("editor-minimap");
   minimapCanvas.setAttribute("aria-label", "Minimap");
   minimapCanvas.style.cssText =
     "display:block;margin-top:8px;border:1px solid #334155;border-radius:4px;background:#0b1220;cursor:pointer;max-width:100%;height:auto;image-rendering:pixelated;";
@@ -1725,6 +1744,7 @@ export function renderLevelEditor(
 
   // --- Toolbar ---
   const toolbar = document.createElement("div");
+  toolbar.classList.add("editor-toolbar");
   toolbar.style.cssText =
     "display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;";
 
@@ -2079,6 +2099,7 @@ export function renderLevelEditor(
 
   // The grid + minimap sit in a column beside the tool drawer.
   const workArea = document.createElement("div");
+  workArea.classList.add("editor-work-area");
   workArea.style.cssText = "display:flex;gap:8px;align-items:stretch;";
   const gridColumn = document.createElement("div");
   gridColumn.style.cssText =
