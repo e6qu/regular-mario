@@ -140,6 +140,58 @@ test.describe("touch device (landscape)", () => {
     expect(Math.abs((await widthOf()) - afterToggle)).toBeLessThan(2);
   });
 
+  test("starts the music from a touch press (no keyboard on mobile)", async ({
+    page,
+  }) => {
+    // Music/SFX can only begin from a user gesture on mobile, and no keydown
+    // ever fires — so the touch press must start the soundtrack. Spy on the
+    // AudioContext to see the music voices get created.
+    await page.addInitScript(() => {
+      type OscillatorFactory = (...args: unknown[]) => unknown;
+      const w = window as unknown as {
+        __audioOscillators: number;
+        AudioContext?: { prototype: { createOscillator: OscillatorFactory } };
+        webkitAudioContext?: {
+          prototype: { createOscillator: OscillatorFactory };
+        };
+      };
+      w.__audioOscillators = 0;
+      const ctor = w.AudioContext ?? w.webkitAudioContext;
+      if (ctor !== undefined) {
+        const original = ctor.prototype.createOscillator;
+        ctor.prototype.createOscillator = function (
+          this: unknown,
+          ...args: unknown[]
+        ): unknown {
+          w.__audioOscillators += 1;
+          return original.apply(this, args);
+        };
+      }
+    });
+    await page.goto("/?browserLevel=first-authored");
+    await page.waitForFunction(
+      () => window.__originalBrowserPlatformerDebug !== undefined,
+    );
+
+    // No music before any input.
+    const before = await page.evaluate(
+      () =>
+        (window as unknown as { __audioOscillators: number })
+          .__audioOscillators,
+    );
+    // A control press is the user gesture that unlocks and starts the music.
+    await page
+      .locator('button[aria-label="touch-right"]')
+      .dispatchEvent("pointerdown");
+    await page.waitForTimeout(200);
+    const after = await page.evaluate(
+      () =>
+        (window as unknown as { __audioOscillators: number })
+          .__audioOscillators,
+    );
+    expect(after).toBeGreaterThan(before);
+  });
+
   test("thumb-rolls across the D-pad without lifting (◀ → ▶)", async ({
     page,
   }) => {

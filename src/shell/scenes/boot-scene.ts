@@ -1101,6 +1101,14 @@ export class BootScene extends Phaser.Scene {
           button.releasePointerCapture(pointerEvent.pointerId);
         }
         this.touchStartRequested = true;
+        // On mobile the music can only start from a user gesture (no keydown
+        // ever fires); the pointerdown handler is that gesture, so unlock/start
+        // the soundtrack here rather than from the rAF-driven start path.
+        if (!this.backgroundMusicStarted) {
+          this.backgroundMusicStarted = this.gameAudio.startBackgroundMusic(
+            this.currentTheme,
+          );
+        }
         onDown();
         button.style.filter = "brightness(1.5)";
         buzzTouchControl();
