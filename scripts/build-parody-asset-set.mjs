@@ -176,6 +176,28 @@ const castawayJump = [
   "................",
 ];
 
+// Crouching (big tier only): hunched down into the lower rows, head pulled in
+// and knees bent, so he reads as ducking — the top rows clear where hammers and
+// flames pass over.
+const castawayCrouch = [
+  "................",
+  "................",
+  "................",
+  ".....HHHHHH.....",
+  "....HHHHHHHH....",
+  "....HssssssH....",
+  "....seswwses....",
+  "....ssswwsss....",
+  "...TTTTTTTTTT...",
+  "..TTpTTTTTpTT...",
+  "..TTTTTTTTTTT...",
+  "..sTTTTTTTTs....",
+  "..ssTTTTTTss....",
+  "...dd....dd.....",
+  "..ddd....ddd....",
+  "................",
+];
+
 // Climbing: hands raised gripping the vine above, body compact, feet planted —
 // distinct from the arms-down idle used when standing.
 const castawayClimb = [
@@ -901,6 +923,7 @@ function playerStateSprites() {
     run: "castaway-walk-2",
     jump: "castaway-jump",
     fall: "castaway-jump",
+    crouch: "castaway-crouch",
     climb: "castaway-climb",
     swim: "castaway-swim",
     "swim-2": "castaway-swim-2",
@@ -1514,6 +1537,7 @@ async function main() {
     ["castaway-walk-1.png", castawayWalk1, palette],
     ["castaway-walk-2.png", castawayWalk2, palette],
     ["castaway-jump.png", castawayJump, palette],
+    ["castaway-crouch.png", castawayCrouch, palette],
     ["castaway-climb.png", castawayClimb, palette],
     ["castaway-swim.png", castawaySwimA, palette],
     ["castaway-swim-2.png", castawaySwimB, palette],
@@ -1555,6 +1579,7 @@ async function main() {
     ["castaway-walk-1-powered.png", castawayWalk1, poweredPlayerPalette],
     ["castaway-walk-2-powered.png", castawayWalk2, poweredPlayerPalette],
     ["castaway-jump-powered.png", castawayJump, poweredPlayerPalette],
+    ["castaway-crouch-powered.png", castawayCrouch, poweredPlayerPalette],
     ["castaway-climb-powered.png", castawayClimb, poweredPlayerPalette],
     ["castaway-swim-powered.png", castawaySwimA, poweredPlayerPalette],
     ["castaway-swim-2-powered.png", castawaySwimB, poweredPlayerPalette],
@@ -1562,6 +1587,7 @@ async function main() {
     ["castaway-walk-1-fire.png", castawayWalk1, firePlayerPalette],
     ["castaway-walk-2-fire.png", castawayWalk2, firePlayerPalette],
     ["castaway-jump-fire.png", castawayJump, firePlayerPalette],
+    ["castaway-crouch-fire.png", castawayCrouch, firePlayerPalette],
     ["castaway-climb-fire.png", castawayClimb, firePlayerPalette],
     ["castaway-swim-fire.png", castawaySwimA, firePlayerPalette],
     ["castaway-swim-2-fire.png", castawaySwimB, firePlayerPalette],

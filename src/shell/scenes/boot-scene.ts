@@ -4615,7 +4615,11 @@ function resolvePlayerSpriteImage(
   // Fire art is optional in a sprite set; fall back to powered, then bare.
   const prefixes =
     vitalityPrefix === "fire" ? ["fire", "powered"] : [vitalityPrefix];
-  const action = makePlayerSpriteAction(simulationState.player.movement, theme);
+  const action = makePlayerSpriteAction(
+    simulationState.player.movement,
+    theme,
+    simulationState.player.crouching === true,
+  );
 
   // The merman's swim stroke (arms + tail flick) only animates while he is
   // actually moving through the water; drifting still holds the first frame.
@@ -4638,7 +4642,14 @@ function resolvePlayerSpriteImage(
           ...prefixes.map((prefix) => `${prefix}-jump`),
           "jump",
         ]
-      : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
+      : action === "crouch"
+        ? [
+            // A skin without a dedicated duck pose falls back to its idle frame.
+            ...prefixes.map((prefix) => `${prefix}-crouch`),
+            ...prefixes.map((prefix) => `${prefix}-idle`),
+            "idle",
+          ]
+        : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
   return resolveFirstStatefulImage(playerImage, candidates);
 }
@@ -4670,7 +4681,16 @@ function makePlayerSpriteAction(
     readonly vertical: VerticalMovementState;
   },
   theme: LevelTheme | undefined,
+  crouching: boolean,
 ): string {
+  // Ducking big Mario has its own pose (grounded only); water swims through it.
+  if (
+    crouching &&
+    movement.vertical === VerticalMovementState.Grounded &&
+    theme !== "water"
+  ) {
+    return "crouch";
+  }
   // In the water world our castaway is a merman: he swims through every pose
   // (tail, not legs), so anything but climbing a vine reads as a swim.
   if (

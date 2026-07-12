@@ -763,9 +763,17 @@ function stepActiveSimulation(
       (justDefeated ? 1 : 0),
   );
 
+  // Persist the crouch flag onto the returned player (only while still grounded)
+  // so the renderer can show a ducking pose; it is re-derived fresh each frame.
+  const finalPlayer =
+    crouching &&
+    playerAfterHazardResize.movement.vertical === VerticalMovementState.Grounded
+      ? { ...playerAfterHazardResize, crouching: true }
+      : playerAfterHazardResize;
+
   return {
     clock: nextClock,
-    player: playerAfterHazardResize,
+    player: finalPlayer,
     playerVitality: playerVitalityAfterHazard,
     playerInvincibility,
     levelContacts: outcomeLevelContacts,
