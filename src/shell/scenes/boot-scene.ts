@@ -722,6 +722,13 @@ export class BootScene extends Phaser.Scene {
   // Per-Goomba flatten countdown: a stomped Goomba renders squashed until this
   // reaches zero, then it is hidden.
   private readonly flattenedEnemyTimers = new Map<string, number>();
+  // Cache of collected/defeated entity-id lookup sets, rebuilt only when the
+  // underlying (monotonically-growing) array length changes — the render loop
+  // reads these every frame, so rebuilding each frame is wasted allocation.
+  private readonly entityIdSetCache = new Map<
+    string,
+    { readonly length: number; readonly set: ReadonlySet<string> }
+  >();
   // Victory fireworks: a shell-timed celebration launched on a flag finish when
   // the remaining-time ones digit is 1, 3, or 6 (that many bursts, 500 each).
   private fireworkSprites: {
@@ -2445,6 +2452,7 @@ export class BootScene extends Phaser.Scene {
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
     this.flattenedEnemyTimers.clear();
+    this.entityIdSetCache.clear();
     for (const firework of this.fireworkSprites) {
       firework.star.destroy();
     }
@@ -2895,6 +2903,23 @@ export class BootScene extends Phaser.Scene {
     this.previousDefeatedEnemyIds = new Set(defeatedEnemyIds);
   }
 
+  // Return a cached string Set of the given entity-id array, rebuilding only
+  // when its length changes. Safe because these arrays only ever grow (you
+  // cannot un-collect a coin or un-defeat an enemy) or reset to empty on a
+  // rebuild — so a length match guarantees identical contents.
+  private cachedEntityIdSet(
+    key: string,
+    ids: readonly string[],
+  ): ReadonlySet<string> {
+    const cached = this.entityIdSetCache.get(key);
+    if (cached !== undefined && cached.length === ids.length) {
+      return cached.set;
+    }
+    const set = new Set(ids);
+    this.entityIdSetCache.set(key, { length: ids.length, set });
+    return set;
+  }
+
   private renderSimulationState(): void {
     const currentVertical = this.simulationState.player.movement.vertical;
 
@@ -3036,35 +3061,29 @@ export class BootScene extends Phaser.Scene {
           worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
       ),
     );
-    const collectedItemEntityIdStrings = new Set(
-      this.simulationState.collectibles.collectedItemEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedItemEntityIdStrings = this.cachedEntityIdSet(
+      "item",
+      this.simulationState.collectibles.collectedItemEntityIds,
     );
-    const collectedCoinEntityIdStrings = new Set(
-      this.simulationState.collectibles.collectedCoinEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedCoinEntityIdStrings = this.cachedEntityIdSet(
+      "coin",
+      this.simulationState.collectibles.collectedCoinEntityIds,
     );
-    const collectedPowerUpEntityIdStrings = new Set(
-      this.simulationState.powerUps.collectedPowerUpEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedPowerUpEntityIdStrings = this.cachedEntityIdSet(
+      "power-up",
+      this.simulationState.powerUps.collectedPowerUpEntityIds,
     );
-    const collectedExtraLifeEntityIdStrings = new Set(
-      this.simulationState.collectibles.collectedExtraLifeEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedExtraLifeEntityIdStrings = this.cachedEntityIdSet(
+      "extra-life",
+      this.simulationState.collectibles.collectedExtraLifeEntityIds,
     );
-    const collectedInvincibilityEntityIdStrings = new Set(
-      this.simulationState.playerInvincibility.collectedInvincibilityEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedInvincibilityEntityIdStrings = this.cachedEntityIdSet(
+      "invincibility",
+      this.simulationState.playerInvincibility.collectedInvincibilityEntityIds,
     );
-    const defeatedEnemyEntityIdStrings = new Set(
-      this.simulationState.enemies.defeatedEnemyEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const defeatedEnemyEntityIdStrings = this.cachedEntityIdSet(
+      "defeated",
+      this.simulationState.enemies.defeatedEnemyEntityIds,
     );
 
     for (const actor of this.renderedActors) {
