@@ -15,11 +15,16 @@ remaining two are **characterised but not yet fixed**:
 
 - **BUG 5 — every enemy uses a 16×16 collider.** ROM boxes: goomba/spiny 10×6,
   koopa/buzzy 12×12, hammer bro 8×24, piranha 10×6, Bowser two 16×19 halves.
-  Needs per-enemy collision boxes (distinct from the 16×16 render tile),
-  feet-anchored with the ROM offsets — the same feet-anchored approach the
-  player hurtbox now uses, applied per enemy. Changing enemy-vs-player contact
-  will re-churn the replay-fixture golden states (recompute them by dumping the
-  final state from each fixture, as BUG 3 did).
+  Needs per-enemy collision boxes (distinct from the 16×16 render tile) — the
+  same feet-anchored approach the player hurtbox now uses, applied per enemy.
+  **Stomp-geometry caveat (needs playtesting):** `isEnemyStomp` keys the stomp
+  off the enemy's _top_ (`enemyActor.position.y`); a feet-anchored ROM box
+  moves that top downward, so the player must descend lower to stomp. The box
+  height and vertical anchor must be tuned per enemy so stomping still feels
+  right — this is why it wants a visual pass, not just numbers. Also re-churns
+  the replay-fixture golden states (recompute by dumping each fixture's final
+  state, as BUG 3 did). The player hurtbox (BUG 3) already delivered most of
+  the "not harder than the ROM" gain; this is the finishing refinement.
 - **BUG 4 — no crouch mechanic / crouch hitbox.** Big Mario has no duck; the
   ROM shrinks him to 12×12 (entry 2) when Down is held on the ground — the
   canonical way to duck hammers/flames. Add the crouch state + collider.
