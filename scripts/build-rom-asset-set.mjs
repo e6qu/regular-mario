@@ -11,6 +11,33 @@ import { resolve } from "node:path";
 // prettier-ignore
 import { deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
+
+// Spikes ("thorn") are a non-SMB addition, so the CHR set has no sprite for
+// them — author one: a row of metal spikes on a dark base.
+const spikePalette = {
+  ".": [0, 0, 0, 0],
+  m: [176, 180, 190, 255],
+  M: [120, 124, 138, 255],
+  k: [66, 68, 82, 255],
+};
+const spikeGrid = [
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  ".m...m...m...m..",
+  "mmm.mmm.mmm.mmm.",
+  "MMMMMMMMMMMMMMMM",
+  "MMMMMMMMMMMMMMMM",
+  "MMMMMMMMMMMMMMMM",
+  "kMMMMMMMMMMMMMMk",
+  "kMMMMMMMMMMMMMMk",
+  "kkMMMMMMMMMMMMkk",
+  "kkkkkkkkkkkkkkkk",
+  "kkkkkkkkkkkkkkkk",
+  "................",
+];
 import {
   assertUserLevelCachePath,
   readOption,
@@ -304,6 +331,10 @@ async function main() {
     resolve(outDir, "smb-rescued-friend.png"),
     drawGridSprite(princessGrid, princessPalette),
   );
+  await writeFile(
+    resolve(outDir, "smb-spikes.png"),
+    drawGridSprite(spikeGrid, spikePalette),
+  );
 
   const playerStateSprites = buildPlayerStateSprites();
   const descriptor = {
@@ -393,6 +424,8 @@ async function main() {
     tileSprites: {
       ...mapTileSprites(tileSpriteSources),
       ...mapTileSprites(extraTileSpriteSources),
+      // Authored floor-spike tile (no CHR source; SMB has none).
+      thorn: spriteEntry("smb-spikes.png"),
       // The extracted flag is a single 8x8 sprite tile.
       "flagpole-flag": {
         source: { kind: "url", url: "flag-pennant.png" },
