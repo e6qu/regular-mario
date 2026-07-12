@@ -164,5 +164,7 @@ keyboard / touch ─▶ SimulationInputCommand
 - [`run-recording-format.md`](run-recording-format.md) — replay/export format.
 - [`smb-level-format.md`](smb-level-format.md) — numeric level-data decoder
   reference.
+- [`game-feel/death-effects-and-feedback.md`](game-feel/death-effects-and-feedback.md)
+  — the shell's cause-specific death animations, sounds, and haptics.
 - [`decisions/`](decisions/) — architecture and content-policy decision records.
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — how to build, test, and contribute.

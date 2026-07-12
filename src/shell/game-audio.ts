@@ -181,6 +181,9 @@ const toneSpecs: Record<SoundEvent, ToneSpec> = {
   },
 };
 
+// The cause-specific cartoony death sounds (see playDeathSound).
+export type DeathSoundKind = "splat" | "burn" | "drown" | "impale";
+
 type AudioContextConstructor = typeof AudioContext;
 
 export class GameAudio {
@@ -603,6 +606,190 @@ export class GameAudio {
     }
 
     return this.audioContext;
+  }
+
+  // A cached mono white-noise buffer for the "wet"/"sizzle"/"bubble" textures of
+  // the cartoony death sounds. Filled from a fixed LCG (not Math.random) so it is
+  // reproducible.
+  private noiseBuffer: AudioBuffer | undefined;
+  private requireNoiseBuffer(audioContext: AudioContext): AudioBuffer {
+    if (this.noiseBuffer !== undefined) {
+      return this.noiseBuffer;
+    }
+    const length = Math.floor(audioContext.sampleRate * 0.5);
+    const buffer = audioContext.createBuffer(
+      1,
+      length,
+      audioContext.sampleRate,
+    );
+    const data = buffer.getChannelData(0);
+    let seed = 22695477;
+    for (let index = 0; index < length; index += 1) {
+      seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+      data[index] = (seed / 0x3fffffff - 1) * 0.9;
+    }
+    this.noiseBuffer = buffer;
+    return buffer;
+  }
+
+  // A short burst of band-passed noise (the shared texture for splats/sizzles).
+  private playNoiseBurst(
+    audioContext: AudioContext,
+    options: {
+      readonly durationSeconds: number;
+      readonly filterType: BiquadFilterType;
+      readonly startHertz: number;
+      readonly endHertz: number;
+      readonly q: number;
+      readonly gain: number;
+    },
+  ): void {
+    try {
+      const now = audioContext.currentTime;
+      const source = audioContext.createBufferSource();
+      source.buffer = this.requireNoiseBuffer(audioContext);
+      const filter = audioContext.createBiquadFilter();
+      filter.type = options.filterType;
+      filter.frequency.setValueAtTime(options.startHertz, now);
+      filter.frequency.exponentialRampToValueAtTime(
+        options.endHertz,
+        now + options.durationSeconds,
+      );
+      filter.Q.setValueAtTime(options.q, now);
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(options.gain, now);
+      gain.gain.exponentialRampToValueAtTime(
+        0.0001,
+        now + options.durationSeconds,
+      );
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioContext.destination);
+      source.start(now);
+      source.stop(now + options.durationSeconds);
+    } catch {
+      // Best-effort audio; never throw from the simulation step.
+    }
+  }
+
+  // Exaggerated, cartoony death sounds — one per cause — part of the "shabby"
+  // identity. Layered so each reads distinctly: a wet splat, a fiery sizzle, an
+  // underwater glug, or a metallic impale.
+  public playDeathSound(kind: DeathSoundKind): void {
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    switch (kind) {
+      case "splat":
+        // A low body thud plus a wet burst.
+        this.playTone(audioContext, {
+          frequencyHertz: 240,
+          endFrequencyHertz: 55,
+          durationSeconds: 0.22,
+          type: "sine",
+          gain: 0.12,
+        });
+        this.playNoiseBurst(audioContext, {
+          durationSeconds: 0.16,
+          filterType: "bandpass",
+          startHertz: 900,
+          endHertz: 200,
+          q: 0.7,
+          gain: 0.12,
+        });
+        return;
+      case "burn":
+        // A hissing sizzle sweeping down, with a crackle.
+        this.playNoiseBurst(audioContext, {
+          durationSeconds: 0.45,
+          filterType: "bandpass",
+          startHertz: 2600,
+          endHertz: 700,
+          q: 0.9,
+          gain: 0.1,
+        });
+        this.playNoiseBurst(audioContext, {
+          durationSeconds: 0.3,
+          filterType: "highpass",
+          startHertz: 1400,
+          endHertz: 3000,
+          q: 0.5,
+          gain: 0.05,
+        });
+        return;
+      case "drown":
+        // A descending, wobbling glug plus bubbling.
+        this.playTone(audioContext, {
+          frequencyHertz: 520,
+          endFrequencyHertz: 120,
+          durationSeconds: 0.4,
+          type: "sine",
+          gain: 0.1,
+        });
+        this.playNoiseBurst(audioContext, {
+          durationSeconds: 0.35,
+          filterType: "lowpass",
+          startHertz: 700,
+          endHertz: 180,
+          q: 6,
+          gain: 0.08,
+        });
+        return;
+      case "impale":
+        // A metallic "shwing" then a thud.
+        this.playTone(audioContext, {
+          frequencyHertz: 500,
+          endFrequencyHertz: 2200,
+          durationSeconds: 0.09,
+          type: "sawtooth",
+          gain: 0.08,
+        });
+        this.playTone(audioContext, {
+          frequencyHertz: 300,
+          endFrequencyHertz: 70,
+          durationSeconds: 0.18,
+          type: "square",
+          gain: 0.1,
+        });
+        return;
+      default: {
+        const exhaustive: never = kind;
+        throw new Error(`Unhandled death sound kind: ${String(exhaustive)}`);
+      }
+    }
+  }
+
+  // A cartoony "ouch" for a head-bonk: a quick nasal yelp (pitch up then down).
+  public playOuch(): void {
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    try {
+      const now = audioContext.currentTime;
+      const oscillator = audioContext.createOscillator();
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(300, now);
+      oscillator.frequency.linearRampToValueAtTime(720, now + 0.06);
+      oscillator.frequency.exponentialRampToValueAtTime(180, now + 0.22);
+      // A nasal formant peak so it reads as a voiced "ow".
+      const nasal = audioContext.createBiquadFilter();
+      nasal.type = "bandpass";
+      nasal.frequency.setValueAtTime(1200, now);
+      nasal.Q.setValueAtTime(4, now);
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
+      oscillator.connect(nasal);
+      nasal.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now);
+      oscillator.stop(now + 0.26);
+    } catch {
+      // Best-effort audio.
+    }
   }
 
   private playBuffer(audioContext: AudioContext, buffer: AudioBuffer): void {

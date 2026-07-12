@@ -221,6 +221,22 @@ type BrowserPathAnnotationsSnapshot = {
   }[];
 };
 
+// The shabby death animation currently playing (see boot-scene's death effect
+// system): its cause-specific style and the live counts of spawned pieces.
+type BrowserDeathEffectSnapshot = {
+  readonly started: boolean;
+  readonly style:
+    | "launch"
+    | "explode"
+    | "burn"
+    | "float"
+    | "impale"
+    | undefined;
+  readonly pieceCount: number;
+  readonly smokeCount: number;
+  readonly xEyesVisible: boolean;
+};
+
 export type BrowserSimulationSnapshot = {
   readonly frameIndex: number;
   readonly score: number;
@@ -232,6 +248,7 @@ export type BrowserSimulationSnapshot = {
   readonly warpZone: boolean;
   readonly timeBonusCountdownUnits: number;
   readonly paused: boolean;
+  readonly deathEffect: BrowserDeathEffectSnapshot;
   readonly lastSoundEvents: readonly string[];
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;

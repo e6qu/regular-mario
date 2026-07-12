@@ -84,6 +84,10 @@ import {
 } from "../../engine/simulation/sound-events";
 import { stepSimulation } from "../../engine/simulation/step-simulation";
 import {
+  makePlayerTileColumnSpan,
+  makePlayerTileRowSpan,
+} from "../../engine/simulation/player-tile-span";
+import {
   PipeEntryPhase,
   teleportPlayerToTilePosition,
 } from "../../engine/simulation/pipe-state";
@@ -91,7 +95,7 @@ import type {
   BrowserGameBootstrap,
   LevelTheme,
 } from "../browser-level-selection";
-import { GameAudio } from "../game-audio";
+import { GameAudio, type DeathSoundKind } from "../game-audio";
 import {
   buildRunExport,
   buildRunZip,
@@ -165,10 +169,38 @@ const flagpoleSlideSpeedPixels = 4;
 // to this baseline so their feet rest on the ground.
 const groundedActorSpriteHeightPixels = 16;
 // Death arc: on a contact death the player pops up then falls off-screen, like
-// the original, instead of freezing in place.
+// the original, instead of freezing in place. This is the "launch" style; the
+// shabby death system dispatches to a cause-specific style below.
 const deathArcPopSpeedPixels = 6;
 const deathArcGravityPixels = 0.35;
 const deathArcOffscreenMarginPixels = 96;
+// The shabby, cause-specific death animation styles: "launch" is the classic
+// pop-and-fall arc; "explode" scatters the player's body into falling pieces
+// (enemy contact); "burn" chars and collapses him into rising smoke (lava/fire);
+// "float" flips him belly-up with X-ed eyes and drifts him to the surface
+// (drowning); "impale" pins him limp on the spikes he fell onto.
+type DeathEffectStyle = "launch" | "explode" | "burn" | "float" | "impale";
+// Explode: each body-sprite piece pops up and flings outward, then falls.
+const deathExplodePopSpeedPixels = 5.5;
+const deathExplodeSpreadSpeedPixels = 2.6;
+const deathExplodeGravityPixels = 0.42;
+const deathExplodeSpinRadiansPerFrame = 0.22;
+// Burn: the body sinks and shrinks to nothing while smoke puffs rise off it.
+const deathBurnSinkSpeedPixels = 0.35;
+const deathBurnSmokeIntervalFrames = 5;
+const deathBurnSmokeRiseSpeedPixels = 0.8;
+const deathBurnSmokeLifeFrames = 44;
+const deathBurnDurationFrames = 90;
+// Float: a drowned drift up to the surface with a gentle side-to-side wobble.
+const deathFloatRiseSpeedPixels = 0.55;
+const deathFloatWobbleAmplitudePixels = 1.4;
+const deathFloatWobbleFramesPerCycle = 40;
+// How long each style animates before the replay/retry menu is allowed to open,
+// so the death plays out on screen first (the launch style instead holds until
+// its arc has fallen off-screen — see deathEffectAnimating).
+const deathExplodeMenuHoldFrames = 72;
+const deathFloatMenuHoldFrames = 90;
+const deathImpaleMenuHoldFrames = 48;
 const playerBodyColor = 0x2563eb;
 const playerCapColor = 0x0d9488;
 const playerSkinColor = 0xfde68a;
@@ -723,6 +755,22 @@ export class BootScene extends Phaser.Scene {
   private deathArcVelocityY = 0;
   private deathArcX = 0;
   private deathArcY = 0;
+  // Shabby death effect: the cause-specific style plus the objects it spawns
+  // (scattering body-sprite pieces, rising smoke) and its progress counter.
+  private deathEffectStyle: DeathEffectStyle = "launch";
+  private deathEffectFrame = 0;
+  private deathPieces: {
+    readonly image: Phaser.GameObjects.Image;
+    vx: number;
+    vy: number;
+    vr: number;
+  }[] = [];
+  private deathSmoke: {
+    readonly image: Phaser.GameObjects.Image;
+    vy: number;
+    life: number;
+  }[] = [];
+  private deathXEyesImage: Phaser.GameObjects.Image | undefined;
   private previousPlayerVertical: VerticalMovementState =
     VerticalMovementState.Grounded;
   private playerRectangle!: Phaser.GameObjects.Rectangle;
@@ -2111,10 +2159,83 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // On a contact death (touching an enemy/hazard while small), pop the player up
-  // and let it fall off-screen in an arc — the original's death animation. Pit
-  // and time-up deaths already read as a fall / freeze, so they skip the arc.
-  private maybeBeginDeathArc(): void {
+  // Does the player's tile span currently overlap a tile with this id? Used to
+  // tell a spike (thorn) death from a lava/fire one, since both are Hazard tiles
+  // and the defeat reason alone does not name the tile.
+  private playerOverlapsTileId(tileId: string): boolean {
+    const columnSpan = makePlayerTileColumnSpan(
+      this.simulationState.player,
+      this.levelSpec.tileSizePixels,
+    );
+    const rowSpan = makePlayerTileRowSpan(
+      this.simulationState.player,
+      this.levelSpec.tileSizePixels,
+    );
+    for (let row = rowSpan.start; row <= rowSpan.end; row += 1) {
+      const tiles = this.levelSpec.tiles[row];
+      if (tiles === undefined) {
+        continue;
+      }
+      for (
+        let column = columnSpan.start;
+        column <= columnSpan.end;
+        column += 1
+      ) {
+        if (tiles[column] === tileId) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Which shabby death animation fits the cause: drowning in water, impaling on
+  // spikes, burning on lava/fire, or bursting from an enemy hit. Anything else
+  // (a plain hazard) falls back to the classic pop-and-fall launch.
+  private resolveDeathEffectStyle(
+    reason: PlayerDefeatReason,
+  ): DeathEffectStyle {
+    if (this.currentTheme === "water") {
+      return "float";
+    }
+    if (
+      (reason === PlayerDefeatReason.HazardContact ||
+        reason === PlayerDefeatReason.HazardAndEnemyContact) &&
+      this.playerOverlapsTileId("thorn")
+    ) {
+      return "impale";
+    }
+    if (
+      reason === PlayerDefeatReason.HazardContact ||
+      reason === PlayerDefeatReason.HazardAndEnemyContact
+    ) {
+      return "burn";
+    }
+    if (reason === PlayerDefeatReason.EnemyContact) {
+      return "explode";
+    }
+    return "launch";
+  }
+
+  // The cartoony death sound matched to the animation style.
+  private deathSoundForStyle(style: DeathEffectStyle): DeathSoundKind {
+    switch (style) {
+      case "float":
+        return "drown";
+      case "burn":
+        return "burn";
+      case "impale":
+        return "impale";
+      case "explode":
+      case "launch":
+        return "splat";
+    }
+  }
+
+  // On a contact death, kick off the cause-specific shabby death animation:
+  // explode / burn / drown-float / impale, or the classic launch arc. Pit and
+  // time-up deaths already read as a fall / freeze, so they get no effect.
+  private maybeBeginDeathEffect(): void {
     if (this.deathArcStarted) {
       return;
     }
@@ -2128,19 +2249,271 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     this.deathArcStarted = true;
-    this.deathArcActive = true;
-    this.deathArcVelocityY = -deathArcPopSpeedPixels;
+    this.deathEffectFrame = 0;
     this.deathArcX = this.playerRectangle.x;
     this.deathArcY = this.playerRectangle.y;
-    // Freeze the camera so the player visibly arcs up and off-screen instead of
-    // the camera following it and masking the motion.
+    const style = this.resolveDeathEffectStyle(outcome.reason);
+    this.deathEffectStyle = style;
+    // A cartoony, exaggerated death yelp keyed to the cause.
+    this.gameAudio.playDeathSound(this.deathSoundForStyle(style));
+    // Freeze the camera so the death plays out in place instead of the camera
+    // following the launched/floating body and masking the motion.
     this.cameras.main.stopFollow();
+    if (style === "explode") {
+      this.beginExplodeEffect();
+    } else if (style === "float") {
+      this.beginFloatEffect();
+    } else if (style === "launch") {
+      this.deathArcActive = true;
+      this.deathArcVelocityY = -deathArcPopSpeedPixels;
+    }
+    // "burn" and "impale" need no launch velocity — they play where he fell.
   }
 
-  private stepDeathArc(): void {
+  // Explode: hide the whole-body sprite and spawn four quadrant crops of it that
+  // pop up, fling apart, spin, and fall under gravity — his body coming apart.
+  private beginExplodeEffect(): void {
+    const playerImage = this.userAssetBundle?.playerImage;
+    if (playerImage === undefined) {
+      // No authored player sprite to cut apart: fall back to the launch arc so
+      // there is still a death animation (never a procedural stand-in body).
+      this.deathEffectStyle = "launch";
+      this.deathArcActive = true;
+      this.deathArcVelocityY = -deathArcPopSpeedPixels;
+      return;
+    }
+    const source = resolveFirstStatefulImage(playerImage, [
+      "small-idle",
+      "idle",
+    ]);
+    const width = this.simulationState.player.collider.width;
+    const height = this.simulationState.player.collider.height;
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setVisible(false);
+    }
+    this.setPlayerBodyRectanglesVisible(false);
+    for (let quadrantY = 0; quadrantY < 2; quadrantY += 1) {
+      for (let quadrantX = 0; quadrantX < 2; quadrantX += 1) {
+        const piece = this.makeCropPiece(
+          source,
+          quadrantX,
+          quadrantY,
+          halfWidth,
+          halfHeight,
+        );
+        const centerBiasX = quadrantX === 0 ? -1 : 1;
+        piece.setPosition(
+          this.deathArcX + quadrantX * halfWidth + halfWidth / 2,
+          this.deathArcY + quadrantY * halfHeight + halfHeight / 2,
+        );
+        this.deathPieces.push({
+          image: piece,
+          vx: centerBiasX * deathExplodeSpreadSpeedPixels,
+          vy: -deathExplodePopSpeedPixels + quadrantY * 1.2,
+          vr: centerBiasX * deathExplodeSpinRadiansPerFrame,
+        });
+      }
+    }
+  }
+
+  // Build one quadrant crop of the authored player frame as an independent
+  // image, so the exploding pieces are real cuts of his body, not stand-ins.
+  private makeCropPiece(
+    source: LoadedImageAsset,
+    quadrantX: number,
+    quadrantY: number,
+    displayWidth: number,
+    displayHeight: number,
+  ): Phaser.GameObjects.Image {
+    const key = registerUserImageTexture(this, source);
+    const cropWidth = source.frame.width / 2;
+    const cropHeight = source.frame.height / 2;
+    return this.add
+      .image(0, 0, key)
+      .setOrigin(0.5)
+      .setCrop(
+        source.frame.x + quadrantX * cropWidth,
+        source.frame.y + quadrantY * cropHeight,
+        cropWidth,
+        cropHeight,
+      )
+      .setDisplaySize(displayWidth, displayHeight)
+      .setDepth(60);
+  }
+
+  // Float: flip the body belly-up, lay an authored X-ed-eyes overlay over the
+  // face, and drift him up toward the surface — the drowned dead-fish read.
+  private beginFloatEffect(): void {
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setFlipY(true);
+    }
+    const eyesAsset =
+      this.userAssetBundle?.reactionImages.get("player-dead-eyes");
+    if (eyesAsset !== undefined) {
+      this.deathXEyesImage = addUserFrameImage(this, 0, 0, eyesAsset);
+      this.deathXEyesImage
+        .setOrigin(0)
+        .setFlipY(true)
+        .setDepth(61)
+        .setVisible(true);
+    }
+  }
+
+  private setPlayerBodyRectanglesVisible(visible: boolean): void {
+    this.playerRectangle.setVisible(visible);
+    this.playerFaceRectangle.setVisible(visible);
+    this.playerScarfRectangle.setVisible(visible);
+    this.playerCapRectangle.setVisible(visible);
+    this.playerHeadRectangle.setVisible(visible);
+    this.playerLeftBootRectangle.setVisible(visible);
+    this.playerRightBootRectangle.setVisible(visible);
+  }
+
+  private stepDeathEffect(): void {
     if (!this.deathArcStarted) {
       return;
     }
+    this.deathEffectFrame += 1;
+    switch (this.deathEffectStyle) {
+      case "explode":
+        this.stepExplodeEffect();
+        return;
+      case "burn":
+        this.stepBurnEffect();
+        return;
+      case "float":
+        this.stepFloatEffect();
+        return;
+      case "impale":
+        this.stepImpaleEffect();
+        return;
+      case "launch":
+        this.stepLaunchEffect();
+        return;
+    }
+  }
+
+  private stepExplodeEffect(): void {
+    for (const piece of this.deathPieces) {
+      piece.vy += deathExplodeGravityPixels;
+      piece.image.x += piece.vx;
+      piece.image.y += piece.vy;
+      piece.image.rotation += piece.vr;
+    }
+  }
+
+  private stepBurnEffect(): void {
+    // Sink and shrink the charred body toward nothing while smoke puffs peel off
+    // it and rise. Hold the dead pose so it is not the frozen run frame.
+    this.deathArcY += deathBurnSinkSpeedPixels;
+    this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
+    this.holdDeadPose();
+    const burnProgress = Math.min(
+      1,
+      this.deathEffectFrame / deathBurnDurationFrames,
+    );
+    const scale = Math.max(0, 1 - burnProgress);
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject
+        .setTint(0x3a2a20)
+        .setDisplaySize(
+          this.simulationState.player.collider.width * scale,
+          this.simulationState.player.collider.height * scale,
+        );
+    }
+    this.setPlayerBodyRectanglesVisible(false);
+    if (
+      this.deathEffectFrame % deathBurnSmokeIntervalFrames === 0 &&
+      this.deathEffectFrame <= deathBurnDurationFrames
+    ) {
+      this.spawnSmokePuff();
+    }
+    this.stepSmoke();
+  }
+
+  private spawnSmokePuff(): void {
+    const smokeAsset = this.userAssetBundle?.reactionImages.get("smoke-puff");
+    if (smokeAsset === undefined) {
+      return;
+    }
+    const image = addUserFrameImage(this, 0, 0, smokeAsset);
+    const jitter = ((this.deathEffectFrame * 7) % 9) - 4;
+    image
+      .setOrigin(0.5)
+      .setPosition(
+        this.deathArcX +
+          this.simulationState.player.collider.width / 2 +
+          jitter,
+        this.deathArcY,
+      )
+      .setDepth(62)
+      .setVisible(true);
+    this.deathSmoke.push({
+      image,
+      vy: -deathBurnSmokeRiseSpeedPixels,
+      life: 0,
+    });
+  }
+
+  private stepSmoke(): void {
+    for (const puff of this.deathSmoke) {
+      puff.life += 1;
+      puff.image.y += puff.vy;
+      const fade = Math.max(0, 1 - puff.life / deathBurnSmokeLifeFrames);
+      puff.image
+        .setAlpha(fade)
+        .setScale(1 + puff.life / deathBurnSmokeLifeFrames);
+    }
+    this.deathSmoke = this.deathSmoke.filter((puff) => {
+      if (puff.life >= deathBurnSmokeLifeFrames) {
+        puff.image.destroy();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private stepFloatEffect(): void {
+    // Drift up to (but not through) the surface with a gentle wobble.
+    const surfaceY = this.simulationState.player.collider.height;
+    if (this.deathArcY > surfaceY) {
+      this.deathArcY -= deathFloatRiseSpeedPixels;
+    }
+    const wobble =
+      Math.sin(
+        (this.deathEffectFrame / deathFloatWobbleFramesPerCycle) * Math.PI * 2,
+      ) * deathFloatWobbleAmplitudePixels;
+    this.positionPlayerSpriteAt(this.deathArcX + wobble, this.deathArcY);
+    this.holdDeadPose();
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setFlipY(true);
+    }
+    if (this.deathXEyesImage !== undefined) {
+      this.deathXEyesImage.setPosition(this.deathArcX + wobble, this.deathArcY);
+    }
+  }
+
+  private stepImpaleEffect(): void {
+    // Pin the limp body where he fell onto the spikes; lay the X-ed-eyes overlay
+    // over his face so he reads as dead-on-the-spikes, not merely standing.
+    this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
+    this.holdDeadPose();
+    if (this.deathXEyesImage === undefined) {
+      const eyesAsset =
+        this.userAssetBundle?.reactionImages.get("player-dead-eyes");
+      if (eyesAsset !== undefined) {
+        this.deathXEyesImage = addUserFrameImage(this, 0, 0, eyesAsset);
+        this.deathXEyesImage.setOrigin(0).setDepth(61).setVisible(true);
+      }
+    }
+    if (this.deathXEyesImage !== undefined) {
+      this.deathXEyesImage.setPosition(this.deathArcX, this.deathArcY);
+    }
+  }
+
+  private stepLaunchEffect(): void {
     // Advance the arc while it is still on/near screen; once it has fallen off
     // the bottom, stop advancing but keep the player pinned there so the normal
     // render does not snap the dead player back onto the ground.
@@ -2156,8 +2529,35 @@ export class BootScene extends Phaser.Scene {
       }
     }
     this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
-    // Hold a neutral death pose (the original's dying Mario uses the small idle
-    // frame) instead of the frozen walk/run frame the normal render leaves.
+    this.holdDeadPose();
+  }
+
+  // Tear down any in-flight death effect and restore the player sprite so a
+  // retry / next level starts from a clean, upright, visible body.
+  private clearDeathEffect(): void {
+    for (const piece of this.deathPieces) {
+      piece.image.destroy();
+    }
+    this.deathPieces = [];
+    for (const puff of this.deathSmoke) {
+      puff.image.destroy();
+    }
+    this.deathSmoke = [];
+    if (this.deathXEyesImage !== undefined) {
+      this.deathXEyesImage.destroy();
+      this.deathXEyesImage = undefined;
+    }
+    this.deathEffectStyle = "launch";
+    this.deathEffectFrame = 0;
+    this.setPlayerBodyRectanglesVisible(true);
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setVisible(true).setFlipY(false).clearTint();
+    }
+  }
+
+  // Hold a neutral death pose (the original's dying Mario uses the small idle
+  // frame) instead of the frozen walk/run frame the normal render leaves.
+  private holdDeadPose(): void {
     if (
       this.playerImageObject !== undefined &&
       this.userAssetBundle?.playerImage !== undefined
@@ -2336,6 +2736,10 @@ export class BootScene extends Phaser.Scene {
     this.stepEventMusic();
     this.stepHaptics(this.lastSoundEvents);
     this.gameAudio.playEvents(this.lastSoundEvents);
+    // A pained, cartoony "ouch" layered over the head-bonk thud.
+    if (this.lastSoundEvents.includes(SoundEvent.HeadBonk)) {
+      this.gameAudio.playOuch();
+    }
 
     this.renderSimulationState();
 
@@ -2343,8 +2747,8 @@ export class BootScene extends Phaser.Scene {
 
     // Death animation plays over the frozen (defeated) simulation, overriding
     // the player sprite position after the normal render.
-    this.maybeBeginDeathArc();
-    this.stepDeathArc();
+    this.maybeBeginDeathEffect();
+    this.stepDeathEffect();
     this.maybeEnterReplayMenu();
     this.maybeExecuteLevelWarp();
   }
@@ -2642,6 +3046,7 @@ export class BootScene extends Phaser.Scene {
     this.levelCompleteSoundPlayed = false;
     this.deathArcStarted = false;
     this.deathArcActive = false;
+    this.clearDeathEffect();
     // Leaving a death/game-over dismisses the flow card (the life count was
     // already reset above when a game-over was pending).
     this.hideFlowCard();
@@ -2721,6 +3126,14 @@ export class BootScene extends Phaser.Scene {
   private enterPause(byDeath: boolean): void {
     this.paused = true;
     this.pausedByDeath = byDeath;
+    // The death animation has finished playing (the menu waits for it); tear its
+    // pieces/overlays down and restore the player so the paused/replay view and
+    // any scrubbing render the recorded frames cleanly, not the scattered body.
+    if (byDeath && this.deathArcStarted) {
+      this.clearDeathEffect();
+      this.deathArcStarted = false;
+      this.renderSimulationState();
+    }
     this.keysHeldAtPause.clear();
     for (const code of this.keysDown) {
       this.keysHeldAtPause.add(code);
@@ -2834,11 +3247,31 @@ export class BootScene extends Phaser.Scene {
     if (
       this.paused ||
       this.simulationState.playerOutcome.kind !== PlayerOutcomeKind.Defeated ||
-      this.deathArcActive
+      this.deathEffectAnimating()
     ) {
       return;
     }
     this.enterPause(true);
+  }
+
+  // Is the shabby death animation still playing? The replay/retry menu waits for
+  // it so the death is seen before the menu freezes the frame.
+  private deathEffectAnimating(): boolean {
+    if (!this.deathArcStarted) {
+      return false;
+    }
+    switch (this.deathEffectStyle) {
+      case "launch":
+        return this.deathArcActive;
+      case "explode":
+        return this.deathEffectFrame < deathExplodeMenuHoldFrames;
+      case "burn":
+        return this.deathEffectFrame < deathBurnDurationFrames;
+      case "float":
+        return this.deathEffectFrame < deathFloatMenuHoldFrames;
+      case "impale":
+        return this.deathEffectFrame < deathImpaleMenuHoldFrames;
+    }
   }
 
   private maybeCaptureThumbnail(): void {
@@ -3237,16 +3670,22 @@ export class BootScene extends Phaser.Scene {
     const headBonkX = this.playerRectangle.x;
     const headBonkY =
       this.playerRectangle.y - this.playerRectangle.height / 2 - 2;
-    // The "ow!" shout floats just above the player's head and follows them.
+    // The "OUCH!" shout jitters above the player's head for a painful jolt.
+    const bonkShake = headBonking
+      ? (this.simulationState.clock.frameIndex % 2 === 0 ? 1 : -1) * 1.5
+      : 0;
     this.reactionText
-      .setText("ow!")
-      .setPosition(headBonkX, headBonkY)
+      .setText("OUCH!")
+      .setPosition(headBonkX + bonkShake, headBonkY)
       .setVisible(headBonking);
     if (this.playerReactionImage !== undefined) {
-      // The authored wide-eyed bonk sprite is pinned to the player, not left
-      // hanging where the bonk happened.
+      // The authored wincing bonk sprite is pinned to the player and given a
+      // small downward recoil so the hit reads as a jarring, painful jolt.
       this.playerReactionImage
-        .setPosition(this.playerRectangle.x, this.playerRectangle.y)
+        .setPosition(
+          this.playerRectangle.x + bonkShake,
+          this.playerRectangle.y + 1,
+        )
         .setVisible(headBonking);
     }
     this.renderPlayerBloodiness();
@@ -4023,6 +4462,13 @@ export class BootScene extends Phaser.Scene {
         warpZone: this.warpZoneBannerShown,
         timeBonusCountdownUnits: this.timeBonusCountdownUnitsRemaining,
         paused: this.paused,
+        deathEffect: {
+          started: this.deathArcStarted,
+          style: this.deathArcStarted ? this.deathEffectStyle : undefined,
+          pieceCount: this.deathPieces.length,
+          smokeCount: this.deathSmoke.length,
+          xEyesVisible: this.deathXEyesImage?.visible ?? false,
+        },
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         level: {
           widthTiles: this.levelSpec.widthTiles,

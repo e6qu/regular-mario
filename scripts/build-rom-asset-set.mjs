@@ -8,6 +8,8 @@
 import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
+// prettier-ignore
+import { deadEyesGrid, deadEyesPalette, drawGridSprite, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -284,11 +286,27 @@ async function main() {
   ];
   await copySprites(spritesDir, outDir, uniqueFiles);
 
+  // Author the death-effect overlays that the CHR set does not provide.
+  await writeFile(
+    resolve(outDir, "smb-dead-eyes.png"),
+    drawGridSprite(deadEyesGrid, deadEyesPalette),
+  );
+  await writeFile(
+    resolve(outDir, "smb-smoke-puff.png"),
+    drawGridSprite(smokeGrid, smokePalette),
+  );
+
   const playerStateSprites = buildPlayerStateSprites();
   const descriptor = {
     id: "rom-smb",
     title: "Super Mario Bros (ROM extracted)",
     origin: "rom-extracted",
+    reactionSprites: {
+      // Death-effect overlays (authored, not CHR-extracted): X-ed-out eyes for
+      // drown/impale deaths and a smoke puff for burn deaths.
+      "player-dead-eyes": spriteEntry("smb-dead-eyes.png"),
+      "smoke-puff": spriteEntry("smb-smoke-puff.png"),
+    },
     playerSprite: {
       ...spriteEntry(smallPlayerStateSources["small-idle"]),
       stateSprites: playerStateSprites,

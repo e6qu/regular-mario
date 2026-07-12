@@ -125,18 +125,7 @@ test("fires haptic feedback on landing and death", async ({ page }) => {
   await page.keyboard.press("Space");
 
   // Walk into the first enemy and die.
-  await page.keyboard.down("ArrowRight");
-  await page.waitForFunction(
-    () =>
-      String(
-        window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
-          .playerOutcome.kind,
-      ) === "defeated",
-    undefined,
-    { timeout: 10000 },
-  );
-  await page.keyboard.up("ArrowRight");
-  await page.waitForTimeout(200);
+  await dieWalkingRight(page);
 
   const vibrations = await page.evaluate(
     () => (window as unknown as { __vibrations: unknown[] }).__vibrations,
