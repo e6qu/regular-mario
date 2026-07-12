@@ -108,7 +108,9 @@ export function resolveTimedHazardProjectilesState(
     0,
   );
   const spawnedProjectiles = levelSpec.timedHazardProjectileSpawners
-    .filter((spawner) => shouldSpawnProjectile(spawner, frameIndex))
+    .filter((spawner) =>
+      shouldSpawnProjectile(spawner, frameIndex, player, levelSpec),
+    )
     .map((spawner) =>
       makeTimedHazardProjectile(levelSpec, spawner, frameIndex),
     );
@@ -380,19 +382,42 @@ function makeThrowingEnemyProjectileId(
   return `throwing-enemy-${throwingActor.entityId}-${frameIndex as number}` as Projectile["id"];
 }
 
+// A cannon never fires while the player is nearly on top of it (~48px) — the
+// ROM destroys a point-blank Bullet Bill — and never fires in a water area.
+// Bowser flames (not stompable) fire regardless of distance.
+const cannonPointBlankPixels = 48;
+
 function shouldSpawnProjectile(
   spawner: LevelSpec["timedHazardProjectileSpawners"][number],
   frameIndex: FrameIndex,
+  player: PlayerSimulationState,
+  levelSpec: LevelSpec,
 ): boolean {
   if (frameIndex < spawner.initialDelayFrames) {
     return false;
   }
 
-  return (
+  const isOnInterval =
     ((frameIndex as number) - spawner.initialDelayFrames) %
       spawner.intervalFrames ===
-    0
-  );
+    0;
+  if (!isOnInterval) {
+    return false;
+  }
+
+  // Cannon Bullet Bills (stompable) are gated; flames are not.
+  if (spawner.stompable) {
+    if (levelSpec.cheepFrenzy !== undefined) {
+      // A water area: cannons stay silent (ProcessCannons' AreaType check).
+      return false;
+    }
+    const spawnerPixelX = spawner.position.x * levelSpec.tileSizePixels;
+    if (Math.abs(player.position.x - spawnerPixelX) < cannonPointBlankPixels) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function makeTimedHazardProjectile(

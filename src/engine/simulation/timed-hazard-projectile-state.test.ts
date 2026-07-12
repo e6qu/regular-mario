@@ -200,11 +200,12 @@ describe("timed-hazard-projectile-state", () => {
 
   it("defeats a stompable Bullet Bill the player lands on", () => {
     const levelSpec = stompCannonLevelSpec(true);
-    // Frame 1: spawn the projectile at (16, 48) with the player elsewhere.
+    // Frame 1: spawn the projectile at (16, 48) with the player far away (a
+    // cannon won't fire a point-blank Bullet Bill).
     const spawned = resolveHazard(
       makeEmptyTimedHazardProjectilesState(),
       levelSpec,
-      testPlayerAt(16, 0),
+      testPlayerAt(200, 0),
       1,
     );
     expect(spawned.projectiles).toHaveLength(1);
@@ -221,6 +222,18 @@ describe("timed-hazard-projectile-state", () => {
     expect(stomped.stompedProjectileCount).toBe(1);
     expect(stomped.projectiles).toEqual([]);
     expect(stomped.playerContact).toBe(false);
+  });
+
+  it("does not fire a cannon Bullet Bill point-blank at the player", () => {
+    const levelSpec = stompCannonLevelSpec(true);
+    // The spawner sits at tile x=1 (16px); a player right on it gets no bill.
+    const nearResult = resolveHazard(
+      makeEmptyTimedHazardProjectilesState(),
+      levelSpec,
+      testPlayerAt(20, 0),
+      1,
+    );
+    expect(nearResult.projectiles).toHaveLength(0);
   });
 
   it("leaves a non-stompable projectile as a hazard when landed on", () => {
