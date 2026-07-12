@@ -26,6 +26,7 @@ import {
   setDeployInfoFooterVisible,
 } from "./shell/deploy-info-footer";
 import { createGameConfig } from "./shell/create-game-config";
+import { resetStoredState, storedStateKeys } from "./shell/reset-stored-state";
 import { BootScene } from "./shell/scenes/boot-scene";
 import {
   loadUserAssetBundle,
@@ -2008,6 +2009,30 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     renderEditor();
   });
   panel.appendChild(editButton);
+
+  // Reset all locally-saved data (preferences and saved levels). Kept small and
+  // low-contrast since it is destructive and rarely used; it confirms first.
+  const resetButton = document.createElement("button");
+  resetButton.textContent = "↺ Reset saved data";
+  resetButton.setAttribute("aria-label", "Reset saved data");
+  resetButton.style.cssText =
+    "display:block;margin:14px auto 0;padding:6px 12px;font:600 11px monospace;" +
+    "letter-spacing:0.5px;cursor:pointer;border-radius:7px;border:2px solid #7a4a1e;" +
+    "background:#f3e2c7;color:#6b3410;";
+  resetButton.addEventListener("click", () => {
+    const hasSavedData = storedStateKeys(window.localStorage).length > 0;
+    const confirmed = window.confirm(
+      hasSavedData
+        ? "Reset all saved data? This clears your preferences (renderer, editor, and control settings) and any levels saved in the editor. This cannot be undone."
+        : "There is no saved data to reset.",
+    );
+    if (!confirmed) {
+      return;
+    }
+    resetStoredState(window.localStorage);
+    window.location.reload();
+  });
+  panel.appendChild(resetButton);
 
   panel.appendChild(status);
   appElement!.appendChild(panel);
