@@ -208,12 +208,6 @@ const deathFloatSurfaceHoldFrames = 40;
 const deathExplodeMenuHoldFrames = 96;
 const deathFloatMaxHoldFrames = 360;
 const deathImpaleMenuHoldFrames = 48;
-const playerBodyColor = 0x2563eb;
-const playerCapColor = 0x0d9488;
-const playerSkinColor = 0xfde68a;
-const playerBootColor = 0x78350f;
-const playerFaceColor = 0x111827;
-const playerScarfColor = 0xf97316;
 const activeOutcomeFeedbackText = "";
 const hazardDefeatedOutcomeFeedbackText = "Hazard contact — Press R";
 const enemyDefeatedOutcomeFeedbackText = "Opponent contact — Press R";
@@ -358,28 +352,6 @@ const exitArchColor = 0x111827;
 const exitGlowColor = 0xf4c542;
 const actorRenderOffsetPixels = 2;
 const tileStrokeWidth = 1;
-const playerBodyStrokeWidth = 1;
-const playerFaceWidthPixels = 4;
-const playerFaceHeightPixels = 4;
-const playerFaceOffsetX = 8;
-const playerFaceOffsetY = 6;
-const playerCapWidthPixels = 10;
-const playerCapHeightPixels = 3;
-const playerCapOffsetX = 2;
-const playerCapOffsetY = 0;
-const playerHeadWidthPixels = 8;
-const playerHeadHeightPixels = 5;
-const playerHeadOffsetX = 3;
-const playerHeadOffsetY = 2;
-const playerBootWidthPixels = 4;
-const playerBootHeightPixels = 3;
-const playerLeftBootOffsetX = 1;
-const playerRightBootOffsetX = 9;
-const playerBootOffsetY = 21;
-const playerScarfWidthPixels = 10;
-const playerScarfHeightPixels = 3;
-const playerScarfOffsetX = 1;
-const playerScarfOffsetY = 14;
 const grassBladeOffsetX = 1;
 const grassBladeOffsetY = 2;
 const grassBladeInsetPixels = 2;
@@ -579,9 +551,6 @@ const emergingItemDepth = -1;
 const dustParticleColor = 0xd4c4a8;
 const dustParticleRadius = 3;
 const dustParticleDurationMs = 300;
-const walkAnimationPeriodFrames = 6;
-const walkBootOffsetPixels = 2;
-const jumpBootOffsetPixels = 1;
 // Controls are read from window keydown/keyup by event.code rather than Phaser's
 // per-scene Key objects: with several game instances alive at once (suspended
 // sessions), Phaser only updates the first game's Keys, so the polled approach
@@ -791,13 +760,10 @@ export class BootScene extends Phaser.Scene {
   private deathXEyesImage: Phaser.GameObjects.Image | undefined;
   private previousPlayerVertical: VerticalMovementState =
     VerticalMovementState.Grounded;
+  // An invisible anchor for the player's position (camera follow, death arc,
+  // flagpole slide). The visible player is always the authored sprite
+  // (playerImageObject); there is no procedural vector-rectangle player.
   private playerRectangle!: Phaser.GameObjects.Rectangle;
-  private playerFaceRectangle!: Phaser.GameObjects.Rectangle;
-  private playerScarfRectangle!: Phaser.GameObjects.Rectangle;
-  private playerCapRectangle!: Phaser.GameObjects.Rectangle;
-  private playerHeadRectangle!: Phaser.GameObjects.Rectangle;
-  private playerLeftBootRectangle!: Phaser.GameObjects.Rectangle;
-  private playerRightBootRectangle!: Phaser.GameObjects.Rectangle;
   private playerImageObject: Phaser.GameObjects.Image | undefined;
   // Last non-trivial horizontal travel direction, so the water merman can face
   // the way he swims.
@@ -1034,37 +1000,21 @@ export class BootScene extends Phaser.Scene {
       this.gameAudio.stopBackgroundMusic();
     });
 
+    // The invisible position anchor: never drawn, only used to place the sprite
+    // and drive the camera.
     this.playerRectangle = this.add
       .rectangle(
         0,
         0,
         initialPlayerSimulationStateConfig.colliderWidth,
         initialPlayerSimulationStateConfig.colliderHeight,
-        playerBodyColor,
       )
       .setOrigin(0)
-      .setStrokeStyle(playerBodyStrokeWidth, playerFaceColor);
-    const playerAccent = renderPlayerAccent(this, this.playerRectangle);
-    this.playerFaceRectangle = playerAccent.face;
-    this.playerScarfRectangle = playerAccent.scarf;
-    this.playerCapRectangle = playerAccent.cap;
-    this.playerHeadRectangle = playerAccent.head;
-    this.playerLeftBootRectangle = playerAccent.leftBoot;
-    this.playerRightBootRectangle = playerAccent.rightBoot;
+      .setVisible(false);
     this.playerImageObject = renderPlayerImage(
       this,
       this.userAssetBundle?.playerImage,
     );
-
-    if (this.playerImageObject !== undefined) {
-      this.playerRectangle.setVisible(false);
-      this.playerFaceRectangle.setVisible(false);
-      this.playerScarfRectangle.setVisible(false);
-      this.playerCapRectangle.setVisible(false);
-      this.playerHeadRectangle.setVisible(false);
-      this.playerLeftBootRectangle.setVisible(false);
-      this.playerRightBootRectangle.setVisible(false);
-    }
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -1632,14 +1582,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   private bringPlayerObjectsToTop(): void {
-    this.children.bringToTop(this.playerRectangle);
-    this.children.bringToTop(this.playerHeadRectangle);
-    this.children.bringToTop(this.playerFaceRectangle);
-    this.children.bringToTop(this.playerCapRectangle);
-    this.children.bringToTop(this.playerScarfRectangle);
-    this.children.bringToTop(this.playerLeftBootRectangle);
-    this.children.bringToTop(this.playerRightBootRectangle);
-
     if (this.playerImageObject !== undefined) {
       this.children.bringToTop(this.playerImageObject);
     }
@@ -2177,23 +2119,8 @@ export class BootScene extends Phaser.Scene {
     this.flagpoleFlagBaseY = bottomRow * size - flagHeight;
   }
 
-  private positionPlayerAccents(): void {
-    positionPlayerAccentWithAnimation(
-      this.playerRectangle,
-      this.playerFaceRectangle,
-      this.playerScarfRectangle,
-      this.playerCapRectangle,
-      this.playerHeadRectangle,
-      this.playerLeftBootRectangle,
-      this.playerRightBootRectangle,
-      this.simulationState.player.movement,
-      this.simulationState.clock.frameIndex,
-    );
-  }
-
   private positionPlayerSpriteAt(x: number, y: number): void {
     this.playerRectangle.setPosition(x, y);
-    this.positionPlayerAccents();
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setPosition(x, y);
     }
@@ -2362,7 +2289,6 @@ export class BootScene extends Phaser.Scene {
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setVisible(false);
     }
-    this.setPlayerBodyRectanglesVisible(false);
     // Body regions as fractions of the sprite box (left, top, right, bottom),
     // plus the sideways fling each chunk gets. The player sprite has the head up
     // top, torso in the middle, and feet at the bottom, so these crops read as
@@ -2447,16 +2373,6 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  private setPlayerBodyRectanglesVisible(visible: boolean): void {
-    this.playerRectangle.setVisible(visible);
-    this.playerFaceRectangle.setVisible(visible);
-    this.playerScarfRectangle.setVisible(visible);
-    this.playerCapRectangle.setVisible(visible);
-    this.playerHeadRectangle.setVisible(visible);
-    this.playerLeftBootRectangle.setVisible(visible);
-    this.playerRightBootRectangle.setVisible(visible);
-  }
-
   private stepDeathEffect(): void {
     if (!this.deathArcStarted) {
       return;
@@ -2509,7 +2425,6 @@ export class BootScene extends Phaser.Scene {
           this.simulationState.player.collider.height * scale,
         );
     }
-    this.setPlayerBodyRectanglesVisible(false);
     this.stepBurnFlames(scale);
     if (
       this.deathEffectFrame % deathBurnSmokeIntervalFrames === 0 &&
@@ -2673,15 +2588,9 @@ export class BootScene extends Phaser.Scene {
     this.deathEffectStyle = "launch";
     this.deathEffectFrame = 0;
     this.deathFloatSurfaceFrame = -1;
+    // Restore the player sprite to upright, untinted, full size after a death.
     if (this.playerImageObject !== undefined) {
-      // A skinned player: the sprite is the body; the vector rectangles stay
-      // hidden (showing them here is what left a "vector man" behind the sprite
-      // after a retry). Restore the sprite to upright, untinted, full size.
       this.playerImageObject.setVisible(true).setFlipY(false).clearTint();
-      this.setPlayerBodyRectanglesVisible(false);
-    } else {
-      // No skin: the vector rectangles are the body, so restore them.
-      this.setPlayerBodyRectanglesVisible(true);
     }
   }
 
@@ -3738,7 +3647,6 @@ export class BootScene extends Phaser.Scene {
         this.simulationState.player.collider.width,
         this.simulationState.player.collider.height,
       );
-    this.positionPlayerAccents();
     this.emitSwimBubbles();
 
     if (this.playerImageObject !== undefined) {
@@ -3787,13 +3695,7 @@ export class BootScene extends Phaser.Scene {
       Math.floor(this.simulationState.clock.frameIndex / 3) % 2 === 1
         ? 0
         : 1;
-    this.playerRectangle.setAlpha(playerAlpha);
-    this.playerFaceRectangle.setAlpha(playerAlpha);
-    this.playerScarfRectangle.setAlpha(playerAlpha);
-    this.playerCapRectangle.setAlpha(playerAlpha);
-    this.playerHeadRectangle.setAlpha(playerAlpha);
-    this.playerLeftBootRectangle.setAlpha(playerAlpha);
-    this.playerRightBootRectangle.setAlpha(playerAlpha);
+    // The invincibility/recovery flash blinks the player sprite.
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setAlpha(playerAlpha);
     }
@@ -5398,155 +5300,6 @@ type RuntimeRenderedActor = BrowserRenderedActorSnapshot & {
   // their own winged frames instead).
   readonly wingObject: Phaser.GameObjects.Triangle | undefined;
 };
-
-function renderPlayerAccent(
-  scene: Phaser.Scene,
-  playerRectangle: Phaser.GameObjects.Rectangle,
-): {
-  readonly face: Phaser.GameObjects.Rectangle;
-  readonly scarf: Phaser.GameObjects.Rectangle;
-  readonly cap: Phaser.GameObjects.Rectangle;
-  readonly head: Phaser.GameObjects.Rectangle;
-  readonly leftBoot: Phaser.GameObjects.Rectangle;
-  readonly rightBoot: Phaser.GameObjects.Rectangle;
-} {
-  const cap = scene.add
-    .rectangle(
-      0,
-      0,
-      playerCapWidthPixels,
-      playerCapHeightPixels,
-      playerCapColor,
-    )
-    .setOrigin(0);
-  const head = scene.add
-    .rectangle(
-      0,
-      0,
-      playerHeadWidthPixels,
-      playerHeadHeightPixels,
-      playerSkinColor,
-    )
-    .setOrigin(0);
-  const face = scene.add
-    .rectangle(
-      0,
-      0,
-      playerFaceWidthPixels,
-      playerFaceHeightPixels,
-      playerFaceColor,
-    )
-    .setOrigin(0);
-  const scarf = scene.add
-    .rectangle(
-      0,
-      0,
-      playerScarfWidthPixels,
-      playerScarfHeightPixels,
-      playerScarfColor,
-    )
-    .setOrigin(0);
-  const leftBoot = scene.add
-    .rectangle(
-      0,
-      0,
-      playerBootWidthPixels,
-      playerBootHeightPixels,
-      playerBootColor,
-    )
-    .setOrigin(0);
-  const rightBoot = scene.add
-    .rectangle(
-      0,
-      0,
-      playerBootWidthPixels,
-      playerBootHeightPixels,
-      playerBootColor,
-    )
-    .setOrigin(0);
-
-  positionPlayerAccentWithAnimation(
-    playerRectangle,
-    face,
-    scarf,
-    cap,
-    head,
-    leftBoot,
-    rightBoot,
-    {
-      horizontal: HorizontalMovementState.Idle,
-      vertical: VerticalMovementState.Grounded,
-    },
-    0,
-  );
-
-  return {
-    cap,
-    head,
-    face,
-    scarf,
-    leftBoot,
-    rightBoot,
-  };
-}
-
-function positionPlayerAccentWithAnimation(
-  playerRectangle: Phaser.GameObjects.Rectangle,
-  face: Phaser.GameObjects.Rectangle,
-  scarf: Phaser.GameObjects.Rectangle,
-  cap: Phaser.GameObjects.Rectangle,
-  head: Phaser.GameObjects.Rectangle,
-  leftBoot: Phaser.GameObjects.Rectangle,
-  rightBoot: Phaser.GameObjects.Rectangle,
-  movement: SimulationState["player"]["movement"],
-  frameIndex: number,
-): void {
-  cap.setPosition(
-    playerRectangle.x + playerCapOffsetX,
-    playerRectangle.y + playerCapOffsetY,
-  );
-  head.setPosition(
-    playerRectangle.x + playerHeadOffsetX,
-    playerRectangle.y + playerHeadOffsetY,
-  );
-  face.setPosition(
-    playerRectangle.x + playerFaceOffsetX,
-    playerRectangle.y + playerFaceOffsetY,
-  );
-  scarf.setPosition(
-    playerRectangle.x + playerScarfOffsetX,
-    playerRectangle.y + playerScarfOffsetY,
-  );
-
-  let leftBootOffsetY = 0;
-  let rightBootOffsetY = 0;
-
-  if (movement.vertical === VerticalMovementState.Grounded) {
-    if (
-      movement.horizontal === HorizontalMovementState.Walking ||
-      movement.horizontal === HorizontalMovementState.Running
-    ) {
-      const phase = Math.floor(frameIndex / walkAnimationPeriodFrames) % 2;
-      leftBootOffsetY = phase === 0 ? -walkBootOffsetPixels : 0;
-      rightBootOffsetY = phase === 0 ? 0 : -walkBootOffsetPixels;
-    }
-  } else if (movement.vertical === VerticalMovementState.Jumping) {
-    leftBootOffsetY = -jumpBootOffsetPixels;
-    rightBootOffsetY = -jumpBootOffsetPixels;
-  } else {
-    leftBootOffsetY = jumpBootOffsetPixels;
-    rightBootOffsetY = jumpBootOffsetPixels;
-  }
-
-  leftBoot.setPosition(
-    playerRectangle.x + playerLeftBootOffsetX,
-    playerRectangle.y + playerBootOffsetY + leftBootOffsetY,
-  );
-  rightBoot.setPosition(
-    playerRectangle.x + playerRightBootOffsetX,
-    playerRectangle.y + playerBootOffsetY + rightBootOffsetY,
-  );
-}
 
 function makeEmptyCollisionCounts(): MutableLevelCollisionCounts {
   return {

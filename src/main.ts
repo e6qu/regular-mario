@@ -640,13 +640,39 @@ function renderSessionBar(): void {
   }
 }
 
-function bootWithDefaultAssets(): void {
+async function bootWithDefaultAssets(): Promise<void> {
   const selectedBrowserGameBootstrap = selectBrowserGameBootstrap(
     window.location.search,
   );
-  startSession(selectedBrowserGameBootstrap, "1-1", "play", () => {
-    void renderStartMenu();
-  });
+  // The player (and every actor/tile) is authored sprite art — there is no
+  // procedural fallback renderer — so even the debug `?browserLevel=` routes
+  // load the default parody skin before the scene starts.
+  const bundle = await loadDefaultSkinBundle();
+  startSession(
+    { ...selectedBrowserGameBootstrap, userAssetBundle: bundle },
+    "1-1",
+    "play",
+    () => {
+      void renderStartMenu();
+    },
+  );
+}
+
+// Load (and cache) the default parody skin bundle, or undefined if it fails.
+async function loadDefaultSkinBundle(): Promise<UserAssetBundle | undefined> {
+  const cached = skinBundleCache.get("castaway-parody");
+  if (cached !== undefined) {
+    return cached;
+  }
+  try {
+    const bundle = await fetchAndLoadManifest(
+      contentSetBundleManifestUrl("castaway-parody", "official-smb"),
+    );
+    skinBundleCache.set("castaway-parody", bundle);
+    return bundle;
+  } catch {
+    return undefined;
+  }
 }
 
 // Boot a custom/uploaded/edited level. `skinId` is an asset-set id whose sprites
