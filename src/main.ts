@@ -89,6 +89,23 @@ sessionBarStyle.textContent = `
 }`;
 document.head.append(sessionBarStyle);
 
+// Short-viewport (mobile-landscape) responsive rules: menus are designed for a
+// tall portrait/desktop column, so on a short screen we compact them — smaller
+// title/padding and a two-column control grid — so they fit without scrolling.
+const responsiveMenuStyle = document.createElement("style");
+responsiveMenuStyle.textContent = `
+@media (max-height: 540px) {
+  .start-menu-panel { margin: 5px auto !important; padding: 8px 18px !important; }
+  .start-menu-coin { font-size: 16px !important; }
+  .start-menu-panel h1 { font-size: 16px !important; margin: 1px 0 6px 0 !important; letter-spacing: 1px !important; }
+  .start-menu-controls { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 16px; text-align: left; }
+  .start-menu-controls .start-menu-field > div { font-size: 12px !important; }
+  .start-menu-controls select { margin-top: 2px !important; margin-bottom: 5px !important; padding: 6px !important; font-size: 14px !important; }
+  .start-menu-panel button { margin-top: 5px !important; }
+  .start-menu-panel .start-menu-play { padding: 8px 28px !important; font-size: 16px !important; }
+}`;
+document.head.append(responsiveMenuStyle);
+
 // The game plays in landscape only on touch devices; in portrait a full-screen
 // overlay asks the player to rotate. Desktop / keyboard users never see it.
 const rotatePrompt = document.createElement("div");
@@ -1892,6 +1909,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   const panel = document.createElement("div");
   panel.setAttribute("role", "region");
   panel.setAttribute("aria-label", "Start menu");
+  panel.className = "start-menu-panel";
   panel.style.maxWidth = "460px";
   panel.style.margin = "40px auto";
   panel.style.padding = "24px";
@@ -1902,6 +1920,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   panel.style.textAlign = "center";
 
   const coin = document.createElement("div");
+  coin.className = "start-menu-coin";
   coin.textContent = "◉";
   coin.style.fontSize = "40px";
   coin.style.color = "#ffcc33";
@@ -1936,6 +1955,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   ]);
 
   const playButton = document.createElement("button");
+  playButton.className = "start-menu-play";
   playButton.textContent = "▶ PLAY";
   playButton.style.marginTop = "8px";
   playButton.style.padding = "12px 32px";
@@ -1956,18 +1976,26 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   status.style.minHeight = "18px";
   status.style.margin = "14px 0 0 0";
 
+  // The label+select pairs live in a controls container that reflows to a
+  // two-column grid on short (mobile-landscape) viewports.
+  const controls = document.createElement("div");
+  controls.className = "start-menu-controls";
+  const appendField = (labelText: string, control: HTMLElement): void => {
+    const field = document.createElement("div");
+    field.className = "start-menu-field";
+    field.appendChild(makeStartMenuLabel(labelText));
+    field.appendChild(control);
+    controls.appendChild(field);
+  };
+
   panel.appendChild(coin);
   panel.appendChild(title);
-  panel.appendChild(makeStartMenuLabel("SKIN"));
-  panel.appendChild(assetSelect);
-  panel.appendChild(makeStartMenuLabel("MAP"));
-  panel.appendChild(mapSelect);
-  panel.appendChild(makeStartMenuLabel("LEVEL"));
-  panel.appendChild(levelSelect);
-  panel.appendChild(makeStartMenuLabel("GAME MODE"));
-  panel.appendChild(modeSelect);
-  panel.appendChild(makeStartMenuLabel("SOUND"));
-  panel.appendChild(audioSelect);
+  appendField("SKIN", assetSelect);
+  appendField("MAP", mapSelect);
+  appendField("LEVEL", levelSelect);
+  appendField("GAME MODE", modeSelect);
+  appendField("SOUND", audioSelect);
+  panel.appendChild(controls);
   panel.appendChild(playButton);
 
   const editButton = document.createElement("button");
