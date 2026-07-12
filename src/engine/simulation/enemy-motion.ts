@@ -111,6 +111,10 @@ export type ThrowingEnemyActorState = {
   readonly velocity: {
     readonly x: VelocityPixelsPerSecond;
   };
+  // The spawn column the Hammer Bro shimmies around (it paces a short window
+  // left/right of here while throwing). `originX` is absent on legacy states,
+  // in which case the shimmy anchors to the current x on the first step.
+  readonly originX?: PixelPosition;
 };
 
 export type AerialThrowingEnemyActorState = {
@@ -278,6 +282,7 @@ export function makeInitialEnemyMotionState(
               "enemyMotion.throwingActors[].velocity.x",
             ),
           },
+          originX: position.x,
         });
         break;
       }
@@ -633,10 +638,21 @@ export function stepEnemyMotionState(
         frameIndex,
       );
     }),
-    throwingActors: stopDefeatedThrowingEnemyActors(
-      previousState.throwingActors,
-      defeatedEnemyEntityIds,
-    ),
+    throwingActors: previousState.throwingActors.map((throwingActor) => {
+      if (defeatedEnemyEntityIds.has(throwingActor.entityId)) {
+        return stopThrowingEnemyActor(throwingActor);
+      }
+
+      if (!activeEnemyEntityIds.has(throwingActor.entityId)) {
+        return throwingActor;
+      }
+
+      return stepThrowingEnemyActor(
+        throwingActor,
+        levelSpec,
+        frameDurationSeconds,
+      );
+    }),
     aerialThrowingActors: previousState.aerialThrowingActors.map(
       (aerialThrowingActor) => {
         if (defeatedEnemyEntityIds.has(aerialThrowingActor.entityId)) {
@@ -2327,6 +2343,59 @@ function stopThrowingEnemyActor(
     velocity: {
       x: requireEnemyVelocity(0, "enemyMotion.throwingActors[].velocity.x"),
     },
+  };
+}
+
+// Hammer Bros pace a short window left/right of their spawn column while
+// throwing (the "shimmy"). Vertical row-hops (the original's RNG platform
+// jumps) are not yet modeled — the pacing stays on the spawn row.
+const hammerBroShimmySpeedPixelsPerSecond = 24;
+const hammerBroShimmyAmplitudePixels = 12;
+
+function stepThrowingEnemyActor(
+  throwingActor: ThrowingEnemyActorState,
+  levelSpec: LevelSpec,
+  frameDurationSeconds: number,
+): ThrowingEnemyActorState {
+  const originX = throwingActor.originX ?? throwingActor.position.x;
+  // Head away from centre when at/over a bound, otherwise keep the current
+  // heading (defaulting right from a standstill).
+  const currentHeadingSign = throwingActor.velocity.x < 0 ? -1 : 1;
+  const headingSign =
+    throwingActor.position.x >= originX + hammerBroShimmyAmplitudePixels
+      ? -1
+      : throwingActor.position.x <= originX - hammerBroShimmyAmplitudePixels
+        ? 1
+        : currentHeadingSign;
+
+  const attemptedPositionX =
+    throwingActor.position.x +
+    headingSign * hammerBroShimmySpeedPixelsPerSecond * frameDurationSeconds;
+  // Never let the shimmy carry it out of the world or past its pacing window.
+  const clampedPositionX = Math.min(
+    originX + hammerBroShimmyAmplitudePixels,
+    Math.max(originX - hammerBroShimmyAmplitudePixels, attemptedPositionX),
+  );
+  if (enemyWouldLeaveWorld(clampedPositionX, levelSpec)) {
+    return stopThrowingEnemyActor(throwingActor);
+  }
+
+  return {
+    ...throwingActor,
+    position: {
+      x: requireEnemyPixelPosition(
+        clampedPositionX,
+        "enemyMotion.throwingActors[].position.x",
+      ),
+      y: throwingActor.position.y,
+    },
+    velocity: {
+      x: requireEnemyVelocity(
+        headingSign * hammerBroShimmySpeedPixelsPerSecond,
+        "enemyMotion.throwingActors[].velocity.x",
+      ),
+    },
+    originX,
   };
 }
 

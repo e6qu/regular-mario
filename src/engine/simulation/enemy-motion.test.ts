@@ -1120,11 +1120,28 @@ describe("enemy motion", () => {
             velocity: {
               x: 0,
             },
+            originX: 48,
           },
         ],
         aerialThrowingActors: [],
         piranhaPlantActors: [],
       });
+    });
+
+    it("shimmies within a window around its spawn column when active", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4);
+      // Active (player nearby), the thrower paces right from its spawn (x=48)
+      // rather than sitting still.
+      const nextState = stepFreshRouteEnemy(levelSpec, {
+        frameDurationMilliseconds: 1_000,
+        player: playerAt({ x: 40, y: 64 }),
+      });
+
+      const actor = nextState.throwingActors[0];
+      expect(actor?.position.x).toBeGreaterThan(48);
+      // It never wanders past its pacing amplitude (12px) from the spawn.
+      expect(actor?.position.x).toBeLessThanOrEqual(48 + 12);
+      expect(actor?.originX).toBe(48);
     });
   });
 
