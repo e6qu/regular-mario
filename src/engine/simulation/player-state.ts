@@ -36,6 +36,13 @@ export type PlayerSimulationState = {
   // horizontal speed when the current/last jump launched — SMB keeps the
   // launch forces for the whole arc.
   readonly jumpTierIndex: number;
+  // True while big Mario is ducking (Down held on the ground): he can't walk
+  // and his hurtbox shrinks to the ROM's 12×12 crouch box, so he ducks
+  // hammers/flames. Absent/false otherwise. Derived per frame in step-simulation
+  // and stamped on the player used for collision — the movement helpers that
+  // rebuild the player (stomp rebound, side-knockback) intentionally drop it
+  // because those leave the ground.
+  readonly crouching?: boolean;
 };
 
 export type InitialPlayerSimulationStateConfig = {

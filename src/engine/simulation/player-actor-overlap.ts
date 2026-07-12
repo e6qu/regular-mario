@@ -15,6 +15,9 @@ const smallPlayerHurtWidthPixels = 10;
 const smallPlayerHurtHeightPixels = 12;
 const bigPlayerHurtWidthPixels = 12;
 const bigPlayerHurtHeightPixels = 24;
+// Big Mario ducking (ROM BoundBoxCtrlData entry 2): a 12×12 box at the feet.
+const crouchPlayerHurtWidthPixels = 12;
+const crouchPlayerHurtHeightPixels = 12;
 
 export type PlayerHurtbox = {
   readonly left: number;
@@ -25,12 +28,17 @@ export type PlayerHurtbox = {
 
 export function playerHurtbox(player: PlayerSimulationState): PlayerHurtbox {
   const isBig = player.collider.height >= bigPlayerColliderHeightPixels;
-  const hurtWidth = isBig
-    ? bigPlayerHurtWidthPixels
-    : smallPlayerHurtWidthPixels;
-  const hurtHeight = isBig
-    ? bigPlayerHurtHeightPixels
-    : smallPlayerHurtHeightPixels;
+  const crouching = player.crouching === true && isBig;
+  const hurtWidth = crouching
+    ? crouchPlayerHurtWidthPixels
+    : isBig
+      ? bigPlayerHurtWidthPixels
+      : smallPlayerHurtWidthPixels;
+  const hurtHeight = crouching
+    ? crouchPlayerHurtHeightPixels
+    : isBig
+      ? bigPlayerHurtHeightPixels
+      : smallPlayerHurtHeightPixels;
   const left = player.position.x + (player.collider.width - hurtWidth) / 2;
   const bottom = player.position.y + player.collider.height;
   return {

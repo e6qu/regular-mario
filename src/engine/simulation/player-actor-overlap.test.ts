@@ -19,6 +19,7 @@ describe("player hurtbox", () => {
   const bigPlayer = resizePlayerForVitality(smallPlayer, {
     kind: PlayerVitalityKind.Powered,
   });
+  const crouchingBigPlayer = { ...bigPlayer, crouching: true };
 
   it("gives small Mario a 10×12 box at the feet, centred in the collider", () => {
     const box = playerHurtbox(smallPlayer);
@@ -62,5 +63,27 @@ describe("player hurtbox", () => {
         height: 6,
       }),
     ).toBe(true);
+  });
+
+  it("shrinks big Mario to a 12×12 duck box while crouching", () => {
+    const standing = playerHurtbox(bigPlayer);
+    const ducking = playerHurtbox(crouchingBigPlayer);
+    expect(ducking.right - ducking.left).toBe(12);
+    expect(ducking.bottom - ducking.top).toBe(12);
+    // Same feet, but the box top is lower than standing — a threat between the
+    // two tops now sails over the ducking player.
+    expect(ducking.bottom).toBe(standing.bottom);
+    expect(ducking.top).toBeGreaterThan(standing.top);
+  });
+
+  it("ducks a threat at big Mario's chest that would hit him standing", () => {
+    const standing = playerHurtbox(bigPlayer);
+    // A hazard band just below the standing hurtbox top (chest height).
+    const chestThreat = { x: standing.left, y: standing.top + 2 };
+    const size = { width: 6, height: 6 };
+    expect(playerOverlapsActorPixel(bigPlayer, chestThreat, size)).toBe(true);
+    expect(
+      playerOverlapsActorPixel(crouchingBigPlayer, chestThreat, size),
+    ).toBe(false);
   });
 });

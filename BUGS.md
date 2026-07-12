@@ -2,36 +2,25 @@
 
 ## Known Bugs
 
-### Collision geometry is oversized vs the ROM (from the 2026-07-12 hitbox audit)
+### Collision geometry vs the ROM (from the 2026-07-12 hitbox audit) — all fixed
 
 A full audit against the ROM's `BoundBoxCtrlData` (disassembly) found our
 collision _logic_ faithful but the collision _geometry_ systematically larger
-than the original, so the game plays harder than SMB. Five of the audit's bugs
-are **fixed**: cannon Bullet Bills now stompable; stomp keys on descent at any
-depth; the Bowser flame has a small inset collision box; the **player uses a
-ROM-sized feet-anchored hurtbox** (`playerHurtbox`, small 10×12 / big 12×24);
-and **enemies narrow to their ROM widths** (`makeEnemyHurtbox` — goomba/spiny/
-piranha 10, koopa/buzzy/lakitu 12, hammer bro 8), which delivers the ROM's
-horizontal near-miss forgiveness. The enemy box keeps the render top and height
-so the stomp geometry (which keys off the enemy's top) is unchanged — verified
-by the stomp-heavy headless playthrough still completing. The one remaining
-bug:
+than the original. **All six of the audit's bugs are now fixed**: cannon Bullet
+Bills stompable; stomp keys on descent at any depth; the Bowser flame has a
+small inset collision box; the **player uses a ROM-sized feet-anchored hurtbox**
+(`playerHurtbox`, small 10×12 / big 12×24); **enemies narrow to their ROM
+widths** (`makeEnemyHurtbox` — goomba/spiny/piranha 10, koopa/buzzy/lakitu 12,
+hammer bro 8), keeping the render top so the stomp geometry is unchanged; and
+**big Mario crouches** (Down held on the ground → can't walk, hurtbox shrinks to
+the ROM's 12×12 duck box, so he ducks hammers/flames). The collision geometry is
+ROM-faithful and the game is no longer harder than SMB.
 
-- **BUG 4 — no crouch mechanic / crouch hitbox** (a missing _feature_, not a
-  wrong collision). Big Mario has no duck; the ROM shrinks him to 12×12 (entry 2) when Down is held on the ground — the canonical way to duck hammers/flames.
-  Implementation notes (why it's a dedicated pass, not a drive-by): the movement
-  functions build explicit player objects rather than spreading, so a
-  `crouching` flag must be threaded through `applyHorizontalMovement` /
-  `applyVerticalMovement` / `applyClimbableMovement` / the resize helpers, then
-  read by `playerHurtbox` (return a 12×12 duck box when crouching) and used to
-  suppress walking; step-sim sets it from `downHeld && big && grounded &&
-!pipe-entering` (must not fight the down-pipe entry that also reads Down).
-  It also wants a crouch sprite (the parody skin has none), else big Mario shows
-  his standing pose while ducking. Not required for completion — every level is
-  proven completable without it.
-
-Minor/player-favouring (documented, not blocking): player fireball 6×6 vs ROM
-8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, podoboo 12×12 vs 10×6.
+Remaining polish (not a wrong collision): the crouch has no dedicated sprite in
+the shipped skins, so big Mario shows his standing pose while ducking (the
+_mechanic_ — walk-stop + duck hurtbox — is correct). Minor player-favouring
+deltas, documented and not blocking: player fireball 6×6 vs ROM 8×8, hammers
+6×6 vs 8×8, power-ups 16×16 vs 12×12, podoboo 12×12 vs 10×6.
 
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows

@@ -249,12 +249,28 @@ function stepActiveSimulation(
 
   const teleportResult = pipeState.teleport;
 
-  const effectiveInputCommand = isPlayerFrozenByPipeEntry(pipeState.pipeEntry)
+  // Crouch (big Mario ducking): Down held while grounded, when not entering a
+  // pipe (the pipe entry also reads Down and takes precedence). Ducking stops
+  // the walk and — via the player's `crouching` flag stamped below — shrinks the
+  // hurtbox to the ROM's 12×12 crouch box.
+  const isBigVitality =
+    playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Powered ||
+    playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Fire;
+  const crouching =
+    isBigVitality &&
+    state.player.movement.vertical === VerticalMovementState.Grounded &&
+    inputCommand.downHeld &&
+    !isPlayerFrozenByPipeEntry(pipeState.pipeEntry);
+
+  const baseInputCommand = isPlayerFrozenByPipeEntry(pipeState.pipeEntry)
     ? freezePlayerInputCommand(inputCommand)
     : makeRecoveryAdjustedInputCommand(
         inputCommand,
         playerVitalityAfterRecoveryTick,
       );
+  const effectiveInputCommand = crouching
+    ? { ...baseInputCommand, horizontal: HorizontalInput.Neutral }
+    : baseInputCommand;
 
   const horizontallyMovedPlayer = applyHorizontalMovement(
     state.player,
@@ -351,7 +367,7 @@ function stepActiveSimulation(
   );
   const loopAdjustedPlayer = loopZonesResolution.player;
 
-  const teleportedPlayer =
+  const teleportedPlayerBase =
     teleportResult.kind === "same-level"
       ? teleportPlayerToTilePosition(
           loopAdjustedPlayer,
@@ -359,6 +375,11 @@ function stepActiveSimulation(
           levelSpec,
         )
       : loopAdjustedPlayer;
+  // Stamp the crouch flag onto the player the collision phase reads; the stomp/
+  // knockback rebuilders drop it (they leave the ground), so it self-clears.
+  const teleportedPlayer = crouching
+    ? { ...teleportedPlayerBase, crouching: true }
+    : teleportedPlayerBase;
 
   const interactiveBlocks = resolveInteractiveBlockInteractionState(
     state.interactiveBlocks,

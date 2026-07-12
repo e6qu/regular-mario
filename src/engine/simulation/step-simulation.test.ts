@@ -2576,3 +2576,57 @@ describe("simulation primitives", () => {
     ).toThrow("Simulation frame index cannot advance safely.");
   });
 });
+
+describe("crouch (big Mario duck)", () => {
+  function inputCommand(
+    horizontal: HorizontalInput,
+    downHeld: boolean,
+  ): SimulationInputCommand {
+    const result = makeSimulationInputCommand(
+      horizontal,
+      false,
+      true,
+      false,
+      false,
+      downHeld,
+    );
+    if (!result.ok) {
+      throw new Error("Expected valid crouch test input command.");
+    }
+    return result.value;
+  }
+
+  const bigGroundedState: SimulationState = {
+    ...stateWithPlayerAt({ x: 100, y: 48 }),
+    playerVitality: { kind: PlayerVitalityKind.Powered },
+  };
+
+  it("stops big Mario walking while Down is held on the ground", () => {
+    // Crouch suppresses the walk: pressing Right + Down produces no rightward
+    // acceleration, while Right alone accelerates. (The crouch flag itself is
+    // re-derived each frame and read by the collision phase; the shrunk duck
+    // hurtbox is covered by the player-hurtbox unit tests.)
+    const crouched = stepWithInitialMovementConstants(
+      bigGroundedState,
+      inputCommand(HorizontalInput.Right, true),
+    );
+    const walking = stepWithInitialMovementConstants(
+      bigGroundedState,
+      inputCommand(HorizontalInput.Right, false),
+    );
+
+    expect(crouched.player.velocity.x).toBe(0);
+    expect(walking.player.velocity.x).toBeGreaterThan(0);
+  });
+
+  it("does not crouch a small player (already short)", () => {
+    const smallGrounded = stateWithPlayerAt({ x: 100, y: 56 });
+    const stepped = stepWithInitialMovementConstants(
+      smallGrounded,
+      inputCommand(HorizontalInput.Right, true),
+    );
+    expect(stepped.player.crouching ?? false).toBe(false);
+    // Small Mario still walks with Down held.
+    expect(stepped.player.velocity.x).toBeGreaterThan(0);
+  });
+});

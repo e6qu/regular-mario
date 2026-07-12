@@ -42,7 +42,17 @@ committed — only numeric metadata, code, docs, and scripts.
   keys off the enemy's top) left intact — confirmed by the stomp-heavy headless
   playthrough still completing. Custom-collider enemies (Bowser 28×28) keep
   their box. The four enemy-contact replay fixtures were regenerated again.
-  Only the crouch mechanic (BUG 4) now remains (see BUGS.md).
+- **BUG 4 — crouch (big Mario ducks).** Added a `crouching` flag: when big Mario
+  is grounded and holds Down (and isn't entering a pipe), step-simulation
+  suppresses his walk and stamps the flag onto the player the collision phase
+  reads, so `playerHurtbox` returns the ROM's 12×12 duck box — high hammers and
+  flames now sail over him. The stomp/knockback rebuilders intentionally drop
+  the flag (they leave the ground), so it self-clears. Unit tests pin the duck
+  box and the chest-height miss; a step-sim test pins the walk-stop (and that
+  small Mario doesn't crouch). Note: the shipped skins have no crouch sprite, so
+  he shows his standing pose while ducking — the mechanic is correct.
+  **All six hitbox-audit bugs are now fixed; the collision geometry is
+  ROM-faithful.**
 
 ## 2026-07-12 — Mobile NES control deck outside the drawing surface
 
