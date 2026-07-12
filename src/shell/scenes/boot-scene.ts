@@ -130,6 +130,8 @@ const timeWarningTempoScale = 1.35;
 // is removed (the original's flatten-then-vanish), instead of blinking out.
 const stompedGoombaFlattenFrames = 42;
 const stompedGoombaSquashScaleY = 0.45;
+// The "WELCOME TO WARP ZONE!" wall label sits above the tiles but below the HUD.
+const warpBannerDepth = 55;
 // Flow screens: the classic starting life count and how long the "WORLD w-l"
 // intro card holds the level frozen before play begins.
 const startingLives = 3;
@@ -665,6 +667,8 @@ export class BootScene extends Phaser.Scene {
   private flowCardBackground?: Phaser.GameObjects.Rectangle;
   private flowCardTitleText?: Phaser.GameObjects.Text;
   private flowCardSubtitleText?: Phaser.GameObjects.Text;
+  // True once the current level's "WELCOME TO WARP ZONE!" banner has been drawn.
+  private warpZoneBannerShown = false;
   // Flagpole descent: on a goal (flagpole) finish the player slides down the
   // pole to its base before the level advances, like the original.
   private flagpoleSlideActive = false;
@@ -1481,6 +1485,7 @@ export class BootScene extends Phaser.Scene {
     );
     this.renderedActors = renderedActorSummary.actors;
     this.renderedActorRoleCounts = renderedActorSummary.roleCounts;
+    this.renderWarpZoneBanner();
 
     this.levelRenderedObjects = this.children.list.filter(
       (child) => !childrenBefore.has(child),
@@ -1767,6 +1772,50 @@ export class BootScene extends Phaser.Scene {
     if (nextY >= this.flagpoleSlideTargetY) {
       this.flagpoleSlideActive = false;
     }
+  }
+
+  // Render the SMB "WELCOME TO WARP ZONE!" wall label when the level is a warp
+  // zone — a level holding two or more pipes that jump to different worlds'
+  // starts. The label is world-space, so it scrolls into view with the pipes.
+  private renderWarpZoneBanner(): void {
+    this.warpZoneBannerShown = false;
+    const warpPipes = this.levelSpec.actors.filter(
+      (actor) =>
+        actor.targetLevelName !== undefined &&
+        actor.targetTilePosition !== undefined &&
+        /^smb-\d+-\d+$/.test(actor.targetLevelName) &&
+        actor.targetTilePosition.x <= mainLevelStartTileX,
+    );
+    const distinctTargets = new Set(
+      warpPipes.map((pipe) => pipe.targetLevelName),
+    );
+    if (distinctTargets.size < 2) {
+      return;
+    }
+
+    const size = this.levelSpec.tileSizePixels;
+    const pipeTileXs = warpPipes.map((pipe) => pipe.position.x);
+    const centerTileX =
+      (Math.min(...pipeTileXs) + Math.max(...pipeTileXs)) / 2;
+    // Float the label a few rows above the tallest warp pipe, like the wall
+    // text over the original's warp-zone pipes.
+    const topPipeTileY = Math.min(...warpPipes.map((pipe) => pipe.position.y));
+    const bannerTileY = Math.max(0, topPipeTileY - 3);
+    this.add
+      .text(
+        centerTileX * size + size / 2,
+        bannerTileY * size,
+        "WELCOME TO WARP ZONE!",
+        {
+          color: "#ffffff",
+          fontFamily: "monospace",
+          fontSize: "8px",
+          align: "center",
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(warpBannerDepth);
+    this.warpZoneBannerShown = true;
   }
 
   // Per-frame event music: swap in the star theme while invincible, sound the
@@ -3703,6 +3752,7 @@ export class BootScene extends Phaser.Scene {
           this.simulationState.collectibles.collectedExtraLifeEntityIds.length,
         livesRemaining: this.livesRemaining,
         gameOver: this.pendingGameOver,
+        warpZone: this.warpZoneBannerShown,
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         level: {
           widthTiles: this.levelSpec.widthTiles,

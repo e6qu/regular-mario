@@ -73,3 +73,28 @@ test("lives count down across deaths and reach game over", async ({ page }) => {
   expect(final.livesRemaining).toBe(0);
   expect(final.gameOver).toBe(true);
 });
+
+test("a warp-zone level raises the WELCOME TO WARP ZONE banner", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 800, height: 520 });
+  // smb-1-3 holds pipes that jump to worlds 2, 3 and 4 — a warp zone.
+  await page.goto(
+    "/#play?skin=castaway-parody&map=official-smb&level=smb-1-3&mode=classic&sound=classic",
+  );
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  expect((await snapshot(page)).warpZone).toBe(true);
+});
+
+test("an ordinary level shows no warp-zone banner", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 520 });
+  await page.goto(
+    "/#play?skin=castaway-parody&map=official-smb&level=smb-1-1&mode=classic&sound=classic",
+  );
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  expect((await snapshot(page)).warpZone).toBe(false);
+});

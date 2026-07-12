@@ -217,6 +217,7 @@ export type BrowserSimulationSnapshot = {
   readonly extraLifeCount: number;
   readonly livesRemaining: number;
   readonly gameOver: boolean;
+  readonly warpZone: boolean;
   readonly lastSoundEvents: readonly string[];
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
