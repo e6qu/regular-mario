@@ -2330,6 +2330,14 @@ function stopThrowingEnemyActor(
   };
 }
 
+// Lakitu hovers this far ahead of the player (in the player's travel
+// direction) rather than homing straight onto him; while the player is roughly
+// still it just tracks the player's column. The deadzone stops micro-jitter
+// once it has reached its target.
+const lakituLeadPixels = 60;
+const lakituLeadActivateSpeedPixelsPerSecond = 8;
+const lakituHoverDeadzonePixels = 3;
+
 function stepAerialThrowingEnemyActor(
   aerialThrowingActor: AerialThrowingEnemyActorState,
   levelSpec: LevelSpec,
@@ -2337,13 +2345,30 @@ function stepAerialThrowingEnemyActor(
   movementConstants: MovementConstants,
   player: PlayerSimulationState,
 ): AerialThrowingEnemyActorState {
-  const directionSign =
-    player.position.x < aerialThrowingActor.position.x ? -1 : 1;
-  const attemptedPositionX =
-    aerialThrowingActor.position.x +
-    directionSign *
-      movementConstants.aerialThrowingEnemySpeed *
-      frameDurationSeconds;
+  // Lead ahead in the player's direction of travel; when the player is nearly
+  // still, hold over the player's column (lead 0).
+  const leadSign =
+    player.velocity.x > lakituLeadActivateSpeedPixelsPerSecond
+      ? 1
+      : player.velocity.x < -lakituLeadActivateSpeedPixelsPerSecond
+        ? -1
+        : 0;
+  const targetPositionX = player.position.x + leadSign * lakituLeadPixels;
+  const offsetToTarget = targetPositionX - aerialThrowingActor.position.x;
+
+  // Within the deadzone Lakitu has reached its lead and hovers in place.
+  if (Math.abs(offsetToTarget) <= lakituHoverDeadzonePixels) {
+    return stopAerialThrowingEnemyActor(aerialThrowingActor);
+  }
+
+  const directionSign = offsetToTarget > 0 ? 1 : -1;
+  const maxStep =
+    movementConstants.aerialThrowingEnemySpeed * frameDurationSeconds;
+  const step =
+    Math.abs(offsetToTarget) <= maxStep
+      ? offsetToTarget
+      : directionSign * maxStep;
+  const attemptedPositionX = aerialThrowingActor.position.x + step;
 
   if (enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
     return stopAerialThrowingEnemyActor(aerialThrowingActor);

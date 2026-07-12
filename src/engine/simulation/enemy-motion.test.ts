@@ -1173,6 +1173,31 @@ describe("enemy motion", () => {
         },
       });
     });
+
+    it("hovers ahead of the player instead of homing straight onto him", () => {
+      const levelSpec = aerialThrowingEnemyRouteLevelSpec(2, 2);
+      // The thrower sits at x=32; the player is just to its left (x=24) but
+      // running right. A homing enemy would move left toward the player, but
+      // Lakitu leads ahead — so it moves right past the player's column.
+      const idle = playerAt({ x: 24, y: 32 });
+      const runningRight = {
+        ...idle,
+        velocity: { ...idle.velocity, x: 120 as typeof idle.velocity.x },
+      };
+      const nextState = stepFreshRouteEnemy(levelSpec, {
+        frameDurationMilliseconds: 1_000,
+        player: runningRight,
+      });
+
+      const actor = nextState.aerialThrowingActors[0];
+      // Moved right (toward the player's x + lead), a full speed step from 32.
+      expect(actor?.position.x).toBe(
+        32 + initialMovementConstants.aerialThrowingEnemySpeed,
+      );
+      expect(actor?.velocity.x).toBe(
+        initialMovementConstants.aerialThrowingEnemySpeed,
+      );
+    });
   });
 
   describe("piranha plant", () => {
