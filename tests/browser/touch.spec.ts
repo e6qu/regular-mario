@@ -21,24 +21,47 @@ function readSnapshot(page: Page): Promise<BrowserSimulationSnapshot> {
 test.describe("touch device (landscape)", () => {
   test.use({ hasTouch: true, viewport: { width: 760, height: 420 } });
 
-  test("minimal on-screen controls appear and drive the player", async ({
+  test("NES controls appear below the canvas and drive the player", async ({
     page,
   }) => {
     await page.goto("/?browserLevel=first-authored");
 
-    // The minimal console-style set: move (◀ ▶), jump (A), run/fire (B), pause.
+    // The console-style deck: D-pad (left/right/up/down), A, B, and START.
     for (const label of [
-      "touch-◀",
-      "touch-▶",
+      "touch-left",
+      "touch-right",
+      "touch-up",
+      "touch-down",
       "touch-A",
       "touch-B",
-      "touch-pause",
+      "touch-start",
     ]) {
       await expect(page.locator(`button[aria-label="${label}"]`)).toBeVisible();
     }
     await expect(page.locator(rotatePrompt)).toBeHidden();
 
-    // Jump (A) sits lowest of the action buttons — it's the most-used.
+    // The control deck sits in a bar OUTSIDE the drawing surface: it starts at
+    // (or below) the canvas bottom, and the canvas is shorter than the window
+    // because the bar claimed space beneath it.
+    const geometry = await page.evaluate(() => {
+      const canvas = document.querySelector("canvas");
+      const bar = document.querySelector('[data-role="touch-control-bar"]');
+      if (canvas === null || bar === null) {
+        throw new Error("missing canvas or control bar");
+      }
+      const c = canvas.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      return {
+        canvasBottom: c.bottom,
+        canvasHeight: c.height,
+        barTop: b.top,
+        windowHeight: window.innerHeight,
+      };
+    });
+    expect(geometry.barTop).toBeGreaterThanOrEqual(geometry.canvasBottom - 1);
+    expect(geometry.canvasHeight).toBeLessThan(geometry.windowHeight - 40);
+
+    // B sits to the left of A (the NES A/B row).
     const aBox = await page
       .locator('button[aria-label="touch-A"]')
       .boundingBox();
@@ -48,7 +71,7 @@ test.describe("touch device (landscape)", () => {
     if (aBox === null || bBox === null) {
       throw new Error("action buttons have no bounding box");
     }
-    expect(aBox.y + aBox.height).toBeGreaterThan(bBox.y + bBox.height);
+    expect(aBox.x).toBeGreaterThan(bBox.x);
 
     // Wait until the simulation is stepping, then hold ▶ to walk right.
     await page.waitForFunction(() => {
@@ -57,7 +80,7 @@ test.describe("touch device (landscape)", () => {
     });
     const start = (await readSnapshot(page)).player.position.x;
     const box = await page
-      .locator('button[aria-label="touch-▶"]')
+      .locator('button[aria-label="touch-right"]')
       .boundingBox();
     if (box === null) {
       throw new Error("right button has no bounding box");
@@ -95,7 +118,9 @@ test.describe("desktop", () => {
   }) => {
     await page.goto("/?browserLevel=first-authored");
     await expect(page.locator("canvas")).toBeVisible();
-    await expect(page.locator('button[aria-label="touch-▶"]')).toHaveCount(0);
+    await expect(page.locator('button[aria-label="touch-right"]')).toHaveCount(
+      0,
+    );
     await expect(page.locator(rotatePrompt)).toBeHidden();
   });
 });
