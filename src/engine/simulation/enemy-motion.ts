@@ -115,6 +115,17 @@ export type ThrowingEnemyActorState = {
   // left/right of here while throwing). `originX` is absent on legacy states,
   // in which case the shimmy anchors to the current x on the first step.
   readonly originX?: PixelPosition;
+  // Vertical row-hop state: the spawn row it hops from (`originY`), whether it is
+  // currently at/heading to the raised row (`hopRaised`), frames left in the
+  // current up/down transition (`hopTransitionFrames`), frames until the next
+  // hop while settled (`hopSettleFrames`), and a per-actor deterministic seed
+  // that varies the hop intervals (`hopSeed`). All absent on legacy states and
+  // initialized lazily on the first step.
+  readonly originY?: PixelPosition;
+  readonly hopRaised?: boolean;
+  readonly hopTransitionFrames?: number;
+  readonly hopSettleFrames?: number;
+  readonly hopSeed?: number;
 };
 
 export type AerialThrowingEnemyActorState = {
@@ -283,6 +294,7 @@ export function makeInitialEnemyMotionState(
             ),
           },
           originX: position.x,
+          originY: position.y,
         });
         break;
       }
@@ -2347,10 +2359,58 @@ function stopThrowingEnemyActor(
 }
 
 // Hammer Bros pace a short window left/right of their spawn column while
-// throwing (the "shimmy"). Vertical row-hops (the original's RNG platform
-// jumps) are not yet modeled — the pacing stays on the spawn row.
+// throwing (the "shimmy") and periodically hop up to (and back from) the
+// platform row above, on a per-actor pseudo-random schedule — as in the ROM's
+// HammerBroJumpCode, though we model discrete row transitions rather than the
+// original's gravity + pass-through-platform physics.
 const hammerBroShimmySpeedPixelsPerSecond = 24;
 const hammerBroShimmyAmplitudePixels = 12;
+const hammerBroHopRisePixels = 32;
+const hammerBroHopTransitionFrames = 16;
+const hammerBroMinSettleFrames = 100;
+const hammerBroMaxSettleFrames = 220;
+
+// A small deterministic per-actor seed from the entity id (FNV-1a), so different
+// Hammer Bros hop on different schedules without consuming the shared LFSR.
+function hashEntityIdToHopSeed(entityId: EntityId): number {
+  let hash = 2166136261;
+  const text = entityId as string;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % 2147483647 || 1;
+}
+
+// Advance the per-actor LCG and return the next settle interval (frames) plus
+// the advanced seed.
+function nextHopSchedule(seed: number): {
+  readonly seed: number;
+  readonly settleFrames: number;
+} {
+  const advanced = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+  const span = hammerBroMaxSettleFrames - hammerBroMinSettleFrames + 1;
+  return {
+    seed: advanced,
+    settleFrames: hammerBroMinSettleFrames + (advanced % span),
+  };
+}
+
+// Whether the row a hop-rise above the actor's column is clear (so it never hops
+// up into terrain). The spawn row it hops back down to is known clear.
+function hammerBroRaisedRowClear(
+  positionX: number,
+  originY: number,
+  levelSpec: LevelSpec,
+): boolean {
+  const size = levelSpec.tileSizePixels;
+  const column = Math.floor((positionX + size / 2) / size);
+  const raisedRow = Math.floor((originY - hammerBroHopRisePixels) / size);
+  if (raisedRow < 0) {
+    return false;
+  }
+  return !tileIsSolid(levelSpec, makeSolidTileIds(levelSpec), raisedRow, column);
+}
 
 function stepThrowingEnemyActor(
   throwingActor: ThrowingEnemyActorState,
@@ -2380,6 +2440,50 @@ function stepThrowingEnemyActor(
     return stopThrowingEnemyActor(throwingActor);
   }
 
+  // --- Vertical row-hop state machine ---
+  const originY = throwingActor.originY ?? throwingActor.position.y;
+  let hopRaised = throwingActor.hopRaised ?? false;
+  let transitionFrames = throwingActor.hopTransitionFrames ?? 0;
+  let seed = throwingActor.hopSeed ?? hashEntityIdToHopSeed(throwingActor.entityId);
+  let settleFrames = throwingActor.hopSettleFrames;
+  if (settleFrames === undefined) {
+    // First step: schedule the initial hop a full interval out (no instant hop).
+    const initial = nextHopSchedule(seed);
+    seed = initial.seed;
+    settleFrames = initial.settleFrames;
+  }
+
+  if (transitionFrames > 0) {
+    transitionFrames -= 1;
+  } else {
+    settleFrames -= 1;
+    if (settleFrames <= 0) {
+      const raiseTarget = !hopRaised;
+      // Only rise when the row above is clear; dropping back down is always fine.
+      if (
+        !raiseTarget ||
+        hammerBroRaisedRowClear(clampedPositionX, originY, levelSpec)
+      ) {
+        hopRaised = raiseTarget;
+        transitionFrames = hammerBroHopTransitionFrames;
+      }
+      const scheduled = nextHopSchedule(seed);
+      seed = scheduled.seed;
+      settleFrames = scheduled.settleFrames;
+    }
+  }
+
+  // Height fraction (0 = spawn row, 1 = raised row): eased across a transition,
+  // held at the current row otherwise.
+  let heightFraction: number;
+  if (transitionFrames > 0) {
+    const progress = 1 - transitionFrames / hammerBroHopTransitionFrames;
+    heightFraction = hopRaised ? progress : 1 - progress;
+  } else {
+    heightFraction = hopRaised ? 1 : 0;
+  }
+  const positionY = originY - hammerBroHopRisePixels * heightFraction;
+
   return {
     ...throwingActor,
     position: {
@@ -2387,7 +2491,10 @@ function stepThrowingEnemyActor(
         clampedPositionX,
         "enemyMotion.throwingActors[].position.x",
       ),
-      y: throwingActor.position.y,
+      y: requireEnemyPixelPosition(
+        positionY,
+        "enemyMotion.throwingActors[].position.y",
+      ),
     },
     velocity: {
       x: requireEnemyVelocity(
@@ -2396,6 +2503,11 @@ function stepThrowingEnemyActor(
       ),
     },
     originX,
+    originY,
+    hopRaised,
+    hopTransitionFrames: transitionFrames,
+    hopSettleFrames: settleFrames,
+    hopSeed: seed,
   };
 }
 

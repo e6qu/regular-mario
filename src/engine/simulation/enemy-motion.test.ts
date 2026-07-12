@@ -1121,6 +1121,7 @@ describe("enemy motion", () => {
               x: 0,
             },
             originX: 48,
+            originY: 64,
           },
         ],
         aerialThrowingActors: [],
@@ -1142,6 +1143,35 @@ describe("enemy motion", () => {
       // It never wanders past its pacing amplitude (12px) from the spawn.
       expect(actor?.position.x).toBeLessThanOrEqual(48 + 12);
       expect(actor?.originX).toBe(48);
+    });
+
+    it("hops up to the row above and back on its schedule", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4);
+      let state = enemyMotionFor(levelSpec);
+      let minY = Infinity;
+      let maxY = -Infinity;
+      // Step long enough to cover at least one full hop cycle (settle up to 220
+      // frames + the transition).
+      for (let frame = 0; frame < 320; frame += 1) {
+        state = stepEnemyMotionState(
+          state,
+          levelSpec,
+          makeEmptyEnemyInteractionState(),
+          testFrameDurationMilliseconds(1_000 / 60),
+          initialMovementConstants,
+          playerAt({ x: 40, y: 64 }),
+          (frame + 1) as FrameIndex,
+        );
+        const y = state.throwingActors[0]?.position.y ?? Infinity;
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      // It rose above its spawn row (64) at some point...
+      expect(minY).toBeLessThan(64);
+      // ...by no more than one platform-height (32px)...
+      expect(minY).toBeGreaterThanOrEqual(64 - 32 - 0.001);
+      // ...and returned to (never dropped below) the spawn row.
+      expect(maxY).toBeCloseTo(64, 5);
     });
   });
 
