@@ -678,7 +678,8 @@ export class BootScene extends Phaser.Scene {
   // derived per frame from the current SimulationState (which resets each level),
   // so — like lives and coins — the shell carries the running total across
   // rebuilds. The displayed score is this base plus the current level's score.
-  // Reset only on a new game. See docs/terminology.md#session-persistent-state.
+  // Reset only on a new game. See the "Session-persistent state" section of
+  // docs/terminology.md.
   private carriedSessionScoreBase = 0;
   private levelIntroFramesRemaining = 0;
   private pendingGameOver = false;

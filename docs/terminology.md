@@ -87,13 +87,13 @@ boss). See the corresponding files in `src/engine/simulation/`.
 - **Warp Zone** — a level region whose pipes jump to other worlds' starts,
   labeled "WELCOME TO WARP ZONE!".
 
-## Session-persistent state (lives and coins)
+## Session-persistent state (lives, coins, and score)
 
-The **life count** and the **coin total** persist across levels and deaths
-within a single play session, and reset only on a new game (after a game over) —
-as in the original. This matters because the shell rebuilds a fresh
+The **life count**, the **coin total**, and the **score** persist across levels
+and deaths within a single play session, and reset only on a new game (after a
+game over) — as in the original. This matters because the shell rebuilds a fresh
 `SimulationState` for every level advance and retry, which would otherwise reset
-both to their level-start values.
+all three to their level-start values.
 
 - **Life count** — `SimulationState.livesRemaining`. The engine is authoritative:
   each frame it folds in extra lives from 1-Ups, the every-100-coins threshold,
@@ -104,12 +104,20 @@ both to their level-start values.
   (`collectibles.collectedCoinEntityIds`). The every-100-coins 1-Up is computed
   from this total, so it crosses level boundaries; the heads-up display shows the
   total wrapped 0–99, each rollover past 100 having awarded a life.
+- **Score** — the whole-session total. Unlike lives and coins it is not an engine
+  field; it is derived each frame from the current `SimulationState` (which
+  resets per level), so the shell banks each finished level's score into a
+  session base at every transition that keeps the score (advance, warp, and a
+  retry that is not a fresh game) and displays the base plus the current level's
+  score. The score is never lost on death, only on a new game.
 
-The imperative shell (`BootScene`) carries both values across the states it
-rebuilds and resets them when a new game begins; it never recomputes the amounts
-itself. This keeps the counts consistent with the engine, which owns the rules.
-The start menu's free level selection is independent of session state — choosing
-any level begins a fresh session at three lives and zero coins.
+The imperative shell (`BootScene`) carries these values across the states it
+rebuilds and resets them when a new game begins. The life count and coin total
+are read straight from the engine, which owns their rules; only the score's
+running total is accumulated in the shell (from engine-computed per-level
+scores). The start menu's free level selection is independent of session state —
+choosing any level begins a fresh session at three lives, zero coins, and zero
+score.
 
 ## Acronyms
 
