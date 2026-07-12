@@ -26,20 +26,18 @@
   in-context when a main run takes its entering pipe. Making the cold-start
   all-54 pass would need context-aware warp-room pipe entry + seed sweeps.
 
-## Remaining: the collision-geometry overhaul (characterised in BUGS.md)
+## Landed: collision geometry is ROM-faithful; water music; crouch (ninth pass)
 
-The audit's four systemic geometry bugs (player hitbox 14×24/14×32 vs ROM
-10×12/12×24; every enemy 16×16 vs ROM boxes; Bowser flame 24×8 vs 4×4; no
-crouch) are **specified but not yet done**. They all need the same missing
-piece: a collision box decoupled from the render/sprite size (the ROM's object
-bounding box is smaller than the 16px sprite and distinct from terrain
-collision). A first attempt at the player hurtbox revealed an entanglement —
-our small terrain collider is 24px tall, not the ROM's ~16px, so the hurtbox
-can't just be feet-anchored inside it. Do this as a dedicated, playtested
-change: reconcile the terrain collider height (re-tuning jump/ground), add
-per-entity hurtboxes with ROM offsets, add the crouch state, then regenerate
-the replay-fixture golden states. It makes the game _more forgiving_ (matches
-the original), so it should not threaten completability.
+- **All six ROM hitbox-audit bugs fixed** (see BUGS.md / WHAT_WE_DID): Bullet
+  Bills stompable, stomp-on-descent, Bowser flame inset box, player hurtbox
+  (10×12 / 12×24), per-enemy ROM widths, and big-Mario crouch (walk-stop +
+  12×12 duck box + a duck sprite in the parody skin). Object collision is now
+  decoupled from render/terrain via `playerHurtbox` / `makeEnemyHurtbox`.
+- **Water music.** Decoded the ROM's swimming theme (fourth theme) and gave the
+  water levels an "underwater Morty" effect bus (lowpass wobble + nasal peak +
+  tremolo waver).
+- **Mobile NES controls finished**: flank the canvas, haptics, size toggle
+  (persisted), pointer-capture thumb-roll, iOS callout/tap-highlight suppression.
 
 ## Landed: full-pack verification (2026-07-11, sixth pass)
 
