@@ -2409,7 +2409,12 @@ function hammerBroRaisedRowClear(
   if (raisedRow < 0) {
     return false;
   }
-  return !tileIsSolid(levelSpec, makeSolidTileIds(levelSpec), raisedRow, column);
+  return !tileIsSolid(
+    levelSpec,
+    makeSolidTileIds(levelSpec),
+    raisedRow,
+    column,
+  );
 }
 
 function stepThrowingEnemyActor(
@@ -2444,7 +2449,8 @@ function stepThrowingEnemyActor(
   const originY = throwingActor.originY ?? throwingActor.position.y;
   let hopRaised = throwingActor.hopRaised ?? false;
   let transitionFrames = throwingActor.hopTransitionFrames ?? 0;
-  let seed = throwingActor.hopSeed ?? hashEntityIdToHopSeed(throwingActor.entityId);
+  let seed =
+    throwingActor.hopSeed ?? hashEntityIdToHopSeed(throwingActor.entityId);
   let settleFrames = throwingActor.hopSettleFrames;
   if (settleFrames === undefined) {
     // First step: schedule the initial hop a full interval out (no instant hop).

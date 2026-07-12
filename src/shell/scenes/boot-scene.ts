@@ -1814,8 +1814,7 @@ export class BootScene extends Phaser.Scene {
 
     const size = this.levelSpec.tileSizePixels;
     const pipeTileXs = warpPipes.map((pipe) => pipe.position.x);
-    const centerTileX =
-      (Math.min(...pipeTileXs) + Math.max(...pipeTileXs)) / 2;
+    const centerTileX = (Math.min(...pipeTileXs) + Math.max(...pipeTileXs)) / 2;
     // Float the label a few rows above the tallest warp pipe, like the wall
     // text over the original's warp-zone pipes.
     const topPipeTileY = Math.min(...warpPipes.map((pipe) => pipe.position.y));
@@ -1953,10 +1952,7 @@ export class BootScene extends Phaser.Scene {
     const y = 34 + (index % 3) * 20;
     const burstColors = [0xfff060, 0xff6a6a, 0x66c0ff];
     const color = burstColors[index % burstColors.length] ?? 0xffffff;
-    const star = this.add
-      .star(x, y, 8, 2, 7, color)
-      .setDepth(131)
-      .setAlpha(1);
+    const star = this.add.star(x, y, 8, 2, 7, color).setDepth(131).setAlpha(1);
     this.fireworkSprites.push({
       star,
       framesRemaining: fireworkLifetimeFrames,
@@ -2863,7 +2859,9 @@ export class BootScene extends Phaser.Scene {
         return false;
       }
       popup.text.setY(popup.text.y - 0.6);
-      popup.text.setAlpha(Math.max(0, popup.framesRemaining / scorePopupFrames));
+      popup.text.setAlpha(
+        Math.max(0, popup.framesRemaining / scorePopupFrames),
+      );
       return true;
     });
 

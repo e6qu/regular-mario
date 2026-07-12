@@ -345,9 +345,12 @@ export class GameAudio {
         voice,
       );
     }
-    const timer = setTimeout(() => {
-      this.playJingleVoice(voice, noteIndex + 1);
-    }, Math.max(1, note.seconds * 1000));
+    const timer = setTimeout(
+      () => {
+        this.playJingleVoice(voice, noteIndex + 1);
+      },
+      Math.max(1, note.seconds * 1000),
+    );
     this.jingleTimers.push(timer);
   }
 
@@ -429,7 +432,12 @@ export class GameAudio {
       if (this.vocalMelody && voice.channel === "melody") {
         this.playVocalNote(audioContext, midiToHertz(note.midi), seconds);
       } else {
-        this.playMusicNote(audioContext, midiToHertz(note.midi), seconds, voice);
+        this.playMusicNote(
+          audioContext,
+          midiToHertz(note.midi),
+          seconds,
+          voice,
+        );
       }
     }
 
