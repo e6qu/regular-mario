@@ -22,6 +22,7 @@ import {
 } from "../../engine/simulation/flame-hazards";
 import { computePlatformPlacements } from "../../engine/simulation/platform-state";
 import {
+  coinsPerExtraLife,
   computeEnemyScore,
   computeTotalScore,
   fireworksCountForDisplayTime,
@@ -669,6 +670,10 @@ export class BootScene extends Phaser.Scene {
   // death decrement). The shell only carries that value across the fresh states
   // it builds on a level advance or retry, and reads it for display/game-over.
   private carriedLivesRemaining = initialLivesCount;
+  // Whole-session coin total, carried across the level advances and retries that
+  // rebuild the state (like the life count) so the displayed coins and the
+  // every-100-coins 1-Up persist across levels. Reset only on a new game.
+  private carriedSessionCoinTotal = 0;
   private levelIntroFramesRemaining = 0;
   private pendingGameOver = false;
   private flowCardBackground?: Phaser.GameObjects.Rectangle;
@@ -1465,7 +1470,7 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(activeThemePalette.sky);
     const currentLevelInput = this.resolveCurrentLevelInput();
     this.levelSpec = makeRequiredLevelSpec(currentLevelInput);
-    this.simulationState = this.seedCarriedLives(
+    this.simulationState = this.seedCarriedSessionTotals(
       makeRequiredInitialSimulationState(
         this.levelSpec,
         this.browserGameBootstrap,
@@ -1858,6 +1863,11 @@ export class BootScene extends Phaser.Scene {
     // SimulationState.livesRemaining); carry it so the next rebuilt state and
     // the flow-card display stay in sync.
     this.carriedLivesRemaining = this.simulationState.livesRemaining;
+    // Carry the whole-session coin total (prior-level base + this level's coins)
+    // so it persists across the next rebuild, as in the original.
+    this.carriedSessionCoinTotal =
+      this.simulationState.sessionCoinBase +
+      this.simulationState.collectibles.collectedCoinEntityIds.length;
 
     if (
       !this.deathJinglePlayed &&
@@ -2375,21 +2385,28 @@ export class BootScene extends Phaser.Scene {
     this.renderSimulationState();
   }
 
-  // Seed a freshly-built state with the carried life count. A new state always
-  // starts at the engine's initialLivesCount; overriding it here lets lives
-  // persist across the level advances and retries that rebuild the state, which
-  // is how the original carries lives through a play session.
-  private seedCarriedLives(state: SimulationState): SimulationState {
-    return { ...state, livesRemaining: this.carriedLivesRemaining };
+  // Seed a freshly-built state with the carried session totals (lives and the
+  // coin base). A new state always starts at the engine's initialLivesCount with
+  // no coins; overriding here lets both persist across the level advances and
+  // retries that rebuild the state, as the original carries them through a play
+  // session.
+  private seedCarriedSessionTotals(state: SimulationState): SimulationState {
+    return {
+      ...state,
+      livesRemaining: this.carriedLivesRemaining,
+      sessionCoinBase: this.carriedSessionCoinTotal,
+    };
   }
 
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
-    // A retry after running out of lives starts a fresh game with the full life
-    // count restored; a normal retry keeps the carried (post-death) count. This
-    // must precede the rebuilds below, which seed the new state's lives.
+    // A retry after running out of lives starts a fresh game: the full life
+    // count restored and the session coin total cleared. A normal retry keeps
+    // the carried (post-death) totals. This must precede the rebuilds below,
+    // which seed the new state from these values.
     if (this.pendingGameOver) {
       this.carriedLivesRemaining = initialLivesCount;
+      this.carriedSessionCoinTotal = 0;
     }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint
@@ -2413,7 +2430,7 @@ export class BootScene extends Phaser.Scene {
       );
       this.applyCameraZoom();
     }
-    this.simulationState = this.seedCarriedLives(
+    this.simulationState = this.seedCarriedSessionTotals(
       makeRequiredInitialSimulationState(
         this.levelSpec,
         this.browserGameBootstrap,
@@ -3070,7 +3087,11 @@ export class BootScene extends Phaser.Scene {
       classicCompatibilityHudText(
         score,
         this.simulationState.levelTimer.remainingFrames,
-        this.simulationState.collectibles.collectedCoinEntityIds.length,
+        // The whole-session coin total, wrapped 0–99 as the original's two-digit
+        // display (each rollover past 100 having awarded a 1-Up).
+        (this.simulationState.sessionCoinBase +
+          this.simulationState.collectibles.collectedCoinEntityIds.length) %
+          coinsPerExtraLife,
         this.activeWorldLevelLabel ??
           worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
       ),
@@ -3790,7 +3811,10 @@ export class BootScene extends Phaser.Scene {
           this.simulationState.bulletBillStompScore,
           this.simulationState.goalHeightScore,
         ),
+        // The whole-session coin total (prior-level base + this level's coins),
+        // so it reflects the cross-level count rather than resetting each level.
         coinCount:
+          this.simulationState.sessionCoinBase +
           this.simulationState.collectibles.collectedCoinEntityIds.length,
         bloodiness: this.simulationState.bloodiness,
         extraLifeCount:

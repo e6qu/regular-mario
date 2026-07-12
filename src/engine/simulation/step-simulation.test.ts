@@ -13,6 +13,7 @@ import {
   type FrameIndex,
 } from "../domain/units";
 import { firstAuthoredLevelInput } from "../levels/first-authored-level";
+import { coinsPerExtraLife } from "./game-score";
 import { EnemySideContactSide } from "./enemy-contact-response";
 import {
   makeEmptyEnemyInteractionState,
@@ -743,6 +744,7 @@ describe("simulation primitives", () => {
         bulletBillStompScore: 0,
         goalHeightScore: 0,
         livesRemaining: initialLivesCount,
+        sessionCoinBase: 0,
         playerReaction: { kind: PlayerReactionKind.None, remainingFrames: 0 },
         enemyStompReaction: {
           active: false,
@@ -1030,6 +1032,43 @@ describe("simulation primitives", () => {
       "spawned-2-4",
       "spawned-2-4-2",
     ]);
+  });
+
+  it("carries the session coin base through a step unchanged", () => {
+    const levelSpec = firstAuthoredLevelSpec();
+    const nextState = stepSimulation(
+      { ...stateWithPlayerAt({ x: 32, y: 56 }), sessionCoinBase: 42 },
+      validInputCommand(),
+      initialMovementConstants,
+      levelSpec,
+    );
+
+    expect(nextState.sessionCoinBase).toBe(42);
+  });
+
+  it("awards a 1-Up when the session coin total crosses a 100 boundary", () => {
+    // With 99 coins already banked from prior levels, collecting one more coin
+    // crosses the 100th coin and grants an extra life — the cross-level 1-Up.
+    const levelSpec = repeatableCoinBlockLevelSpec();
+    const initialState = initialStateForLevel(
+      levelSpec,
+      "Expected repeatable coin block initial state to validate.",
+    );
+
+    const beforeState = {
+      ...initialState,
+      sessionCoinBase: coinsPerExtraLife - 1,
+      player: upwardBlockHitPlayer(),
+    };
+    const afterState = stepSimulation(
+      beforeState,
+      validInputCommand(),
+      initialMovementConstants,
+      levelSpec,
+    );
+
+    expect(afterState.collectibles.collectedCoinEntityIds.length).toBe(1);
+    expect(afterState.livesRemaining).toBe(beforeState.livesRemaining + 1);
   });
 
   it("integrates horizontal movement for each frame", () => {
@@ -2559,6 +2598,7 @@ describe("simulation primitives", () => {
           breakableBlockScore: validInitialState().breakableBlockScore,
           bulletBillStompScore: validInitialState().bulletBillStompScore,
           livesRemaining: validInitialState().livesRemaining,
+          sessionCoinBase: validInitialState().sessionCoinBase,
           playerReaction: validInitialState().playerReaction,
           enemyStompReaction: validInitialState().enemyStompReaction,
           bloodiness: validInitialState().bloodiness,
