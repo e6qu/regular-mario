@@ -126,6 +126,11 @@ const fireworkLifetimeFrames = 26;
 // Below this displayed time the "hurry up!" sting fires and the music speeds up.
 const timeWarningDisplaySeconds = 100;
 const timeWarningTempoScale = 1.35;
+// Flow screens: the classic starting life count and how long the "WORLD w-l"
+// intro card holds the level frozen before play begins.
+const startingLives = 3;
+const worldCardFrames = 120;
+const flowCardDepth = 200;
 const scoreBadgeX = 4;
 const scoreBadgeY = 3;
 const scoreBadgeWidth = 56;
@@ -647,6 +652,15 @@ export class BootScene extends Phaser.Scene {
   private starMusicActive = false;
   private deathJinglePlayed = false;
   private timeWarningTriggered = false;
+  // Flow screens: a "WORLD w-l ×lives" intro card freezes the level briefly on
+  // start/advance; a GAME OVER banner shows when the last life is lost.
+  private livesRemaining = startingLives;
+  private previousExtraLivesForCount = 0;
+  private levelIntroFramesRemaining = 0;
+  private pendingGameOver = false;
+  private flowCardBackground?: Phaser.GameObjects.Rectangle;
+  private flowCardTitleText?: Phaser.GameObjects.Text;
+  private flowCardSubtitleText?: Phaser.GameObjects.Text;
   // Flagpole descent: on a goal (flagpole) finish the player slides down the
   // pole to its base before the level advances, like the original.
   private flagpoleSlideActive = false;
@@ -941,7 +955,9 @@ export class BootScene extends Phaser.Scene {
       )
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(70);
+      // Above the WORLD intro card so the start cue reads over the black screen.
+      .setDepth(flowCardDepth + 2);
+    this.createFlowCard();
     this.exitHintText = this.add
       .text(0, 0, `ESC ⤶ ${this.browserGameBootstrap.exitLabel ?? "menu"}`, {
         color: "#e5e7eb",
@@ -1054,9 +1070,63 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Build the (hidden) full-screen flow card used for the "WORLD w-l" intro and
+  // the GAME OVER screen. Pinned to the camera (scrollFactor 0) above everything.
+  private createFlowCard(): void {
+    this.flowCardBackground = this.add
+      .rectangle(0, 0, 10, 10, 0x000000, 1)
+      .setScrollFactor(0)
+      .setDepth(flowCardDepth)
+      .setVisible(false);
+    this.flowCardTitleText = this.add
+      .text(0, 0, "", {
+        color: "#ffffff",
+        fontFamily: "monospace",
+        fontSize: "10px",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(flowCardDepth + 1)
+      .setVisible(false);
+    this.flowCardSubtitleText = this.add
+      .text(0, 0, "", {
+        color: "#ffffff",
+        fontFamily: "monospace",
+        fontSize: "8px",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(flowCardDepth + 1)
+      .setVisible(false);
+  }
+
+  // Show the flow card (positioning/scaling is handled by positionHud, which
+  // runs on every zoom/resize; here we only set the text and reveal it).
+  private showFlowCard(title: string, subtitle: string): void {
+    this.flowCardBackground?.setVisible(true);
+    this.flowCardTitleText?.setText(title).setVisible(true);
+    this.flowCardSubtitleText?.setText(subtitle).setVisible(true);
+  }
+
+  private hideFlowCard(): void {
+    this.flowCardBackground?.setVisible(false);
+    this.flowCardTitleText?.setVisible(false);
+    this.flowCardSubtitleText?.setVisible(false);
+  }
+
+  private currentWorldLabel(): string {
+    return (
+      this.activeWorldLevelLabel ??
+      worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName)
+    );
+  }
+
   private beginPlay(): void {
     this.awaitingStart = false;
     this.startPromptText.setVisible(false);
+    this.hideFlowCard();
   }
 
   // Called by the session manager when this game is suspended into a tab: go
@@ -1318,7 +1388,8 @@ export class BootScene extends Phaser.Scene {
       .setFontSize(feedbackPixels)
       .setScale(crispScale)
       .setPosition(feedback.x, feedback.y);
-    const center = toWorld(width / 2, height / 2);
+    // Sit the start cue below the WORLD card's title/subtitle, not over them.
+    const center = toWorld(width / 2, height * 0.74);
     this.startPromptText
       .setFontSize(feedbackPixels)
       .setScale(crispScale)
@@ -1330,6 +1401,26 @@ export class BootScene extends Phaser.Scene {
       .setFontSize(hintPixels)
       .setScale(crispScale)
       .setPosition(hint.x, hint.y);
+
+    // The full-screen flow card: a black backdrop covering the viewport with a
+    // large centered title and a smaller subtitle below it.
+    const cardCenter = toWorld(width / 2, height / 2);
+    this.flowCardBackground
+      ?.setSize(width, height)
+      .setScale(crispScale)
+      .setPosition(cardCenter.x, cardCenter.y);
+    const titlePixels = Math.max(16, Math.round(height * 0.06));
+    const titleAt = toWorld(width / 2, height * 0.42);
+    this.flowCardTitleText
+      ?.setFontSize(titlePixels)
+      .setScale(crispScale)
+      .setPosition(titleAt.x, titleAt.y);
+    const subtitlePixels = Math.max(12, Math.round(height * 0.04));
+    const subtitleAt = toWorld(width / 2, height * 0.56);
+    this.flowCardSubtitleText
+      ?.setFontSize(subtitlePixels)
+      .setScale(crispScale)
+      .setPosition(subtitleAt.x, subtitleAt.y);
   }
 
   private buildLevelObjects(): void {
@@ -1466,6 +1557,8 @@ export class BootScene extends Phaser.Scene {
     this.levelIndex = nextIndex;
     this.destroyLevelObjects();
     this.buildLevelObjects();
+    // Present the next level behind a "WORLD w-l" card before it plays.
+    this.levelIntroFramesRemaining = worldCardFrames;
     configureMainCamera(
       this.cameras.main,
       this.levelSpec,
@@ -1680,12 +1773,28 @@ export class BootScene extends Phaser.Scene {
       this.gameAudio.setInvincibilityMusic(invincible, this.currentTheme);
     }
 
+    // Collecting a 1-up adds a life.
+    const extraLives =
+      this.simulationState.collectibles.collectedExtraLifeEntityIds.length;
+    if (extraLives > this.previousExtraLivesForCount) {
+      this.livesRemaining += extraLives - this.previousExtraLivesForCount;
+    }
+    this.previousExtraLivesForCount = extraLives;
+
     if (
       !this.deathJinglePlayed &&
       this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated
     ) {
       this.deathJinglePlayed = true;
-      this.gameAudio.playJingle("death");
+      this.livesRemaining = Math.max(0, this.livesRemaining - 1);
+      if (this.livesRemaining <= 0) {
+        // Out of lives: the game-over jingle and screen; a retry starts anew.
+        this.pendingGameOver = true;
+        this.gameAudio.playJingle("game-over");
+        this.showFlowCard("GAME OVER", "");
+      } else {
+        this.gameAudio.playJingle("death");
+      }
     }
 
     const remainingFrames = this.simulationState.levelTimer.remainingFrames;
@@ -1957,8 +2066,12 @@ export class BootScene extends Phaser.Scene {
     this.exitRequested = false;
 
     // Hold on the first frame (prompt shown) until the player presses a key or
-    // taps a touch control.
+    // taps a touch control. The WORLD card sits behind the prompt.
     if (this.awaitingStart) {
+      this.showFlowCard(
+        `WORLD ${this.currentWorldLabel()}`,
+        `MARIO \xD7 ${String(this.livesRemaining)}`,
+      );
       // Poll the keys each frame too, so a key held down before the keydown
       // listener was ready (async skin load) still starts the run — not just a
       // touch tap or a well-timed keypress.
@@ -1973,6 +2086,20 @@ export class BootScene extends Phaser.Scene {
       if (this.touchStartRequested || anyStartKeyDown) {
         this.touchStartRequested = false;
         this.beginPlay();
+      }
+      return;
+    }
+
+    // A "WORLD w-l" intro card freezes each level briefly before play (the
+    // first level's hold is the press-any-key gate above, so it starts spent).
+    if (this.levelIntroFramesRemaining > 0) {
+      this.showFlowCard(
+        `WORLD ${this.currentWorldLabel()}`,
+        `MARIO \xD7 ${String(this.livesRemaining)}`,
+      );
+      this.levelIntroFramesRemaining -= 1;
+      if (this.levelIntroFramesRemaining === 0) {
+        this.hideFlowCard();
       }
       return;
     }
@@ -2220,6 +2347,13 @@ export class BootScene extends Phaser.Scene {
     this.levelCompleteSoundPlayed = false;
     this.deathArcStarted = false;
     this.deathArcActive = false;
+    // Leaving a death/game-over dismisses the flow card; a retry after running
+    // out of lives starts a fresh game with the full life count restored.
+    this.hideFlowCard();
+    if (this.pendingGameOver) {
+      this.pendingGameOver = false;
+      this.livesRemaining = startingLives;
+    }
     this.cameras.main.startFollow(this.playerRectangle, true, 0.2, 0.12);
     this.resetRun();
     this.exitPause();
@@ -2250,6 +2384,15 @@ export class BootScene extends Phaser.Scene {
     this.fireworksNextBurstFrames = 0;
     this.fireworksBurstIndex = 0;
     this.fireworksBonusScore = 0;
+    // Re-arm the per-run event-music/flow latches so a retry (which does not
+    // rebuild the level) still swaps star music, plays the death jingle, warns
+    // on low time, and counts fresh 1-ups. The intro card is set explicitly on
+    // a level advance, so a plain retry clears it (no card).
+    this.starMusicActive = false;
+    this.deathJinglePlayed = false;
+    this.timeWarningTriggered = false;
+    this.previousExtraLivesForCount = 0;
+    this.levelIntroFramesRemaining = 0;
   }
 
   private togglePause(): void {
@@ -3511,6 +3654,8 @@ export class BootScene extends Phaser.Scene {
         bloodiness: this.simulationState.bloodiness,
         extraLifeCount:
           this.simulationState.collectibles.collectedExtraLifeEntityIds.length,
+        livesRemaining: this.livesRemaining,
+        gameOver: this.pendingGameOver,
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         level: {
           widthTiles: this.levelSpec.widthTiles,

@@ -215,6 +215,8 @@ export type BrowserSimulationSnapshot = {
   readonly coinCount: number;
   readonly bloodiness: number;
   readonly extraLifeCount: number;
+  readonly livesRemaining: number;
+  readonly gameOver: boolean;
   readonly lastSoundEvents: readonly string[];
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
