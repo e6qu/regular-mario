@@ -59,11 +59,30 @@ function makeSong(parts: readonly RomPart[]): Song {
 }
 
 const overworldSong: Song = makeSong(romMusic.overworld ?? []);
+// The star-power theme loops (fast) over the level, replacing its music while
+// invincibility lasts.
+const starSong: Song = makeSong(romMusic.star ?? []);
 const songsByTheme: Record<string, Song> = {
   overworld: overworldSong,
   underground: makeSong(romMusic.underground ?? []),
   castle: makeSong(romMusic.castle ?? []),
   water: makeSong(romMusic.water ?? []),
+};
+
+// One-shot event jingles (played once, not looped): the flagpole fanfare, the
+// world-clear victory theme, the death riff, and the game-over sting.
+export type MusicJingle =
+  | "level-clear"
+  | "victory"
+  | "death"
+  | "game-over"
+  | "time-warning";
+const jingleSongs: Record<MusicJingle, Song> = {
+  "level-clear": makeSong(romMusic.levelClear ?? []),
+  victory: makeSong(romMusic.victory ?? []),
+  death: makeSong(romMusic.death ?? []),
+  "game-over": makeSong(romMusic.gameOver ?? []),
+  "time-warning": makeSong(romMusic.timeWarning ?? []),
 };
 
 const toneSpecs: Record<SoundEvent, ToneSpec> = {
@@ -173,6 +192,12 @@ export class GameAudio {
   private musicOutput: AudioNode | undefined;
   // LFO oscillators driving the water bus, kept so they can be stopped on exit.
   private musicBusOscillators: OscillatorNode[] = [];
+  // Playback speed multiplier for the looping voices (1 = normal). The
+  // time-warning bumps this so the theme races when the clock runs low.
+  private tempoScale = 1;
+  // Timers for the currently-playing one-shot jingle, cleared when a new jingle
+  // or the background music takes over.
+  private jingleTimers: ReturnType<typeof setTimeout>[] = [];
 
   public registerSoundBuffers(
     buffers: ReadonlyMap<SoundEvent, AudioBuffer>,
@@ -197,6 +222,8 @@ export class GameAudio {
       return false;
     }
 
+    this.stopJingles();
+    this.tempoScale = 1;
     this.currentSong = songsByTheme[theme ?? "overworld"] ?? overworldSong;
     // Water levels play the theme as if heard underwater and hummed by a
     // nervous, nasal, Morty-ish voice — a small comedic touch.
@@ -214,6 +241,7 @@ export class GameAudio {
 
   public stopBackgroundMusic(): void {
     this.musicEnabled = false;
+    this.tempoScale = 1;
 
     for (const timer of this.voiceTimers) {
       if (timer !== undefined) {
@@ -231,6 +259,96 @@ export class GameAudio {
     }
     this.musicBusOscillators = [];
     this.musicOutput = undefined;
+    this.stopJingles();
+  }
+
+  // Swap the looping background between the star-power theme (while invincible)
+  // and the level theme, without tearing down the audio graph (so the water bus
+  // and enabled state survive). A no-op if the music isn't playing.
+  public setInvincibilityMusic(active: boolean, levelTheme?: string): void {
+    if (!this.musicEnabled) {
+      return;
+    }
+    const target = active
+      ? starSong
+      : (songsByTheme[levelTheme ?? "overworld"] ?? overworldSong);
+    if (this.currentSong === target) {
+      return;
+    }
+    this.switchLoopingSong(target);
+  }
+
+  // Race the looping theme when the clock runs low (SMB speeds the music up as
+  // "time running out"). 1 = normal; the change takes effect on the next note.
+  public setMusicTempoScale(scale: number): void {
+    this.tempoScale = scale > 0 ? scale : 1;
+  }
+
+  // Play a one-shot event jingle (fanfare, victory, death, game-over, or the
+  // time-warning sting) once. Takeover jingles silence the looping background;
+  // the brief time-warning plays over it.
+  public playJingle(jingle: MusicJingle): void {
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    if (jingle !== "time-warning") {
+      this.stopBackgroundMusic();
+    }
+    this.stopJingles();
+    const song = jingleSongs[jingle];
+    for (const voice of song.voices) {
+      this.playJingleVoice(voice, 0);
+    }
+  }
+
+  private stopJingles(): void {
+    for (const timer of this.jingleTimers) {
+      clearTimeout(timer);
+    }
+    this.jingleTimers = [];
+  }
+
+  // Restart the looping voices on a new song without touching musicEnabled or
+  // the output bus, so an in-place theme swap keeps everything else intact.
+  private switchLoopingSong(song: Song): void {
+    for (const timer of this.voiceTimers) {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    }
+    this.currentSong = song;
+    this.voiceTimers = song.voices.map(() => undefined);
+    song.voices.forEach((_voice, voiceIndex) => {
+      this.playVoiceNote(voiceIndex, 0);
+    });
+  }
+
+  // Walk a jingle voice's notes once (no loop), scheduling each after the last.
+  private playJingleVoice(voice: SongVoice, noteIndex: number): void {
+    if (noteIndex >= voice.notes.length) {
+      return;
+    }
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    const note = voice.notes[noteIndex];
+    if (note === undefined) {
+      return;
+    }
+    if (note.midi !== null) {
+      this.playMusicNote(
+        audioContext,
+        midiToHertz(note.midi),
+        note.seconds,
+        voice,
+      );
+    }
+    const timer = setTimeout(() => {
+      this.playJingleVoice(voice, noteIndex + 1);
+    }, Math.max(1, note.seconds * 1000));
+    this.jingleTimers.push(timer);
   }
 
   // The water-level effect bus: the chiptune voices are muffled by a lowpass
@@ -306,16 +424,12 @@ export class GameAudio {
       return;
     }
 
+    const seconds = note.seconds / this.tempoScale;
     if (note.midi !== null) {
       if (this.vocalMelody && voice.channel === "melody") {
-        this.playVocalNote(audioContext, midiToHertz(note.midi), note.seconds);
+        this.playVocalNote(audioContext, midiToHertz(note.midi), seconds);
       } else {
-        this.playMusicNote(
-          audioContext,
-          midiToHertz(note.midi),
-          note.seconds,
-          voice,
-        );
+        this.playMusicNote(audioContext, midiToHertz(note.midi), seconds, voice);
       }
     }
 
@@ -323,7 +437,7 @@ export class GameAudio {
       () => {
         this.playVoiceNote(voiceIndex, (noteIndex + 1) % voice.notes.length);
       },
-      Math.max(1, note.seconds * 1000),
+      Math.max(1, seconds * 1000),
     );
   }
 

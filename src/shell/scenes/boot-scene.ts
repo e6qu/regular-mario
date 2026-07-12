@@ -123,6 +123,9 @@ const scorePopupFrames = 36;
 // sparkle lives (the per-burst score lives in game-score).
 const fireworksBurstIntervalFrames = 20;
 const fireworkLifetimeFrames = 26;
+// Below this displayed time the "hurry up!" sting fires and the music speeds up.
+const timeWarningDisplaySeconds = 100;
+const timeWarningTempoScale = 1.35;
 const scoreBadgeX = 4;
 const scoreBadgeY = 3;
 const scoreBadgeWidth = 56;
@@ -638,6 +641,12 @@ export class BootScene extends Phaser.Scene {
   private levelIndex: number;
   private levelAdvanceDelayFramesRemaining = 0;
   private levelCompleteSoundPlayed = false;
+  // Event-music latches: the star theme swaps in while invincible, the death
+  // jingle plays once on defeat, and the time-warning sting/speed-up fires once
+  // as the clock drops under the warning threshold.
+  private starMusicActive = false;
+  private deathJinglePlayed = false;
+  private timeWarningTriggered = false;
   // Flagpole descent: on a goal (flagpole) finish the player slides down the
   // pole to its base before the level advances, like the original.
   private flagpoleSlideActive = false;
@@ -1381,6 +1390,9 @@ export class BootScene extends Phaser.Scene {
 
     this.levelAdvanceDelayFramesRemaining = 0;
     this.levelCompleteSoundPlayed = false;
+    this.starMusicActive = false;
+    this.deathJinglePlayed = false;
+    this.timeWarningTriggered = false;
     this.bringPlayerObjectsToTop();
   }
 
@@ -1654,6 +1666,39 @@ export class BootScene extends Phaser.Scene {
     }
     if (nextY >= this.flagpoleSlideTargetY) {
       this.flagpoleSlideActive = false;
+    }
+  }
+
+  // Per-frame event music: swap in the star theme while invincible, sound the
+  // death jingle once on defeat, and fire the time-warning sting + speed-up as
+  // the clock runs low.
+  private stepEventMusic(): void {
+    const invincible =
+      this.simulationState.playerInvincibility.remainingFrames > 0;
+    if (invincible !== this.starMusicActive) {
+      this.starMusicActive = invincible;
+      this.gameAudio.setInvincibilityMusic(invincible, this.currentTheme);
+    }
+
+    if (
+      !this.deathJinglePlayed &&
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated
+    ) {
+      this.deathJinglePlayed = true;
+      this.gameAudio.playJingle("death");
+    }
+
+    const remainingFrames = this.simulationState.levelTimer.remainingFrames;
+    if (
+      !this.timeWarningTriggered &&
+      remainingFrames !== undefined &&
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Active &&
+      Math.floor(remainingFrames / timeBonusFramesPerDisplayUnit) <
+        timeWarningDisplaySeconds
+    ) {
+      this.timeWarningTriggered = true;
+      this.gameAudio.playJingle("time-warning");
+      this.gameAudio.setMusicTempoScale(timeWarningTempoScale);
     }
   }
 
@@ -2002,17 +2047,17 @@ export class BootScene extends Phaser.Scene {
     // the level then advances is decided when the delay elapses (a last level
     // just stays finished and offers a retry).
     if (!this.levelCompleteSoundPlayed && this.hasFinishedOutcome()) {
-      this.lastSoundEvents = [
-        ...this.lastSoundEvents,
-        SoundEvent.LevelComplete,
-      ];
       this.levelCompleteSoundPlayed = true;
       this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
       this.beginFlagpoleSlide();
       this.beginVictoryFireworks();
+      // The flagpole grab takes over the music with the fanfare; a castle end
+      // (an axe, not a pole) plays the grander world-clear victory theme.
+      const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
+      this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
       // A castle ends at the axe: stage the bridge chop, the boss's fall and
       // the rescue message before the finish overlay appears.
-      if (this.castleBridgeTilesByColumn.size > 0) {
+      if (isCastleClear) {
         this.castleClearTotalFrames =
           this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
           castleClearFallFrames;
@@ -2021,6 +2066,7 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
+    this.stepEventMusic();
     this.gameAudio.playEvents(this.lastSoundEvents);
 
     this.renderSimulationState();

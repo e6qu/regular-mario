@@ -61,6 +61,18 @@ const THEMES = {
   castle: ["80 22 28 22 26 22 24 22 26"],
   // WaterMusData — the swimming theme's square-2 stream.
   water: ["82 18 1c 20 22 26 28 81 2a 2a 2a"],
+  // Star_CloudMData — the invincibility (star power) theme; loops fast.
+  star: ["84 2c 2c 2c 82 04 2c 04 85 2c 84 2c 2c"],
+  // WinLevelMusData — the flagpole/level-clear fanfare (played once).
+  levelClear: ["87 04 06 0c 14 1c 22 86 2c 22"],
+  // VictoryMusData — the world-8 castle rescue victory theme (played once).
+  victory: ["83 04 84 0c 83 62 10 84 12"],
+  // GameOverMusData — the game-over jingle (played once).
+  gameOver: ["82 2c 04 04 22 04 04 84 1c 87"],
+  // TimeRunOutMusData — the "hurry up!" time-warning sting (played once).
+  timeWarning: ["81 1c 30 04 30 30 04 1e 32 04 32 32"],
+  // DeathMusData — the brief "you died" jingle ($86 $04 then GroundM_P4CData).
+  death: ["86 04 82 2a 36 04 36 87 36 34 30 86 2c 04 00"],
 };
 
 const loadPrg = (rom) => rom.subarray(INES_HEADER, INES_HEADER + 32 * 1024);

@@ -3029,5 +3029,1657 @@
         }
       ]
     }
+  ],
+  "star": [
+    {
+      "melody": [
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.125
+        },
+        {
+          "midi": 72,
+          "seconds": 0.125
+        },
+        {
+          "midi": null,
+          "seconds": 0.125
+        },
+        {
+          "midi": 72,
+          "seconds": 0.325
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": 71,
+          "seconds": 0.225
+        },
+        {
+          "midi": 71,
+          "seconds": 0.225
+        },
+        {
+          "midi": 71,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.125
+        },
+        {
+          "midi": 71,
+          "seconds": 0.125
+        },
+        {
+          "midi": null,
+          "seconds": 0.125
+        },
+        {
+          "midi": 71,
+          "seconds": 0.325
+        },
+        {
+          "midi": 71,
+          "seconds": 0.225
+        },
+        {
+          "midi": 71,
+          "seconds": 0.225
+        }
+      ],
+      "bass": [
+        {
+          "midi": 62,
+          "seconds": 0.45
+        },
+        {
+          "midi": 69,
+          "seconds": 0.325
+        },
+        {
+          "midi": 74,
+          "seconds": 0.325
+        },
+        {
+          "midi": null,
+          "seconds": 0.225
+        },
+        {
+          "midi": 69,
+          "seconds": 0.225
+        },
+        {
+          "midi": 74,
+          "seconds": 0.225
+        },
+        {
+          "midi": 60,
+          "seconds": 0.45
+        },
+        {
+          "midi": 67,
+          "seconds": 0.325
+        },
+        {
+          "midi": 72,
+          "seconds": 0.325
+        },
+        {
+          "midi": null,
+          "seconds": 0.225
+        },
+        {
+          "midi": 67,
+          "seconds": 0.225
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": 5,
+          "seconds": 0.225
+        },
+        {
+          "midi": -22,
+          "seconds": 0.675
+        }
+      ],
+      "harmony": [
+        {
+          "midi": 65,
+          "seconds": 0.225
+        },
+        {
+          "midi": 65,
+          "seconds": 0.225
+        },
+        {
+          "midi": 65,
+          "seconds": 0.225
+        },
+        {
+          "midi": 62,
+          "seconds": 0.125
+        },
+        {
+          "midi": 65,
+          "seconds": 0.225
+        },
+        {
+          "midi": 65,
+          "seconds": 0.225
+        },
+        {
+          "midi": 62,
+          "seconds": 0.125
+        },
+        {
+          "midi": 65,
+          "seconds": 0.125
+        },
+        {
+          "midi": 62,
+          "seconds": 0.125
+        },
+        {
+          "midi": 65,
+          "seconds": 0.225
+        },
+        {
+          "midi": 64,
+          "seconds": 0.225
+        },
+        {
+          "midi": 64,
+          "seconds": 0.225
+        },
+        {
+          "midi": 64,
+          "seconds": 0.225
+        },
+        {
+          "midi": 60,
+          "seconds": 0.125
+        },
+        {
+          "midi": 64,
+          "seconds": 0.225
+        },
+        {
+          "midi": 64,
+          "seconds": 0.225
+        },
+        {
+          "midi": 60,
+          "seconds": 0.125
+        },
+        {
+          "midi": 64,
+          "seconds": 0.125
+        },
+        {
+          "midi": 60,
+          "seconds": 0.125
+        },
+        {
+          "midi": 64,
+          "seconds": 0.225
+        }
+      ]
+    }
+  ],
+  "levelClear": [
+    {
+      "melody": [
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 55,
+          "seconds": 0.15
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": 72,
+          "seconds": 0.45
+        },
+        {
+          "midi": 67,
+          "seconds": 0.45
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 51,
+          "seconds": 0.15
+        },
+        {
+          "midi": 56,
+          "seconds": 0.15
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 63,
+          "seconds": 0.15
+        },
+        {
+          "midi": 68,
+          "seconds": 0.15
+        },
+        {
+          "midi": 72,
+          "seconds": 0.45
+        },
+        {
+          "midi": 68,
+          "seconds": 0.45
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 53,
+          "seconds": 0.15
+        },
+        {
+          "midi": 57,
+          "seconds": 0.15
+        },
+        {
+          "midi": 62,
+          "seconds": 0.15
+        },
+        {
+          "midi": 65,
+          "seconds": 0.15
+        },
+        {
+          "midi": 70,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.45
+        },
+        {
+          "midi": 74,
+          "seconds": 0.45
+        },
+        {
+          "midi": 58,
+          "seconds": 0.675
+        }
+      ],
+      "bass": [
+        {
+          "midi": null,
+          "seconds": 0.45
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": 76,
+          "seconds": 0.45
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.225
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 63,
+          "seconds": 0.15
+        },
+        {
+          "midi": 68,
+          "seconds": 0.15
+        },
+        {
+          "midi": 75,
+          "seconds": 0.45
+        },
+        {
+          "midi": 72,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.225
+        },
+        {
+          "midi": null,
+          "seconds": 0.45
+        },
+        {
+          "midi": 62,
+          "seconds": 0.15
+        },
+        {
+          "midi": 65,
+          "seconds": 0.15
+        },
+        {
+          "midi": 70,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 0.45
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": 72,
+          "seconds": 0.675
+        },
+        {
+          "midi": 60,
+          "seconds": 0.125
+        },
+        {
+          "midi": 72,
+          "seconds": 0.125
+        },
+        {
+          "midi": 52,
+          "seconds": 0.125
+        },
+        {
+          "midi": 69,
+          "seconds": 0.125
+        },
+        {
+          "midi": 57,
+          "seconds": 0.125
+        },
+        {
+          "midi": 70,
+          "seconds": 0.125
+        },
+        {
+          "midi": null,
+          "seconds": 0.675
+        },
+        {
+          "midi": 60,
+          "seconds": 0.125
+        },
+        {
+          "midi": 72,
+          "seconds": 0.125
+        },
+        {
+          "midi": 52,
+          "seconds": 0.125
+        },
+        {
+          "midi": 69,
+          "seconds": 0.125
+        },
+        {
+          "midi": 57,
+          "seconds": 0.125
+        },
+        {
+          "midi": 70,
+          "seconds": 0.125
+        },
+        {
+          "midi": null,
+          "seconds": 0.675
+        },
+        {
+          "midi": 53,
+          "seconds": 0.125
+        },
+        {
+          "midi": 65,
+          "seconds": 0.125
+        },
+        {
+          "midi": 49,
+          "seconds": 0.125
+        },
+        {
+          "midi": 62,
+          "seconds": 0.125
+        },
+        {
+          "midi": 51,
+          "seconds": 0.125
+        },
+        {
+          "midi": 63,
+          "seconds": 0.125
+        },
+        {
+          "midi": null,
+          "seconds": 0.675
+        },
+        {
+          "midi": 53,
+          "seconds": 0.125
+        },
+        {
+          "midi": 65,
+          "seconds": 0.125
+        },
+        {
+          "midi": 49,
+          "seconds": 0.125
+        },
+        {
+          "midi": 62,
+          "seconds": 0.125
+        },
+        {
+          "midi": 51,
+          "seconds": 0.125
+        },
+        {
+          "midi": 63,
+          "seconds": 0.125
+        },
+        {
+          "midi": null,
+          "seconds": 0.45
+        },
+        {
+          "midi": 63,
+          "seconds": 0.075
+        },
+        {
+          "midi": 62,
+          "seconds": 0.075
+        },
+        {
+          "midi": 61,
+          "seconds": 0.075
+        },
+        {
+          "midi": 60,
+          "seconds": 0.225
+        },
+        {
+          "midi": 63,
+          "seconds": 0.225
+        },
+        {
+          "midi": 62,
+          "seconds": 0.225
+        },
+        {
+          "midi": 56,
+          "seconds": 0.225
+        },
+        {
+          "midi": 55,
+          "seconds": 0.225
+        },
+        {
+          "midi": 61,
+          "seconds": 0.225
+        },
+        {
+          "midi": 60,
+          "seconds": 0.075
+        },
+        {
+          "midi": 66,
+          "seconds": 0.075
+        },
+        {
+          "midi": 65,
+          "seconds": 0.075
+        },
+        {
+          "midi": 64,
+          "seconds": 0.075
+        },
+        {
+          "midi": 70,
+          "seconds": 0.075
+        },
+        {
+          "midi": 69,
+          "seconds": 0.075
+        },
+        {
+          "midi": 68,
+          "seconds": 0.15
+        },
+        {
+          "midi": 63,
+          "seconds": 0.15
+        },
+        {
+          "midi": 59,
+          "seconds": 0.15
+        },
+        {
+          "midi": 57,
+          "seconds": 0.15
+        },
+        {
+          "midi": 52,
+          "seconds": 0.15
+        },
+        {
+          "midi": 56,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.675
+        },
+        {
+          "midi": null,
+          "seconds": 0.675
+        }
+      ],
+      "harmony": [
+        {
+          "midi": 55,
+          "seconds": 0.15
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": 72,
+          "seconds": 0.15
+        },
+        {
+          "midi": 76,
+          "seconds": 0.15
+        },
+        {
+          "midi": 79,
+          "seconds": 0.45
+        },
+        {
+          "midi": 76,
+          "seconds": 0.45
+        },
+        {
+          "midi": 56,
+          "seconds": 0.15
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 63,
+          "seconds": 0.15
+        },
+        {
+          "midi": 68,
+          "seconds": 0.15
+        },
+        {
+          "midi": 72,
+          "seconds": 0.15
+        },
+        {
+          "midi": 75,
+          "seconds": 0.15
+        },
+        {
+          "midi": 80,
+          "seconds": 0.45
+        },
+        {
+          "midi": 75,
+          "seconds": 0.45
+        },
+        {
+          "midi": 57,
+          "seconds": 0.15
+        },
+        {
+          "midi": 62,
+          "seconds": 0.15
+        },
+        {
+          "midi": 65,
+          "seconds": 0.15
+        },
+        {
+          "midi": 70,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 0.15
+        },
+        {
+          "midi": 81,
+          "seconds": 0.45
+        },
+        {
+          "midi": 81,
+          "seconds": 0.15
+        },
+        {
+          "midi": 81,
+          "seconds": 0.15
+        },
+        {
+          "midi": 81,
+          "seconds": 0.15
+        },
+        {
+          "midi": 76,
+          "seconds": 0.675
+        }
+      ]
+    }
+  ],
+  "victory": [
+    {
+      "melody": [
+        {
+          "midi": null,
+          "seconds": 0.6
+        },
+        {
+          "midi": 55,
+          "seconds": 1.2
+        },
+        {
+          "midi": 52,
+          "seconds": 0.6
+        },
+        {
+          "midi": 57,
+          "seconds": 0.6
+        },
+        {
+          "midi": 59,
+          "seconds": 1.2
+        },
+        {
+          "midi": 64,
+          "seconds": 0.6
+        },
+        {
+          "midi": 67,
+          "seconds": 0.6
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": 67,
+          "seconds": 0.6
+        },
+        {
+          "midi": 69,
+          "seconds": 0.6
+        },
+        {
+          "midi": 62,
+          "seconds": 0.6
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": null,
+          "seconds": 0.6
+        },
+        {
+          "midi": 64,
+          "seconds": 0.6
+        }
+      ],
+      "bass": [
+        {
+          "midi": 59,
+          "seconds": 0.6
+        },
+        {
+          "midi": 60,
+          "seconds": 0.6
+        },
+        {
+          "midi": null,
+          "seconds": 0.6
+        },
+        {
+          "midi": 62,
+          "seconds": 0.6
+        },
+        {
+          "midi": 63,
+          "seconds": 0.6
+        },
+        {
+          "midi": 64,
+          "seconds": 0.6
+        },
+        {
+          "midi": 60,
+          "seconds": 0.6
+        },
+        {
+          "midi": 69,
+          "seconds": 0.6
+        },
+        {
+          "midi": 67,
+          "seconds": 0.6
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": 64,
+          "seconds": 0.6
+        },
+        {
+          "midi": 62,
+          "seconds": 0.6
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": 67,
+          "seconds": 0.6
+        },
+        {
+          "midi": 55,
+          "seconds": 0.6
+        },
+        {
+          "midi": 60,
+          "seconds": 0.6
+        }
+      ],
+      "harmony": [
+        {
+          "midi": 67,
+          "seconds": 0.2
+        },
+        {
+          "midi": 66,
+          "seconds": 0.2
+        },
+        {
+          "midi": 67,
+          "seconds": 0.2
+        },
+        {
+          "midi": 64,
+          "seconds": 1.2
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": 66,
+          "seconds": 0.6
+        },
+        {
+          "midi": 67,
+          "seconds": 1.2
+        },
+        {
+          "midi": 72,
+          "seconds": 0.6
+        },
+        {
+          "midi": 76,
+          "seconds": 0.45
+        },
+        {
+          "midi": 76,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.6
+        },
+        {
+          "midi": 76,
+          "seconds": 0.6
+        },
+        {
+          "midi": 77,
+          "seconds": 0.6
+        },
+        {
+          "midi": 71,
+          "seconds": 0.6
+        },
+        {
+          "midi": 74,
+          "seconds": 1.2
+        },
+        {
+          "midi": 72,
+          "seconds": 1.2
+        }
+      ]
+    }
+  ],
+  "gameOver": [
+    {
+      "melody": [
+        {
+          "midi": 72,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.3
+        },
+        {
+          "midi": 69,
+          "seconds": 0.2
+        },
+        {
+          "midi": 71,
+          "seconds": 0.2
+        },
+        {
+          "midi": 69,
+          "seconds": 0.2
+        },
+        {
+          "midi": 68,
+          "seconds": 0.3
+        },
+        {
+          "midi": 70,
+          "seconds": 0.3
+        },
+        {
+          "midi": 68,
+          "seconds": 0.3
+        },
+        {
+          "midi": 67,
+          "seconds": 0.9
+        }
+      ],
+      "bass": [
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 60,
+          "seconds": 0.3
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": 61,
+          "seconds": 0.9
+        },
+        {
+          "midi": 60,
+          "seconds": 0.9
+        },
+        {
+          "midi": 64,
+          "seconds": 0.05
+        },
+        {
+          "midi": 74,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 74,
+          "seconds": 0.05
+        },
+        {
+          "midi": 74,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 65,
+          "seconds": 0.05
+        },
+        {
+          "midi": 75,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 75,
+          "seconds": 0.05
+        },
+        {
+          "midi": 75,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 66,
+          "seconds": 0.05
+        },
+        {
+          "midi": 76,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 76,
+          "seconds": 0.05
+        },
+        {
+          "midi": 76,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 77,
+          "seconds": 0.05
+        },
+        {
+          "midi": null,
+          "seconds": 0.05
+        },
+        {
+          "midi": 77,
+          "seconds": 0.3
+        }
+      ],
+      "harmony": [
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 99,
+          "seconds": 0.3
+        },
+        {
+          "midi": 60,
+          "seconds": 0.15
+        },
+        {
+          "midi": 99,
+          "seconds": 0.3
+        },
+        {
+          "midi": 55,
+          "seconds": 0.3
+        },
+        {
+          "midi": 65,
+          "seconds": 0.6
+        },
+        {
+          "midi": 65,
+          "seconds": 0.9
+        },
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 62,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.6
+        }
+      ]
+    }
+  ],
+  "timeWarning": [
+    {
+      "melody": [
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 65,
+          "seconds": 0.15
+        },
+        {
+          "midi": 75,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 75,
+          "seconds": 0.15
+        },
+        {
+          "midi": 75,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 66,
+          "seconds": 0.15
+        },
+        {
+          "midi": 76,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 76,
+          "seconds": 0.15
+        },
+        {
+          "midi": 76,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 1.2
+        }
+      ],
+      "bass": [
+        {
+          "midi": 71,
+          "seconds": 0.15
+        },
+        {
+          "midi": 82,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 82,
+          "seconds": 0.15
+        },
+        {
+          "midi": 82,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 72,
+          "seconds": 0.15
+        },
+        {
+          "midi": 58,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 58,
+          "seconds": 0.15
+        },
+        {
+          "midi": 58,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 73,
+          "seconds": 0.15
+        },
+        {
+          "midi": 89,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 89,
+          "seconds": 0.15
+        },
+        {
+          "midi": 89,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 1.2
+        },
+        {
+          "midi": null,
+          "seconds": 0.2
+        },
+        {
+          "midi": null,
+          "seconds": 0.2
+        },
+        {
+          "midi": 55,
+          "seconds": 0.2
+        },
+        {
+          "midi": 60,
+          "seconds": 0.2
+        },
+        {
+          "midi": 64,
+          "seconds": 0.2
+        },
+        {
+          "midi": 67,
+          "seconds": 0.2
+        },
+        {
+          "midi": 72,
+          "seconds": 0.9
+        },
+        {
+          "midi": 67,
+          "seconds": 0.9
+        },
+        {
+          "midi": null,
+          "seconds": 0.2
+        },
+        {
+          "midi": 51,
+          "seconds": 0.2
+        },
+        {
+          "midi": 56,
+          "seconds": 0.2
+        },
+        {
+          "midi": 60,
+          "seconds": 0.2
+        },
+        {
+          "midi": 63,
+          "seconds": 0.2
+        },
+        {
+          "midi": 68,
+          "seconds": 0.2
+        },
+        {
+          "midi": 72,
+          "seconds": 0.9
+        },
+        {
+          "midi": 68,
+          "seconds": 0.9
+        },
+        {
+          "midi": null,
+          "seconds": 0.2
+        },
+        {
+          "midi": 53,
+          "seconds": 0.2
+        },
+        {
+          "midi": 57,
+          "seconds": 0.2
+        },
+        {
+          "midi": 62,
+          "seconds": 0.2
+        },
+        {
+          "midi": 65,
+          "seconds": 0.2
+        },
+        {
+          "midi": 70,
+          "seconds": 0.2
+        },
+        {
+          "midi": 74,
+          "seconds": 0.9
+        },
+        {
+          "midi": 74,
+          "seconds": 0.9
+        },
+        {
+          "midi": 58,
+          "seconds": 0.075
+        }
+      ],
+      "harmony": [
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 68,
+          "seconds": 0.3
+        },
+        {
+          "midi": 68,
+          "seconds": 0.15
+        },
+        {
+          "midi": 68,
+          "seconds": 0.3
+        },
+        {
+          "midi": 53,
+          "seconds": 0.15
+        },
+        {
+          "midi": 69,
+          "seconds": 0.3
+        },
+        {
+          "midi": 69,
+          "seconds": 0.15
+        },
+        {
+          "midi": 69,
+          "seconds": 0.3
+        },
+        {
+          "midi": 54,
+          "seconds": 0.15
+        },
+        {
+          "midi": 70,
+          "seconds": 0.3
+        },
+        {
+          "midi": 70,
+          "seconds": 0.15
+        },
+        {
+          "midi": 70,
+          "seconds": 0.3
+        },
+        {
+          "midi": 71,
+          "seconds": 0.15
+        },
+        {
+          "midi": 99,
+          "seconds": 0.15
+        },
+        {
+          "midi": 71,
+          "seconds": 1.2
+        }
+      ]
+    }
+  ],
+  "death": [
+    {
+      "melody": [
+        {
+          "midi": null,
+          "seconds": 0.6
+        },
+        {
+          "midi": 71,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 0.15
+        },
+        {
+          "midi": null,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 0.15
+        },
+        {
+          "midi": 77,
+          "seconds": 0.2
+        },
+        {
+          "midi": 76,
+          "seconds": 0.2
+        },
+        {
+          "midi": 74,
+          "seconds": 0.2
+        },
+        {
+          "midi": 72,
+          "seconds": 0.6
+        },
+        {
+          "midi": null,
+          "seconds": 0.6
+        }
+      ],
+      "bass": [
+        {
+          "midi": null,
+          "seconds": 0.6
+        },
+        {
+          "midi": 67,
+          "seconds": 0.45
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": 67,
+          "seconds": 0.2
+        },
+        {
+          "midi": 69,
+          "seconds": 0.2
+        },
+        {
+          "midi": 71,
+          "seconds": 0.2
+        },
+        {
+          "midi": 72,
+          "seconds": 0.3
+        },
+        {
+          "midi": 67,
+          "seconds": 0.3
+        },
+        {
+          "midi": 60,
+          "seconds": 0.6
+        },
+        {
+          "midi": -4,
+          "seconds": 0.6
+        },
+        {
+          "midi": -22,
+          "seconds": 0.9
+        },
+        {
+          "midi": -26,
+          "seconds": 0.9
+        }
+      ],
+      "harmony": [
+        {
+          "midi": 70,
+          "seconds": 0.05
+        },
+        {
+          "midi": 71,
+          "seconds": 0.05
+        },
+        {
+          "midi": 72,
+          "seconds": 0.05
+        },
+        {
+          "midi": 99,
+          "seconds": 0.45
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.3
+        },
+        {
+          "midi": 74,
+          "seconds": 0.15
+        },
+        {
+          "midi": 74,
+          "seconds": 0.2
+        },
+        {
+          "midi": 72,
+          "seconds": 0.2
+        },
+        {
+          "midi": 71,
+          "seconds": 0.2
+        },
+        {
+          "midi": 67,
+          "seconds": 0.15
+        },
+        {
+          "midi": 64,
+          "seconds": 0.3
+        },
+        {
+          "midi": 64,
+          "seconds": 0.15
+        },
+        {
+          "midi": 60,
+          "seconds": 0.6
+        }
+      ]
+    }
   ]
 }
