@@ -104,9 +104,10 @@ responsiveMenuStyle.textContent = `
   .start-menu-panel { margin: 5px auto !important; padding: 8px 18px !important; }
   .start-menu-coin { font-size: 16px !important; }
   .start-menu-panel h1 { font-size: 16px !important; margin: 1px 0 6px 0 !important; letter-spacing: 1px !important; }
-  .start-menu-controls { display: grid !important; grid-template-columns: 1fr 1fr; column-gap: 16px; text-align: left; }
-  .start-menu-controls .start-menu-field > div { font-size: 12px !important; }
-  .start-menu-controls select { margin-top: 2px !important; margin-bottom: 5px !important; padding: 6px !important; font-size: 14px !important; }
+  /* Three columns so the six fields fit in two rows on a short landscape screen. */
+  .start-menu-controls { display: grid !important; grid-template-columns: 1fr 1fr 1fr; column-gap: 12px; text-align: left; }
+  .start-menu-controls .start-menu-field > div { font-size: 11px !important; }
+  .start-menu-controls select { margin-top: 2px !important; margin-bottom: 5px !important; padding: 6px 4px !important; font-size: 12px !important; }
   .start-menu-panel button { margin-top: 5px !important; }
   .start-menu-panel .start-menu-play { padding: 8px 28px !important; font-size: 16px !important; }
 }`;
