@@ -171,6 +171,14 @@ const toneSpecs: Record<SoundEvent, ToneSpec> = {
     type: "triangle",
     gain: 0.09,
   },
+  // The end-of-level time-bonus tick: a short high blip per time unit converted.
+  [SoundEvent.TimeTick]: {
+    frequencyHertz: 1760,
+    endFrequencyHertz: 1760,
+    durationSeconds: 0.03,
+    type: "square",
+    gain: 0.05,
+  },
 };
 
 type AudioContextConstructor = typeof AudioContext;

@@ -2701,6 +2701,36 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+test("converts remaining time to score with a countdown at the finish", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  await page.goto("/?browserLevel=timed-finish-route");
+  await expect(page.locator("canvas")).toBeVisible();
+
+  await page.keyboard.down("ArrowRight");
+  await waitForSimulationSnapshotCondition(page, "finished-outcome");
+  await page.keyboard.up("ArrowRight");
+
+  // At the finish the clock has time left, so the countdown starts with a
+  // non-zero unit count.
+  const finishedSnapshot = await readSimulationSnapshot(page);
+  expect(finishedSnapshot.timeBonusCountdownUnits).toBeGreaterThan(0);
+
+  // The countdown drains the clock to zero over the level-advance delay.
+  await page.waitForFunction(() => {
+    const debugApi = window.__originalBrowserPlatformerDebug;
+    return (
+      debugApi !== undefined &&
+      debugApi.getSimulationSnapshot().timeBonusCountdownUnits === 0
+    );
+  });
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
 test("carries the player's power tier across a level advance", async ({
   page,
 }) => {

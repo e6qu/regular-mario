@@ -27,6 +27,7 @@ import {
   computeTotalScore,
   fireworksCountForDisplayTime,
   fireworksScorePerBurst,
+  scorePerTimeBonusDisplayUnit,
   timeBonusFramesPerDisplayUnit,
 } from "../../engine/simulation/game-score";
 import {
@@ -134,6 +135,10 @@ const fireworkLifetimeFrames = 26;
 // Below this displayed time the "hurry up!" sting fires and the music speeds up.
 const timeWarningDisplaySeconds = 100;
 const timeWarningTempoScale = 1.35;
+// End-of-level time-bonus countdown: display units drained per frame (a rapid
+// tick), and a short hold at zero before the level advances.
+const timeBonusCountdownUnitsPerFrame = 4;
+const timeBonusCountdownHoldFrames = 24;
 // A stomped Goomba stays squashed on the ground for this many frames before it
 // is removed (the original's flatten-then-vanish), instead of blinking out.
 const stompedGoombaFlattenFrames = 42;
@@ -687,6 +692,9 @@ export class BootScene extends Phaser.Scene {
   // Reset only on a new game. See the "Session-persistent state" section of
   // docs/terminology.md.
   private carriedSessionScoreBase = 0;
+  // Time-bonus countdown at a level finish: display units of clock left to
+  // convert to score. Zero means no countdown is running.
+  private timeBonusCountdownUnitsRemaining = 0;
   // The player's power tier carried into the next level. Finishing or warping
   // keeps an enlarged tier (Super/Fire); dying resets it to small — as the
   // original carries power across levels but not across a death.
@@ -1547,6 +1555,7 @@ export class BootScene extends Phaser.Scene {
     this.starMusicActive = false;
     this.deathJinglePlayed = false;
     this.timeWarningTriggered = false;
+    this.timeBonusCountdownUnitsRemaining = 0;
     this.bringPlayerObjectsToTop();
   }
 
@@ -2246,6 +2255,7 @@ export class BootScene extends Phaser.Scene {
       this.stepFlagpoleSlide();
       this.stepCastleClearCinematic();
       this.stepVictoryFireworks();
+      this.stepTimeBonusCountdown();
 
       if (this.levelAdvanceDelayFramesRemaining === 0) {
         this.advanceToNextLevel();
@@ -2288,6 +2298,7 @@ export class BootScene extends Phaser.Scene {
       this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
       this.beginFlagpoleSlide();
       this.beginVictoryFireworks();
+      this.beginTimeBonusCountdown();
       // The flagpole grab takes over the music with the fanfare; a castle end
       // (an axe, not a pole) plays the grander world-clear victory theme.
       const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
@@ -2472,6 +2483,70 @@ export class BootScene extends Phaser.Scene {
     this.carriedSessionScoreBase += this.currentLevelScore();
   }
 
+  // Set the score/time/coins/world HUD line. Score and remaining-time are passed
+  // in so the end-of-level time-bonus countdown can drive interpolated values;
+  // the coin total and world label always come from the current state.
+  private updateScoreHud(score: number, remainingFrames: number | undefined) {
+    this.scoreText.setText(
+      classicCompatibilityHudText(
+        score,
+        remainingFrames,
+        // The whole-session coin total, wrapped 0–99 as the original's two-digit
+        // display (each rollover past 100 having awarded a 1-Up).
+        (this.simulationState.sessionCoinBase +
+          this.simulationState.collectibles.collectedCoinEntityIds.length) %
+          coinsPerExtraLife,
+        this.activeWorldLevelLabel ??
+          worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
+      ),
+    );
+  }
+
+  // At a flagpole/castle finish the remaining time is converted to score, 50 per
+  // time unit, counting the clock down to zero while the score ticks up — with a
+  // rapid blip per unit, as in the original. Driven each frame of the level-
+  // advance delay by stepTimeBonusCountdown.
+  private beginTimeBonusCountdown(): void {
+    const remainingFrames = this.simulationState.levelTimer.remainingFrames;
+    if (remainingFrames === undefined) {
+      this.timeBonusCountdownUnitsRemaining = 0;
+      return;
+    }
+    this.timeBonusCountdownUnitsRemaining = Math.floor(
+      remainingFrames / timeBonusFramesPerDisplayUnit,
+    );
+    // Ensure the advance delay is long enough for the whole countdown to play.
+    const countdownFrames = Math.ceil(
+      this.timeBonusCountdownUnitsRemaining / timeBonusCountdownUnitsPerFrame,
+    );
+    this.levelAdvanceDelayFramesRemaining = Math.max(
+      this.levelAdvanceDelayFramesRemaining,
+      countdownFrames + timeBonusCountdownHoldFrames,
+    );
+  }
+
+  private stepTimeBonusCountdown(): void {
+    if (this.timeBonusCountdownUnitsRemaining <= 0) {
+      return;
+    }
+    const before = this.timeBonusCountdownUnitsRemaining;
+    this.timeBonusCountdownUnitsRemaining = Math.max(
+      0,
+      this.timeBonusCountdownUnitsRemaining - timeBonusCountdownUnitsPerFrame,
+    );
+    if (this.timeBonusCountdownUnitsRemaining < before) {
+      this.gameAudio.playEvents([SoundEvent.TimeTick]);
+    }
+    // Show the clock draining and the (not-yet-counted) bonus subtracted from the
+    // full session score, so the score ticks up to its final value as time hits 0.
+    const pendingBonus =
+      this.timeBonusCountdownUnitsRemaining * scorePerTimeBonusDisplayUnit;
+    this.updateScoreHud(
+      this.sessionScore() - pendingBonus,
+      this.timeBonusCountdownUnitsRemaining * timeBonusFramesPerDisplayUnit,
+    );
+  }
+
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
     // A retry after running out of lives starts a fresh game: the full life
@@ -2590,6 +2665,7 @@ export class BootScene extends Phaser.Scene {
     this.starMusicActive = false;
     this.deathJinglePlayed = false;
     this.timeWarningTriggered = false;
+    this.timeBonusCountdownUnitsRemaining = 0;
     this.levelIntroFramesRemaining = 0;
   }
 
@@ -3166,18 +3242,9 @@ export class BootScene extends Phaser.Scene {
         .setPosition(stompReaction.x + 8, stompReaction.y + 4)
         .setVisible(stompActive);
     }
-    this.scoreText.setText(
-      classicCompatibilityHudText(
-        this.sessionScore(),
-        this.simulationState.levelTimer.remainingFrames,
-        // The whole-session coin total, wrapped 0–99 as the original's two-digit
-        // display (each rollover past 100 having awarded a 1-Up).
-        (this.simulationState.sessionCoinBase +
-          this.simulationState.collectibles.collectedCoinEntityIds.length) %
-          coinsPerExtraLife,
-        this.activeWorldLevelLabel ??
-          worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
-      ),
+    this.updateScoreHud(
+      this.sessionScore(),
+      this.simulationState.levelTimer.remainingFrames,
     );
     const collectedItemEntityIdStrings = this.cachedEntityIdSet(
       "item",
@@ -3900,6 +3967,7 @@ export class BootScene extends Phaser.Scene {
         livesRemaining: this.simulationState.livesRemaining,
         gameOver: this.pendingGameOver,
         warpZone: this.warpZoneBannerShown,
+        timeBonusCountdownUnits: this.timeBonusCountdownUnitsRemaining,
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         level: {
           widthTiles: this.levelSpec.widthTiles,
