@@ -543,7 +543,10 @@ const upKeyCodes = ["ArrowUp"] as const;
 const downKeyCodes = ["ArrowDown"] as const;
 const pauseKeyCodes = ["KeyP"] as const;
 // Capture a low-res timeline thumbnail this often (frames) during live play.
-const runThumbnailIntervalFrames = 30;
+// Filmstrip thumbnails are sampled down to the track width anyway, so a longer
+// capture interval keeps the replay strip full while cutting the per-capture
+// drawImage + encode cost (a periodic frame hitch) to a third as often.
+const runThumbnailIntervalFrames = 90;
 const runThumbnailWidthPixels = 128;
 const runThumbnailHeightPixels = 72;
 
@@ -860,7 +863,16 @@ export class BootScene extends Phaser.Scene {
     const parent = canvas.parentElement;
     const cssWidth = Math.max(1, parent?.clientWidth ?? window.innerWidth);
     const cssHeight = Math.max(1, parent?.clientHeight ?? window.innerHeight);
-    const pixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1), 3);
+    // The Canvas-2D renderer fills the whole backing store in software every
+    // frame, so its cost scales with pixelRatio². On phones (coarse pointer,
+    // often DPR 3) that native-resolution fill is the main stutter source, and
+    // blocky pixel art gains little past 2×, so cap the ratio there.
+    const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    const maxPixelRatio = isCoarsePointer ? 2 : 3;
+    const pixelRatio = Math.min(
+      Math.max(window.devicePixelRatio || 1, 1),
+      maxPixelRatio,
+    );
     this.scale.resize(cssWidth * pixelRatio, cssHeight * pixelRatio);
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
