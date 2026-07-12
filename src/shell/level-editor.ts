@@ -511,6 +511,27 @@ const paletteItems: readonly PaletteItem[] = [
   },
 ];
 
+// Inject (once) the short-viewport rules that compact the editor's chrome —
+// header, palette and toolbar — for mobile-landscape, trading roomy desktop
+// spacing for a smaller footprint so more of the grid stays on screen.
+function ensureEditorResponsiveStyle(): void {
+  if (document.getElementById("editor-responsive-style") !== null) {
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = "editor-responsive-style";
+  style.textContent = `
+@media (max-height: 540px) {
+  .editor-root { margin: 4px auto !important; padding: 8px !important; min-height: 0 !important; }
+  .editor-root h1, .editor-root h2 { font-size: 15px !important; margin: 2px 0 !important; }
+  .editor-palette { gap: 4px !important; margin-bottom: 6px !important; }
+  .editor-palette button { padding: 3px 6px !important; font-size: 11px !important; gap: 4px !important; }
+  .editor-palette button span { width: 11px !important; height: 11px !important; }
+  .editor-root button { min-height: 30px; }
+}`;
+  document.head.append(style);
+}
+
 const paletteByKey = new Map(paletteItems.map((item) => [item.key, item]));
 const actorItems = paletteItems.filter(
   (item): item is ActorPaletteItem => item.kind === "actor",
@@ -909,7 +930,9 @@ export function renderLevelEditor(
     restoreSnapshot(state);
   }
 
+  ensureEditorResponsiveStyle();
   const root = document.createElement("div");
+  root.classList.add("editor-root");
   // A dark surface so the light UI text has sufficient contrast (WCAG AA); the
   // page body would otherwise be white behind it.
   root.style.cssText =
@@ -1675,6 +1698,7 @@ export function renderLevelEditor(
 
   // --- Palette ---
   const paletteBar = document.createElement("div");
+  paletteBar.classList.add("editor-palette");
   paletteBar.style.cssText =
     "display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;";
   const paletteButtons = new Map<string, HTMLButtonElement>();
