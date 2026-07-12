@@ -83,9 +83,14 @@ Remaining work before making WebGL the default:
 - Regenerate the CI screenshot baselines in (and review them against) the
   environment that captures them, since headless software WebGL can differ from a
   real GPU.
-- Optionally, to reduce context pressure with many simultaneous WebGL games,
-  release a suspended session's context on suspend and let Phaser restore it on
-  resume. Not required for correctness.
+- Reducing context pressure by releasing a suspended session's WebGL context on
+  suspend was **tried and rejected**: a context released via `WEBGL_lose_context`
+  on suspend does not fully re-render on resume (the canvas comes back blank),
+  regardless of restore ordering, because the app's sleep→lose→wake→restore cycle
+  differs from the loop-running restore that Phaser handles cleanly. Holding the
+  context is correct — the browser reclaiming it under pressure triggers Phaser's
+  built-in restore, which recovers. Suspend/resume under WebGL is guarded by a
+  test.
 
 ## Consequences
 

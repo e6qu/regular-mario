@@ -76,6 +76,37 @@ test("the start menu's renderer selector persists and applies to the next game",
   expect(usesWebgl).toBe(true);
 });
 
+test("a WebGL session survives suspend and resume", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+  await bootAndAdvance(page, "webgl");
+
+  // Suspend to the session bar (Escape), then resume the session (its tab).
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tab")).toBeVisible();
+  await page.getByRole("tab").first().click();
+  await expect(page.locator("canvas")).toBeVisible();
+
+  // The resumed game keeps stepping and rendering — the context recovered.
+  const frameAfterResume = await page.evaluate(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+        .frameIndex,
+  );
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(
+    (frame) =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+        .frameIndex >
+      frame + 10,
+    frameAfterResume,
+  );
+  await page.keyboard.up("ArrowRight");
+
+  expect(pageErrors).toEqual([]);
+});
+
 test("recovers rendering after a WebGL context is lost and restored", async ({
   page,
 }) => {

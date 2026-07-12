@@ -451,6 +451,12 @@ function bootSceneOf(game: Phaser.Game): BootScene | undefined {
   const scene = game.scene.scenes[0];
   return scene instanceof BootScene ? scene : undefined;
 }
+// A suspended game keeps its renderer (and, under WebGL, its GL context) alive
+// but with the loop asleep. Proactively releasing the WebGL context on suspend
+// was tried and rejected: a released context does not fully re-render on resume
+// (blank canvas). Holding it is correct — a browser that reclaims the context
+// under pressure triggers Phaser's built-in restore, which recovers cleanly
+// (see docs/decisions/0020 and tests/browser/renderer.spec.ts).
 function suspendSession(session: GameSession): void {
   session.game.loop.sleep();
   session.game.canvas.style.display = "none";
