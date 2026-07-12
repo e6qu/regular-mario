@@ -87,6 +87,30 @@ boss). See the corresponding files in `src/engine/simulation/`.
 - **Warp Zone** — a level region whose pipes jump to other worlds' starts,
   labeled "WELCOME TO WARP ZONE!".
 
+## Session-persistent state (lives and coins)
+
+The **life count** and the **coin total** persist across levels and deaths
+within a single play session, and reset only on a new game (after a game over) —
+as in the original. This matters because the shell rebuilds a fresh
+`SimulationState` for every level advance and retry, which would otherwise reset
+both to their level-start values.
+
+- **Life count** — `SimulationState.livesRemaining`. The engine is authoritative:
+  each frame it folds in extra lives from 1-Ups, the every-100-coins threshold,
+  and stomp/shell chains, and decrements on the death frame. Starts at
+  `initialLivesCount` (three).
+- **Session coin total** — `SimulationState.sessionCoinBase` (coins collected in
+  prior levels) plus the current level's coins
+  (`collectibles.collectedCoinEntityIds`). The every-100-coins 1-Up is computed
+  from this total, so it crosses level boundaries; the heads-up display shows the
+  total wrapped 0–99, each rollover past 100 having awarded a life.
+
+The imperative shell (`BootScene`) carries both values across the states it
+rebuilds and resets them when a new game begins; it never recomputes the amounts
+itself. This keeps the counts consistent with the engine, which owns the rules.
+The start menu's free level selection is independent of session state — choosing
+any level begins a fresh session at three lives and zero coins.
+
 ## Acronyms
 
 Well-known acronyms are used as-is; less common ones are expanded on first use.

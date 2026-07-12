@@ -81,7 +81,9 @@ composes them in a fixed order each frame. Representative modules:
 
 - **`step-simulation.ts`** — the per-frame orchestrator and public entry point.
 - **`simulation-state.ts`** — `SimulationState`, the complete snapshot of one
-  frame (player, enemies, blocks, projectiles, timer, score, RNG, and more).
+  frame (player, enemies, blocks, projectiles, timer, score, RNG, and more),
+  including the session-persistent life count and coin base (see
+  [Session-persistent state](terminology.md#session-persistent-state-lives-and-coins)).
 - **`movement-model.ts`**, **`horizontal-movement.ts`**,
   **`vertical-movement.ts`**, **`position-movement.ts`** — the player movement
   and jump model.
