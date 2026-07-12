@@ -2332,7 +2332,7 @@ export class BootScene extends Phaser.Scene {
       this.deathFlames.push({
         image,
         offsetX: spread,
-        offsetY: -height * 0.15 + (index % 2) * height * 0.2,
+        offsetY: height * (-0.15 + (index % 2) * 0.2),
         phase: index * 1.7,
         baseScale: 0.8 + (index % 2) * 0.35,
       });
@@ -5114,23 +5114,10 @@ function renderWaterParallax(
   const seaweedColor = 0x0e8f7a;
   const bubbleColor = 0xbdf0ff;
 
-  // Jagged white waterline: a row of little upward teeth spanning the level.
-  const surface = scene.add.graphics();
-  surface.setScrollFactor(1, 1).setDepth(-70);
-  surface.fillStyle(0xffffff, 1);
-  const toothWidth = 8;
-  const toothHeight = 5;
-  const baseY = waterSurfaceY + toothHeight;
-  for (let x = 0; x < worldWidth; x += toothWidth) {
-    surface.fillTriangle(
-      x,
-      baseY,
-      x + toothWidth / 2,
-      waterSurfaceY,
-      x + toothWidth,
-      baseY,
-    );
-  }
+  // Rolling, shimmering waterline: two overlapping sine swells (a deeper back
+  // swell and a bright foam crest) that gently sway, plus twinkling highlights,
+  // instead of a row of static triangle teeth.
+  renderWaterSurface(scene, worldWidth);
   for (let i = 60; i < worldWidth; i += 150) {
     const fronds = 3 + ((i * 7) % 3);
     const lean = (i * 13) % 2 === 0 ? -3 : 3;
@@ -5158,6 +5145,75 @@ function renderWaterParallax(
       )
       .setScrollFactor(0.6, 1)
       .setDepth(-85);
+  }
+}
+
+// Draw one filled sine swell across the level: a smooth crest at `crestY` with
+// the given amplitude/wavelength, filled down to `fillBottomY`.
+function fillWaveBand(
+  graphics: Phaser.GameObjects.Graphics,
+  worldWidth: number,
+  crestY: number,
+  amplitude: number,
+  wavelength: number,
+  phase: number,
+  fillBottomY: number,
+): void {
+  const step = 4;
+  graphics.beginPath();
+  graphics.moveTo(0, fillBottomY);
+  for (let x = 0; x <= worldWidth; x += step) {
+    const y = crestY + Math.sin(x / wavelength + phase) * amplitude;
+    graphics.lineTo(x, y);
+  }
+  graphics.lineTo(worldWidth, fillBottomY);
+  graphics.closePath();
+  graphics.fillPath();
+}
+
+// A realistic, animated water surface: a translucent back swell, a bright foam
+// crest, and drifting twinkling highlights, all gently swaying.
+function renderWaterSurface(scene: Phaser.Scene, worldWidth: number): void {
+  const crestY = waterSurfaceY + 4;
+  const fillBottomY = waterSurfaceY + 14;
+
+  // Deeper back swell — a soft translucent aqua band under the foam.
+  const backSwell = scene.add.graphics().setScrollFactor(1, 1).setDepth(-72);
+  backSwell.fillStyle(0x7fd4ff, 0.55);
+  fillWaveBand(backSwell, worldWidth, crestY + 2, 3, 34, 1.2, fillBottomY);
+
+  // Bright foam crest on top.
+  const crest = scene.add.graphics().setScrollFactor(1, 1).setDepth(-70);
+  crest.fillStyle(0xffffff, 0.95);
+  fillWaveBand(crest, worldWidth, crestY, 2.4, 26, 0, fillBottomY - 4);
+
+  // Sway the swells side to side and up a touch, so the waves visibly roll.
+  scene.tweens.add({
+    targets: [backSwell, crest],
+    x: { from: -4, to: 4 },
+    y: { from: -1.2, to: 1.2 },
+    duration: 2600,
+    yoyo: true,
+    repeat: -1,
+    ease: "Sine.InOut",
+  });
+
+  // Twinkling specular highlights that drift along the surface and fade in/out.
+  for (let x = 20; x < worldWidth; x += 46) {
+    const glint = scene.add
+      .ellipse(x, crestY - 1, 5 + ((x * 3) % 4), 2, 0xffffff, 0.9)
+      .setScrollFactor(1, 1)
+      .setDepth(-69);
+    scene.tweens.add({
+      targets: glint,
+      alpha: { from: 0.15, to: 0.9 },
+      scaleX: { from: 0.6, to: 1.3 },
+      duration: 700 + ((x * 37) % 900),
+      delay: (x * 53) % 1400,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut",
+    });
   }
 }
 
