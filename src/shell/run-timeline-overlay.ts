@@ -95,11 +95,15 @@ function makeTimelineOverlayStyle(): HTMLStyleElement {
    and a smaller complete banner. */
 @media (max-height: 540px) {
   .tl-overlay { padding: 6px 10px 8px !important; }
-  .tl-overlay .tl-heading { margin-bottom: 4px !important; gap: 8px !important; }
+  .tl-overlay .tl-heading { margin-bottom: 4px !important; gap: 6px !important; }
   .tl-overlay .tl-track { height: 52px !important; }
   .tl-overlay .tl-complete-banner { font-size: 14px !important; margin: 1px 0 5px !important; gap: 8px !important; }
   .tl-overlay .tl-press-n { font-size: 11px !important; }
   .tl-overlay button { padding: 4px 7px !important; font-size: 11px !important; }
+  /* The control buttons don't fit in one row on a narrow phone; let them wrap
+     to their own full-width rows (so Retry/Menu stay reachable) rather than
+     overflowing off-screen. */
+  .tl-overlay .tl-controls { margin-left: 0 !important; width: 100%; gap: 5px !important; justify-content: flex-start; }
 }
 `;
   return style;
@@ -289,8 +293,9 @@ export class RunTimelineOverlay {
 
   private makeControls(): HTMLDivElement {
     const controls = document.createElement("div");
+    controls.classList.add("tl-controls");
     controls.style.cssText =
-      "display:flex;align-items:center;gap:6px;margin-left:auto;";
+      "display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap;";
 
     this.playButton = this.makeActionButton("▶ Play", "#16a34a", () =>
       this.callbacks.onTogglePlay(),

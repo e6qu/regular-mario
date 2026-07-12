@@ -110,6 +110,16 @@ responsiveMenuStyle.textContent = `
   .start-menu-controls select { margin-top: 2px !important; margin-bottom: 5px !important; padding: 6px 4px !important; font-size: 12px !important; }
   .start-menu-panel button { margin-top: 5px !important; }
   .start-menu-panel .start-menu-play { padding: 8px 28px !important; font-size: 16px !important; }
+}
+/* Very short (small phone landscape, ~320px tall): reclaim more height by
+   dropping the decorative coin and the big title, and tightening the buttons. */
+@media (max-height: 360px) {
+  .start-menu-panel { margin: 3px auto !important; padding: 5px 16px !important; }
+  .start-menu-coin { display: none !important; }
+  .start-menu-panel h1 { font-size: 13px !important; margin: 0 0 4px 0 !important; }
+  .start-menu-controls select { margin-bottom: 3px !important; padding: 5px 4px !important; }
+  .start-menu-panel button { margin-top: 3px !important; }
+  .start-menu-panel .start-menu-play { padding: 6px 24px !important; font-size: 15px !important; }
 }`;
 document.head.append(responsiveMenuStyle);
 
