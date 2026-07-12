@@ -78,6 +78,26 @@ const goalHeightScoreBands: readonly (readonly [number, number])[] = [
   [10, 400],
 ];
 
+// Each victory firework is worth 500, exactly as in the original.
+export const fireworksScorePerBurst = 500 as Score;
+
+// SMB launches end-of-level fireworks by the ones digit of the remaining timer
+// as it is displayed: a 1 fires one, a 3 fires three, a 6 fires six, and any
+// other digit fires none.
+export function fireworksCountForDisplayTime(displayTime: number): number {
+  const onesDigit = ((Math.trunc(displayTime) % 10) + 10) % 10;
+  if (onesDigit === 1) {
+    return 1;
+  }
+  if (onesDigit === 3) {
+    return 3;
+  }
+  if (onesDigit === 6) {
+    return 6;
+  }
+  return 0;
+}
+
 export function scoreForGoalContactHeight(
   playerTopPixelY: number,
   tileSizePixels: number,

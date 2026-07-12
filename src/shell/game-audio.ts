@@ -144,6 +144,14 @@ const toneSpecs: Record<SoundEvent, ToneSpec> = {
     type: "sawtooth",
     gain: 0.08,
   },
+  // The victory firework: a bright rising sparkle-burst per shell explosion.
+  [SoundEvent.Firework]: {
+    frequencyHertz: 520,
+    endFrequencyHertz: 2600,
+    durationSeconds: 0.22,
+    type: "triangle",
+    gain: 0.09,
+  },
 };
 
 type AudioContextConstructor = typeof AudioContext;

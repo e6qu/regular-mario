@@ -24,6 +24,8 @@ import { computePlatformPlacements } from "../../engine/simulation/platform-stat
 import {
   computeEnemyScore,
   computeTotalScore,
+  fireworksCountForDisplayTime,
+  fireworksScorePerBurst,
   timeBonusFramesPerDisplayUnit,
 } from "../../engine/simulation/game-score";
 import {
@@ -117,6 +119,10 @@ const outcomeFeedbackPositionY = 54;
 const scoreTextPositionX = 8;
 // How long a floating "+points" score popup rises and fades.
 const scorePopupFrames = 36;
+// Victory-firework tuning: frames between successive bursts and how long each
+// sparkle lives (the per-burst score lives in game-score).
+const fireworksBurstIntervalFrames = 20;
+const fireworkLifetimeFrames = 26;
 const scoreBadgeX = 4;
 const scoreBadgeY = 3;
 const scoreBadgeWidth = 56;
@@ -679,6 +685,17 @@ export class BootScene extends Phaser.Scene {
   }[] = [];
   private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
   private previousEnemyKillScore = 0;
+  // Victory fireworks: a shell-timed celebration launched on a flag finish when
+  // the remaining-time ones digit is 1, 3, or 6 (that many bursts, 500 each).
+  private fireworkSprites: {
+    readonly star: Phaser.GameObjects.Star;
+    framesRemaining: number;
+  }[] = [];
+  private fireworksBurstsRemaining = 0;
+  private fireworksNextBurstFrames = 0;
+  private fireworksBurstIndex = 0;
+  private fireworksOriginX = 0;
+  private fireworksBonusScore = 0;
   private scoreBadgeRectangle!: Phaser.GameObjects.Rectangle;
   private scoreGemRectangle!: Phaser.GameObjects.Rectangle;
   private scoreText!: Phaser.GameObjects.Text;
@@ -1640,6 +1657,83 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // On a flag finish, the remaining-time ones digit of 1/3/6 triggers that many
+  // firework bursts (500 points each), staged over the level-advance delay.
+  private beginVictoryFireworks(): void {
+    const remainingFrames = this.simulationState.levelTimer.remainingFrames;
+    if (remainingFrames === undefined) {
+      return;
+    }
+    const displayTime = Math.floor(
+      remainingFrames / timeBonusFramesPerDisplayUnit,
+    );
+    const count = fireworksCountForDisplayTime(displayTime);
+    if (count === 0) {
+      return;
+    }
+    this.fireworksBurstsRemaining = count;
+    this.fireworksBurstIndex = 0;
+    this.fireworksNextBurstFrames = fireworksBurstIntervalFrames;
+    this.fireworksOriginX =
+      this.playerRectangle.x + this.simulationState.player.collider.width / 2;
+    // Keep the level open until every burst has launched and its sparkle faded.
+    const fireworksTotalFrames =
+      count * fireworksBurstIntervalFrames + fireworkLifetimeFrames;
+    this.levelAdvanceDelayFramesRemaining = Math.max(
+      this.levelAdvanceDelayFramesRemaining,
+      fireworksTotalFrames,
+    );
+  }
+
+  private stepVictoryFireworks(): void {
+    // Age live sparkles: expand outward and fade, dropping the spent ones.
+    this.fireworkSprites = this.fireworkSprites.filter((firework) => {
+      firework.framesRemaining -= 1;
+      if (firework.framesRemaining <= 0) {
+        firework.star.destroy();
+        return false;
+      }
+      const life = firework.framesRemaining / fireworkLifetimeFrames;
+      firework.star.setScale(1 + (1 - life) * 1.6);
+      firework.star.setAlpha(life);
+      return true;
+    });
+
+    if (this.fireworksBurstsRemaining <= 0) {
+      return;
+    }
+    this.fireworksNextBurstFrames -= 1;
+    if (this.fireworksNextBurstFrames > 0) {
+      return;
+    }
+
+    this.fireworksNextBurstFrames = fireworksBurstIntervalFrames;
+    this.launchFireworkBurst(this.fireworksBurstIndex);
+    this.fireworksBurstIndex += 1;
+    this.fireworksBurstsRemaining -= 1;
+    this.fireworksBonusScore += fireworksScorePerBurst as number;
+    this.gameAudio.playEvents([SoundEvent.Firework]);
+  }
+
+  private launchFireworkBurst(index: number): void {
+    // Alternate bursts left/right of the finish column, drifting up the sky, so
+    // the spread reads like the original's scattered explosions.
+    const rank = Math.floor(index / 2) + 1;
+    const offsetX = (index % 2 === 0 ? 1 : -1) * rank * 22;
+    const x = this.fireworksOriginX + offsetX;
+    const y = 34 + (index % 3) * 20;
+    const burstColors = [0xfff060, 0xff6a6a, 0x66c0ff];
+    const color = burstColors[index % burstColors.length] ?? 0xffffff;
+    const star = this.add
+      .star(x, y, 8, 2, 7, color)
+      .setDepth(131)
+      .setAlpha(1);
+    this.fireworkSprites.push({
+      star,
+      framesRemaining: fireworkLifetimeFrames,
+    });
+  }
+
   // Crown the flagpole column with a ball and a triangular flag that drops on a
   // finish. The pole segments themselves are drawn per-tile (renderFlagpole
   // Segment); this adds the one-per-column furniture and remembers the flag.
@@ -1869,6 +1963,7 @@ export class BootScene extends Phaser.Scene {
       this.levelAdvanceDelayFramesRemaining -= 1;
       this.stepFlagpoleSlide();
       this.stepCastleClearCinematic();
+      this.stepVictoryFireworks();
 
       if (this.levelAdvanceDelayFramesRemaining === 0) {
         this.advanceToNextLevel();
@@ -1914,6 +2009,7 @@ export class BootScene extends Phaser.Scene {
       this.levelCompleteSoundPlayed = true;
       this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
       this.beginFlagpoleSlide();
+      this.beginVictoryFireworks();
       // A castle ends at the axe: stage the bridge chop, the boss's fall and
       // the rescue message before the finish overlay appears.
       if (this.castleBridgeTilesByColumn.size > 0) {
@@ -2100,6 +2196,14 @@ export class BootScene extends Phaser.Scene {
     this.scorePopups = [];
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
+    for (const firework of this.fireworkSprites) {
+      firework.star.destroy();
+    }
+    this.fireworkSprites = [];
+    this.fireworksBurstsRemaining = 0;
+    this.fireworksNextBurstFrames = 0;
+    this.fireworksBurstIndex = 0;
+    this.fireworksBonusScore = 0;
   }
 
   private togglePause(): void {
@@ -2619,14 +2723,15 @@ export class BootScene extends Phaser.Scene {
         .setPosition(stompReaction.x + 8, stompReaction.y + 4)
         .setVisible(stompActive);
     }
-    const score = computeTotalScore(
-      this.simulationState.collectibles,
-      this.simulationState.enemies,
-      this.simulationState.timeBonusScore,
-      this.simulationState.breakableBlockScore,
-      this.simulationState.bulletBillStompScore,
-      this.simulationState.goalHeightScore,
-    );
+    const score =
+      computeTotalScore(
+        this.simulationState.collectibles,
+        this.simulationState.enemies,
+        this.simulationState.timeBonusScore,
+        this.simulationState.breakableBlockScore,
+        this.simulationState.bulletBillStompScore,
+        this.simulationState.goalHeightScore,
+      ) + this.fireworksBonusScore;
     this.scoreText.setText(
       classicCompatibilityHudText(
         score,
