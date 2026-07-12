@@ -174,6 +174,18 @@ type BrowserEnemiesSnapshot = {
   readonly defeatedEnemyEntityIds: readonly string[];
 };
 
+// A latched snapshot of the frame an enemy contact first occurred, so a test can
+// observe that one-frame event without racing the live frame (the game steps
+// multiple sim frames per rendered frame under load and then pauses on death).
+export type BrowserEnemyContactObservation = {
+  readonly frameIndex: number;
+  readonly levelContacts: LevelContactState;
+  readonly enemies: BrowserEnemiesSnapshot;
+  readonly enemyContactResponse: EnemyContactResponseState;
+  readonly playerVelocityX: number;
+  readonly playerOutcome: PlayerOutcomeState;
+};
+
 type BrowserCameraSnapshot = {
   readonly scrollX: number;
   readonly scrollY: number;
@@ -239,6 +251,9 @@ export type BrowserSimulationSnapshot = {
   readonly pipeEntry: BrowserPipeEntrySnapshot;
   readonly enemies: BrowserEnemiesSnapshot;
   readonly enemyContactResponse: EnemyContactResponseState;
+  // The latched contact-frame observation, or undefined until an enemy is first
+  // contacted this level (see BrowserEnemyContactObservation).
+  readonly lastEnemyContact: BrowserEnemyContactObservation | undefined;
   readonly outcomeFeedback: BrowserOutcomeFeedbackSnapshot;
   readonly actors: BrowserActorsSnapshot;
   readonly player: PlayerSimulationState;

@@ -108,6 +108,7 @@ import type {
   BrowserActorRole,
   BrowserLevelCollisionCounts,
   BrowserLevelCollisionKind,
+  BrowserEnemyContactObservation,
   BrowserPlatformerDebugApi,
   BrowserRenderedActorSnapshot,
   BrowserRenderedActorRole,
@@ -780,6 +781,11 @@ export class BootScene extends Phaser.Scene {
   private scoreText!: Phaser.GameObjects.Text;
   private gameAudio!: GameAudio;
   private lastSoundEvents: readonly SoundEvent[] = [];
+  // Latched observation of the frame an enemy was first contacted this level, so
+  // browser tests can read that one-frame event without racing the live frame.
+  private lastEnemyContactObservation:
+    | BrowserEnemyContactObservation
+    | undefined;
   private backgroundMusicStarted = false;
   // The set of currently-held key codes, maintained from the window key
   // listeners (see leftKeyCodes etc.). Cleared on resume so a key held while the
@@ -2285,6 +2291,7 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
     );
     this.runRecorder.record(inputCommand, this.simulationState);
+    this.latchEnemyContactObservation();
     this.lastSoundEvents = resolveSoundEvents(
       previousSimulationState,
       this.simulationState,
@@ -2650,6 +2657,7 @@ export class BootScene extends Phaser.Scene {
     this.previousEnemyKillScore = 0;
     this.flattenedEnemyTimers.clear();
     this.entityIdSetCache.clear();
+    this.lastEnemyContactObservation = undefined;
     for (const firework of this.fireworkSprites) {
       firework.star.destroy();
     }
@@ -3949,6 +3957,39 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Capture the first frame an enemy is contacted this level into a stable
+  // observation, so a browser test can assert on that one-frame event without
+  // racing the live simulation frame.
+  private latchEnemyContactObservation(): void {
+    if (this.lastEnemyContactObservation !== undefined) {
+      return;
+    }
+    const state = this.simulationState;
+    if (state.enemies.contactedEnemyEntityIds.length === 0) {
+      return;
+    }
+    this.lastEnemyContactObservation = {
+      frameIndex: state.clock.frameIndex,
+      levelContacts: {
+        hazard: state.levelContacts.hazard,
+        goal: state.levelContacts.goal,
+      },
+      enemies: {
+        contactedEnemyEntityIds: state.enemies.contactedEnemyEntityIds.map(
+          (entityId) => entityId,
+        ),
+        defeatedEnemyEntityIds: state.enemies.defeatedEnemyEntityIds.map(
+          (entityId) => entityId,
+        ),
+      },
+      enemyContactResponse: makeBrowserEnemyContactResponseSnapshot(
+        state.enemyContactResponse,
+      ),
+      playerVelocityX: state.player.velocity.x,
+      playerOutcome: makeBrowserPlayerOutcomeSnapshot(state.playerOutcome),
+    };
+  }
+
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
       getSimulationSnapshot: () => ({
@@ -4143,6 +4184,7 @@ export class BootScene extends Phaser.Scene {
         enemyContactResponse: makeBrowserEnemyContactResponseSnapshot(
           this.simulationState.enemyContactResponse,
         ),
+        lastEnemyContact: this.lastEnemyContactObservation,
         outcomeFeedback: {
           visible: this.outcomeFeedbackText.visible,
           text: this.outcomeFeedbackText.text,
