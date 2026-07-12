@@ -1176,20 +1176,19 @@ describe("enemy motion", () => {
   });
 
   describe("piranha plant", () => {
-    // baseY = enemyY * 16; the plant sinks 24px into the pipe when retracted
-    // and rises 1.4 tiles (22.4px) above baseY when fully emerged.
+    // baseY = enemyY * 16 is the retracted rest position (pipe mouth); the plant
+    // rises 1.4 tiles (22.4px) above baseY when fully emerged.
     const baseY = 4 * 16;
-    const sunkenY = baseY + 24;
     const emergedY = baseY - 1.4 * 16;
     const farPlayer = playerAt({ x: 0, y: 56 });
 
-    it("rests sunken inside the pipe during the retracted pause", () => {
+    it("rests at the pipe mouth during the retracted pause", () => {
       const levelSpec = piranhaRouteLevelSpec(5, 4);
       // Phase 100 lands in the bottom (retracted) pause of the cycle.
       const state = stepPiranha(levelSpec, 100, farPlayer);
 
       expect(state.piranhaPlantActors[0]?.phase).toBe(100);
-      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(sunkenY, 9);
+      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(baseY, 9);
     });
 
     it("rises above the rim when fully emerged", () => {
@@ -1201,7 +1200,7 @@ describe("enemy motion", () => {
       expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(emergedY, 9);
     });
 
-    it("stays hidden and holds its phase while the player stands on the pipe", () => {
+    it("holds retracted while the player stands on the pipe", () => {
       const levelSpec = piranhaRouteLevelSpec(5, 4);
       // The plant sits at x = 80; a player at the same column is within the
       // emerge-hold distance, so the plant must not rise into them.
@@ -1209,7 +1208,7 @@ describe("enemy motion", () => {
       const state = stepPiranha(levelSpec, 10, nearPlayer);
 
       expect(state.piranhaPlantActors[0]?.phase).toBe(0);
-      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(sunkenY, 9);
+      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(baseY, 9);
     });
   });
 });

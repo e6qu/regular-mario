@@ -4900,13 +4900,6 @@ function renderNonPlayerActors(
       renderedUserActor?.container ??
       renderAuthoredActor(scene, pixelPosition, role);
 
-    // A piranha plant renders behind its pipe (tiles sit at depth 0) so the
-    // pipe hides it while it is retracted/sunken, matching the original — only
-    // the portion that has emerged above the rim is ever visible.
-    if (role === ActorRole.PiranhaPlant) {
-      renderObject.setDepth(-1);
-    }
-
     // Fallback shapes get a small wing marker for winged armored enemies;
     // toggled per frame by the winged behavior.
     let wingObject: Phaser.GameObjects.Triangle | undefined;
