@@ -174,6 +174,18 @@ type BrowserEnemiesSnapshot = {
   readonly defeatedEnemyEntityIds: readonly string[];
 };
 
+// A latched snapshot of the frame an enemy contact first occurred, so a test can
+// observe that one-frame event without racing the live frame (the game steps
+// multiple sim frames per rendered frame under load and then pauses on death).
+export type BrowserEnemyContactObservation = {
+  readonly frameIndex: number;
+  readonly levelContacts: LevelContactState;
+  readonly enemies: BrowserEnemiesSnapshot;
+  readonly enemyContactResponse: EnemyContactResponseState;
+  readonly playerVelocityX: number;
+  readonly playerOutcome: PlayerOutcomeState;
+};
+
 type BrowserCameraSnapshot = {
   readonly scrollX: number;
   readonly scrollY: number;
@@ -209,12 +221,34 @@ type BrowserPathAnnotationsSnapshot = {
   }[];
 };
 
+// The shabby death animation currently playing (see boot-scene's death effect
+// system): its cause-specific style and the live counts of spawned pieces.
+type BrowserDeathEffectSnapshot = {
+  readonly started: boolean;
+  readonly style:
+    | "launch"
+    | "explode"
+    | "burn"
+    | "float"
+    | "impale"
+    | undefined;
+  readonly pieceCount: number;
+  readonly smokeCount: number;
+  readonly xEyesVisible: boolean;
+};
+
 export type BrowserSimulationSnapshot = {
   readonly frameIndex: number;
   readonly score: number;
   readonly coinCount: number;
   readonly bloodiness: number;
   readonly extraLifeCount: number;
+  readonly livesRemaining: number;
+  readonly gameOver: boolean;
+  readonly warpZone: boolean;
+  readonly timeBonusCountdownUnits: number;
+  readonly paused: boolean;
+  readonly deathEffect: BrowserDeathEffectSnapshot;
   readonly lastSoundEvents: readonly string[];
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
@@ -235,6 +269,9 @@ export type BrowserSimulationSnapshot = {
   readonly pipeEntry: BrowserPipeEntrySnapshot;
   readonly enemies: BrowserEnemiesSnapshot;
   readonly enemyContactResponse: EnemyContactResponseState;
+  // The latched contact-frame observation, or undefined until an enemy is first
+  // contacted this level (see BrowserEnemyContactObservation).
+  readonly lastEnemyContact: BrowserEnemyContactObservation | undefined;
   readonly outcomeFeedback: BrowserOutcomeFeedbackSnapshot;
   readonly actors: BrowserActorsSnapshot;
   readonly player: PlayerSimulationState;

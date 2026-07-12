@@ -6,6 +6,7 @@ import { coinBlockRouteLevelInput } from "../engine/levels/coin-block-route-leve
 import { enemyGauntletRouteLevelInput } from "../engine/levels/enemy-gauntlet-route-level";
 import { enemyStompRouteLevelInput } from "../engine/levels/enemy-stomp-route-level";
 import { finishRouteLevelInput } from "../engine/levels/finish-route-level";
+import { runtimeLevelTimerId } from "../engine/simulation/level-timer-state";
 import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
 import { flyingEnemyRouteLevelInput } from "../engine/levels/flying-enemy-route-level";
 import { hazardOnlyFeedbackLevelInput } from "../engine/levels/hazard-only-feedback-level";
@@ -35,10 +36,12 @@ enum BrowserLevelKey {
   EnemyGauntletRoute = "enemy-gauntlet-route",
   EnemyStompRoute = "enemy-stomp-route",
   FinishRoute = "finish-route",
+  TimedFinishRoute = "timed-finish-route",
   FirstAuthored = "first-authored",
   FlyingEnemyRoute = "flying-enemy-route",
   HazardOnlyFeedback = "hazard-only-feedback",
   MultiLevelRoute = "multi-level-route",
+  MultiLevelPoweredRoute = "multi-level-powered-route",
   PipeRoute = "pipe-route",
   PoweredContactRoute = "powered-contact-route",
   PowerUpRoute = "power-up-route",
@@ -209,6 +212,16 @@ function makeBrowserGameBootstrap(
         finishRouteLevelInput,
         makeInitialPlayerVitalityState(),
       );
+    case BrowserLevelKey.TimedFinishRoute:
+      // The finish route with a generous timer, so a test can observe the
+      // end-of-level time-bonus countdown (time drains, score climbs).
+      return makeSingleLevelBootstrap(
+        {
+          ...finishRouteLevelInput,
+          levelTimers: [{ timerId: runtimeLevelTimerId, frames: 6000 }],
+        },
+        makeInitialPlayerVitalityState(),
+      );
     case BrowserLevelKey.FirstAuthored:
       return makeSingleLevelBootstrap(
         firstAuthoredLevelInput,
@@ -230,6 +243,18 @@ function makeBrowserGameBootstrap(
         levelSequence: multiLevelRouteSequence,
         levelIndex: 0,
         initialPlayerVitality: makeInitialPlayerVitalityState(),
+        userAssetBundle: undefined,
+        viewport: authoredFixtureViewport,
+        userLevelVisualName: undefined,
+      };
+    case BrowserLevelKey.MultiLevelPoweredRoute:
+      // The same two-level sequence but starting the player powered, so a test
+      // can verify the power tier carries across a level advance.
+      return {
+        levelInput: multiLevelRouteSequence[0]!,
+        levelSequence: multiLevelRouteSequence,
+        levelIndex: 0,
+        initialPlayerVitality: makePoweredPlayerVitalityState(),
         userAssetBundle: undefined,
         viewport: authoredFixtureViewport,
         userLevelVisualName: undefined,

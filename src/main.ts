@@ -26,6 +26,12 @@ import {
   setDeployInfoFooterVisible,
 } from "./shell/deploy-info-footer";
 import { createGameConfig } from "./shell/create-game-config";
+import { resetStoredState, storedStateKeys } from "./shell/reset-stored-state";
+import {
+  isRendererChoice,
+  persistRendererChoice,
+  resolveRendererChoice,
+} from "./shell/select-renderer";
 import { BootScene } from "./shell/scenes/boot-scene";
 import {
   loadUserAssetBundle,
@@ -88,6 +94,34 @@ sessionBarStyle.textContent = `
   .session-tab-recent { animation: none; box-shadow: 0 0 0 2px #ffd54a; }
 }`;
 document.head.append(sessionBarStyle);
+
+// Short-viewport (mobile-landscape) responsive rules: menus are designed for a
+// tall portrait/desktop column, so on a short screen we compact them — smaller
+// title/padding and a two-column control grid — so they fit without scrolling.
+const responsiveMenuStyle = document.createElement("style");
+responsiveMenuStyle.textContent = `
+@media (max-height: 540px) {
+  .start-menu-panel { margin: 5px auto !important; padding: 8px 18px !important; }
+  .start-menu-coin { font-size: 16px !important; }
+  .start-menu-panel h1 { font-size: 16px !important; margin: 1px 0 6px 0 !important; letter-spacing: 1px !important; }
+  /* Three columns so the six fields fit in two rows on a short landscape screen. */
+  .start-menu-controls { display: grid !important; grid-template-columns: 1fr 1fr 1fr; column-gap: 12px; text-align: left; }
+  .start-menu-controls .start-menu-field > div { font-size: 11px !important; }
+  .start-menu-controls select { margin-top: 2px !important; margin-bottom: 5px !important; padding: 6px 4px !important; font-size: 12px !important; }
+  .start-menu-panel button { margin-top: 5px !important; }
+  .start-menu-panel .start-menu-play { padding: 8px 28px !important; font-size: 16px !important; }
+}
+/* Very short (small phone landscape, ~320px tall): reclaim more height by
+   dropping the decorative coin and the big title, and tightening the buttons. */
+@media (max-height: 360px) {
+  .start-menu-panel { margin: 3px auto !important; padding: 5px 16px !important; }
+  .start-menu-coin { display: none !important; }
+  .start-menu-panel h1 { font-size: 13px !important; margin: 0 0 4px 0 !important; }
+  .start-menu-controls select { margin-bottom: 3px !important; padding: 5px 4px !important; }
+  .start-menu-panel button { margin-top: 3px !important; }
+  .start-menu-panel .start-menu-play { padding: 6px 24px !important; font-size: 15px !important; }
+}`;
+document.head.append(responsiveMenuStyle);
 
 // The game plays in landscape only on touch devices; in portrait a full-screen
 // overlay asks the player to rotate. Desktop / keyboard users never see it.
@@ -427,6 +461,12 @@ function bootSceneOf(game: Phaser.Game): BootScene | undefined {
   const scene = game.scene.scenes[0];
   return scene instanceof BootScene ? scene : undefined;
 }
+// A suspended game keeps its renderer (and, under WebGL, its GL context) alive
+// but with the loop asleep. Proactively releasing the WebGL context on suspend
+// was tried and rejected: a released context does not fully re-render on resume
+// (blank canvas). Holding it is correct — a browser that reclaims the context
+// under pressure triggers Phaser's built-in restore, which recovers cleanly
+// (see docs/decisions/0020 and tests/browser/renderer.spec.ts).
 function suspendSession(session: GameSession): void {
   session.game.loop.sleep();
   session.game.canvas.style.display = "none";
@@ -1892,6 +1932,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   const panel = document.createElement("div");
   panel.setAttribute("role", "region");
   panel.setAttribute("aria-label", "Start menu");
+  panel.className = "start-menu-panel";
   panel.style.maxWidth = "460px";
   panel.style.margin = "40px auto";
   panel.style.padding = "24px";
@@ -1902,6 +1943,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   panel.style.textAlign = "center";
 
   const coin = document.createElement("div");
+  coin.className = "start-menu-coin";
   coin.textContent = "◉";
   coin.style.fontSize = "40px";
   coin.style.color = "#ffcc33";
@@ -1934,8 +1976,25 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     ["shabby", "Shabby (ba-ba vocals + ouch)"],
     ["classic", "Classic (chiptune)"],
   ]);
+  // The rendering backend. Canvas is the default; WebGL is faster (especially on
+  // mobile). The choice is persisted and applied to the next game started.
+  const rendererSelect = makeStartMenuDropdown("Renderer", [
+    ["canvas", "Canvas (default)"],
+    ["webgl", "WebGL (GPU, faster)"],
+    ["auto", "Auto (WebGL if available)"],
+  ]);
+  rendererSelect.value = resolveRendererChoice(
+    window.location.search,
+    window.localStorage,
+  );
+  rendererSelect.addEventListener("change", () => {
+    if (isRendererChoice(rendererSelect.value)) {
+      persistRendererChoice(rendererSelect.value, window.localStorage);
+    }
+  });
 
   const playButton = document.createElement("button");
+  playButton.className = "start-menu-play";
   playButton.textContent = "▶ PLAY";
   playButton.style.marginTop = "8px";
   playButton.style.padding = "12px 32px";
@@ -1956,18 +2015,27 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   status.style.minHeight = "18px";
   status.style.margin = "14px 0 0 0";
 
+  // The label+select pairs live in a controls container that reflows to a
+  // two-column grid on short (mobile-landscape) viewports.
+  const controls = document.createElement("div");
+  controls.className = "start-menu-controls";
+  const appendField = (labelText: string, control: HTMLElement): void => {
+    const field = document.createElement("div");
+    field.className = "start-menu-field";
+    field.appendChild(makeStartMenuLabel(labelText));
+    field.appendChild(control);
+    controls.appendChild(field);
+  };
+
   panel.appendChild(coin);
   panel.appendChild(title);
-  panel.appendChild(makeStartMenuLabel("SKIN"));
-  panel.appendChild(assetSelect);
-  panel.appendChild(makeStartMenuLabel("MAP"));
-  panel.appendChild(mapSelect);
-  panel.appendChild(makeStartMenuLabel("LEVEL"));
-  panel.appendChild(levelSelect);
-  panel.appendChild(makeStartMenuLabel("GAME MODE"));
-  panel.appendChild(modeSelect);
-  panel.appendChild(makeStartMenuLabel("SOUND"));
-  panel.appendChild(audioSelect);
+  appendField("SKIN", assetSelect);
+  appendField("MAP", mapSelect);
+  appendField("LEVEL", levelSelect);
+  appendField("GAME MODE", modeSelect);
+  appendField("SOUND", audioSelect);
+  appendField("RENDERER", rendererSelect);
+  panel.appendChild(controls);
   panel.appendChild(playButton);
 
   const editButton = document.createElement("button");
@@ -1980,6 +2048,30 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     renderEditor();
   });
   panel.appendChild(editButton);
+
+  // Reset all locally-saved data (preferences and saved levels). Kept small and
+  // low-contrast since it is destructive and rarely used; it confirms first.
+  const resetButton = document.createElement("button");
+  resetButton.textContent = "↺ Reset saved data";
+  resetButton.setAttribute("aria-label", "Reset saved data");
+  resetButton.style.cssText =
+    "display:block;margin:14px auto 0;padding:6px 12px;font:600 11px monospace;" +
+    "letter-spacing:0.5px;cursor:pointer;border-radius:7px;border:2px solid #7a4a1e;" +
+    "background:#f3e2c7;color:#6b3410;";
+  resetButton.addEventListener("click", () => {
+    const hasSavedData = storedStateKeys(window.localStorage).length > 0;
+    const confirmed = window.confirm(
+      hasSavedData
+        ? "Reset all saved data? This clears your preferences (renderer, editor, and control settings) and any levels saved in the editor. This cannot be undone."
+        : "There is no saved data to reset.",
+    );
+    if (!confirmed) {
+      return;
+    }
+    resetStoredState(window.localStorage);
+    window.location.reload();
+  });
+  panel.appendChild(resetButton);
 
   panel.appendChild(status);
   appElement!.appendChild(panel);

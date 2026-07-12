@@ -735,9 +735,12 @@ function stepActiveSimulation(
     collectibles.collectedExtraLifeEntityIds.length -
     state.collectibles.collectedExtraLifeEntityIds.length;
 
+  // Coin 1-Ups key off the whole-session coin total (the base from prior levels
+  // plus the coins collected in this one), so the every-100-coins award crosses
+  // level boundaries as in the original. The base is constant within a level.
   const coinExtraLives = computeCoinExtraLives(
-    state.collectibles.collectedCoinEntityIds.length,
-    collectibles.collectedCoinEntityIds.length,
+    state.sessionCoinBase + state.collectibles.collectedCoinEntityIds.length,
+    state.sessionCoinBase + collectibles.collectedCoinEntityIds.length,
   );
 
   // 1-UPs earned this frame by stomp / kicked-shell chains past 8000 points.
@@ -801,6 +804,7 @@ function stepActiveSimulation(
     breakableBlockScore,
     bulletBillStompScore,
     livesRemaining,
+    sessionCoinBase: state.sessionCoinBase,
     playerReaction,
     enemyStompReaction,
     bloodiness,

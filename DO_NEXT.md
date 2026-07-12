@@ -1,5 +1,26 @@
 # DO_NEXT.md
 
+## Landed: session state, mobile UX, WebGL renderer (2026-07-12, ninth pass)
+
+- **Session-persistent lives, coins, score, and power tier** — all persist
+  across levels/deaths and reset on a new game (see WHAT_WE_DID / terminology).
+- **End-of-level time-bonus countdown** (time → score, 50/unit, ticking).
+- **Selectable renderer** (Canvas/WebGL/Auto) via a start-menu dropdown and
+  `?renderer=` param; fidelity + context-loss verified (decision 0020).
+- **Mobile-landscape UX** — menu/editor/replay overlay fit without scroll;
+  perf: DPR cap on touch, thumbnail throttle, render-loop set caching.
+- **Reset saved data** button; **developer docs** (architecture, terminology,
+  CONTRIBUTING).
+
+### Candidate next steps
+
+- **WebGL as the default**: needs the `boot.spec` screenshot baselines
+  regenerated (and confirmed to match the CI rendering environment). Currently
+  opt-in with Canvas default.
+- **Suspended-session WebGL context release** (bound context count with many
+  simultaneous WebGL games) — optional; Phaser already recovers a lost context.
+- Stabilize the timing-sensitive `boot.spec` "authored enemy-only contact" test.
+
 ## Landed: fidelity sweep (2026-07-12, eighth pass)
 
 - **Piranha plants retract into their pipes** (sink 24px, render behind the

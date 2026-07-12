@@ -192,4 +192,82 @@ describe("GameAudio background music", () => {
 
     expect(gameAudio.startBackgroundMusic()).toBe(false);
   });
+
+  it("swaps to the star theme while invincible and back to the level theme", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("overworld");
+    const afterStart = FakeAudioContext.createdOscillators.length;
+
+    // Entering invincibility restarts the looping voices on the star song.
+    gameAudio.setInvincibilityMusic(true, "overworld");
+    expect(FakeAudioContext.createdOscillators.length).toBeGreaterThan(
+      afterStart,
+    );
+
+    // A no-op when the state does not change.
+    const afterStar = FakeAudioContext.createdOscillators.length;
+    gameAudio.setInvincibilityMusic(true, "overworld");
+    expect(FakeAudioContext.createdOscillators).toHaveLength(afterStar);
+
+    // Leaving invincibility swaps back to the level theme (voices restart).
+    gameAudio.setInvincibilityMusic(false, "overworld");
+    expect(FakeAudioContext.createdOscillators.length).toBeGreaterThan(
+      afterStar,
+    );
+  });
+
+  it("does not switch to the star theme when music is not playing", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+
+    const gameAudio = new GameAudio();
+    gameAudio.setInvincibilityMusic(true, "overworld");
+
+    expect(FakeAudioContext.createdOscillators).toHaveLength(0);
+  });
+
+  it("plays a takeover jingle that silences the looping background", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("overworld");
+    gameAudio.playJingle("level-clear");
+
+    const afterJingleStart = FakeAudioContext.createdOscillators.length;
+    // The looping voices were stopped, so advancing time schedules only the
+    // finite jingle notes — never an endless stream of new loop oscillators.
+    vi.advanceTimersByTime(20000);
+    const afterAdvance = FakeAudioContext.createdOscillators.length;
+    expect(afterAdvance).toBeGreaterThanOrEqual(afterJingleStart);
+    vi.advanceTimersByTime(20000);
+    expect(FakeAudioContext.createdOscillators).toHaveLength(afterAdvance);
+  });
+
+  it("speeds up the looping theme when the tempo scale is raised", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("overworld");
+    gameAudio.setMusicTempoScale(2);
+
+    // Doubling the tempo halves the note interval, so more notes are scheduled
+    // within a fixed window than at normal speed.
+    const before = FakeAudioContext.createdOscillators.length;
+    vi.advanceTimersByTime(1000);
+    const fast = FakeAudioContext.createdOscillators.length - before;
+
+    gameAudio.stopBackgroundMusic();
+    FakeAudioContext.createdOscillators = [];
+    gameAudio.startBackgroundMusic("overworld");
+    const baseline = FakeAudioContext.createdOscillators.length;
+    vi.advanceTimersByTime(1000);
+    const normal = FakeAudioContext.createdOscillators.length - baseline;
+
+    expect(fast).toBeGreaterThan(normal);
+  });
 });

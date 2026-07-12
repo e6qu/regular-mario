@@ -15,6 +15,8 @@ export enum SoundEvent {
   LevelComplete = "level-complete",
   HeadBonk = "head-bonk",
   EnemyShot = "enemy-shot",
+  Firework = "firework",
+  TimeTick = "time-tick",
 }
 
 function isFreshHeadBonk(

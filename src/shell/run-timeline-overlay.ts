@@ -90,6 +90,21 @@ function makeTimelineOverlayStyle(): HTMLStyleElement {
 @media (prefers-reduced-motion: reduce) {
   .tl-glisten, .tl-glisten-text { animation: none; }
 }
+/* Short-viewport (mobile-landscape) compaction so the end-of-run replay bar
+   fits without covering the whole screen: smaller padding, a shorter filmstrip,
+   and a smaller complete banner. */
+@media (max-height: 540px) {
+  .tl-overlay { padding: 6px 10px 8px !important; }
+  .tl-overlay .tl-heading { margin-bottom: 4px !important; gap: 6px !important; }
+  .tl-overlay .tl-track { height: 52px !important; }
+  .tl-overlay .tl-complete-banner { font-size: 14px !important; margin: 1px 0 5px !important; gap: 8px !important; }
+  .tl-overlay .tl-press-n { font-size: 11px !important; }
+  .tl-overlay button { padding: 4px 7px !important; font-size: 11px !important; }
+  /* The control buttons don't fit in one row on a narrow phone; let them wrap
+     to their own full-width rows (so Retry/Menu stay reachable) rather than
+     overflowing off-screen. */
+  .tl-overlay .tl-controls { margin-left: 0 !important; width: 100%; gap: 5px !important; justify-content: flex-start; }
+}
 `;
   return style;
 }
@@ -125,10 +140,12 @@ export class RunTimelineOverlay {
     private readonly callbacks: RunTimelineCallbacks,
   ) {
     this.root = document.createElement("div");
+    this.root.classList.add("tl-overlay");
     this.applyRootStyle();
     this.root.append(makeTimelineOverlayStyle());
 
     const heading = document.createElement("div");
+    heading.classList.add("tl-heading");
     heading.style.cssText =
       "display:flex;align-items:center;gap:12px;margin-bottom:8px;font:600 13px/1.2 monospace;color:#e5e7eb;flex-wrap:wrap;";
     this.title = document.createElement("span");
@@ -149,6 +166,7 @@ export class RunTimelineOverlay {
     // A celebratory, glistening banner shown only on a level-complete pause,
     // making the end-of-level bar prominent and advertising the N shortcut.
     this.completeBanner = document.createElement("div");
+    this.completeBanner.classList.add("tl-complete-banner");
     this.completeBanner.style.cssText =
       "display:none;align-items:center;gap:14px;margin:2px 0 10px;flex-wrap:wrap;" +
       "font:800 20px/1.2 monospace;letter-spacing:1px;";
@@ -158,6 +176,7 @@ export class RunTimelineOverlay {
     this.root.append(this.completeBanner);
 
     this.track = document.createElement("div");
+    this.track.classList.add("tl-track");
     this.track.style.cssText =
       "position:relative;height:84px;border-radius:6px;overflow:hidden;cursor:pointer;background:#0b0f19;border:1px solid #374151;";
 
@@ -274,8 +293,9 @@ export class RunTimelineOverlay {
 
   private makeControls(): HTMLDivElement {
     const controls = document.createElement("div");
+    controls.classList.add("tl-controls");
     controls.style.cssText =
-      "display:flex;align-items:center;gap:6px;margin-left:auto;";
+      "display:flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap;";
 
     this.playButton = this.makeActionButton("▶ Play", "#16a34a", () =>
       this.callbacks.onTogglePlay(),

@@ -22,7 +22,12 @@ import {
 } from "../../engine/simulation/flame-hazards";
 import { computePlatformPlacements } from "../../engine/simulation/platform-state";
 import {
+  coinsPerExtraLife,
+  computeEnemyScore,
   computeTotalScore,
+  fireworksCountForDisplayTime,
+  fireworksScorePerBurst,
+  scorePerTimeBonusDisplayUnit,
   timeBonusFramesPerDisplayUnit,
 } from "../../engine/simulation/game-score";
 import {
@@ -58,10 +63,17 @@ import {
 import { PlayerReactionKind } from "../../engine/simulation/player-reaction";
 import {
   assertValidPlayerVitalityState,
+  isEnlargedPlayerVitalityKind,
+  makeInitialPlayerVitalityState,
   PlayerVitalityKind,
+  type PlayerVitalityState,
 } from "../../engine/simulation/player-vitality";
-import { initialPlayerSimulationStateConfig } from "../../engine/simulation/player-state";
 import {
+  initialPlayerSimulationStateConfig,
+  resizePlayerForVitality,
+} from "../../engine/simulation/player-state";
+import {
+  initialLivesCount,
   makeInitialSimulationStateWithPlayerVitality,
   type SimulationState,
 } from "../../engine/simulation/simulation-state";
@@ -72,6 +84,10 @@ import {
 } from "../../engine/simulation/sound-events";
 import { stepSimulation } from "../../engine/simulation/step-simulation";
 import {
+  makePlayerTileColumnSpan,
+  makePlayerTileRowSpan,
+} from "../../engine/simulation/player-tile-span";
+import {
   PipeEntryPhase,
   teleportPlayerToTilePosition,
 } from "../../engine/simulation/pipe-state";
@@ -79,7 +95,7 @@ import type {
   BrowserGameBootstrap,
   LevelTheme,
 } from "../browser-level-selection";
-import { GameAudio } from "../game-audio";
+import { GameAudio, type DeathSoundKind } from "../game-audio";
 import {
   buildRunExport,
   buildRunZip,
@@ -96,6 +112,7 @@ import type {
   BrowserActorRole,
   BrowserLevelCollisionCounts,
   BrowserLevelCollisionKind,
+  BrowserEnemyContactObservation,
   BrowserPlatformerDebugApi,
   BrowserRenderedActorSnapshot,
   BrowserRenderedActorRole,
@@ -114,6 +131,30 @@ const initialFrameDurationMilliseconds =
 const outcomeFeedbackPositionX = 300;
 const outcomeFeedbackPositionY = 54;
 const scoreTextPositionX = 8;
+// How long a floating "+points" score popup rises and fades.
+const scorePopupFrames = 36;
+// Victory-firework tuning: frames between successive bursts and how long each
+// sparkle lives (the per-burst score lives in game-score).
+const fireworksBurstIntervalFrames = 20;
+const fireworkLifetimeFrames = 26;
+// Below this displayed time the "hurry up!" sting fires and the music speeds up.
+const timeWarningDisplaySeconds = 100;
+const timeWarningTempoScale = 1.35;
+// End-of-level time-bonus countdown: display units drained per frame (a rapid
+// tick), and a short hold at zero before the level advances.
+const timeBonusCountdownUnitsPerFrame = 4;
+const timeBonusCountdownHoldFrames = 24;
+// A stomped Goomba stays squashed on the ground for this many frames before it
+// is removed (the original's flatten-then-vanish), instead of blinking out.
+const stompedGoombaFlattenFrames = 42;
+const stompedGoombaSquashScaleY = 0.45;
+// The "WELCOME TO WARP ZONE!" wall label sits above the tiles but below the HUD.
+const warpBannerDepth = 55;
+// Flow screens: how long the "WORLD w-l" intro card holds the level frozen
+// before play begins. (The starting life count is the engine's
+// initialLivesCount.)
+const worldCardFrames = 120;
+const flowCardDepth = 200;
 const scoreBadgeX = 4;
 const scoreBadgeY = 3;
 const scoreBadgeWidth = 56;
@@ -128,10 +169,38 @@ const flagpoleSlideSpeedPixels = 4;
 // to this baseline so their feet rest on the ground.
 const groundedActorSpriteHeightPixels = 16;
 // Death arc: on a contact death the player pops up then falls off-screen, like
-// the original, instead of freezing in place.
+// the original, instead of freezing in place. This is the "launch" style; the
+// shabby death system dispatches to a cause-specific style below.
 const deathArcPopSpeedPixels = 6;
 const deathArcGravityPixels = 0.35;
 const deathArcOffscreenMarginPixels = 96;
+// The shabby, cause-specific death animation styles: "launch" is the classic
+// pop-and-fall arc; "explode" scatters the player's body into falling pieces
+// (enemy contact); "burn" chars and collapses him into rising smoke (lava/fire);
+// "float" flips him belly-up with X-ed eyes and drifts him to the surface
+// (drowning); "impale" pins him limp on the spikes he fell onto.
+type DeathEffectStyle = "launch" | "explode" | "burn" | "float" | "impale";
+// Explode: each body-sprite piece pops up and flings outward, then falls.
+const deathExplodePopSpeedPixels = 5.5;
+const deathExplodeSpreadSpeedPixels = 2.6;
+const deathExplodeGravityPixels = 0.42;
+const deathExplodeSpinRadiansPerFrame = 0.22;
+// Burn: the body sinks and shrinks to nothing while smoke puffs rise off it.
+const deathBurnSinkSpeedPixels = 0.35;
+const deathBurnSmokeIntervalFrames = 5;
+const deathBurnSmokeRiseSpeedPixels = 0.8;
+const deathBurnSmokeLifeFrames = 44;
+const deathBurnDurationFrames = 90;
+// Float: a drowned drift up to the surface with a gentle side-to-side wobble.
+const deathFloatRiseSpeedPixels = 0.55;
+const deathFloatWobbleAmplitudePixels = 1.4;
+const deathFloatWobbleFramesPerCycle = 40;
+// How long each style animates before the replay/retry menu is allowed to open,
+// so the death plays out on screen first (the launch style instead holds until
+// its arc has fallen off-screen — see deathEffectAnimating).
+const deathExplodeMenuHoldFrames = 72;
+const deathFloatMenuHoldFrames = 90;
+const deathImpaleMenuHoldFrames = 48;
 const playerBodyColor = 0x2563eb;
 const playerCapColor = 0x0d9488;
 const playerSkinColor = 0xfde68a;
@@ -520,7 +589,10 @@ const upKeyCodes = ["ArrowUp"] as const;
 const downKeyCodes = ["ArrowDown"] as const;
 const pauseKeyCodes = ["KeyP"] as const;
 // Capture a low-res timeline thumbnail this often (frames) during live play.
-const runThumbnailIntervalFrames = 30;
+// Filmstrip thumbnails are sampled down to the track width anyway, so a longer
+// capture interval keeps the replay strip full while cutting the per-capture
+// drawImage + encode cost (a periodic frame hitch) to a third as often.
+const runThumbnailIntervalFrames = 90;
 const runThumbnailWidthPixels = 128;
 const runThumbnailHeightPixels = 72;
 
@@ -629,6 +701,45 @@ export class BootScene extends Phaser.Scene {
   private levelIndex: number;
   private levelAdvanceDelayFramesRemaining = 0;
   private levelCompleteSoundPlayed = false;
+  // Event-music latches: the star theme swaps in while invincible, the death
+  // jingle plays once on defeat, and the time-warning sting/speed-up fires once
+  // as the clock drops under the warning threshold.
+  private starMusicActive = false;
+  private deathJinglePlayed = false;
+  private timeWarningTriggered = false;
+  // Flow screens: a "WORLD w-l ×lives" intro card freezes the level briefly on
+  // start/advance; a GAME OVER banner shows when the last life is lost. The
+  // authoritative life count lives in the engine (SimulationState.livesRemaining,
+  // which already folds in 1-Ups, coin thresholds, stomp/shell chains, and the
+  // death decrement). The shell only carries that value across the fresh states
+  // it builds on a level advance or retry, and reads it for display/game-over.
+  private carriedLivesRemaining = initialLivesCount;
+  // Whole-session coin total, carried across the level advances and retries that
+  // rebuild the state (like the life count) so the displayed coins and the
+  // every-100-coins 1-Up persist across levels. Reset only on a new game.
+  private carriedSessionCoinTotal = 0;
+  // Score banked from completed prior levels/attempts this session. The score is
+  // derived per frame from the current SimulationState (which resets each level),
+  // so — like lives and coins — the shell carries the running total across
+  // rebuilds. The displayed score is this base plus the current level's score.
+  // Reset only on a new game. See the "Session-persistent state" section of
+  // docs/terminology.md.
+  private carriedSessionScoreBase = 0;
+  // Time-bonus countdown at a level finish: display units of clock left to
+  // convert to score. Zero means no countdown is running.
+  private timeBonusCountdownUnitsRemaining = 0;
+  // The player's power tier carried into the next level. Finishing or warping
+  // keeps an enlarged tier (Super/Fire); dying resets it to small — as the
+  // original carries power across levels but not across a death.
+  private carriedPlayerVitality: PlayerVitalityState =
+    makeInitialPlayerVitalityState();
+  private levelIntroFramesRemaining = 0;
+  private pendingGameOver = false;
+  private flowCardBackground?: Phaser.GameObjects.Rectangle;
+  private flowCardTitleText?: Phaser.GameObjects.Text;
+  private flowCardSubtitleText?: Phaser.GameObjects.Text;
+  // True once the current level's "WELCOME TO WARP ZONE!" banner has been drawn.
+  private warpZoneBannerShown = false;
   // Flagpole descent: on a goal (flagpole) finish the player slides down the
   // pole to its base before the level advances, like the original.
   private flagpoleSlideActive = false;
@@ -644,6 +755,22 @@ export class BootScene extends Phaser.Scene {
   private deathArcVelocityY = 0;
   private deathArcX = 0;
   private deathArcY = 0;
+  // Shabby death effect: the cause-specific style plus the objects it spawns
+  // (scattering body-sprite pieces, rising smoke) and its progress counter.
+  private deathEffectStyle: DeathEffectStyle = "launch";
+  private deathEffectFrame = 0;
+  private deathPieces: {
+    readonly image: Phaser.GameObjects.Image;
+    vx: number;
+    vy: number;
+    vr: number;
+  }[] = [];
+  private deathSmoke: {
+    readonly image: Phaser.GameObjects.Image;
+    vy: number;
+    life: number;
+  }[] = [];
+  private deathXEyesImage: Phaser.GameObjects.Image | undefined;
   private previousPlayerVertical: VerticalMovementState =
     VerticalMovementState.Grounded;
   private playerRectangle!: Phaser.GameObjects.Rectangle;
@@ -669,11 +796,44 @@ export class BootScene extends Phaser.Scene {
   private playerReactionImage: Phaser.GameObjects.Image | undefined;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
   private readonly exaggeratedReactions: boolean;
+  // Floating "+100" score numbers that rise and fade over a defeated enemy.
+  private scorePopups: {
+    readonly text: Phaser.GameObjects.Text;
+    framesRemaining: number;
+  }[] = [];
+  private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
+  private previousEnemyKillScore = 0;
+  // Per-Goomba flatten countdown: a stomped Goomba renders squashed until this
+  // reaches zero, then it is hidden.
+  private readonly flattenedEnemyTimers = new Map<string, number>();
+  // Cache of collected/defeated entity-id lookup sets, rebuilt only when the
+  // underlying (monotonically-growing) array length changes — the render loop
+  // reads these every frame, so rebuilding each frame is wasted allocation.
+  private readonly entityIdSetCache = new Map<
+    string,
+    { readonly length: number; readonly set: ReadonlySet<string> }
+  >();
+  // Victory fireworks: a shell-timed celebration launched on a flag finish when
+  // the remaining-time ones digit is 1, 3, or 6 (that many bursts, 500 each).
+  private fireworkSprites: {
+    readonly star: Phaser.GameObjects.Star;
+    framesRemaining: number;
+  }[] = [];
+  private fireworksBurstsRemaining = 0;
+  private fireworksNextBurstFrames = 0;
+  private fireworksBurstIndex = 0;
+  private fireworksOriginX = 0;
+  private fireworksBonusScore = 0;
   private scoreBadgeRectangle!: Phaser.GameObjects.Rectangle;
   private scoreGemRectangle!: Phaser.GameObjects.Rectangle;
   private scoreText!: Phaser.GameObjects.Text;
   private gameAudio!: GameAudio;
   private lastSoundEvents: readonly SoundEvent[] = [];
+  // Latched observation of the frame an enemy was first contacted this level, so
+  // browser tests can read that one-frame event without racing the live frame.
+  private lastEnemyContactObservation:
+    | BrowserEnemyContactObservation
+    | undefined;
   private backgroundMusicStarted = false;
   // The set of currently-held key codes, maintained from the window key
   // listeners (see leftKeyCodes etc.). Cleared on resume so a key held while the
@@ -799,7 +959,16 @@ export class BootScene extends Phaser.Scene {
     const parent = canvas.parentElement;
     const cssWidth = Math.max(1, parent?.clientWidth ?? window.innerWidth);
     const cssHeight = Math.max(1, parent?.clientHeight ?? window.innerHeight);
-    const pixelRatio = Math.min(Math.max(window.devicePixelRatio || 1, 1), 3);
+    // The Canvas-2D renderer fills the whole backing store in software every
+    // frame, so its cost scales with pixelRatio². On phones (coarse pointer,
+    // often DPR 3) that native-resolution fill is the main stutter source, and
+    // blocky pixel art gains little past 2×, so cap the ratio there.
+    const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+    const maxPixelRatio = isCoarsePointer ? 2 : 3;
+    const pixelRatio = Math.min(
+      Math.max(window.devicePixelRatio || 1, 1),
+      maxPixelRatio,
+    );
     this.scale.resize(cssWidth * pixelRatio, cssHeight * pixelRatio);
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
@@ -825,6 +994,9 @@ export class BootScene extends Phaser.Scene {
     this.levelIndex = browserGameBootstrap.levelIndex;
     this.currentMainLevelName = browserGameBootstrap.userLevelVisualName;
     this.activeWorldLevelLabel = browserGameBootstrap.worldLevelLabel;
+    // The first level starts at the bootstrap's tier (usually small); later
+    // levels carry the tier the player finished the prior level with.
+    this.carriedPlayerVitality = browserGameBootstrap.initialPlayerVitality;
     window.addEventListener("keydown", this.handleEarlyStartKey);
   }
 
@@ -905,7 +1077,9 @@ export class BootScene extends Phaser.Scene {
       )
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(70);
+      // Above the WORLD intro card so the start cue reads over the black screen.
+      .setDepth(flowCardDepth + 2);
+    this.createFlowCard();
     this.exitHintText = this.add
       .text(0, 0, `ESC ⤶ ${this.browserGameBootstrap.exitLabel ?? "menu"}`, {
         color: "#e5e7eb",
@@ -1018,9 +1192,63 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Build the (hidden) full-screen flow card used for the "WORLD w-l" intro and
+  // the GAME OVER screen. Pinned to the camera (scrollFactor 0) above everything.
+  private createFlowCard(): void {
+    this.flowCardBackground = this.add
+      .rectangle(0, 0, 10, 10, 0x000000, 1)
+      .setScrollFactor(0)
+      .setDepth(flowCardDepth)
+      .setVisible(false);
+    this.flowCardTitleText = this.add
+      .text(0, 0, "", {
+        color: "#ffffff",
+        fontFamily: "monospace",
+        fontSize: "10px",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(flowCardDepth + 1)
+      .setVisible(false);
+    this.flowCardSubtitleText = this.add
+      .text(0, 0, "", {
+        color: "#ffffff",
+        fontFamily: "monospace",
+        fontSize: "8px",
+        align: "center",
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(flowCardDepth + 1)
+      .setVisible(false);
+  }
+
+  // Show the flow card (positioning/scaling is handled by positionHud, which
+  // runs on every zoom/resize; here we only set the text and reveal it).
+  private showFlowCard(title: string, subtitle: string): void {
+    this.flowCardBackground?.setVisible(true);
+    this.flowCardTitleText?.setText(title).setVisible(true);
+    this.flowCardSubtitleText?.setText(subtitle).setVisible(true);
+  }
+
+  private hideFlowCard(): void {
+    this.flowCardBackground?.setVisible(false);
+    this.flowCardTitleText?.setVisible(false);
+    this.flowCardSubtitleText?.setVisible(false);
+  }
+
+  private currentWorldLabel(): string {
+    return (
+      this.activeWorldLevelLabel ??
+      worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName)
+    );
+  }
+
   private beginPlay(): void {
     this.awaitingStart = false;
     this.startPromptText.setVisible(false);
+    this.hideFlowCard();
   }
 
   // Called by the session manager when this game is suspended into a tab: go
@@ -1282,7 +1510,8 @@ export class BootScene extends Phaser.Scene {
       .setFontSize(feedbackPixels)
       .setScale(crispScale)
       .setPosition(feedback.x, feedback.y);
-    const center = toWorld(width / 2, height / 2);
+    // Sit the start cue below the WORLD card's title/subtitle, not over them.
+    const center = toWorld(width / 2, height * 0.74);
     this.startPromptText
       .setFontSize(feedbackPixels)
       .setScale(crispScale)
@@ -1294,6 +1523,26 @@ export class BootScene extends Phaser.Scene {
       .setFontSize(hintPixels)
       .setScale(crispScale)
       .setPosition(hint.x, hint.y);
+
+    // The full-screen flow card: a black backdrop covering the viewport with a
+    // large centered title and a smaller subtitle below it.
+    const cardCenter = toWorld(width / 2, height / 2);
+    this.flowCardBackground
+      ?.setSize(width, height)
+      .setScale(crispScale)
+      .setPosition(cardCenter.x, cardCenter.y);
+    const titlePixels = Math.max(16, Math.round(height * 0.06));
+    const titleAt = toWorld(width / 2, height * 0.42);
+    this.flowCardTitleText
+      ?.setFontSize(titlePixels)
+      .setScale(crispScale)
+      .setPosition(titleAt.x, titleAt.y);
+    const subtitlePixels = Math.max(12, Math.round(height * 0.04));
+    const subtitleAt = toWorld(width / 2, height * 0.56);
+    this.flowCardSubtitleText
+      ?.setFontSize(subtitlePixels)
+      .setScale(crispScale)
+      .setPosition(subtitleAt.x, subtitleAt.y);
   }
 
   private buildLevelObjects(): void {
@@ -1304,9 +1553,11 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(activeThemePalette.sky);
     const currentLevelInput = this.resolveCurrentLevelInput();
     this.levelSpec = makeRequiredLevelSpec(currentLevelInput);
-    this.simulationState = makeRequiredInitialSimulationState(
-      this.levelSpec,
-      this.browserGameBootstrap,
+    this.simulationState = this.seedCarriedSessionTotals(
+      makeRequiredInitialSimulationState(
+        this.levelSpec,
+        this.browserGameBootstrap,
+      ),
     );
     this.resetRun();
 
@@ -1347,6 +1598,7 @@ export class BootScene extends Phaser.Scene {
     );
     this.renderedActors = renderedActorSummary.actors;
     this.renderedActorRoleCounts = renderedActorSummary.roleCounts;
+    this.renderWarpZoneBanner();
 
     this.levelRenderedObjects = this.children.list.filter(
       (child) => !childrenBefore.has(child),
@@ -1354,6 +1606,10 @@ export class BootScene extends Phaser.Scene {
 
     this.levelAdvanceDelayFramesRemaining = 0;
     this.levelCompleteSoundPlayed = false;
+    this.starMusicActive = false;
+    this.deathJinglePlayed = false;
+    this.timeWarningTriggered = false;
+    this.timeBonusCountdownUnitsRemaining = 0;
     this.bringPlayerObjectsToTop();
   }
 
@@ -1424,9 +1680,15 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
+    // Bank the finished level's score and carry the player's power tier before
+    // its state is rebuilt away.
+    this.bankCurrentLevelScore();
+    this.carriedPlayerVitality = this.tierToCarryForward();
     this.levelIndex = nextIndex;
     this.destroyLevelObjects();
     this.buildLevelObjects();
+    // Present the next level behind a "WORLD w-l" card before it plays.
+    this.levelIntroFramesRemaining = worldCardFrames;
     configureMainCamera(
       this.cameras.main,
       this.levelSpec,
@@ -1630,6 +1892,187 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Render the SMB "WELCOME TO WARP ZONE!" wall label when the level is a warp
+  // zone — a level holding two or more pipes that jump to different worlds'
+  // starts. The label is world-space, so it scrolls into view with the pipes.
+  private renderWarpZoneBanner(): void {
+    this.warpZoneBannerShown = false;
+    const warpPipes = this.levelSpec.actors.filter(
+      (actor) =>
+        actor.targetLevelName !== undefined &&
+        actor.targetTilePosition !== undefined &&
+        /^smb-\d+-\d+$/.test(actor.targetLevelName) &&
+        actor.targetTilePosition.x <= mainLevelStartTileX,
+    );
+    const distinctTargets = new Set(
+      warpPipes.map((pipe) => pipe.targetLevelName),
+    );
+    if (distinctTargets.size < 2) {
+      return;
+    }
+
+    const size = this.levelSpec.tileSizePixels;
+    const pipeTileXs = warpPipes.map((pipe) => pipe.position.x);
+    const centerTileX = (Math.min(...pipeTileXs) + Math.max(...pipeTileXs)) / 2;
+    // Float the label a few rows above the tallest warp pipe, like the wall
+    // text over the original's warp-zone pipes.
+    const topPipeTileY = Math.min(...warpPipes.map((pipe) => pipe.position.y));
+    const bannerTileY = Math.max(0, topPipeTileY - 3);
+    this.add
+      .text(
+        centerTileX * size + size / 2,
+        bannerTileY * size,
+        "WELCOME TO WARP ZONE!",
+        {
+          color: "#ffffff",
+          fontFamily: "monospace",
+          fontSize: "8px",
+          align: "center",
+        },
+      )
+      .setOrigin(0.5)
+      .setDepth(warpBannerDepth);
+    this.warpZoneBannerShown = true;
+  }
+
+  // Per-frame event music: swap in the star theme while invincible, sound the
+  // death jingle once on defeat, and fire the time-warning sting + speed-up as
+  // the clock runs low.
+  // Haptic feedback for the frame's sound events: a light tap on landing, a
+  // double thud on a head-bonk, and a longer rumble on death (touch devices).
+  private stepHaptics(events: readonly SoundEvent[]): void {
+    if (events.includes(SoundEvent.Defeat)) {
+      vibrateHaptic(deathHapticPattern);
+    } else if (events.includes(SoundEvent.HeadBonk)) {
+      vibrateHaptic(headBonkHapticPattern);
+    } else if (events.includes(SoundEvent.Land)) {
+      vibrateHaptic(landHapticMilliseconds);
+    }
+  }
+
+  private stepEventMusic(): void {
+    const invincible =
+      this.simulationState.playerInvincibility.remainingFrames > 0;
+    if (invincible !== this.starMusicActive) {
+      this.starMusicActive = invincible;
+      this.gameAudio.setInvincibilityMusic(invincible, this.currentTheme);
+    }
+
+    // The engine owns the life count (1-Ups, coin thresholds, stomp/shell
+    // chains, and the on-death decrement are all folded into
+    // SimulationState.livesRemaining); carry it so the next rebuilt state and
+    // the flow-card display stay in sync.
+    this.carriedLivesRemaining = this.simulationState.livesRemaining;
+    // Carry the whole-session coin total (prior-level base + this level's coins)
+    // so it persists across the next rebuild, as in the original.
+    this.carriedSessionCoinTotal =
+      this.simulationState.sessionCoinBase +
+      this.simulationState.collectibles.collectedCoinEntityIds.length;
+
+    if (
+      !this.deathJinglePlayed &&
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated
+    ) {
+      this.deathJinglePlayed = true;
+      // The engine has already decremented the life on this defeat frame.
+      if (this.simulationState.livesRemaining <= 0) {
+        // Out of lives: the game-over jingle and screen; a retry starts anew.
+        this.pendingGameOver = true;
+        this.gameAudio.playJingle("game-over");
+        this.showFlowCard("GAME OVER", "");
+      } else {
+        this.gameAudio.playJingle("death");
+      }
+    }
+
+    const remainingFrames = this.simulationState.levelTimer.remainingFrames;
+    if (
+      !this.timeWarningTriggered &&
+      remainingFrames !== undefined &&
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Active &&
+      Math.floor(remainingFrames / timeBonusFramesPerDisplayUnit) <
+        timeWarningDisplaySeconds
+    ) {
+      this.timeWarningTriggered = true;
+      this.gameAudio.playJingle("time-warning");
+      this.gameAudio.setMusicTempoScale(timeWarningTempoScale);
+    }
+  }
+
+  // On a flag finish, the remaining-time ones digit of 1/3/6 triggers that many
+  // firework bursts (500 points each), staged over the level-advance delay.
+  private beginVictoryFireworks(): void {
+    const remainingFrames = this.simulationState.levelTimer.remainingFrames;
+    if (remainingFrames === undefined) {
+      return;
+    }
+    const displayTime = Math.floor(
+      remainingFrames / timeBonusFramesPerDisplayUnit,
+    );
+    const count = fireworksCountForDisplayTime(displayTime);
+    if (count === 0) {
+      return;
+    }
+    this.fireworksBurstsRemaining = count;
+    this.fireworksBurstIndex = 0;
+    this.fireworksNextBurstFrames = fireworksBurstIntervalFrames;
+    this.fireworksOriginX =
+      this.playerRectangle.x + this.simulationState.player.collider.width / 2;
+    // Keep the level open until every burst has launched and its sparkle faded.
+    const fireworksTotalFrames =
+      count * fireworksBurstIntervalFrames + fireworkLifetimeFrames;
+    this.levelAdvanceDelayFramesRemaining = Math.max(
+      this.levelAdvanceDelayFramesRemaining,
+      fireworksTotalFrames,
+    );
+  }
+
+  private stepVictoryFireworks(): void {
+    // Age live sparkles: expand outward and fade, dropping the spent ones.
+    this.fireworkSprites = this.fireworkSprites.filter((firework) => {
+      firework.framesRemaining -= 1;
+      if (firework.framesRemaining <= 0) {
+        firework.star.destroy();
+        return false;
+      }
+      const life = firework.framesRemaining / fireworkLifetimeFrames;
+      firework.star.setScale(1 + (1 - life) * 1.6);
+      firework.star.setAlpha(life);
+      return true;
+    });
+
+    if (this.fireworksBurstsRemaining <= 0) {
+      return;
+    }
+    this.fireworksNextBurstFrames -= 1;
+    if (this.fireworksNextBurstFrames > 0) {
+      return;
+    }
+
+    this.fireworksNextBurstFrames = fireworksBurstIntervalFrames;
+    this.launchFireworkBurst(this.fireworksBurstIndex);
+    this.fireworksBurstIndex += 1;
+    this.fireworksBurstsRemaining -= 1;
+    this.fireworksBonusScore += fireworksScorePerBurst as number;
+    this.gameAudio.playEvents([SoundEvent.Firework]);
+  }
+
+  private launchFireworkBurst(index: number): void {
+    // Alternate bursts left/right of the finish column, drifting up the sky, so
+    // the spread reads like the original's scattered explosions.
+    const rank = Math.floor(index / 2) + 1;
+    const offsetX = (index % 2 === 0 ? 1 : -1) * rank * 22;
+    const x = this.fireworksOriginX + offsetX;
+    const y = 34 + (index % 3) * 20;
+    const burstColors = [0xfff060, 0xff6a6a, 0x66c0ff];
+    const color = burstColors[index % burstColors.length] ?? 0xffffff;
+    const star = this.add.star(x, y, 8, 2, 7, color).setDepth(131).setAlpha(1);
+    this.fireworkSprites.push({
+      star,
+      framesRemaining: fireworkLifetimeFrames,
+    });
+  }
+
   // Crown the flagpole column with a ball and a triangular flag that drops on a
   // finish. The pole segments themselves are drawn per-tile (renderFlagpole
   // Segment); this adds the one-per-column furniture and remembers the flag.
@@ -1716,10 +2159,83 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // On a contact death (touching an enemy/hazard while small), pop the player up
-  // and let it fall off-screen in an arc — the original's death animation. Pit
-  // and time-up deaths already read as a fall / freeze, so they skip the arc.
-  private maybeBeginDeathArc(): void {
+  // Does the player's tile span currently overlap a tile with this id? Used to
+  // tell a spike (thorn) death from a lava/fire one, since both are Hazard tiles
+  // and the defeat reason alone does not name the tile.
+  private playerOverlapsTileId(tileId: string): boolean {
+    const columnSpan = makePlayerTileColumnSpan(
+      this.simulationState.player,
+      this.levelSpec.tileSizePixels,
+    );
+    const rowSpan = makePlayerTileRowSpan(
+      this.simulationState.player,
+      this.levelSpec.tileSizePixels,
+    );
+    for (let row = rowSpan.start; row <= rowSpan.end; row += 1) {
+      const tiles = this.levelSpec.tiles[row];
+      if (tiles === undefined) {
+        continue;
+      }
+      for (
+        let column = columnSpan.start;
+        column <= columnSpan.end;
+        column += 1
+      ) {
+        if (tiles[column] === tileId) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // Which shabby death animation fits the cause: drowning in water, impaling on
+  // spikes, burning on lava/fire, or bursting from an enemy hit. Anything else
+  // (a plain hazard) falls back to the classic pop-and-fall launch.
+  private resolveDeathEffectStyle(
+    reason: PlayerDefeatReason,
+  ): DeathEffectStyle {
+    if (this.currentTheme === "water") {
+      return "float";
+    }
+    if (
+      (reason === PlayerDefeatReason.HazardContact ||
+        reason === PlayerDefeatReason.HazardAndEnemyContact) &&
+      this.playerOverlapsTileId("thorn")
+    ) {
+      return "impale";
+    }
+    if (
+      reason === PlayerDefeatReason.HazardContact ||
+      reason === PlayerDefeatReason.HazardAndEnemyContact
+    ) {
+      return "burn";
+    }
+    if (reason === PlayerDefeatReason.EnemyContact) {
+      return "explode";
+    }
+    return "launch";
+  }
+
+  // The cartoony death sound matched to the animation style.
+  private deathSoundForStyle(style: DeathEffectStyle): DeathSoundKind {
+    switch (style) {
+      case "float":
+        return "drown";
+      case "burn":
+        return "burn";
+      case "impale":
+        return "impale";
+      case "explode":
+      case "launch":
+        return "splat";
+    }
+  }
+
+  // On a contact death, kick off the cause-specific shabby death animation:
+  // explode / burn / drown-float / impale, or the classic launch arc. Pit and
+  // time-up deaths already read as a fall / freeze, so they get no effect.
+  private maybeBeginDeathEffect(): void {
     if (this.deathArcStarted) {
       return;
     }
@@ -1733,19 +2249,271 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     this.deathArcStarted = true;
-    this.deathArcActive = true;
-    this.deathArcVelocityY = -deathArcPopSpeedPixels;
+    this.deathEffectFrame = 0;
     this.deathArcX = this.playerRectangle.x;
     this.deathArcY = this.playerRectangle.y;
-    // Freeze the camera so the player visibly arcs up and off-screen instead of
-    // the camera following it and masking the motion.
+    const style = this.resolveDeathEffectStyle(outcome.reason);
+    this.deathEffectStyle = style;
+    // A cartoony, exaggerated death yelp keyed to the cause.
+    this.gameAudio.playDeathSound(this.deathSoundForStyle(style));
+    // Freeze the camera so the death plays out in place instead of the camera
+    // following the launched/floating body and masking the motion.
     this.cameras.main.stopFollow();
+    if (style === "explode") {
+      this.beginExplodeEffect();
+    } else if (style === "float") {
+      this.beginFloatEffect();
+    } else if (style === "launch") {
+      this.deathArcActive = true;
+      this.deathArcVelocityY = -deathArcPopSpeedPixels;
+    }
+    // "burn" and "impale" need no launch velocity — they play where he fell.
   }
 
-  private stepDeathArc(): void {
+  // Explode: hide the whole-body sprite and spawn four quadrant crops of it that
+  // pop up, fling apart, spin, and fall under gravity — his body coming apart.
+  private beginExplodeEffect(): void {
+    const playerImage = this.userAssetBundle?.playerImage;
+    if (playerImage === undefined) {
+      // No authored player sprite to cut apart: fall back to the launch arc so
+      // there is still a death animation (never a procedural stand-in body).
+      this.deathEffectStyle = "launch";
+      this.deathArcActive = true;
+      this.deathArcVelocityY = -deathArcPopSpeedPixels;
+      return;
+    }
+    const source = resolveFirstStatefulImage(playerImage, [
+      "small-idle",
+      "idle",
+    ]);
+    const width = this.simulationState.player.collider.width;
+    const height = this.simulationState.player.collider.height;
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setVisible(false);
+    }
+    this.setPlayerBodyRectanglesVisible(false);
+    for (let quadrantY = 0; quadrantY < 2; quadrantY += 1) {
+      for (let quadrantX = 0; quadrantX < 2; quadrantX += 1) {
+        const piece = this.makeCropPiece(
+          source,
+          quadrantX,
+          quadrantY,
+          halfWidth,
+          halfHeight,
+        );
+        const centerBiasX = quadrantX === 0 ? -1 : 1;
+        piece.setPosition(
+          this.deathArcX + quadrantX * halfWidth + halfWidth / 2,
+          this.deathArcY + quadrantY * halfHeight + halfHeight / 2,
+        );
+        this.deathPieces.push({
+          image: piece,
+          vx: centerBiasX * deathExplodeSpreadSpeedPixels,
+          vy: -deathExplodePopSpeedPixels + quadrantY * 1.2,
+          vr: centerBiasX * deathExplodeSpinRadiansPerFrame,
+        });
+      }
+    }
+  }
+
+  // Build one quadrant crop of the authored player frame as an independent
+  // image, so the exploding pieces are real cuts of his body, not stand-ins.
+  private makeCropPiece(
+    source: LoadedImageAsset,
+    quadrantX: number,
+    quadrantY: number,
+    displayWidth: number,
+    displayHeight: number,
+  ): Phaser.GameObjects.Image {
+    const key = registerUserImageTexture(this, source);
+    const cropWidth = source.frame.width / 2;
+    const cropHeight = source.frame.height / 2;
+    return this.add
+      .image(0, 0, key)
+      .setOrigin(0.5)
+      .setCrop(
+        source.frame.x + quadrantX * cropWidth,
+        source.frame.y + quadrantY * cropHeight,
+        cropWidth,
+        cropHeight,
+      )
+      .setDisplaySize(displayWidth, displayHeight)
+      .setDepth(60);
+  }
+
+  // Float: flip the body belly-up, lay an authored X-ed-eyes overlay over the
+  // face, and drift him up toward the surface — the drowned dead-fish read.
+  private beginFloatEffect(): void {
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setFlipY(true);
+    }
+    const eyesAsset =
+      this.userAssetBundle?.reactionImages.get("player-dead-eyes");
+    if (eyesAsset !== undefined) {
+      this.deathXEyesImage = addUserFrameImage(this, 0, 0, eyesAsset);
+      this.deathXEyesImage
+        .setOrigin(0)
+        .setFlipY(true)
+        .setDepth(61)
+        .setVisible(true);
+    }
+  }
+
+  private setPlayerBodyRectanglesVisible(visible: boolean): void {
+    this.playerRectangle.setVisible(visible);
+    this.playerFaceRectangle.setVisible(visible);
+    this.playerScarfRectangle.setVisible(visible);
+    this.playerCapRectangle.setVisible(visible);
+    this.playerHeadRectangle.setVisible(visible);
+    this.playerLeftBootRectangle.setVisible(visible);
+    this.playerRightBootRectangle.setVisible(visible);
+  }
+
+  private stepDeathEffect(): void {
     if (!this.deathArcStarted) {
       return;
     }
+    this.deathEffectFrame += 1;
+    switch (this.deathEffectStyle) {
+      case "explode":
+        this.stepExplodeEffect();
+        return;
+      case "burn":
+        this.stepBurnEffect();
+        return;
+      case "float":
+        this.stepFloatEffect();
+        return;
+      case "impale":
+        this.stepImpaleEffect();
+        return;
+      case "launch":
+        this.stepLaunchEffect();
+        return;
+    }
+  }
+
+  private stepExplodeEffect(): void {
+    for (const piece of this.deathPieces) {
+      piece.vy += deathExplodeGravityPixels;
+      piece.image.x += piece.vx;
+      piece.image.y += piece.vy;
+      piece.image.rotation += piece.vr;
+    }
+  }
+
+  private stepBurnEffect(): void {
+    // Sink and shrink the charred body toward nothing while smoke puffs peel off
+    // it and rise. Hold the dead pose so it is not the frozen run frame.
+    this.deathArcY += deathBurnSinkSpeedPixels;
+    this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
+    this.holdDeadPose();
+    const burnProgress = Math.min(
+      1,
+      this.deathEffectFrame / deathBurnDurationFrames,
+    );
+    const scale = Math.max(0, 1 - burnProgress);
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject
+        .setTint(0x3a2a20)
+        .setDisplaySize(
+          this.simulationState.player.collider.width * scale,
+          this.simulationState.player.collider.height * scale,
+        );
+    }
+    this.setPlayerBodyRectanglesVisible(false);
+    if (
+      this.deathEffectFrame % deathBurnSmokeIntervalFrames === 0 &&
+      this.deathEffectFrame <= deathBurnDurationFrames
+    ) {
+      this.spawnSmokePuff();
+    }
+    this.stepSmoke();
+  }
+
+  private spawnSmokePuff(): void {
+    const smokeAsset = this.userAssetBundle?.reactionImages.get("smoke-puff");
+    if (smokeAsset === undefined) {
+      return;
+    }
+    const image = addUserFrameImage(this, 0, 0, smokeAsset);
+    const jitter = ((this.deathEffectFrame * 7) % 9) - 4;
+    image
+      .setOrigin(0.5)
+      .setPosition(
+        this.deathArcX +
+          this.simulationState.player.collider.width / 2 +
+          jitter,
+        this.deathArcY,
+      )
+      .setDepth(62)
+      .setVisible(true);
+    this.deathSmoke.push({
+      image,
+      vy: -deathBurnSmokeRiseSpeedPixels,
+      life: 0,
+    });
+  }
+
+  private stepSmoke(): void {
+    for (const puff of this.deathSmoke) {
+      puff.life += 1;
+      puff.image.y += puff.vy;
+      const fade = Math.max(0, 1 - puff.life / deathBurnSmokeLifeFrames);
+      puff.image
+        .setAlpha(fade)
+        .setScale(1 + puff.life / deathBurnSmokeLifeFrames);
+    }
+    this.deathSmoke = this.deathSmoke.filter((puff) => {
+      if (puff.life >= deathBurnSmokeLifeFrames) {
+        puff.image.destroy();
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private stepFloatEffect(): void {
+    // Drift up to (but not through) the surface with a gentle wobble.
+    const surfaceY = this.simulationState.player.collider.height;
+    if (this.deathArcY > surfaceY) {
+      this.deathArcY -= deathFloatRiseSpeedPixels;
+    }
+    const wobble =
+      Math.sin(
+        (this.deathEffectFrame / deathFloatWobbleFramesPerCycle) * Math.PI * 2,
+      ) * deathFloatWobbleAmplitudePixels;
+    this.positionPlayerSpriteAt(this.deathArcX + wobble, this.deathArcY);
+    this.holdDeadPose();
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setFlipY(true);
+    }
+    if (this.deathXEyesImage !== undefined) {
+      this.deathXEyesImage.setPosition(this.deathArcX + wobble, this.deathArcY);
+    }
+  }
+
+  private stepImpaleEffect(): void {
+    // Pin the limp body where he fell onto the spikes; lay the X-ed-eyes overlay
+    // over his face so he reads as dead-on-the-spikes, not merely standing.
+    this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
+    this.holdDeadPose();
+    if (this.deathXEyesImage === undefined) {
+      const eyesAsset =
+        this.userAssetBundle?.reactionImages.get("player-dead-eyes");
+      if (eyesAsset !== undefined) {
+        this.deathXEyesImage = addUserFrameImage(this, 0, 0, eyesAsset);
+        this.deathXEyesImage.setOrigin(0).setDepth(61).setVisible(true);
+      }
+    }
+    if (this.deathXEyesImage !== undefined) {
+      this.deathXEyesImage.setPosition(this.deathArcX, this.deathArcY);
+    }
+  }
+
+  private stepLaunchEffect(): void {
     // Advance the arc while it is still on/near screen; once it has fallen off
     // the bottom, stop advancing but keep the player pinned there so the normal
     // render does not snap the dead player back onto the ground.
@@ -1761,8 +2529,35 @@ export class BootScene extends Phaser.Scene {
       }
     }
     this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
-    // Hold a neutral death pose (the original's dying Mario uses the small idle
-    // frame) instead of the frozen walk/run frame the normal render leaves.
+    this.holdDeadPose();
+  }
+
+  // Tear down any in-flight death effect and restore the player sprite so a
+  // retry / next level starts from a clean, upright, visible body.
+  private clearDeathEffect(): void {
+    for (const piece of this.deathPieces) {
+      piece.image.destroy();
+    }
+    this.deathPieces = [];
+    for (const puff of this.deathSmoke) {
+      puff.image.destroy();
+    }
+    this.deathSmoke = [];
+    if (this.deathXEyesImage !== undefined) {
+      this.deathXEyesImage.destroy();
+      this.deathXEyesImage = undefined;
+    }
+    this.deathEffectStyle = "launch";
+    this.deathEffectFrame = 0;
+    this.setPlayerBodyRectanglesVisible(true);
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setVisible(true).setFlipY(false).clearTint();
+    }
+  }
+
+  // Hold a neutral death pose (the original's dying Mario uses the small idle
+  // frame) instead of the frozen walk/run frame the normal render leaves.
+  private holdDeadPose(): void {
     if (
       this.playerImageObject !== undefined &&
       this.userAssetBundle?.playerImage !== undefined
@@ -1808,8 +2603,12 @@ export class BootScene extends Phaser.Scene {
     this.exitRequested = false;
 
     // Hold on the first frame (prompt shown) until the player presses a key or
-    // taps a touch control.
+    // taps a touch control. The WORLD card sits behind the prompt.
     if (this.awaitingStart) {
+      this.showFlowCard(
+        `WORLD ${this.currentWorldLabel()}`,
+        `MARIO \xD7 ${String(this.simulationState.livesRemaining)}`,
+      );
       // Poll the keys each frame too, so a key held down before the keydown
       // listener was ready (async skin load) still starts the run — not just a
       // touch tap or a well-timed keypress.
@@ -1824,6 +2623,20 @@ export class BootScene extends Phaser.Scene {
       if (this.touchStartRequested || anyStartKeyDown) {
         this.touchStartRequested = false;
         this.beginPlay();
+      }
+      return;
+    }
+
+    // A "WORLD w-l" intro card freezes each level briefly before play (the
+    // first level's hold is the press-any-key gate above, so it starts spent).
+    if (this.levelIntroFramesRemaining > 0) {
+      this.showFlowCard(
+        `WORLD ${this.currentWorldLabel()}`,
+        `MARIO \xD7 ${String(this.simulationState.livesRemaining)}`,
+      );
+      this.levelIntroFramesRemaining -= 1;
+      if (this.levelIntroFramesRemaining === 0) {
+        this.hideFlowCard();
       }
       return;
     }
@@ -1859,6 +2672,8 @@ export class BootScene extends Phaser.Scene {
       this.levelAdvanceDelayFramesRemaining -= 1;
       this.stepFlagpoleSlide();
       this.stepCastleClearCinematic();
+      this.stepVictoryFireworks();
+      this.stepTimeBonusCountdown();
 
       if (this.levelAdvanceDelayFramesRemaining === 0) {
         this.advanceToNextLevel();
@@ -1888,6 +2703,7 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
     );
     this.runRecorder.record(inputCommand, this.simulationState);
+    this.latchEnemyContactObservation();
     this.lastSoundEvents = resolveSoundEvents(
       previousSimulationState,
       this.simulationState,
@@ -1897,16 +2713,18 @@ export class BootScene extends Phaser.Scene {
     // the level then advances is decided when the delay elapses (a last level
     // just stays finished and offers a retry).
     if (!this.levelCompleteSoundPlayed && this.hasFinishedOutcome()) {
-      this.lastSoundEvents = [
-        ...this.lastSoundEvents,
-        SoundEvent.LevelComplete,
-      ];
       this.levelCompleteSoundPlayed = true;
       this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
       this.beginFlagpoleSlide();
+      this.beginVictoryFireworks();
+      this.beginTimeBonusCountdown();
+      // The flagpole grab takes over the music with the fanfare; a castle end
+      // (an axe, not a pole) plays the grander world-clear victory theme.
+      const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
+      this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
       // A castle ends at the axe: stage the bridge chop, the boss's fall and
       // the rescue message before the finish overlay appears.
-      if (this.castleBridgeTilesByColumn.size > 0) {
+      if (isCastleClear) {
         this.castleClearTotalFrames =
           this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
           castleClearFallFrames;
@@ -1915,7 +2733,13 @@ export class BootScene extends Phaser.Scene {
       }
     }
 
+    this.stepEventMusic();
+    this.stepHaptics(this.lastSoundEvents);
     this.gameAudio.playEvents(this.lastSoundEvents);
+    // A pained, cartoony "ouch" layered over the head-bonk thud.
+    if (this.lastSoundEvents.includes(SoundEvent.HeadBonk)) {
+      this.gameAudio.playOuch();
+    }
 
     this.renderSimulationState();
 
@@ -1923,8 +2747,8 @@ export class BootScene extends Phaser.Scene {
 
     // Death animation plays over the frozen (defeated) simulation, overriding
     // the player sprite position after the normal render.
-    this.maybeBeginDeathArc();
-    this.stepDeathArc();
+    this.maybeBeginDeathEffect();
+    this.stepDeathEffect();
     this.maybeEnterReplayMenu();
     this.maybeExecuteLevelWarp();
   }
@@ -1967,6 +2791,10 @@ export class BootScene extends Phaser.Scene {
       return; // Unknown target — stay in the current level.
     }
 
+    // Bank the current area's score and carry the power tier before the warp
+    // rebuilds the level.
+    this.bankCurrentLevelScore();
+    this.carriedPlayerVitality = this.tierToCarryForward();
     this.warpedLevelInput = targetInput;
     // A warp landing at another MAIN level's start is a world jump (the warp
     // zones): the run now belongs to that level — retitle the HUD and advance
@@ -2021,8 +2849,156 @@ export class BootScene extends Phaser.Scene {
     this.renderSimulationState();
   }
 
+  // Seed a freshly-built state with the carried session totals (lives and the
+  // coin base). A new state always starts at the engine's initialLivesCount with
+  // no coins; overriding here lets both persist across the level advances and
+  // retries that rebuild the state, as the original carries them through a play
+  // session.
+  private seedCarriedSessionTotals(state: SimulationState): SimulationState {
+    // Resize the freshly-spawned player to match the carried tier (feet-anchored
+    // grow), so a level entered as Super/Fire starts with the correct collider
+    // rather than growing on the first step.
+    return {
+      ...state,
+      player: resizePlayerForVitality(state.player, this.carriedPlayerVitality),
+      livesRemaining: this.carriedLivesRemaining,
+      sessionCoinBase: this.carriedSessionCoinTotal,
+      playerVitality: this.carriedPlayerVitality,
+    };
+  }
+
+  // The tier to carry into the next level: an enlarged tier (Super/Fire) is
+  // kept as-is; small and the transient post-hit recovering state both carry as
+  // small, since the recovering state is tied to the level being left.
+  private tierToCarryForward(): PlayerVitalityState {
+    return isEnlargedPlayerVitalityKind(
+      this.simulationState.playerVitality.kind,
+    )
+      ? this.simulationState.playerVitality
+      : makeInitialPlayerVitalityState();
+  }
+
+  // The score earned in the current level, from the (per-level) SimulationState
+  // plus the shell-tracked firework bonus.
+  private currentLevelScore(): number {
+    return (
+      computeTotalScore(
+        this.simulationState.collectibles,
+        this.simulationState.enemies,
+        this.simulationState.timeBonusScore,
+        this.simulationState.breakableBlockScore,
+        this.simulationState.bulletBillStompScore,
+        this.simulationState.goalHeightScore,
+      ) + this.fireworksBonusScore
+    );
+  }
+
+  // The whole-session score: the base banked from prior levels plus the current
+  // level's score. This is what the HUD and the debug snapshot report.
+  private sessionScore(): number {
+    return this.carriedSessionScoreBase + this.currentLevelScore();
+  }
+
+  // Bank the current level's score into the session base. Called at each
+  // transition that keeps the score (a level advance, a warp, or a retry that is
+  // not a fresh game), before the state is rebuilt and the per-level score is
+  // cleared — so the running total survives across levels, as in the original.
+  private bankCurrentLevelScore(): void {
+    this.carriedSessionScoreBase += this.currentLevelScore();
+  }
+
+  // Set the score/time/coins/world HUD line. Score and remaining-time are passed
+  // in so the end-of-level time-bonus countdown can drive interpolated values;
+  // the coin total and world label always come from the current state.
+  private updateScoreHud(score: number, remainingFrames: number | undefined) {
+    this.scoreText.setText(
+      classicCompatibilityHudText(
+        score,
+        remainingFrames,
+        // The whole-session coin total, wrapped 0–99 as the original's two-digit
+        // display (each rollover past 100 having awarded a 1-Up).
+        (this.simulationState.sessionCoinBase +
+          this.simulationState.collectibles.collectedCoinEntityIds.length) %
+          coinsPerExtraLife,
+        this.activeWorldLevelLabel ??
+          worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
+      ),
+    );
+  }
+
+  // At a flagpole/castle finish the remaining time is converted to score, 50 per
+  // time unit, counting the clock down to zero while the score ticks up — with a
+  // rapid blip per unit, as in the original. Driven each frame of the level-
+  // advance delay by stepTimeBonusCountdown.
+  private beginTimeBonusCountdown(): void {
+    const remainingFrames = this.simulationState.levelTimer.remainingFrames;
+    if (remainingFrames === undefined) {
+      this.timeBonusCountdownUnitsRemaining = 0;
+      return;
+    }
+    this.timeBonusCountdownUnitsRemaining = Math.floor(
+      remainingFrames / timeBonusFramesPerDisplayUnit,
+    );
+    // Ensure the advance delay is long enough for the whole countdown to play.
+    const countdownFrames = Math.ceil(
+      this.timeBonusCountdownUnitsRemaining / timeBonusCountdownUnitsPerFrame,
+    );
+    this.levelAdvanceDelayFramesRemaining = Math.max(
+      this.levelAdvanceDelayFramesRemaining,
+      countdownFrames + timeBonusCountdownHoldFrames,
+    );
+  }
+
+  private stepTimeBonusCountdown(): void {
+    if (this.timeBonusCountdownUnitsRemaining <= 0) {
+      return;
+    }
+    const before = this.timeBonusCountdownUnitsRemaining;
+    this.timeBonusCountdownUnitsRemaining = Math.max(
+      0,
+      this.timeBonusCountdownUnitsRemaining - timeBonusCountdownUnitsPerFrame,
+    );
+    if (this.timeBonusCountdownUnitsRemaining < before) {
+      this.gameAudio.playEvents([SoundEvent.TimeTick]);
+    }
+    // Show the clock draining and the (not-yet-counted) bonus subtracted from the
+    // full session score, so the score ticks up to its final value as time hits 0.
+    const pendingBonus =
+      this.timeBonusCountdownUnitsRemaining * scorePerTimeBonusDisplayUnit;
+    this.updateScoreHud(
+      this.sessionScore() - pendingBonus,
+      this.timeBonusCountdownUnitsRemaining * timeBonusFramesPerDisplayUnit,
+    );
+  }
+
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
+    // A retry after running out of lives starts a fresh game: the full life
+    // count restored and the session coin total and score cleared. A normal
+    // retry keeps the carried (post-death) totals and banks the failed attempt's
+    // score, as the original never resets the score on death. This must precede
+    // the rebuilds below, which seed the new state from these values.
+    if (this.pendingGameOver) {
+      this.carriedLivesRemaining = initialLivesCount;
+      this.carriedSessionCoinTotal = 0;
+      this.carriedSessionScoreBase = 0;
+      this.carriedPlayerVitality =
+        this.browserGameBootstrap.initialPlayerVitality;
+    } else {
+      this.bankCurrentLevelScore();
+    }
+    // Dying costs the power tier — a retry after a death restarts small, as in
+    // the original. A manual retry that is not a death (e.g. restarting after a
+    // non-fatal hit) restarts with the tier the player entered the level with,
+    // so the carried tier is left unchanged. A fresh game already restored the
+    // bootstrap tier above.
+    const retriedFromDeath =
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated ||
+      this.simulationState.playerOutcome.kind ===
+        PlayerOutcomeKind.DefeatedAndFinished;
+    if (!this.pendingGameOver && retriedFromDeath) {
+      this.carriedPlayerVitality = makeInitialPlayerVitalityState();
+    }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint
     // rather than the top — like the original's HalfwayPage respawn.
@@ -2045,9 +3021,11 @@ export class BootScene extends Phaser.Scene {
       );
       this.applyCameraZoom();
     }
-    this.simulationState = makeRequiredInitialSimulationState(
-      this.levelSpec,
-      this.browserGameBootstrap,
+    this.simulationState = this.seedCarriedSessionTotals(
+      makeRequiredInitialSimulationState(
+        this.levelSpec,
+        this.browserGameBootstrap,
+      ),
     );
     if (respawnAtHalfway && this.levelSpec.halfwayTileX !== undefined) {
       // Drop in from the top of the checkpoint column; the landing collision
@@ -2068,6 +3046,11 @@ export class BootScene extends Phaser.Scene {
     this.levelCompleteSoundPlayed = false;
     this.deathArcStarted = false;
     this.deathArcActive = false;
+    this.clearDeathEffect();
+    // Leaving a death/game-over dismisses the flow card (the life count was
+    // already reset above when a game-over was pending).
+    this.hideFlowCard();
+    this.pendingGameOver = false;
     this.cameras.main.startFollow(this.playerRectangle, true, 0.2, 0.12);
     this.resetRun();
     this.exitPause();
@@ -2082,6 +3065,34 @@ export class BootScene extends Phaser.Scene {
     );
     this.runThumbnails = [];
     this.recordedCameraScrolls = [];
+    // Clear any lingering score popups and re-baseline the tracking so a level
+    // rebuild / respawn never fires a spurious burst.
+    for (const popup of this.scorePopups) {
+      popup.text.destroy();
+    }
+    this.scorePopups = [];
+    this.previousDefeatedEnemyIds = new Set();
+    this.previousEnemyKillScore = 0;
+    this.flattenedEnemyTimers.clear();
+    this.entityIdSetCache.clear();
+    this.lastEnemyContactObservation = undefined;
+    for (const firework of this.fireworkSprites) {
+      firework.star.destroy();
+    }
+    this.fireworkSprites = [];
+    this.fireworksBurstsRemaining = 0;
+    this.fireworksNextBurstFrames = 0;
+    this.fireworksBurstIndex = 0;
+    this.fireworksBonusScore = 0;
+    // Re-arm the per-run event-music/flow latches so a retry (which does not
+    // rebuild the level) still swaps star music, plays the death jingle, and
+    // warns on low time. The intro card is set explicitly on a level advance,
+    // so a plain retry clears it (no card).
+    this.starMusicActive = false;
+    this.deathJinglePlayed = false;
+    this.timeWarningTriggered = false;
+    this.timeBonusCountdownUnitsRemaining = 0;
+    this.levelIntroFramesRemaining = 0;
   }
 
   private togglePause(): void {
@@ -2115,6 +3126,14 @@ export class BootScene extends Phaser.Scene {
   private enterPause(byDeath: boolean): void {
     this.paused = true;
     this.pausedByDeath = byDeath;
+    // The death animation has finished playing (the menu waits for it); tear its
+    // pieces/overlays down and restore the player so the paused/replay view and
+    // any scrubbing render the recorded frames cleanly, not the scattered body.
+    if (byDeath && this.deathArcStarted) {
+      this.clearDeathEffect();
+      this.deathArcStarted = false;
+      this.renderSimulationState();
+    }
     this.keysHeldAtPause.clear();
     for (const code of this.keysDown) {
       this.keysHeldAtPause.add(code);
@@ -2228,11 +3247,31 @@ export class BootScene extends Phaser.Scene {
     if (
       this.paused ||
       this.simulationState.playerOutcome.kind !== PlayerOutcomeKind.Defeated ||
-      this.deathArcActive
+      this.deathEffectAnimating()
     ) {
       return;
     }
     this.enterPause(true);
+  }
+
+  // Is the shabby death animation still playing? The replay/retry menu waits for
+  // it so the death is seen before the menu freezes the frame.
+  private deathEffectAnimating(): boolean {
+    if (!this.deathArcStarted) {
+      return false;
+    }
+    switch (this.deathEffectStyle) {
+      case "launch":
+        return this.deathArcActive;
+      case "explode":
+        return this.deathEffectFrame < deathExplodeMenuHoldFrames;
+      case "burn":
+        return this.deathEffectFrame < deathBurnDurationFrames;
+      case "float":
+        return this.deathEffectFrame < deathFloatMenuHoldFrames;
+      case "impale":
+        return this.deathEffectFrame < deathImpaleMenuHoldFrames;
+    }
   }
 
   private maybeCaptureThumbnail(): void {
@@ -2427,6 +3466,113 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Classic SMB feel: a small score number rises and fades over each enemy
+  // defeated this frame, showing the points gained (attributed to the new
+  // kills). Coins/blocks/time don't get one, as in the original.
+  // Decide whether a (possibly defeated) enemy sprite should render this frame.
+  // A live enemy always renders (and any leftover squash from a prior life is
+  // cleared). A defeated Goomba stays squashed on the ground for a short window
+  // before it is hidden; every other defeated enemy vanishes at once.
+  private resolveEnemyDefeatVisibility(
+    actor: RuntimeRenderedActor,
+    defeated: boolean,
+  ): boolean {
+    if (!isRenderedEnemyRole(actor.role)) {
+      return true;
+    }
+    if (!defeated) {
+      // Reset any squash a retried enemy inherited from its previous death.
+      actor.renderObject.setScale(1);
+      return true;
+    }
+    if (actor.role !== ActorRole.Enemy) {
+      return false;
+    }
+
+    const remaining =
+      this.flattenedEnemyTimers.get(actor.entityId) ??
+      stompedGoombaFlattenFrames;
+    if (remaining <= 0) {
+      this.flattenedEnemyTimers.set(actor.entityId, 0);
+      return false;
+    }
+    this.flattenedEnemyTimers.set(actor.entityId, remaining - 1);
+    // Squash the sprite flat and drop it so it sits on the ground.
+    actor.renderObject.setScale(1, stompedGoombaSquashScaleY);
+    actor.renderObject.setY(
+      actor.renderObject.y +
+        this.levelSpec.tileSizePixels * (1 - stompedGoombaSquashScaleY),
+    );
+    return true;
+  }
+
+  private stepScorePopups(defeatedEnemyIds: ReadonlySet<string>): void {
+    this.scorePopups = this.scorePopups.filter((popup) => {
+      popup.framesRemaining -= 1;
+      if (popup.framesRemaining <= 0) {
+        popup.text.destroy();
+        return false;
+      }
+      popup.text.setY(popup.text.y - 0.6);
+      popup.text.setAlpha(
+        Math.max(0, popup.framesRemaining / scorePopupFrames),
+      );
+      return true;
+    });
+
+    const enemyKillScore =
+      computeEnemyScore(this.simulationState.enemies) +
+      this.simulationState.bulletBillStompScore;
+    const gained = enemyKillScore - this.previousEnemyKillScore;
+    const newlyDefeated = [...defeatedEnemyIds].filter(
+      (entityId) => !this.previousDefeatedEnemyIds.has(entityId),
+    );
+    if (gained > 0 && newlyDefeated.length > 0) {
+      const perKill = Math.round(gained / newlyDefeated.length);
+      for (const entityId of newlyDefeated) {
+        const actor = this.renderedActors.find(
+          (candidate) => candidate.entityId === entityId,
+        );
+        if (actor === undefined) {
+          continue;
+        }
+        const position = makeRuntimeRenderedActorPixelPosition(
+          actor,
+          this.simulationState,
+        );
+        const text = this.add
+          .text(position.x + 8, position.y, String(perKill), {
+            fontFamily: "monospace",
+            fontSize: "8px",
+            color: "#ffffff",
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(130);
+        this.scorePopups.push({ text, framesRemaining: scorePopupFrames });
+      }
+    }
+
+    this.previousEnemyKillScore = enemyKillScore;
+    this.previousDefeatedEnemyIds = new Set(defeatedEnemyIds);
+  }
+
+  // Return a cached string Set of the given entity-id array, rebuilding only
+  // when its length changes. Safe because these arrays only ever grow (you
+  // cannot un-collect a coin or un-defeat an enemy) or reset to empty on a
+  // rebuild — so a length match guarantees identical contents.
+  private cachedEntityIdSet(
+    key: string,
+    ids: readonly string[],
+  ): ReadonlySet<string> {
+    const cached = this.entityIdSetCache.get(key);
+    if (cached !== undefined && cached.length === ids.length) {
+      return cached.set;
+    }
+    const set = new Set(ids);
+    this.entityIdSetCache.set(key, { length: ids.length, set });
+    return set;
+  }
+
   private renderSimulationState(): void {
     const currentVertical = this.simulationState.player.movement.vertical;
 
@@ -2524,16 +3670,22 @@ export class BootScene extends Phaser.Scene {
     const headBonkX = this.playerRectangle.x;
     const headBonkY =
       this.playerRectangle.y - this.playerRectangle.height / 2 - 2;
-    // The "ow!" shout floats just above the player's head and follows them.
+    // The "OUCH!" shout jitters above the player's head for a painful jolt.
+    const bonkShake = headBonking
+      ? (this.simulationState.clock.frameIndex % 2 === 0 ? 1 : -1) * 1.5
+      : 0;
     this.reactionText
-      .setText("ow!")
-      .setPosition(headBonkX, headBonkY)
+      .setText("OUCH!")
+      .setPosition(headBonkX + bonkShake, headBonkY)
       .setVisible(headBonking);
     if (this.playerReactionImage !== undefined) {
-      // The authored wide-eyed bonk sprite is pinned to the player, not left
-      // hanging where the bonk happened.
+      // The authored wincing bonk sprite is pinned to the player and given a
+      // small downward recoil so the hit reads as a jarring, painful jolt.
       this.playerReactionImage
-        .setPosition(this.playerRectangle.x, this.playerRectangle.y)
+        .setPosition(
+          this.playerRectangle.x + bonkShake,
+          this.playerRectangle.y + 1,
+        )
         .setVisible(headBonking);
     }
     this.renderPlayerBloodiness();
@@ -2550,52 +3702,33 @@ export class BootScene extends Phaser.Scene {
         .setPosition(stompReaction.x + 8, stompReaction.y + 4)
         .setVisible(stompActive);
     }
-    const score = computeTotalScore(
-      this.simulationState.collectibles,
-      this.simulationState.enemies,
-      this.simulationState.timeBonusScore,
-      this.simulationState.breakableBlockScore,
-      this.simulationState.bulletBillStompScore,
-      this.simulationState.goalHeightScore,
+    this.updateScoreHud(
+      this.sessionScore(),
+      this.simulationState.levelTimer.remainingFrames,
     );
-    this.scoreText.setText(
-      classicCompatibilityHudText(
-        score,
-        this.simulationState.levelTimer.remainingFrames,
-        this.simulationState.collectibles.collectedCoinEntityIds.length,
-        this.activeWorldLevelLabel ??
-          worldLevelLabelFor(this.browserGameBootstrap.userLevelVisualName),
-      ),
+    const collectedItemEntityIdStrings = this.cachedEntityIdSet(
+      "item",
+      this.simulationState.collectibles.collectedItemEntityIds,
     );
-    const collectedItemEntityIdStrings = new Set(
-      this.simulationState.collectibles.collectedItemEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedCoinEntityIdStrings = this.cachedEntityIdSet(
+      "coin",
+      this.simulationState.collectibles.collectedCoinEntityIds,
     );
-    const collectedCoinEntityIdStrings = new Set(
-      this.simulationState.collectibles.collectedCoinEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedPowerUpEntityIdStrings = this.cachedEntityIdSet(
+      "power-up",
+      this.simulationState.powerUps.collectedPowerUpEntityIds,
     );
-    const collectedPowerUpEntityIdStrings = new Set(
-      this.simulationState.powerUps.collectedPowerUpEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedExtraLifeEntityIdStrings = this.cachedEntityIdSet(
+      "extra-life",
+      this.simulationState.collectibles.collectedExtraLifeEntityIds,
     );
-    const collectedExtraLifeEntityIdStrings = new Set(
-      this.simulationState.collectibles.collectedExtraLifeEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const collectedInvincibilityEntityIdStrings = this.cachedEntityIdSet(
+      "invincibility",
+      this.simulationState.playerInvincibility.collectedInvincibilityEntityIds,
     );
-    const collectedInvincibilityEntityIdStrings = new Set(
-      this.simulationState.playerInvincibility.collectedInvincibilityEntityIds.map(
-        (entityId) => entityId as string,
-      ),
-    );
-    const defeatedEnemyEntityIdStrings = new Set(
-      this.simulationState.enemies.defeatedEnemyEntityIds.map(
-        (entityId) => entityId as string,
-      ),
+    const defeatedEnemyEntityIdStrings = this.cachedEntityIdSet(
+      "defeated",
+      this.simulationState.enemies.defeatedEnemyEntityIds,
     );
 
     for (const actor of this.renderedActors) {
@@ -2633,21 +3766,25 @@ export class BootScene extends Phaser.Scene {
         renderedPosition.x + shakeOffsetX,
         renderedPosition.y,
       );
-      actor.renderObject.setVisible(
+      const collectibleUncollected =
         (actor.role !== ActorRole.Coin ||
           !collectedCoinEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.Item ||
-            !collectedItemEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.PowerUp ||
-            !collectedPowerUpEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.ExtraLife ||
-            !collectedExtraLifeEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.InvincibilityPowerUp ||
-            !collectedInvincibilityEntityIdStrings.has(actor.entityId)) &&
-          (!isRenderedEnemyRole(actor.role) ||
-            !defeatedEnemyEntityIdStrings.has(actor.entityId)),
+        (actor.role !== ActorRole.Item ||
+          !collectedItemEntityIdStrings.has(actor.entityId)) &&
+        (actor.role !== ActorRole.PowerUp ||
+          !collectedPowerUpEntityIdStrings.has(actor.entityId)) &&
+        (actor.role !== ActorRole.ExtraLife ||
+          !collectedExtraLifeEntityIdStrings.has(actor.entityId)) &&
+        (actor.role !== ActorRole.InvincibilityPowerUp ||
+          !collectedInvincibilityEntityIdStrings.has(actor.entityId));
+      const enemyVisible = this.resolveEnemyDefeatVisibility(
+        actor,
+        defeatedEnemyEntityIdStrings.has(actor.entityId),
       );
+      actor.renderObject.setVisible(collectibleUncollected && enemyVisible);
     }
+
+    this.stepScorePopups(defeatedEnemyEntityIdStrings);
 
     this.renderSpawnedActors(
       collectedCoinEntityIdStrings,
@@ -3272,23 +4409,66 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Capture the first frame an enemy is contacted this level into a stable
+  // observation, so a browser test can assert on that one-frame event without
+  // racing the live simulation frame.
+  private latchEnemyContactObservation(): void {
+    if (this.lastEnemyContactObservation !== undefined) {
+      return;
+    }
+    const state = this.simulationState;
+    if (state.enemies.contactedEnemyEntityIds.length === 0) {
+      return;
+    }
+    this.lastEnemyContactObservation = {
+      frameIndex: state.clock.frameIndex,
+      levelContacts: {
+        hazard: state.levelContacts.hazard,
+        goal: state.levelContacts.goal,
+      },
+      enemies: {
+        contactedEnemyEntityIds: state.enemies.contactedEnemyEntityIds.map(
+          (entityId) => entityId,
+        ),
+        defeatedEnemyEntityIds: state.enemies.defeatedEnemyEntityIds.map(
+          (entityId) => entityId,
+        ),
+      },
+      enemyContactResponse: makeBrowserEnemyContactResponseSnapshot(
+        state.enemyContactResponse,
+      ),
+      playerVelocityX: state.player.velocity.x,
+      playerOutcome: makeBrowserPlayerOutcomeSnapshot(state.playerOutcome),
+    };
+  }
+
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
       getSimulationSnapshot: () => ({
         frameIndex: this.simulationState.clock.frameIndex,
-        score: computeTotalScore(
-          this.simulationState.collectibles,
-          this.simulationState.enemies,
-          this.simulationState.timeBonusScore,
-          this.simulationState.breakableBlockScore,
-          this.simulationState.bulletBillStompScore,
-          this.simulationState.goalHeightScore,
-        ),
+        // The whole-session score (prior-level base + this level's score), so it
+        // accumulates across levels rather than resetting each level.
+        score: this.sessionScore(),
+        // The whole-session coin total (prior-level base + this level's coins),
+        // so it reflects the cross-level count rather than resetting each level.
         coinCount:
+          this.simulationState.sessionCoinBase +
           this.simulationState.collectibles.collectedCoinEntityIds.length,
         bloodiness: this.simulationState.bloodiness,
         extraLifeCount:
           this.simulationState.collectibles.collectedExtraLifeEntityIds.length,
+        livesRemaining: this.simulationState.livesRemaining,
+        gameOver: this.pendingGameOver,
+        warpZone: this.warpZoneBannerShown,
+        timeBonusCountdownUnits: this.timeBonusCountdownUnitsRemaining,
+        paused: this.paused,
+        deathEffect: {
+          started: this.deathArcStarted,
+          style: this.deathArcStarted ? this.deathEffectStyle : undefined,
+          pieceCount: this.deathPieces.length,
+          smokeCount: this.deathSmoke.length,
+          xEyesVisible: this.deathXEyesImage?.visible ?? false,
+        },
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         level: {
           widthTiles: this.levelSpec.widthTiles,
@@ -3464,6 +4644,7 @@ export class BootScene extends Phaser.Scene {
         enemyContactResponse: makeBrowserEnemyContactResponseSnapshot(
           this.simulationState.enemyContactResponse,
         ),
+        lastEnemyContact: this.lastEnemyContactObservation,
         outcomeFeedback: {
           visible: this.outcomeFeedbackText.visible,
           text: this.outcomeFeedbackText.text,
@@ -3552,16 +4733,28 @@ const singleUseQuestionBlockTileIds: ReadonlySet<string> = new Set([
   "full-question-block-power-up",
 ]);
 
-// A short haptic tick on a touch-control press, where the Vibration API exists
-// (Android Chrome/Firefox). iOS Safari has no vibrate(); the guard no-ops there.
-function buzzTouchControl(): void {
+// Fire the Vibration API where it exists (Android Chrome/Firefox). iOS Safari
+// has no vibrate(); the guard no-ops there. Accepts a single duration or a
+// pattern of on/off millisecond spans.
+function vibrateHaptic(pattern: number | readonly number[]): void {
   if (
     typeof navigator !== "undefined" &&
     typeof navigator.vibrate === "function"
   ) {
-    navigator.vibrate(8);
+    navigator.vibrate(pattern as number | number[]);
   }
 }
+
+// A short haptic tick on a touch-control press.
+function buzzTouchControl(): void {
+  vibrateHaptic(8);
+}
+
+// Distinct haptic patterns per game event: a light tap on landing, a heavier
+// double thud on a head-bonk, and a longer rumble on death.
+const landHapticMilliseconds = 6;
+const headBonkHapticPattern: readonly number[] = [18, 20, 18];
+const deathHapticPattern: readonly number[] = [55, 40, 80];
 
 // The touch deck can be scaled to taste (thumb size / screen size) and the
 // choice persists. The scale drives both the panel width and — via the `--ctl`

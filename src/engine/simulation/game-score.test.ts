@@ -11,6 +11,8 @@ import {
   computeTimeBonusScore,
   computeTotalScore,
   emptyScore,
+  fireworksCountForDisplayTime,
+  fireworksScorePerBurst,
   scorePerBreakableBlock,
   scorePerCoin,
   scorePerInvincibilityKill,
@@ -285,6 +287,29 @@ describe("total score", () => {
     it("awards the base 100 for grabbing near the foot of the pole", () => {
       expect(scoreForGoalContactHeight(11 * tileSize, tileSize)).toBe(100);
       expect(scoreForGoalContactHeight(14 * tileSize, tileSize)).toBe(100);
+    });
+  });
+
+  describe("victory fireworks", () => {
+    it("launches one, three, or six by the remaining-time ones digit", () => {
+      expect(fireworksCountForDisplayTime(301)).toBe(1);
+      expect(fireworksCountForDisplayTime(283)).toBe(3);
+      expect(fireworksCountForDisplayTime(6)).toBe(6);
+    });
+
+    it("launches none for every other ones digit", () => {
+      for (const time of [300, 302, 304, 305, 307, 308, 309, 250]) {
+        expect(fireworksCountForDisplayTime(time)).toBe(0);
+      }
+    });
+
+    it("reads only the whole-second ones digit", () => {
+      expect(fireworksCountForDisplayTime(11.9)).toBe(1);
+      expect(fireworksCountForDisplayTime(0)).toBe(0);
+    });
+
+    it("awards the classic 500 per burst", () => {
+      expect(fireworksScorePerBurst).toBe(500);
     });
   });
 });

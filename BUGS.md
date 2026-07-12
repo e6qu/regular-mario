@@ -16,11 +16,12 @@ hammer bro 8), keeping the render top so the stomp geometry is unchanged; and
 the ROM's 12×12 duck box, so he ducks hammers/flames). The collision geometry is
 ROM-faithful and the game is no longer harder than SMB.
 
-Remaining polish (not a wrong collision): the crouch has no dedicated sprite in
-the shipped skins, so big Mario shows his standing pose while ducking (the
-_mechanic_ — walk-stop + duck hurtbox — is correct). Minor player-favouring
-deltas, documented and not blocking: player fireball 6×6 vs ROM 8×8, hammers
-6×6 vs 8×8, power-ups 16×16 vs 12×12, podoboo 12×12 vs 10×6.
+A dedicated crouch sprite now ships (`castaway-crouch` in the authored skin,
+palette-swapped for powered/fire, resolved by the render as the `crouch`
+action), so big Mario shows a ducking pose while crouching. Minor
+player-favouring collision deltas remain, documented and not blocking: player
+fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, podoboo
+12×12 vs 10×6.
 
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows

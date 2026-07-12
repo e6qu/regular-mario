@@ -590,6 +590,34 @@ describe("enemy interactions", () => {
       });
     }
 
+    // The two "first stomp shells the koopa" cases differ only in the previous
+    // player (a fast fall vs. a same-frame landing); both expect the identical
+    // shelled + first-chain-score outcome.
+    function resolveArmoredStomp(
+      previousPlayer: ReturnType<typeof playerAt>,
+    ): EnemyInteractionState {
+      const levelSpec = armoredEnemyLevelSpec();
+
+      return resolveEnemyInteractionState(
+        playerAt({ x: 48, y: 32 }),
+        previousPlayer,
+        levelSpec,
+        armoredEnemyMotion(levelSpec),
+        initialMovementConstants,
+        makeEmptyEnemyInteractionState(),
+      );
+    }
+
+    function expectedArmoredShellState() {
+      return {
+        ...expectedEmptyEnemyInteractionState(),
+        shelledEnemyEntityIds: ["crab-1"],
+        // Shelling a koopa scores 100 and starts the airborne stomp chain.
+        currentStompChainCount: 1,
+        cumulativeStompScore: 100,
+      };
+    }
+
     function makeShelledArmoredEnemyMotion(
       levelSpec: LevelSpec,
     ): EnemyMotionState {
@@ -613,30 +641,9 @@ describe("enemy interactions", () => {
     }
 
     it("shells an armored enemy on first stomp", () => {
-      const levelSpec = armoredEnemyLevelSpec();
-
       expect(
-        resolveEnemyInteractionState(
-          playerAt({
-            x: 48,
-            y: 32,
-          }),
-          makeFallingPlayerAt({
-            x: 48,
-            y: 50,
-          }),
-          levelSpec,
-          armoredEnemyMotion(levelSpec),
-          initialMovementConstants,
-          makeEmptyEnemyInteractionState(),
-        ),
-      ).toEqual({
-        ...expectedEmptyEnemyInteractionState(),
-        shelledEnemyEntityIds: ["crab-1"],
-        // Shelling a koopa scores 100 and starts the airborne stomp chain.
-        currentStompChainCount: 1,
-        cumulativeStompScore: 100,
-      });
+        resolveArmoredStomp(makeFallingPlayerAt({ x: 48, y: 50 })),
+      ).toEqual(expectedArmoredShellState());
     });
 
     it("cannot be stomped underwater — the descent is a harmful contact instead", () => {
@@ -660,23 +667,9 @@ describe("enemy interactions", () => {
       // A fast drop onto an enemy standing on the ground lands on the floor the
       // same frame, so velocity.y is already zeroed — but the descent onto the
       // enemy's top must still read as a stomp, not a harmful side contact.
-      const levelSpec = armoredEnemyLevelSpec();
-
-      expect(
-        resolveEnemyInteractionState(
-          playerAt({ x: 48, y: 32 }),
-          playerAt({ x: 48, y: 50 }),
-          levelSpec,
-          armoredEnemyMotion(levelSpec),
-          initialMovementConstants,
-          makeEmptyEnemyInteractionState(),
-        ),
-      ).toEqual({
-        ...expectedEmptyEnemyInteractionState(),
-        shelledEnemyEntityIds: ["crab-1"],
-        currentStompChainCount: 1,
-        cumulativeStompScore: 100,
-      });
+      expect(resolveArmoredStomp(playerAt({ x: 48, y: 50 }))).toEqual(
+        expectedArmoredShellState(),
+      );
     });
 
     it("kicks a resting shell into a slide when stomped (never destroys it)", () => {

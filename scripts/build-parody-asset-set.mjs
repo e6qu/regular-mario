@@ -8,12 +8,16 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { encodeRgbaPng } from "./png-codec.mjs";
+// prettier-ignore
+import { deadEyesGrid, deadEyesPalette, drawGridSprite, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
   userLevelCacheRoot,
 } from "./user-level-cache-policy.mjs";
+
+// The shared grid renderer, aliased to this script's long-standing name.
+const drawSprite = drawGridSprite;
 
 const spriteSize = 16;
 const defaultOutDir = resolve(userLevelCacheRoot, "asset-sets/castaway-parody");
@@ -320,25 +324,6 @@ const grumblerSquashed = [
   "................",
   "................",
 ];
-
-function drawSprite(grid, paletteMap, width = spriteSize, height = spriteSize) {
-  const pixels = new Uint8Array(width * height * 4);
-
-  for (let y = 0; y < height; y += 1) {
-    const row = grid[y] ?? "";
-    for (let x = 0; x < width; x += 1) {
-      const key = row[x] ?? ".";
-      const rgba = paletteMap[key] ?? paletteMap["."];
-      const offset = (y * width + x) * 4;
-      pixels[offset] = rgba[0];
-      pixels[offset + 1] = rgba[1];
-      pixels[offset + 2] = rgba[2];
-      pixels[offset + 3] = rgba[3];
-    }
-  }
-
-  return encodeRgbaPng({ width, height, pixels });
-}
 
 // Mirror a pixel grid horizontally (for right-facing variants of caps/slopes).
 function mirrorGrid(grid, width = spriteSize) {
@@ -1542,6 +1527,8 @@ async function main() {
     ["castaway-swim.png", castawaySwimA, palette],
     ["castaway-swim-2.png", castawaySwimB, palette],
     ["castaway-ouch.png", castawayOuch, palette],
+    ["castaway-dead-eyes.png", deadEyesGrid, deadEyesPalette],
+    ["smoke-puff.png", smokeGrid, smokePalette],
     ["grumbler-idle.png", grumblerIdle, enemyPalette],
     ["grumbler-squashed.png", grumblerSquashed, enemyPalette],
     ["tile-sand.png", tileSand, tilePalette],
@@ -1700,6 +1687,10 @@ async function main() {
     reactionSprites: {
       "player-head-bonk": spriteEntry("castaway-ouch.png"),
       "enemy-stomped": spriteEntry("grumbler-squashed.png"),
+      // Death-effect overlays: X-ed-out eyes (drown/impale) and rising smoke
+      // (burn). Authored art so every death effect has its own graphics.
+      "player-dead-eyes": spriteEntry("castaway-dead-eyes.png"),
+      "smoke-puff": spriteEntry("smoke-puff.png"),
     },
     playerSprite: {
       ...spriteEntry("castaway-idle.png"),

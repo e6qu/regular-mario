@@ -111,6 +111,21 @@ export type ThrowingEnemyActorState = {
   readonly velocity: {
     readonly x: VelocityPixelsPerSecond;
   };
+  // The spawn column the Hammer Bro shimmies around (it paces a short window
+  // left/right of here while throwing). `originX` is absent on legacy states,
+  // in which case the shimmy anchors to the current x on the first step.
+  readonly originX?: PixelPosition;
+  // Vertical row-hop state: the spawn row it hops from (`originY`), whether it is
+  // currently at/heading to the raised row (`hopRaised`), frames left in the
+  // current up/down transition (`hopTransitionFrames`), frames until the next
+  // hop while settled (`hopSettleFrames`), and a per-actor deterministic seed
+  // that varies the hop intervals (`hopSeed`). All absent on legacy states and
+  // initialized lazily on the first step.
+  readonly originY?: PixelPosition;
+  readonly hopRaised?: boolean;
+  readonly hopTransitionFrames?: number;
+  readonly hopSettleFrames?: number;
+  readonly hopSeed?: number;
 };
 
 export type AerialThrowingEnemyActorState = {
@@ -278,6 +293,8 @@ export function makeInitialEnemyMotionState(
               "enemyMotion.throwingActors[].velocity.x",
             ),
           },
+          originX: position.x,
+          originY: position.y,
         });
         break;
       }
@@ -633,10 +650,21 @@ export function stepEnemyMotionState(
         frameIndex,
       );
     }),
-    throwingActors: stopDefeatedThrowingEnemyActors(
-      previousState.throwingActors,
-      defeatedEnemyEntityIds,
-    ),
+    throwingActors: previousState.throwingActors.map((throwingActor) => {
+      if (defeatedEnemyEntityIds.has(throwingActor.entityId)) {
+        return stopThrowingEnemyActor(throwingActor);
+      }
+
+      if (!activeEnemyEntityIds.has(throwingActor.entityId)) {
+        return throwingActor;
+      }
+
+      return stepThrowingEnemyActor(
+        throwingActor,
+        levelSpec,
+        frameDurationSeconds,
+      );
+    }),
     aerialThrowingActors: previousState.aerialThrowingActors.map(
       (aerialThrowingActor) => {
         if (defeatedEnemyEntityIds.has(aerialThrowingActor.entityId)) {
@@ -2330,6 +2358,173 @@ function stopThrowingEnemyActor(
   };
 }
 
+// Hammer Bros pace a short window left/right of their spawn column while
+// throwing (the "shimmy") and periodically hop up to (and back from) the
+// platform row above, on a per-actor pseudo-random schedule — as in the ROM's
+// HammerBroJumpCode, though we model discrete row transitions rather than the
+// original's gravity + pass-through-platform physics.
+const hammerBroShimmySpeedPixelsPerSecond = 24;
+const hammerBroShimmyAmplitudePixels = 12;
+const hammerBroHopRisePixels = 32;
+const hammerBroHopTransitionFrames = 16;
+const hammerBroMinSettleFrames = 100;
+const hammerBroMaxSettleFrames = 220;
+
+// A small deterministic per-actor seed from the entity id (FNV-1a), so different
+// Hammer Bros hop on different schedules without consuming the shared LFSR.
+function hashEntityIdToHopSeed(entityId: EntityId): number {
+  let hash = 2166136261;
+  const text = entityId as string;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % 2147483647 || 1;
+}
+
+// Advance the per-actor LCG and return the next settle interval (frames) plus
+// the advanced seed.
+function nextHopSchedule(seed: number): {
+  readonly seed: number;
+  readonly settleFrames: number;
+} {
+  const advanced = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
+  const span = hammerBroMaxSettleFrames - hammerBroMinSettleFrames + 1;
+  return {
+    seed: advanced,
+    settleFrames: hammerBroMinSettleFrames + (advanced % span),
+  };
+}
+
+// Whether the row a hop-rise above the actor's column is clear (so it never hops
+// up into terrain). The spawn row it hops back down to is known clear.
+function hammerBroRaisedRowClear(
+  positionX: number,
+  originY: number,
+  levelSpec: LevelSpec,
+): boolean {
+  const size = levelSpec.tileSizePixels;
+  const column = Math.floor((positionX + size / 2) / size);
+  const raisedRow = Math.floor((originY - hammerBroHopRisePixels) / size);
+  if (raisedRow < 0) {
+    return false;
+  }
+  return !tileIsSolid(
+    levelSpec,
+    makeSolidTileIds(levelSpec),
+    raisedRow,
+    column,
+  );
+}
+
+function stepThrowingEnemyActor(
+  throwingActor: ThrowingEnemyActorState,
+  levelSpec: LevelSpec,
+  frameDurationSeconds: number,
+): ThrowingEnemyActorState {
+  const originX = throwingActor.originX ?? throwingActor.position.x;
+  // Head away from centre when at/over a bound, otherwise keep the current
+  // heading (defaulting right from a standstill).
+  const currentHeadingSign = throwingActor.velocity.x < 0 ? -1 : 1;
+  const headingSign =
+    throwingActor.position.x >= originX + hammerBroShimmyAmplitudePixels
+      ? -1
+      : throwingActor.position.x <= originX - hammerBroShimmyAmplitudePixels
+        ? 1
+        : currentHeadingSign;
+
+  const attemptedPositionX =
+    throwingActor.position.x +
+    headingSign * hammerBroShimmySpeedPixelsPerSecond * frameDurationSeconds;
+  // Never let the shimmy carry it out of the world or past its pacing window.
+  const clampedPositionX = Math.min(
+    originX + hammerBroShimmyAmplitudePixels,
+    Math.max(originX - hammerBroShimmyAmplitudePixels, attemptedPositionX),
+  );
+  if (enemyWouldLeaveWorld(clampedPositionX, levelSpec)) {
+    return stopThrowingEnemyActor(throwingActor);
+  }
+
+  // --- Vertical row-hop state machine ---
+  const originY = throwingActor.originY ?? throwingActor.position.y;
+  let hopRaised = throwingActor.hopRaised ?? false;
+  let transitionFrames = throwingActor.hopTransitionFrames ?? 0;
+  let seed =
+    throwingActor.hopSeed ?? hashEntityIdToHopSeed(throwingActor.entityId);
+  let settleFrames = throwingActor.hopSettleFrames;
+  if (settleFrames === undefined) {
+    // First step: schedule the initial hop a full interval out (no instant hop).
+    const initial = nextHopSchedule(seed);
+    seed = initial.seed;
+    settleFrames = initial.settleFrames;
+  }
+
+  if (transitionFrames > 0) {
+    transitionFrames -= 1;
+  } else {
+    settleFrames -= 1;
+    if (settleFrames <= 0) {
+      const raiseTarget = !hopRaised;
+      // Only rise when the row above is clear; dropping back down is always fine.
+      if (
+        !raiseTarget ||
+        hammerBroRaisedRowClear(clampedPositionX, originY, levelSpec)
+      ) {
+        hopRaised = raiseTarget;
+        transitionFrames = hammerBroHopTransitionFrames;
+      }
+      const scheduled = nextHopSchedule(seed);
+      seed = scheduled.seed;
+      settleFrames = scheduled.settleFrames;
+    }
+  }
+
+  // Height fraction (0 = spawn row, 1 = raised row): eased across a transition,
+  // held at the current row otherwise.
+  let heightFraction: number;
+  if (transitionFrames > 0) {
+    const progress = 1 - transitionFrames / hammerBroHopTransitionFrames;
+    heightFraction = hopRaised ? progress : 1 - progress;
+  } else {
+    heightFraction = hopRaised ? 1 : 0;
+  }
+  const positionY = originY - hammerBroHopRisePixels * heightFraction;
+
+  return {
+    ...throwingActor,
+    position: {
+      x: requireEnemyPixelPosition(
+        clampedPositionX,
+        "enemyMotion.throwingActors[].position.x",
+      ),
+      y: requireEnemyPixelPosition(
+        positionY,
+        "enemyMotion.throwingActors[].position.y",
+      ),
+    },
+    velocity: {
+      x: requireEnemyVelocity(
+        headingSign * hammerBroShimmySpeedPixelsPerSecond,
+        "enemyMotion.throwingActors[].velocity.x",
+      ),
+    },
+    originX,
+    originY,
+    hopRaised,
+    hopTransitionFrames: transitionFrames,
+    hopSettleFrames: settleFrames,
+    hopSeed: seed,
+  };
+}
+
+// Lakitu hovers this far ahead of the player (in the player's travel
+// direction) rather than homing straight onto him; while the player is roughly
+// still it just tracks the player's column. The deadzone stops micro-jitter
+// once it has reached its target.
+const lakituLeadPixels = 60;
+const lakituLeadActivateSpeedPixelsPerSecond = 8;
+const lakituHoverDeadzonePixels = 3;
+
 function stepAerialThrowingEnemyActor(
   aerialThrowingActor: AerialThrowingEnemyActorState,
   levelSpec: LevelSpec,
@@ -2337,13 +2532,30 @@ function stepAerialThrowingEnemyActor(
   movementConstants: MovementConstants,
   player: PlayerSimulationState,
 ): AerialThrowingEnemyActorState {
-  const directionSign =
-    player.position.x < aerialThrowingActor.position.x ? -1 : 1;
-  const attemptedPositionX =
-    aerialThrowingActor.position.x +
-    directionSign *
-      movementConstants.aerialThrowingEnemySpeed *
-      frameDurationSeconds;
+  // Lead ahead in the player's direction of travel; when the player is nearly
+  // still, hold over the player's column (lead 0).
+  const leadSign =
+    player.velocity.x > lakituLeadActivateSpeedPixelsPerSecond
+      ? 1
+      : player.velocity.x < -lakituLeadActivateSpeedPixelsPerSecond
+        ? -1
+        : 0;
+  const targetPositionX = player.position.x + leadSign * lakituLeadPixels;
+  const offsetToTarget = targetPositionX - aerialThrowingActor.position.x;
+
+  // Within the deadzone Lakitu has reached its lead and hovers in place.
+  if (Math.abs(offsetToTarget) <= lakituHoverDeadzonePixels) {
+    return stopAerialThrowingEnemyActor(aerialThrowingActor);
+  }
+
+  const directionSign = offsetToTarget > 0 ? 1 : -1;
+  const maxStep =
+    movementConstants.aerialThrowingEnemySpeed * frameDurationSeconds;
+  const step =
+    Math.abs(offsetToTarget) <= maxStep
+      ? offsetToTarget
+      : directionSign * maxStep;
+  const attemptedPositionX = aerialThrowingActor.position.x + step;
 
   if (enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
     return stopAerialThrowingEnemyActor(aerialThrowingActor);

@@ -16,7 +16,6 @@ import {
 } from "../../src/engine/simulation/movement-model";
 import { SpawnedActorCollectionMode } from "../../src/engine/simulation/interactive-block-state";
 import { expect, test, type Page } from "@playwright/test";
-import { waitForSimulationRunning } from "./support";
 
 import type { BrowserSimulationSnapshot } from "../../src/shell/browser-debug-api";
 import { PlayerVitalityKind } from "../../src/engine/simulation/player-vitality";
@@ -53,6 +52,7 @@ type CanvasCenteredRegion = {
 
 type SimulationSnapshotWaitCondition =
   | "camera-scrolled"
+  | "enemy-contact-latched"
   | "enemy-defeated-by-projectile"
   | "enemy-only-contact"
   | "enemy-stomped"
@@ -723,110 +723,126 @@ async function waitForSimulationSnapshotCondition(
     initialPlayerY: expectedInitialPlayerPosition.y,
   };
 
-  const snapshotHandle = await page.waitForFunction((options) => {
-    const debugApi = window.__originalBrowserPlatformerDebug;
+  const snapshotHandle = await page.waitForFunction(
+    (options) => {
+      const debugApi = window.__originalBrowserPlatformerDebug;
 
-    if (debugApi === undefined) {
-      return false;
-    }
-
-    const snapshot = debugApi.getSimulationSnapshot();
-    // Capture the snapshot at the exact frame the condition first matches. The
-    // simulation keeps advancing frameIndex after a defeat, so re-reading a
-    // fresh snapshot afterwards would race transient per-frame fields (e.g.
-    // enemyContactResponse.frameIndex) against the current frame.
-    const matchesCondition = ((): boolean => {
-      switch (options.condition) {
-        case "camera-scrolled":
-          return snapshot.camera.worldViewX > 1;
-        case "enemy-defeated-by-projectile":
-          return (
-            snapshot.enemies.defeatedEnemyEntityIds.includes("beetle-1") &&
-            snapshot.projectiles.projectiles.some((projectile) =>
-              projectile.id.startsWith("projectile-"),
-            )
-          );
-        case "enemy-only-contact":
-          return (
-            snapshot.enemies.contactedEnemyEntityIds.includes("beetle-2") &&
-            snapshot.enemies.defeatedEnemyEntityIds.length === 0 &&
-            !snapshot.levelContacts.hazard
-          );
-        case "enemy-stomped":
-          return (
-            snapshot.enemies.defeatedEnemyEntityIds.includes("beetle-1") &&
-            snapshot.enemies.contactedEnemyEntityIds.length === 0 &&
-            !snapshot.levelContacts.hazard
-          );
-        case "finished-outcome":
-          // Serialized into the browser; enum values equal these strings at runtime.
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-          return snapshot.playerOutcome.kind === "finished";
-        case "hazard-only-contact":
-          return (
-            snapshot.levelContacts.hazard &&
-            !snapshot.levelContacts.goal &&
-            snapshot.enemies.contactedEnemyEntityIds.length === 0 &&
-            snapshot.enemies.defeatedEnemyEntityIds.length === 0
-          );
-        case "item-collected":
-          return snapshot.collectibles.collectedItemEntityIds.includes(
-            "shard-1",
-          );
-        case "coin-block-spawned":
-          return (
-            snapshot.collectibles.collectedCoinEntityIds.includes(
-              "spawned-1-2",
-            ) &&
-            snapshot.spawnedActors.spawnedActors.some(
-              (actor) => actor.entityId === "spawned-1-2",
-            )
-          );
-        case "pipe-entered":
-          return (
-            snapshot.pipeEntry.phase === "entering" &&
-            snapshot.pipeEntry.pipeEntityId === "warp-pipe-1"
-          );
-        case "powered-enemy-recovery":
-          return (
-            // Serialized into the browser; enum values equal these strings at runtime.
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-            snapshot.playerVitality.kind === "recovering" &&
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-            snapshot.playerOutcome.kind === "active" &&
-            !snapshot.levelContacts.hazard
-          );
-        case "power-up-collected":
-          return (
-            snapshot.powerUps.collectedPowerUpEntityIds.includes("spark-1") &&
-            // Serialized into the browser; enum values equal these strings at runtime.
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-            snapshot.playerVitality.kind === "powered"
-          );
-        case "projectile-fired":
-          return snapshot.projectiles.projectiles.length > 0;
-        case "retried-initial":
-          return (
-            // Serialized into the browser; enum values equal these strings at runtime.
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-            snapshot.playerOutcome.kind === "active" &&
-            // The camera view is back at the level's left edge. With the zoom
-            // convention `scrollX` is negative at rest, so check the visible
-            // world rectangle's left edge instead (a tiny float at rest).
-            snapshot.camera.worldViewX < 1 &&
-            snapshot.player.position.x === options.initialPlayerX &&
-            snapshot.player.position.y === options.initialPlayerY &&
-            !snapshot.outcomeFeedback.visible
-          );
-        default:
-          throw new Error(
-            `Unknown simulation snapshot wait condition: ${String(options.condition)}`,
-          );
+      if (debugApi === undefined) {
+        return false;
       }
-    })();
 
-    return matchesCondition ? snapshot : false;
-  }, waitOptions);
+      const snapshot = debugApi.getSimulationSnapshot();
+      // Capture the snapshot at the exact frame the condition first matches. The
+      // simulation keeps advancing frameIndex after a defeat, so re-reading a
+      // fresh snapshot afterwards would race transient per-frame fields (e.g.
+      // enemyContactResponse.frameIndex) against the current frame.
+      const matchesCondition = ((): boolean => {
+        switch (options.condition) {
+          case "camera-scrolled":
+            return snapshot.camera.worldViewX > 1;
+          case "enemy-defeated-by-projectile":
+            return (
+              snapshot.enemies.defeatedEnemyEntityIds.includes("beetle-1") &&
+              snapshot.projectiles.projectiles.some((projectile) =>
+                projectile.id.startsWith("projectile-"),
+              )
+            );
+          case "enemy-only-contact":
+            return (
+              snapshot.enemies.contactedEnemyEntityIds.includes("beetle-2") &&
+              snapshot.enemies.defeatedEnemyEntityIds.length === 0 &&
+              !snapshot.levelContacts.hazard
+            );
+          case "enemy-contact-latched":
+            // The shell latches the first enemy-contact frame, so this matches a
+            // stable observation rather than racing the one-frame live event.
+            return (
+              snapshot.lastEnemyContact !== undefined &&
+              snapshot.lastEnemyContact.enemies.contactedEnemyEntityIds.includes(
+                "beetle-2",
+              )
+            );
+          case "enemy-stomped":
+            return (
+              snapshot.enemies.defeatedEnemyEntityIds.includes("beetle-1") &&
+              snapshot.enemies.contactedEnemyEntityIds.length === 0 &&
+              !snapshot.levelContacts.hazard
+            );
+          case "finished-outcome":
+            // Serialized into the browser; enum values equal these strings at runtime.
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+            return snapshot.playerOutcome.kind === "finished";
+          case "hazard-only-contact":
+            return (
+              snapshot.levelContacts.hazard &&
+              !snapshot.levelContacts.goal &&
+              snapshot.enemies.contactedEnemyEntityIds.length === 0 &&
+              snapshot.enemies.defeatedEnemyEntityIds.length === 0
+            );
+          case "item-collected":
+            return snapshot.collectibles.collectedItemEntityIds.includes(
+              "shard-1",
+            );
+          case "coin-block-spawned":
+            return (
+              snapshot.collectibles.collectedCoinEntityIds.includes(
+                "spawned-1-2",
+              ) &&
+              snapshot.spawnedActors.spawnedActors.some(
+                (actor) => actor.entityId === "spawned-1-2",
+              )
+            );
+          case "pipe-entered":
+            return (
+              snapshot.pipeEntry.phase === "entering" &&
+              snapshot.pipeEntry.pipeEntityId === "warp-pipe-1"
+            );
+          case "powered-enemy-recovery":
+            return (
+              // Serialized into the browser; enum values equal these strings at runtime.
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+              snapshot.playerVitality.kind === "recovering" &&
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+              snapshot.playerOutcome.kind === "active" &&
+              !snapshot.levelContacts.hazard
+            );
+          case "power-up-collected":
+            return (
+              snapshot.powerUps.collectedPowerUpEntityIds.includes("spark-1") &&
+              // Serialized into the browser; enum values equal these strings at runtime.
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+              snapshot.playerVitality.kind === "powered"
+            );
+          case "projectile-fired":
+            return snapshot.projectiles.projectiles.length > 0;
+          case "retried-initial":
+            return (
+              // Serialized into the browser; enum values equal these strings at runtime.
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+              snapshot.playerOutcome.kind === "active" &&
+              // The camera view is back at the level's left edge. With the zoom
+              // convention `scrollX` is negative at rest, so check the visible
+              // world rectangle's left edge instead (a tiny float at rest).
+              snapshot.camera.worldViewX < 1 &&
+              snapshot.player.position.x === options.initialPlayerX &&
+              snapshot.player.position.y === options.initialPlayerY &&
+              !snapshot.outcomeFeedback.visible
+            );
+          default:
+            throw new Error(
+              `Unknown simulation snapshot wait condition: ${String(options.condition)}`,
+            );
+        }
+      })();
+
+      return matchesCondition ? snapshot : false;
+    },
+    waitOptions,
+    // A generous timeout so the wait survives requestAnimationFrame throttling
+    // when many browser specs run in parallel and starve the sim's frame loop
+    // (the condition is met in well under a second when the page runs at speed).
+    { timeout: 60000 },
+  );
 
   const snapshot = await snapshotHandle.jsonValue();
 
@@ -1995,66 +2011,78 @@ test("reports authored enemy-only contact from browser movement", async ({
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
+  // Drive the run deterministically (hold left from frame 0) via the replay-
+  // input hook, so the player always contacts the same enemy at the same frame
+  // regardless of wall-clock timing under parallel-suite load. Real keyboard
+  // input would engage the moving enemies at a variable sim-time.
+  await page.addInitScript(() => {
+    window.__marioReplayInputs = Array.from({ length: 600 }, () => ({
+      horizontal: "left",
+      jumpPressed: false,
+      runHeld: false,
+      firePressed: false,
+      upHeld: false,
+      downHeld: false,
+    }));
+  });
   await page.goto(firstAuthoredBrowserUrl);
   await expect(page.locator("canvas")).toBeVisible();
-  // Don't drive input until the simulation is actually stepping, otherwise a
-  // slow boot can eat the whole wait budget before the first frame advances.
-  await waitForSimulationRunning(page);
-  const activeFeedbackPixelCount = await countOutcomeFeedbackDarkPixels(page);
 
-  await page.keyboard.down("ArrowLeft");
-  try {
-    const enemySnapshot = await waitForSimulationSnapshotCondition(
-      page,
-      "enemy-only-contact",
-    );
-
-    expect(enemySnapshot.levelContacts).toEqual({
-      hazard: false,
-      goal: false,
-    });
-    expect(enemySnapshot.enemies).toEqual({
-      contactedEnemyEntityIds: ["beetle-2"],
-      defeatedEnemyEntityIds: [],
-    });
-    const contactResponse = enemySnapshot.enemyContactResponse;
-    if (contactResponse.kind !== EnemyContactResponseKind.SideContact) {
-      throw new Error(
-        `Expected a side-contact enemy response, received ${String(contactResponse.kind)}.`,
-      );
-    }
-    expect(contactResponse.enemyEntityId).toBe("beetle-2");
-    expect(contactResponse.contactSide).toBe(EnemySideContactSide.Left);
-    expect(contactResponse.velocity).toEqual({
-      x: expectedEnemySideContactKnockbackSpeed,
-    });
-    // The contact fired on a real frame at or before the observed frame. The
-    // simulation keeps advancing frameIndex after the defeat, so avoid pinning
-    // the response's historical frame to the observation frame.
-    expect(contactResponse.frameIndex).toBeGreaterThan(0);
-    expect(contactResponse.frameIndex).toBeLessThanOrEqual(
-      enemySnapshot.frameIndex,
-    );
-    expect(enemySnapshot.player.velocity.x).toBe(
-      expectedEnemySideContactKnockbackSpeed,
-    );
-    expect(enemySnapshot.playerOutcome).toEqual({
-      kind: "defeated",
-      reason: PlayerDefeatReason.EnemyContact,
-    });
-    expect(enemySnapshot.playerVitality).toEqual({
-      kind: "small",
-    });
-    expect(enemySnapshot.outcomeFeedback).toEqual({
-      visible: true,
-      text: "Opponent contact — Press R",
-    });
-    expect(await countOutcomeFeedbackDarkPixels(page)).toBeGreaterThan(
-      activeFeedbackPixelCount,
-    );
-  } finally {
-    await page.keyboard.up("ArrowLeft");
+  // Read the shell-latched contact-frame observation, which is stable once the
+  // contact happens — the live one-frame event can be skipped by the game's
+  // fixed-step catch-up (it then pauses on death).
+  const enemySnapshot = await waitForSimulationSnapshotCondition(
+    page,
+    "enemy-contact-latched",
+  );
+  const contact = enemySnapshot.lastEnemyContact;
+  if (contact === undefined) {
+    throw new Error("Expected a latched enemy-contact observation.");
   }
+
+  expect(contact.levelContacts).toEqual({
+    hazard: false,
+    goal: false,
+  });
+  expect(contact.enemies).toEqual({
+    contactedEnemyEntityIds: ["beetle-2"],
+    defeatedEnemyEntityIds: [],
+  });
+  const contactResponse = contact.enemyContactResponse;
+  if (contactResponse.kind !== EnemyContactResponseKind.SideContact) {
+    throw new Error(
+      `Expected a side-contact enemy response, received ${String(contactResponse.kind)}.`,
+    );
+  }
+  expect(contactResponse.enemyEntityId).toBe("beetle-2");
+  expect(contactResponse.contactSide).toBe(EnemySideContactSide.Left);
+  expect(contactResponse.velocity).toEqual({
+    x: expectedEnemySideContactKnockbackSpeed,
+  });
+  expect(contactResponse.frameIndex).toBeGreaterThan(0);
+  expect(contactResponse.frameIndex).toBeLessThanOrEqual(contact.frameIndex);
+  expect(contact.playerVelocityX).toBe(expectedEnemySideContactKnockbackSpeed);
+  expect(contact.playerOutcome).toEqual({
+    kind: "defeated",
+    reason: PlayerDefeatReason.EnemyContact,
+  });
+  // The defeat feedback is shown (and rendered) once the contact defeats the
+  // small player; it persists into the death pause.
+  expect(enemySnapshot.playerVitality).toEqual({
+    kind: "small",
+  });
+  expect(enemySnapshot.outcomeFeedback).toEqual({
+    visible: true,
+    text: "Opponent contact — Press R",
+  });
+  expect(await countOutcomeFeedbackDarkPixels(page)).toBeGreaterThan(0);
+
+  // Stop the deterministic drive before the retry, so the retried run starts
+  // idle at the level top instead of immediately walking back into the enemy.
+  await page.evaluate(() => {
+    // An empty log makes the game fall back to real keyboard input (idle here).
+    window.__marioReplayInputs = [];
+  });
 
   const retriedSnapshot = await retryToInitialSimulationSnapshot(page);
 
@@ -2675,6 +2703,8 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   const finishedSnapshot = await readSimulationSnapshot(page);
   expect(finishedSnapshot.playerOutcome.kind).toBe("finished");
   expect(finishedSnapshot.levelProgression.levelIndex).toBe(0);
+  // The flagpole finish awards a goal-height score, so the total is non-zero.
+  expect(finishedSnapshot.score).toBeGreaterThan(0);
 
   await page.waitForFunction(() => {
     const debugApi = window.__originalBrowserPlatformerDebug;
@@ -2691,6 +2721,72 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   expect(advancedSnapshot.playerOutcome.kind).toBe("active");
   expect(advancedSnapshot.player.position.x).toBe(16);
   expect(advancedSnapshot.player.position.y).toBe(56);
+  // The score is a whole-session total: the finished level's score carries into
+  // the next level rather than resetting to zero.
+  expect(advancedSnapshot.score).toBeGreaterThanOrEqual(finishedSnapshot.score);
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
+test("converts remaining time to score with a countdown at the finish", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  await page.goto("/?browserLevel=timed-finish-route");
+  await expect(page.locator("canvas")).toBeVisible();
+
+  await page.keyboard.down("ArrowRight");
+  await waitForSimulationSnapshotCondition(page, "finished-outcome");
+  await page.keyboard.up("ArrowRight");
+
+  // At the finish the clock has time left, so the countdown starts with a
+  // non-zero unit count.
+  const finishedSnapshot = await readSimulationSnapshot(page);
+  expect(finishedSnapshot.timeBonusCountdownUnits).toBeGreaterThan(0);
+
+  // The countdown drains the clock to zero over the level-advance delay.
+  await page.waitForFunction(() => {
+    const debugApi = window.__originalBrowserPlatformerDebug;
+    return (
+      debugApi !== undefined &&
+      debugApi.getSimulationSnapshot().timeBonusCountdownUnits === 0
+    );
+  });
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
+test("carries the player's power tier across a level advance", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  await page.goto("/?browserLevel=multi-level-powered-route");
+  await expect(page.locator("canvas")).toBeVisible();
+
+  const initialSnapshot = await readSimulationSnapshot(page);
+  expect(initialSnapshot.playerVitality.kind).toBe("powered");
+
+  await page.keyboard.down("ArrowRight");
+  await waitForSimulationSnapshotCondition(page, "finished-outcome");
+  await page.keyboard.up("ArrowRight");
+
+  await page.waitForFunction(() => {
+    const debugApi = window.__originalBrowserPlatformerDebug;
+    return (
+      debugApi !== undefined &&
+      debugApi.getSimulationSnapshot().levelProgression.levelIndex === 1
+    );
+  });
+
+  // The next level begins with the same powered tier — power carries across a
+  // level advance, as in the original.
+  const advancedSnapshot = await readSimulationSnapshot(page);
+  expect(advancedSnapshot.levelProgression.levelIndex).toBe(1);
+  expect(advancedSnapshot.playerVitality.kind).toBe("powered");
 
   expect(browserErrors.pageErrors).toEqual([]);
   expect(browserErrors.consoleErrors).toEqual([]);

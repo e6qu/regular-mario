@@ -116,12 +116,33 @@ pnpm run dev            # the "rom-smb" skin now appears in the start menu
 to GitHub Pages on every push to `main`. Enable it once under
 **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
+## Documentation
+
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to build, test, and contribute.
+- [`docs/architecture.md`](docs/architecture.md) — the stack, the
+  functional-core / imperative-shell split, entry points, and module map.
+- [`docs/terminology.md`](docs/terminology.md) — glossary and the mapping from
+  the engine's abstract actor roles to Super Mario Bros. names.
+- [`docs/run-recording-format.md`](docs/run-recording-format.md) — replay and
+  export format.
+- [`docs/smb-level-format.md`](docs/smb-level-format.md) — the numeric level-data
+  decoder reference.
+- [`docs/decisions/`](docs/decisions/) — architecture and content-policy
+  decision records.
+
 ## Development
 
-Quality gates (all run in `pnpm run check`): `typecheck`, `lint`, `dead-code`
-(knip), `copy-paste` (jscpd), unit tests (`test`), and browser tests
-(`test:browser`). See [`AGENTS.md`](AGENTS.md) for contributor guidance and the
-continuity docs (`STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`, `BUGS.md`).
+Quality gates (all run in `pnpm run check`): `typecheck`, `lint`, `format:check`,
+`dead-code` (knip), `copy-paste` (jscpd), unit tests (`test`), and browser tests
+(`test:browser`). Full contributor guidance — setup, testing, coding
+conventions, and the content boundary — is in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+The rendering backend can be switched from the start menu's **Renderer**
+dropdown — **Canvas** (the default), **WebGL** (GPU, faster), or **Auto** — and
+the choice is persisted and applied to the next game started. It can also be set
+with a `?renderer=canvas|webgl|auto` URL parameter, which is handy for an A/B
+comparison. See [`docs/architecture.md`](docs/architecture.md#renderer-canvas--webgl).
 
 ## License
 

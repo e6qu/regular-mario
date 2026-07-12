@@ -130,6 +130,11 @@ export type SimulationState = {
   readonly bulletBillStompScore: Score;
   readonly goalHeightScore: Score;
   readonly livesRemaining: number;
+  // Coins collected in prior levels of this play session. The displayed coin
+  // total and the every-100-coins 1-Up both key off this base plus the coins
+  // collected in the current level (collectibles.collectedCoinEntityIds), so the
+  // count persists across levels as in the original. Reset only on a new game.
+  readonly sessionCoinBase: number;
   readonly playerReaction: PlayerReactionState;
   readonly enemyStompReaction: StompReactionState;
   // Accumulated head-bonk "bloodiness" in [0, 1] (shabby mode only). Each bonk
@@ -210,6 +215,7 @@ export function makeInitialSimulationStateWithPlayerVitality(
     bulletBillStompScore: 0 as Score,
     goalHeightScore: 0 as Score,
     livesRemaining: initialLivesCount,
+    sessionCoinBase: 0,
     playerReaction: makeEmptyPlayerReactionState(),
     enemyStompReaction: makeEmptyStompReactionState(),
     bloodiness: 0,

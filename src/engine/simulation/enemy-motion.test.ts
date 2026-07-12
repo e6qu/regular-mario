@@ -1120,11 +1120,58 @@ describe("enemy motion", () => {
             velocity: {
               x: 0,
             },
+            originX: 48,
+            originY: 64,
           },
         ],
         aerialThrowingActors: [],
         piranhaPlantActors: [],
       });
+    });
+
+    it("shimmies within a window around its spawn column when active", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4);
+      // Active (player nearby), the thrower paces right from its spawn (x=48)
+      // rather than sitting still.
+      const nextState = stepFreshRouteEnemy(levelSpec, {
+        frameDurationMilliseconds: 1_000,
+        player: playerAt({ x: 40, y: 64 }),
+      });
+
+      const actor = nextState.throwingActors[0];
+      expect(actor?.position.x).toBeGreaterThan(48);
+      // It never wanders past its pacing amplitude (12px) from the spawn.
+      expect(actor?.position.x).toBeLessThanOrEqual(48 + 12);
+      expect(actor?.originX).toBe(48);
+    });
+
+    it("hops up to the row above and back on its schedule", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4);
+      let state = enemyMotionFor(levelSpec);
+      let minY = Infinity;
+      let maxY = -Infinity;
+      // Step long enough to cover at least one full hop cycle (settle up to 220
+      // frames + the transition).
+      for (let frame = 0; frame < 320; frame += 1) {
+        state = stepEnemyMotionState(
+          state,
+          levelSpec,
+          makeEmptyEnemyInteractionState(),
+          testFrameDurationMilliseconds(1_000 / 60),
+          initialMovementConstants,
+          playerAt({ x: 40, y: 64 }),
+          (frame + 1) as FrameIndex,
+        );
+        const y = state.throwingActors[0]?.position.y ?? Infinity;
+        minY = Math.min(minY, y);
+        maxY = Math.max(maxY, y);
+      }
+      // It rose above its spawn row (64) at some point...
+      expect(minY).toBeLessThan(64);
+      // ...by no more than one platform-height (32px)...
+      expect(minY).toBeGreaterThanOrEqual(64 - 32 - 0.001);
+      // ...and returned to (never dropped below) the spawn row.
+      expect(maxY).toBeCloseTo(64, 5);
     });
   });
 
@@ -1172,6 +1219,31 @@ describe("enemy motion", () => {
           x: 0 - initialMovementConstants.aerialThrowingEnemySpeed,
         },
       });
+    });
+
+    it("hovers ahead of the player instead of homing straight onto him", () => {
+      const levelSpec = aerialThrowingEnemyRouteLevelSpec(2, 2);
+      // The thrower sits at x=32; the player is just to its left (x=24) but
+      // running right. A homing enemy would move left toward the player, but
+      // Lakitu leads ahead — so it moves right past the player's column.
+      const idle = playerAt({ x: 24, y: 32 });
+      const runningRight = {
+        ...idle,
+        velocity: { ...idle.velocity, x: 120 as typeof idle.velocity.x },
+      };
+      const nextState = stepFreshRouteEnemy(levelSpec, {
+        frameDurationMilliseconds: 1_000,
+        player: runningRight,
+      });
+
+      const actor = nextState.aerialThrowingActors[0];
+      // Moved right (toward the player's x + lead), a full speed step from 32.
+      expect(actor?.position.x).toBe(
+        32 + initialMovementConstants.aerialThrowingEnemySpeed,
+      );
+      expect(actor?.velocity.x).toBe(
+        initialMovementConstants.aerialThrowingEnemySpeed,
+      );
     });
   });
 

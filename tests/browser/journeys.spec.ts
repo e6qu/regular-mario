@@ -73,6 +73,33 @@ test("Space dismisses the press-any-key start prompt", async ({ page }) => {
   await startAndAdvance(page, 5);
 });
 
+// Class of bug: persisted preferences and saved levels accumulate in
+// localStorage with no way for the user to clear them.
+test("the start menu's reset clears saved data and keeps unrelated keys", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 700 });
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.setItem("regular-mario:renderer", "webgl");
+    localStorage.setItem("regular-mario-editor-levels", "[{}]");
+    localStorage.setItem("other-app", "keep");
+  });
+
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Reset saved data" }).click();
+  await page.waitForLoadState("load");
+
+  const stored = await page.evaluate(() => ({
+    renderer: localStorage.getItem("regular-mario:renderer"),
+    levels: localStorage.getItem("regular-mario-editor-levels"),
+    other: localStorage.getItem("other-app"),
+  }));
+  expect(stored.renderer).toBeNull();
+  expect(stored.levels).toBeNull();
+  expect(stored.other).toBe("keep");
+});
+
 // Class of bug: an unplayable level (missing player/goal) fails silently — the
 // most likely "can't play from the creator" report.
 test("play-testing an invalid level explains why instead of doing nothing", async ({
