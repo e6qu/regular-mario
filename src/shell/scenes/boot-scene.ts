@@ -674,6 +674,12 @@ export class BootScene extends Phaser.Scene {
   // rebuild the state (like the life count) so the displayed coins and the
   // every-100-coins 1-Up persist across levels. Reset only on a new game.
   private carriedSessionCoinTotal = 0;
+  // Score banked from completed prior levels/attempts this session. The score is
+  // derived per frame from the current SimulationState (which resets each level),
+  // so — like lives and coins — the shell carries the running total across
+  // rebuilds. The displayed score is this base plus the current level's score.
+  // Reset only on a new game. See docs/terminology.md#session-persistent-state.
+  private carriedSessionScoreBase = 0;
   private levelIntroFramesRemaining = 0;
   private pendingGameOver = false;
   private flowCardBackground?: Phaser.GameObjects.Rectangle;
@@ -1596,6 +1602,8 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
+    // Bank the finished level's score before its state is rebuilt away.
+    this.bankCurrentLevelScore();
     this.levelIndex = nextIndex;
     this.destroyLevelObjects();
     this.buildLevelObjects();
@@ -2331,6 +2339,8 @@ export class BootScene extends Phaser.Scene {
       return; // Unknown target — stay in the current level.
     }
 
+    // Bank the current area's score before the warp rebuilds the level.
+    this.bankCurrentLevelScore();
     this.warpedLevelInput = targetInput;
     // A warp landing at another MAIN level's start is a world jump (the warp
     // zones): the run now belongs to that level — retitle the HUD and advance
@@ -2398,15 +2408,48 @@ export class BootScene extends Phaser.Scene {
     };
   }
 
+  // The score earned in the current level, from the (per-level) SimulationState
+  // plus the shell-tracked firework bonus.
+  private currentLevelScore(): number {
+    return (
+      computeTotalScore(
+        this.simulationState.collectibles,
+        this.simulationState.enemies,
+        this.simulationState.timeBonusScore,
+        this.simulationState.breakableBlockScore,
+        this.simulationState.bulletBillStompScore,
+        this.simulationState.goalHeightScore,
+      ) + this.fireworksBonusScore
+    );
+  }
+
+  // The whole-session score: the base banked from prior levels plus the current
+  // level's score. This is what the HUD and the debug snapshot report.
+  private sessionScore(): number {
+    return this.carriedSessionScoreBase + this.currentLevelScore();
+  }
+
+  // Bank the current level's score into the session base. Called at each
+  // transition that keeps the score (a level advance, a warp, or a retry that is
+  // not a fresh game), before the state is rebuilt and the per-level score is
+  // cleared — so the running total survives across levels, as in the original.
+  private bankCurrentLevelScore(): void {
+    this.carriedSessionScoreBase += this.currentLevelScore();
+  }
+
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
     // A retry after running out of lives starts a fresh game: the full life
-    // count restored and the session coin total cleared. A normal retry keeps
-    // the carried (post-death) totals. This must precede the rebuilds below,
-    // which seed the new state from these values.
+    // count restored and the session coin total and score cleared. A normal
+    // retry keeps the carried (post-death) totals and banks the failed attempt's
+    // score, as the original never resets the score on death. This must precede
+    // the rebuilds below, which seed the new state from these values.
     if (this.pendingGameOver) {
       this.carriedLivesRemaining = initialLivesCount;
       this.carriedSessionCoinTotal = 0;
+      this.carriedSessionScoreBase = 0;
+    } else {
+      this.bankCurrentLevelScore();
     }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint
@@ -3074,18 +3117,9 @@ export class BootScene extends Phaser.Scene {
         .setPosition(stompReaction.x + 8, stompReaction.y + 4)
         .setVisible(stompActive);
     }
-    const score =
-      computeTotalScore(
-        this.simulationState.collectibles,
-        this.simulationState.enemies,
-        this.simulationState.timeBonusScore,
-        this.simulationState.breakableBlockScore,
-        this.simulationState.bulletBillStompScore,
-        this.simulationState.goalHeightScore,
-      ) + this.fireworksBonusScore;
     this.scoreText.setText(
       classicCompatibilityHudText(
-        score,
+        this.sessionScore(),
         this.simulationState.levelTimer.remainingFrames,
         // The whole-session coin total, wrapped 0–99 as the original's two-digit
         // display (each rollover past 100 having awarded a 1-Up).
@@ -3803,14 +3837,9 @@ export class BootScene extends Phaser.Scene {
     const debugApi: BrowserPlatformerDebugApi = {
       getSimulationSnapshot: () => ({
         frameIndex: this.simulationState.clock.frameIndex,
-        score: computeTotalScore(
-          this.simulationState.collectibles,
-          this.simulationState.enemies,
-          this.simulationState.timeBonusScore,
-          this.simulationState.breakableBlockScore,
-          this.simulationState.bulletBillStompScore,
-          this.simulationState.goalHeightScore,
-        ),
+        // The whole-session score (prior-level base + this level's score), so it
+        // accumulates across levels rather than resetting each level.
+        score: this.sessionScore(),
         // The whole-session coin total (prior-level base + this level's coins),
         // so it reflects the cross-level count rather than resetting each level.
         coinCount:

@@ -2675,6 +2675,8 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   const finishedSnapshot = await readSimulationSnapshot(page);
   expect(finishedSnapshot.playerOutcome.kind).toBe("finished");
   expect(finishedSnapshot.levelProgression.levelIndex).toBe(0);
+  // The flagpole finish awards a goal-height score, so the total is non-zero.
+  expect(finishedSnapshot.score).toBeGreaterThan(0);
 
   await page.waitForFunction(() => {
     const debugApi = window.__originalBrowserPlatformerDebug;
@@ -2691,6 +2693,9 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   expect(advancedSnapshot.playerOutcome.kind).toBe("active");
   expect(advancedSnapshot.player.position.x).toBe(16);
   expect(advancedSnapshot.player.position.y).toBe(56);
+  // The score is a whole-session total: the finished level's score carries into
+  // the next level rather than resetting to zero.
+  expect(advancedSnapshot.score).toBeGreaterThanOrEqual(finishedSnapshot.score);
 
   expect(browserErrors.pageErrors).toEqual([]);
   expect(browserErrors.consoleErrors).toEqual([]);
