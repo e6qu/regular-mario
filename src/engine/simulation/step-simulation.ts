@@ -507,6 +507,7 @@ function stepActiveSimulation(
   const enemies = mergeProjectileDefeatedEnemies(
     enemiesAfterShellCollisions,
     projectiles.newlyDefeatedEnemyEntityIds,
+    levelSpec,
   );
   const stompedThisFrame =
     enemies.defeatedEnemyEntityIds.length >
@@ -1005,22 +1006,47 @@ function applyEnemySideContactResponse(
   }
 }
 
+// A fireball kill scores by enemy, as in the ROM (smbdis EnemyScoreData): a
+// Goomba is worth 100, a Hammer Bro 1000, Bowser 5000; everyone else is the
+// default 200.
+const projectileKillScoreByActorId: Readonly<Record<string, number>> = {
+  "vglc-smb-enemy": 100,
+  "vglc-smb-throwing-enemy": 1000,
+  "vglc-smb-bowser": 5000,
+  "vglc-smb-bowser-hammers": 5000,
+};
+
+function projectileKillScoreFor(
+  levelSpec: LevelSpec,
+  entityId: EntityId,
+): number {
+  const actor = levelSpec.actors.find(
+    (candidate) => candidate.entityId === entityId,
+  );
+  return actor === undefined
+    ? scorePerProjectileKill
+    : (projectileKillScoreByActorId[actor.actorId] ?? scorePerProjectileKill);
+}
+
 function mergeProjectileDefeatedEnemies(
   enemies: EnemyInteractionState,
   projectileDefeatedEnemyEntityIds: readonly EntityId[],
+  levelSpec: LevelSpec,
 ): EnemyInteractionState {
   const defeatedSet = new Set(enemies.defeatedEnemyEntityIds);
-  const newKills = countNewlyDefeated(
-    defeatedSet,
-    projectileDefeatedEnemyEntityIds,
-  );
+  let addedScore = 0;
+  for (const entityId of projectileDefeatedEnemyEntityIds) {
+    if (!defeatedSet.has(entityId)) {
+      defeatedSet.add(entityId);
+      addedScore += projectileKillScoreFor(levelSpec, entityId);
+    }
+  }
 
   return {
     ...enemies,
     defeatedEnemyEntityIds: [...defeatedSet],
     cumulativeProjectileKillScore: (enemies.cumulativeProjectileKillScore +
-      newKills *
-        scorePerProjectileKill) as EnemyInteractionState["cumulativeProjectileKillScore"],
+      addedScore) as EnemyInteractionState["cumulativeProjectileKillScore"],
   };
 }
 

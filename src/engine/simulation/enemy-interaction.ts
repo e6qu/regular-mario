@@ -320,6 +320,15 @@ export function resolveEnemyInteractionState(
           // A walking koopa retreats into a resting shell on the first stomp.
           if (!hasEnemyEntityId(shelledEnemyEntityIds, actor.entityId)) {
             shelledEnemyEntityIds.push(actor.entityId);
+            // Stomping a walking koopa/paratroopa into its shell scores like any
+            // stomp — 100 and up the airborne chain — as in the ROM (it isn't
+            // "defeated", but it counts).
+            currentStompChainCount += 1;
+            cumulativeStompScore = (cumulativeStompScore +
+              scoreForConsecutiveDefeat(currentStompChainCount)) as Score;
+            if (consecutiveDefeatAwardsExtraLife(currentStompChainCount)) {
+              cumulativeStompChainExtraLives += 1;
+            }
           }
 
           nudgedShellDirectionByEntityId.delete(actor.entityId);

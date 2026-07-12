@@ -633,6 +633,9 @@ describe("enemy interactions", () => {
       ).toEqual({
         ...expectedEmptyEnemyInteractionState(),
         shelledEnemyEntityIds: ["crab-1"],
+        // Shelling a koopa scores 100 and starts the airborne stomp chain.
+        currentStompChainCount: 1,
+        cumulativeStompScore: 100,
       });
     });
 
@@ -671,6 +674,8 @@ describe("enemy interactions", () => {
       ).toEqual({
         ...expectedEmptyEnemyInteractionState(),
         shelledEnemyEntityIds: ["crab-1"],
+        currentStompChainCount: 1,
+        cumulativeStompScore: 100,
       });
     });
 
