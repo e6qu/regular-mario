@@ -107,3 +107,41 @@ test("an ordinary level shows no warp-zone banner", async ({ page }) => {
   );
   expect((await snapshot(page)).warpZone).toBe(false);
 });
+
+test("fires haptic feedback on landing and death", async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { __vibrations: unknown[] }).__vibrations = [];
+    navigator.vibrate = (pattern) => {
+      (window as unknown as { __vibrations: unknown[] }).__vibrations.push(
+        pattern,
+      );
+      return true;
+    };
+  });
+  await page.goto(playRoute);
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  await page.keyboard.press("Space");
+
+  // Walk into the first enemy and die.
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(
+    () =>
+      String(
+        window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+          .playerOutcome.kind,
+      ) === "defeated",
+    undefined,
+    { timeout: 10000 },
+  );
+  await page.keyboard.up("ArrowRight");
+  await page.waitForTimeout(200);
+
+  const vibrations = await page.evaluate(
+    () => (window as unknown as { __vibrations: unknown[] }).__vibrations,
+  );
+  // The land tick (a single short duration) and the death rumble (a pattern).
+  expect(vibrations).toContainEqual(6);
+  expect(vibrations).toContainEqual([55, 40, 80]);
+});

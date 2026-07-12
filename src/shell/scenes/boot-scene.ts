@@ -1890,6 +1890,18 @@ export class BootScene extends Phaser.Scene {
   // Per-frame event music: swap in the star theme while invincible, sound the
   // death jingle once on defeat, and fire the time-warning sting + speed-up as
   // the clock runs low.
+  // Haptic feedback for the frame's sound events: a light tap on landing, a
+  // double thud on a head-bonk, and a longer rumble on death (touch devices).
+  private stepHaptics(events: readonly SoundEvent[]): void {
+    if (events.includes(SoundEvent.Defeat)) {
+      vibrateHaptic(deathHapticPattern);
+    } else if (events.includes(SoundEvent.HeadBonk)) {
+      vibrateHaptic(headBonkHapticPattern);
+    } else if (events.includes(SoundEvent.Land)) {
+      vibrateHaptic(landHapticMilliseconds);
+    }
+  }
+
   private stepEventMusic(): void {
     const invincible =
       this.simulationState.playerInvincibility.remainingFrames > 0;
@@ -2322,6 +2334,7 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.stepEventMusic();
+    this.stepHaptics(this.lastSoundEvents);
     this.gameAudio.playEvents(this.lastSoundEvents);
 
     this.renderSimulationState();
@@ -4274,16 +4287,28 @@ const singleUseQuestionBlockTileIds: ReadonlySet<string> = new Set([
   "full-question-block-power-up",
 ]);
 
-// A short haptic tick on a touch-control press, where the Vibration API exists
-// (Android Chrome/Firefox). iOS Safari has no vibrate(); the guard no-ops there.
-function buzzTouchControl(): void {
+// Fire the Vibration API where it exists (Android Chrome/Firefox). iOS Safari
+// has no vibrate(); the guard no-ops there. Accepts a single duration or a
+// pattern of on/off millisecond spans.
+function vibrateHaptic(pattern: number | readonly number[]): void {
   if (
     typeof navigator !== "undefined" &&
     typeof navigator.vibrate === "function"
   ) {
-    navigator.vibrate(8);
+    navigator.vibrate(pattern as number | number[]);
   }
 }
+
+// A short haptic tick on a touch-control press.
+function buzzTouchControl(): void {
+  vibrateHaptic(8);
+}
+
+// Distinct haptic patterns per game event: a light tap on landing, a heavier
+// double thud on a head-bonk, and a longer rumble on death.
+const landHapticMilliseconds = 6;
+const headBonkHapticPattern: readonly number[] = [18, 20, 18];
+const deathHapticPattern: readonly number[] = [55, 40, 80];
 
 // The touch deck can be scaled to taste (thumb size / screen size) and the
 // choice persists. The scale drives both the panel width and — via the `--ctl`
