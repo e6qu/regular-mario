@@ -65,6 +65,7 @@ import {
 } from "../../engine/simulation/player-vitality";
 import { initialPlayerSimulationStateConfig } from "../../engine/simulation/player-state";
 import {
+  initialLivesCount,
   makeInitialSimulationStateWithPlayerVitality,
   type SimulationState,
 } from "../../engine/simulation/simulation-state";
@@ -132,9 +133,9 @@ const stompedGoombaFlattenFrames = 42;
 const stompedGoombaSquashScaleY = 0.45;
 // The "WELCOME TO WARP ZONE!" wall label sits above the tiles but below the HUD.
 const warpBannerDepth = 55;
-// Flow screens: the classic starting life count and how long the "WORLD w-l"
-// intro card holds the level frozen before play begins.
-const startingLives = 3;
+// Flow screens: how long the "WORLD w-l" intro card holds the level frozen
+// before play begins. (The starting life count is the engine's
+// initialLivesCount.)
 const worldCardFrames = 120;
 const flowCardDepth = 200;
 const scoreBadgeX = 4;
@@ -662,9 +663,12 @@ export class BootScene extends Phaser.Scene {
   private deathJinglePlayed = false;
   private timeWarningTriggered = false;
   // Flow screens: a "WORLD w-l ×lives" intro card freezes the level briefly on
-  // start/advance; a GAME OVER banner shows when the last life is lost.
-  private livesRemaining = startingLives;
-  private previousExtraLivesForCount = 0;
+  // start/advance; a GAME OVER banner shows when the last life is lost. The
+  // authoritative life count lives in the engine (SimulationState.livesRemaining,
+  // which already folds in 1-Ups, coin thresholds, stomp/shell chains, and the
+  // death decrement). The shell only carries that value across the fresh states
+  // it builds on a level advance or retry, and reads it for display/game-over.
+  private carriedLivesRemaining = initialLivesCount;
   private levelIntroFramesRemaining = 0;
   private pendingGameOver = false;
   private flowCardBackground?: Phaser.GameObjects.Rectangle;
@@ -1461,9 +1465,11 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(activeThemePalette.sky);
     const currentLevelInput = this.resolveCurrentLevelInput();
     this.levelSpec = makeRequiredLevelSpec(currentLevelInput);
-    this.simulationState = makeRequiredInitialSimulationState(
-      this.levelSpec,
-      this.browserGameBootstrap,
+    this.simulationState = this.seedCarriedLives(
+      makeRequiredInitialSimulationState(
+        this.levelSpec,
+        this.browserGameBootstrap,
+      ),
     );
     this.resetRun();
 
@@ -1847,21 +1853,19 @@ export class BootScene extends Phaser.Scene {
       this.gameAudio.setInvincibilityMusic(invincible, this.currentTheme);
     }
 
-    // Collecting a 1-up adds a life.
-    const extraLives =
-      this.simulationState.collectibles.collectedExtraLifeEntityIds.length;
-    if (extraLives > this.previousExtraLivesForCount) {
-      this.livesRemaining += extraLives - this.previousExtraLivesForCount;
-    }
-    this.previousExtraLivesForCount = extraLives;
+    // The engine owns the life count (1-Ups, coin thresholds, stomp/shell
+    // chains, and the on-death decrement are all folded into
+    // SimulationState.livesRemaining); carry it so the next rebuilt state and
+    // the flow-card display stay in sync.
+    this.carriedLivesRemaining = this.simulationState.livesRemaining;
 
     if (
       !this.deathJinglePlayed &&
       this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated
     ) {
       this.deathJinglePlayed = true;
-      this.livesRemaining = Math.max(0, this.livesRemaining - 1);
-      if (this.livesRemaining <= 0) {
+      // The engine has already decremented the life on this defeat frame.
+      if (this.simulationState.livesRemaining <= 0) {
         // Out of lives: the game-over jingle and screen; a retry starts anew.
         this.pendingGameOver = true;
         this.gameAudio.playJingle("game-over");
@@ -2141,7 +2145,7 @@ export class BootScene extends Phaser.Scene {
     if (this.awaitingStart) {
       this.showFlowCard(
         `WORLD ${this.currentWorldLabel()}`,
-        `MARIO \xD7 ${String(this.livesRemaining)}`,
+        `MARIO \xD7 ${String(this.simulationState.livesRemaining)}`,
       );
       // Poll the keys each frame too, so a key held down before the keydown
       // listener was ready (async skin load) still starts the run — not just a
@@ -2166,7 +2170,7 @@ export class BootScene extends Phaser.Scene {
     if (this.levelIntroFramesRemaining > 0) {
       this.showFlowCard(
         `WORLD ${this.currentWorldLabel()}`,
-        `MARIO \xD7 ${String(this.livesRemaining)}`,
+        `MARIO \xD7 ${String(this.simulationState.livesRemaining)}`,
       );
       this.levelIntroFramesRemaining -= 1;
       if (this.levelIntroFramesRemaining === 0) {
@@ -2371,8 +2375,22 @@ export class BootScene extends Phaser.Scene {
     this.renderSimulationState();
   }
 
+  // Seed a freshly-built state with the carried life count. A new state always
+  // starts at the engine's initialLivesCount; overriding it here lets lives
+  // persist across the level advances and retries that rebuild the state, which
+  // is how the original carries lives through a play session.
+  private seedCarriedLives(state: SimulationState): SimulationState {
+    return { ...state, livesRemaining: this.carriedLivesRemaining };
+  }
+
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
+    // A retry after running out of lives starts a fresh game with the full life
+    // count restored; a normal retry keeps the carried (post-death) count. This
+    // must precede the rebuilds below, which seed the new state's lives.
+    if (this.pendingGameOver) {
+      this.carriedLivesRemaining = initialLivesCount;
+    }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint
     // rather than the top — like the original's HalfwayPage respawn.
@@ -2395,9 +2413,11 @@ export class BootScene extends Phaser.Scene {
       );
       this.applyCameraZoom();
     }
-    this.simulationState = makeRequiredInitialSimulationState(
-      this.levelSpec,
-      this.browserGameBootstrap,
+    this.simulationState = this.seedCarriedLives(
+      makeRequiredInitialSimulationState(
+        this.levelSpec,
+        this.browserGameBootstrap,
+      ),
     );
     if (respawnAtHalfway && this.levelSpec.halfwayTileX !== undefined) {
       // Drop in from the top of the checkpoint column; the landing collision
@@ -2418,13 +2438,10 @@ export class BootScene extends Phaser.Scene {
     this.levelCompleteSoundPlayed = false;
     this.deathArcStarted = false;
     this.deathArcActive = false;
-    // Leaving a death/game-over dismisses the flow card; a retry after running
-    // out of lives starts a fresh game with the full life count restored.
+    // Leaving a death/game-over dismisses the flow card (the life count was
+    // already reset above when a game-over was pending).
     this.hideFlowCard();
-    if (this.pendingGameOver) {
-      this.pendingGameOver = false;
-      this.livesRemaining = startingLives;
-    }
+    this.pendingGameOver = false;
     this.cameras.main.startFollow(this.playerRectangle, true, 0.2, 0.12);
     this.resetRun();
     this.exitPause();
@@ -2458,13 +2475,12 @@ export class BootScene extends Phaser.Scene {
     this.fireworksBurstIndex = 0;
     this.fireworksBonusScore = 0;
     // Re-arm the per-run event-music/flow latches so a retry (which does not
-    // rebuild the level) still swaps star music, plays the death jingle, warns
-    // on low time, and counts fresh 1-ups. The intro card is set explicitly on
-    // a level advance, so a plain retry clears it (no card).
+    // rebuild the level) still swaps star music, plays the death jingle, and
+    // warns on low time. The intro card is set explicitly on a level advance,
+    // so a plain retry clears it (no card).
     this.starMusicActive = false;
     this.deathJinglePlayed = false;
     this.timeWarningTriggered = false;
-    this.previousExtraLivesForCount = 0;
     this.levelIntroFramesRemaining = 0;
   }
 
@@ -3779,7 +3795,7 @@ export class BootScene extends Phaser.Scene {
         bloodiness: this.simulationState.bloodiness,
         extraLifeCount:
           this.simulationState.collectibles.collectedExtraLifeEntityIds.length,
-        livesRemaining: this.livesRemaining,
+        livesRemaining: this.simulationState.livesRemaining,
         gameOver: this.pendingGameOver,
         warpZone: this.warpZoneBannerShown,
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),

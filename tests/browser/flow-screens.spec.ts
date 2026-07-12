@@ -62,6 +62,9 @@ test("lives count down across deaths and reach game over", async ({ page }) => {
   await dieWalkingRight(page);
   expect((await snapshot(page)).livesRemaining).toBe(2);
   await retry(page);
+  // The retry carries the post-death count (2), not a reset to three — lives
+  // persist across a retry, as in the original.
+  expect((await snapshot(page)).livesRemaining).toBe(2);
 
   await dieWalkingRight(page);
   expect((await snapshot(page)).livesRemaining).toBe(1);
@@ -72,6 +75,12 @@ test("lives count down across deaths and reach game over", async ({ page }) => {
   const final = await snapshot(page);
   expect(final.livesRemaining).toBe(0);
   expect(final.gameOver).toBe(true);
+
+  // Retrying after game over starts a fresh game at the full life count.
+  await retry(page);
+  const restarted = await snapshot(page);
+  expect(restarted.livesRemaining).toBe(3);
+  expect(restarted.gameOver).toBe(false);
 });
 
 test("a warp-zone level raises the WELCOME TO WARP ZONE banner", async ({
