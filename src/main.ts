@@ -2145,16 +2145,17 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
       if (levels.length === 0) {
         throw new Error("no levels");
       }
-      // Label + list the classic 1-1…8-4 levels; hide the intro fragments.
-      const classicMap = classicLevelMap(levels.map((level) => level.name));
+      // List EVERY decoded area by its true "world-area" number, so any level —
+      // including the castles (e.g. 1-5, the Bowser keep) and the above-ground
+      // intro fragments — can be selected and played directly, not just the four
+      // levels the classic progression auto-advances through.
       for (const level of levels) {
-        const info = classicMap.get(level.name);
-        if (info === undefined || !info.main) {
+        if (!/^smb-\d+-\d+$/.test(level.name)) {
           continue;
         }
         const option = document.createElement("option");
         option.value = level.name;
-        option.textContent = `World ${info.label}`;
+        option.textContent = friendlyLevelLabel(level.name);
         levelSelect.appendChild(option);
       }
       status.textContent = "";
