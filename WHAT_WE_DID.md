@@ -54,17 +54,18 @@ committed — only numeric metadata, code, docs, and scripts.
   **All six hitbox-audit bugs are now fixed; the collision geometry is
   ROM-faithful.**
 
-## 2026-07-12 — Mobile NES control deck outside the drawing surface
+## 2026-07-12 — Mobile NES control deck flanking the play area
 
-- **Touch controls moved out of the play area.** On coarse-pointer devices the
-  game viewport is now a flex column: the canvas sizes to a viewport box that
-  shrinks to make room for a control bar BELOW it, so the deck never overlaps
-  the drawing surface (the view is just a little shorter). The deck is styled
-  like a classic console pad — a black cross D-pad (all four directions, incl.
-  a touch Up for vine climbs), oval SELECT/START pills (START = pause/menu),
-  and round red B/A buttons. A landscape browser test asserts the bar sits
-  below the canvas, the view is narrowed, every control is present, and
-  pressing Right actually drives the player.
+- **Touch controls flank the canvas (left/right), out of the play area.** On
+  coarse-pointer devices the game layer is a flex ROW: two console-grey panels
+  sit either side of the game viewport, which narrows to fit between them — so
+  the deck never overlaps the game and, crucially, a landscape screen keeps its
+  full height (we trade horizontal space, not the precious vertical). Left panel:
+  a black cross D-pad (all four directions, incl. a touch Up for vine climbs).
+  Right panel: SELECT/START pills over the round red B/A buttons (START = the
+  pause/menu). A landscape browser test asserts each panel is entirely to its
+  side of the canvas, the canvas is narrower than the window but ~full height,
+  every control is present, and pressing Right drives the player.
 - **Deep-link any pack level.** A `#play?...&level=` URL naming a warp/bonus
   sub-area (hidden from the menu picker) now boots that level directly instead
   of falling back to the first main — used by the all-54 position check.

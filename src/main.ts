@@ -48,17 +48,19 @@ if (appElement === null) {
 const gameLayer = document.createElement("div");
 gameLayer.setAttribute("role", "application");
 gameLayer.setAttribute("aria-label", "Original platformer game");
-// A column: the game viewport on top, the (mobile-only) touch control bar
-// below it, so the controls sit OUTSIDE the drawing surface rather than over it.
+// A row: the (mobile-only) touch control panels flank the game viewport left and
+// right, so the controls sit OUTSIDE the drawing surface rather than over it —
+// trading horizontal space, which keeps a landscape screen's precious height.
 gameLayer.style.cssText =
-  "position:fixed;inset:0;display:none;flex-direction:column;";
+  "position:fixed;inset:0;display:none;flex-direction:row;";
 // Phaser mounts the canvas into this viewport (not gameLayer directly) so that
-// the canvas sizes to the viewport's box — which shrinks when the touch control
-// bar claims space below, narrowing the view instead of overlapping it.
+// the canvas sizes to the viewport's box — which narrows when the touch control
+// panels claim width beside it, shrinking the view's width instead of overlapping
+// it.
 const gameViewport = document.createElement("div");
 gameViewport.setAttribute("data-role", "game-viewport");
 gameViewport.style.cssText =
-  "position:relative;flex:1 1 auto;min-height:0;min-width:0;width:100%;";
+  "position:relative;flex:1 1 auto;min-height:0;min-width:0;height:100%;";
 gameLayer.append(gameViewport);
 const sessionBar = document.createElement("div");
 sessionBar.setAttribute("role", "tablist");

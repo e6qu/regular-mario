@@ -21,7 +21,7 @@ function readSnapshot(page: Page): Promise<BrowserSimulationSnapshot> {
 test.describe("touch device (landscape)", () => {
   test.use({ hasTouch: true, viewport: { width: 760, height: 420 } });
 
-  test("NES controls appear below the canvas and drive the player", async ({
+  test("NES controls flank the canvas and drive the player", async ({
     page,
   }) => {
     await page.goto("/?browserLevel=first-authored");
@@ -40,26 +40,36 @@ test.describe("touch device (landscape)", () => {
     }
     await expect(page.locator(rotatePrompt)).toBeHidden();
 
-    // The control deck sits in a bar OUTSIDE the drawing surface: it starts at
-    // (or below) the canvas bottom, and the canvas is shorter than the window
-    // because the bar claimed space beneath it.
+    // The control panels FLANK the canvas (left and right), OUTSIDE the drawing
+    // surface: the left panel is entirely left of the canvas, the right panel
+    // entirely right of it, the canvas keeps ~full height, and its width is
+    // narrower than the window because the panels claimed the sides.
     const geometry = await page.evaluate(() => {
       const canvas = document.querySelector("canvas");
-      const bar = document.querySelector('[data-role="touch-control-bar"]');
-      if (canvas === null || bar === null) {
-        throw new Error("missing canvas or control bar");
+      const left = document.querySelector('[data-role="touch-control-left"]');
+      const right = document.querySelector('[data-role="touch-control-right"]');
+      if (canvas === null || left === null || right === null) {
+        throw new Error("missing canvas or control panels");
       }
       const c = canvas.getBoundingClientRect();
-      const b = bar.getBoundingClientRect();
+      const l = left.getBoundingClientRect();
+      const r = right.getBoundingClientRect();
       return {
-        canvasBottom: c.bottom,
+        canvasLeft: c.left,
+        canvasRight: c.right,
+        canvasWidth: c.width,
         canvasHeight: c.height,
-        barTop: b.top,
+        leftRight: l.right,
+        rightLeft: r.left,
+        windowWidth: window.innerWidth,
         windowHeight: window.innerHeight,
       };
     });
-    expect(geometry.barTop).toBeGreaterThanOrEqual(geometry.canvasBottom - 1);
-    expect(geometry.canvasHeight).toBeLessThan(geometry.windowHeight - 40);
+    expect(geometry.leftRight).toBeLessThanOrEqual(geometry.canvasLeft + 1);
+    expect(geometry.rightLeft).toBeGreaterThanOrEqual(geometry.canvasRight - 1);
+    expect(geometry.canvasWidth).toBeLessThan(geometry.windowWidth - 80);
+    // Vertical real estate is preserved (near full-height view).
+    expect(geometry.canvasHeight).toBeGreaterThan(geometry.windowHeight - 40);
 
     // B sits to the left of A (the NES A/B row).
     const aBox = await page

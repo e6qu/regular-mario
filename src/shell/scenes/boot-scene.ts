@@ -700,7 +700,7 @@ export class BootScene extends Phaser.Scene {
     run: false,
     fire: false,
   };
-  private touchControlsRoot: HTMLElement | undefined = undefined;
+  private touchControlPanels: HTMLElement[] = [];
   private touchStartRequested = false;
   private exitRequested = false;
   private runRecorder!: RunRecorder;
@@ -837,8 +837,10 @@ export class BootScene extends Phaser.Scene {
       window.removeEventListener("keydown", this.handleEarlyStartKey);
       window.removeEventListener("keyup", this.handleWindowKeyUp);
       window.removeEventListener("resize", this.handleWindowResize);
-      this.touchControlsRoot?.remove();
-      this.touchControlsRoot = undefined;
+      for (const panel of this.touchControlPanels) {
+        panel.remove();
+      }
+      this.touchControlPanels = [];
       this.gameAudio.stopBackgroundMusic();
     });
 
@@ -1063,11 +1065,13 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // On a coarse-pointer device (phone/tablet), mount an NES-style control deck
-  // in a bar BELOW the canvas — outside the drawing surface, so nothing covers
-  // the game. The viewport (the canvas's flex parent) shrinks to make room, so
-  // the view is a little shorter rather than obscured. Buttons drive
-  // `touchState`, which resolveInputCommand OR's with the keys.
+  // On a coarse-pointer device (phone/tablet, landscape), mount an NES-style
+  // control deck in two panels that FLANK the canvas — the D-pad on the left,
+  // A/B + START on the right — outside the drawing surface. The viewport (the
+  // canvas's flex parent) narrows to fit between them, so we trade horizontal
+  // space (not the precious vertical space of a landscape screen) and nothing
+  // covers the game. Buttons drive `touchState`, which resolveInputCommand OR's
+  // with the keys.
   private createTouchControls(): void {
     const coarsePointer =
       window.matchMedia("(pointer: coarse)").matches ||
@@ -1076,12 +1080,12 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    // The bar lives as a sibling of the game viewport (canvas parent) inside the
-    // column layout, so it claims its own space instead of overlapping.
+    // The panels are siblings of the game viewport (canvas parent) inside the
+    // row layout, one before it and one after, so they claim width beside the
+    // canvas instead of overlapping it.
     const viewport = this.game.canvas.parentElement;
     const host = viewport?.parentElement ?? document.body;
 
-    const bar = makeTouchControlBar();
     const press = (
       onDown: () => void,
       button: HTMLElement,
@@ -1157,9 +1161,18 @@ export class BootScene extends Phaser.Scene {
       this.exitRequested = true;
     });
 
-    bar.append(deck.root);
-    host.append(bar);
-    this.touchControlsRoot = bar;
+    const leftPanel = makeTouchSidePanel("left");
+    leftPanel.append(deck.dpad);
+    const rightPanel = makeTouchSidePanel("right");
+    rightPanel.append(deck.actions);
+
+    if (viewport !== null && viewport.parentElement === host) {
+      host.insertBefore(leftPanel, viewport);
+      host.append(rightPanel);
+    } else {
+      host.append(leftPanel, rightPanel);
+    }
+    this.touchControlPanels = [leftPanel, rightPanel];
   }
 
   // The canvas fills the window (RESIZE); apply an integer camera zoom so the
@@ -2027,13 +2040,13 @@ export class BootScene extends Phaser.Scene {
   // Hide the on-screen touch controls (and drop any held button) while paused,
   // so they don't sit under the timeline overlay; restore them on resume.
   private setTouchControlsVisible(visible: boolean): void {
-    if (this.touchControlsRoot === undefined) {
-      return;
+    for (const panel of this.touchControlPanels) {
+      panel.style.display = visible ? "flex" : "none";
     }
-    this.touchControlsRoot.style.display = visible ? "flex" : "none";
     if (!visible) {
       this.touchState.left = false;
       this.touchState.right = false;
+      this.touchState.up = false;
       this.touchState.down = false;
       this.touchState.jump = false;
       this.touchState.run = false;
@@ -3481,23 +3494,32 @@ const singleUseQuestionBlockTileIds: ReadonlySet<string> = new Set([
   "full-question-block-power-up",
 ]);
 
-// The bar that hosts the touch deck, sitting below the game viewport in the
-// column layout (a flex item that claims its own height rather than overlapping
-// the canvas). Styled like the grey shell of a classic console pad.
-function makeTouchControlBar(): HTMLDivElement {
-  const bar = document.createElement("div");
-  bar.setAttribute("data-role", "touch-control-bar");
-  bar.style.cssText =
-    "flex:0 0 auto;width:100%;box-sizing:border-box;" +
-    "padding:10px max(10px,env(safe-area-inset-right)) " +
-    "max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));" +
-    "background:linear-gradient(#c9c9c9,#9c9c9c);border-top:3px solid #6a1b1b;" +
-    "touch-action:none;user-select:none;-webkit-user-select:none;";
-  return bar;
+// A full-height panel that flanks the canvas (left or right) and hosts one half
+// of the touch deck, anchored to the bottom where the thumb rests. Styled like
+// the grey shell of a classic console pad, with the accent edge facing the game.
+function makeTouchSidePanel(side: "left" | "right"): HTMLDivElement {
+  const panel = document.createElement("div");
+  panel.setAttribute("data-role", `touch-control-${side}`);
+  const safeInset =
+    side === "left"
+      ? "env(safe-area-inset-left)"
+      : "env(safe-area-inset-right)";
+  panel.style.cssText =
+    "flex:0 0 min(32vw,176px);height:100%;box-sizing:border-box;" +
+    "display:flex;flex-direction:column;justify-content:flex-end;" +
+    "align-items:center;gap:14px;" +
+    `padding:12px max(10px,${safeInset}) max(16px,env(safe-area-inset-bottom));` +
+    "background:linear-gradient(#c9c9c9,#9c9c9c);" +
+    `border-${side === "left" ? "right" : "left"}:3px solid #6a1b1b;` +
+    "font-family:monospace;touch-action:none;user-select:none;" +
+    "-webkit-user-select:none;";
+  return panel;
 }
 
 type NesControlDeck = {
-  readonly root: HTMLElement;
+  // The two clusters, one per side panel.
+  readonly dpad: HTMLElement;
+  readonly actions: HTMLElement;
   readonly dpadUp: HTMLElement;
   readonly dpadDown: HTMLElement;
   readonly dpadLeft: HTMLElement;
@@ -3507,16 +3529,12 @@ type NesControlDeck = {
   readonly buttonStart: HTMLElement;
 };
 
-// A classic controller face: a black cross D-pad on the left, oval SELECT/START
-// in the middle, and round red B/A buttons on the right.
+// A classic controller face split across the two flanking panels: the black
+// cross D-pad (left) and the SELECT/START pills over the round red B/A buttons
+// (right). Sizes are panel-relative (px caps) so the cross fits a narrow panel.
 function buildNesControlDeck(): NesControlDeck {
-  const root = document.createElement("div");
-  root.style.cssText =
-    "display:flex;align-items:center;justify-content:space-between;gap:10px;" +
-    "max-width:640px;margin:0 auto;font-family:monospace;";
-
   // --- D-pad (a 3×3 grid; only the plus-shaped arms are buttons) ---
-  const arm = "min(13vw,52px)";
+  const arm = "min(14vw,48px)";
   const dpad = document.createElement("div");
   dpad.style.cssText =
     `display:grid;grid-template-columns:repeat(3,${arm});` +
@@ -3535,7 +3553,7 @@ function buildNesControlDeck(): NesControlDeck {
     button.style.cssText =
       `grid-column:${String(column)};grid-row:${String(row)};` +
       "background:#1b1b1b;color:#e8e8e8;border:none;touch-action:none;" +
-      `border-radius:${radius};font:700 min(4.5vw,18px) monospace;` +
+      `border-radius:${radius};font:700 min(4vw,16px) monospace;` +
       "display:flex;align-items:center;justify-content:center;";
     return button;
   };
@@ -3547,49 +3565,54 @@ function buildNesControlDeck(): NesControlDeck {
   const dpadDown = makeArm("▼", "touch-down", 2, 3, "0 0 6px 6px");
   dpad.append(dpadUp, dpadLeft, hub, dpadRight, dpadDown);
 
-  // --- SELECT / START (dark oval pills) ---
+  // --- Right cluster: SELECT/START pills over the round B/A buttons ---
+  const actions = document.createElement("div");
+  actions.style.cssText =
+    "display:flex;flex-direction:column;align-items:center;gap:14px;";
+
   const pillGroup = document.createElement("div");
-  pillGroup.style.cssText =
-    "display:flex;flex-direction:column;align-items:center;gap:6px;";
+  pillGroup.style.cssText = "display:flex;gap:8px;";
   const makePill = (label: string): HTMLButtonElement => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
     button.setAttribute("aria-label", `touch-${label.toLowerCase()}`);
     button.style.cssText =
-      "width:min(16vw,64px);height:min(5vw,20px);border-radius:10px;" +
+      "width:min(15vw,60px);height:min(4.5vw,18px);border-radius:9px;" +
       "background:#2a2a2a;color:#cfcfcf;border:2px solid #555;touch-action:none;" +
-      "font:700 min(2.6vw,10px) monospace;letter-spacing:1px;";
+      "font:700 min(2.4vw,9px) monospace;letter-spacing:1px;";
     return button;
   };
   const buttonSelect = makePill("SELECT");
   const buttonStart = makePill("START");
   pillGroup.append(buttonSelect, buttonStart);
 
-  // --- B / A (round red buttons; A right of B, both slightly raised) ---
   const abGroup = document.createElement("div");
   abGroup.style.cssText =
-    "display:flex;align-items:flex-end;gap:min(4vw,16px);";
+    "display:flex;align-items:flex-end;gap:min(4vw,14px);";
   const makeRound = (label: string): HTMLButtonElement => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
     button.setAttribute("aria-label", `touch-${label}`);
     button.style.cssText =
-      "width:min(16vw,64px);height:min(16vw,64px);border-radius:50%;" +
+      "width:min(15vw,58px);height:min(15vw,58px);border-radius:50%;" +
       "background:radial-gradient(circle at 38% 32%,#e64b4b,#b21414);" +
       "color:#fff;border:3px solid #7a0f0f;touch-action:none;" +
-      "font:800 min(6vw,24px) monospace;";
+      "font:800 min(6vw,22px) monospace;";
     return button;
   };
+  // B left of A (the NES A/B row); A raised, where the thumb rests.
   const buttonB = makeRound("B");
   const buttonA = makeRound("A");
-  buttonA.style.marginBottom = "min(5vw,20px)";
+  buttonA.style.marginBottom = "min(5vw,18px)";
   abGroup.append(buttonB, buttonA);
 
-  root.append(dpad, pillGroup, abGroup);
+  actions.append(pillGroup, abGroup);
+
   return {
-    root,
+    dpad,
+    actions,
     dpadUp,
     dpadDown,
     dpadLeft,
