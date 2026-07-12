@@ -42,35 +42,50 @@ Conclusion: WebGL is effectively pixel-faithful for this pixel-art game. The
 screenshot-regression baselines (`tests/browser/boot.spec.ts`) would need
 regenerating for WebGL, but the change is cosmetically negligible.
 
-### Multi-session WebGL context budget — a blocker
+### Multi-session WebGL context budget — largely mitigated by Phaser's restore
 
 The session system lets several games coexist: suspending a session
-(`suspendSession` in `src/main.ts`) only hides the canvas (`display: none`); it
-does **not** destroy the Phaser game, so a suspended session keeps its renderer
-context alive. There is no cap on the number of concurrent sessions, and there is
-no `webglcontextlost` / `webglcontextrestored` handling anywhere in the code.
+(`suspendSession` in `src/main.ts`) sleeps its game loop but only hides the
+canvas (`display: none`); it does **not** destroy the Phaser game, so a suspended
+session keeps its renderer context alive. There is no cap on the number of
+concurrent sessions. Under Canvas-2D this is fine — there is no per-page context
+limit. Under WebGL a browser caps live contexts (commonly 8–16) and drops the
+oldest when the cap is exceeded.
 
-Under Canvas-2D this is fine — there is no per-page context limit. Under WebGL a
-browser caps live contexts (commonly 8–16) and drops the oldest when the cap is
-exceeded, which would blank a suspended game's canvas with no recovery path.
+The concern was that a dropped context would blank a game's canvas with no
+recovery. Testing this directly (force a loss with the `WEBGL_lose_context`
+extension, then restore — the same sequence a browser performs when reclaiming
+the oldest context) shows that **Phaser 4 fully recovers**: it `preventDefault`s
+the loss (so the browser will restore) and re-uploads its GL resources on
+`webglcontextrestored`. In the app the simulation keeps advancing across the loss
+and rendering resumes correctly with no page errors and no dead canvas. This is
+guarded by `tests/browser/renderer.spec.ts`.
 
-This is the gating risk for a permanent switch.
+So the multi-session risk is smaller than first feared: a suspended session whose
+context is reclaimed under pressure recovers when it is next shown. The residual
+consideration is only pressure/thrash if very many WebGL games are open at once;
+proactively releasing a suspended session's context on suspend (and letting
+Phaser restore on resume) is an available optimization but is not required for
+correctness.
 
 ## Decision
 
 Keep Canvas-2D as the default and ship the runtime renderer selector for
-evaluation. Before making WebGL the default, resolve the multi-session context
-budget with one (or a combination) of:
+evaluation. The two originally-feared blockers are resolved or reduced:
 
-- releasing a suspended game's WebGL context (destroy on suspend, rebuild on
-  resume — requires serializing the in-memory replay state);
-- capping the number of concurrent WebGL games; and/or
-- adding `webglcontextlost` / `webglcontextrestored` handlers that re-upload
-  textures.
+- **Fidelity** is effectively pixel-faithful (above).
+- **Context loss** is handled by Phaser's built-in restore, verified in-app and
+  guarded by a test — a reclaimed context recovers, so no custom
+  `webglcontextlost` handling is required for correctness.
 
-The CI screenshot baselines must also be regenerated in (and reviewed against)
-the environment that captures them, since headless software WebGL can differ from
-a real GPU.
+Remaining work before making WebGL the default:
+
+- Regenerate the CI screenshot baselines in (and review them against) the
+  environment that captures them, since headless software WebGL can differ from a
+  real GPU.
+- Optionally, to reduce context pressure with many simultaneous WebGL games,
+  release a suspended session's context on suspend and let Phaser restore it on
+  resume. Not required for correctness.
 
 ## Consequences
 
