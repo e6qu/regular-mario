@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  persistRendererChoice,
   rendererNeedsPreservedDrawingBuffer,
   resolveRendererChoice,
   type RendererChoice,
@@ -63,6 +64,18 @@ describe("resolveRendererChoice", () => {
 
   it("tolerates a malformed search string", () => {
     expect(resolveRendererChoice("not a query", storage)).toBe("canvas");
+  });
+});
+
+describe("persistRendererChoice", () => {
+  it("writes the choice so a later resolve (no query) reads it back", () => {
+    const storage = makeStorage();
+    persistRendererChoice("webgl", storage);
+    expect(resolveRendererChoice("", storage)).toBe("webgl");
+  });
+
+  it("is a no-op when storage is unavailable", () => {
+    expect(() => persistRendererChoice("auto", undefined)).not.toThrow();
   });
 });
 

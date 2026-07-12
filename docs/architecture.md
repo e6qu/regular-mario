@@ -133,11 +133,14 @@ their compatibility-conformance checks. See
 ## Renderer (Canvas / WebGL)
 
 Phaser ships both a Canvas-2D and a WebGL renderer, selected by config.
-`select-renderer.ts` resolves the choice from a `?renderer=canvas|webgl|auto`
-URL parameter (persisted to `localStorage`), defaulting to **Canvas**. Because
-the scene code is identical under both, loading the same URL once each way gives
-an exact A/B for rendering fidelity. WebGL and Auto set `preserveDrawingBuffer`
-so the run-thumbnail readback keeps working after compositing.
+`select-renderer.ts` resolves the choice from the start menu's **Renderer**
+dropdown or a `?renderer=canvas|webgl|auto` URL parameter (both persisted to
+`localStorage`), defaulting to **Canvas** and applied to the next game created.
+Because the scene code is identical under both, loading the same URL once each
+way gives an exact A/B for rendering fidelity. WebGL and Auto set
+`preserveDrawingBuffer` so the run-thumbnail readback keeps working after
+compositing; a lost WebGL context is recovered by Phaser's built-in restore (see
+[decision 0020](decisions/0020-webgl-renderer-evaluation.md)).
 
 ## Data flow per frame
 

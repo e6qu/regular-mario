@@ -138,9 +138,11 @@ Quality gates (all run in `pnpm run check`): `typecheck`, `lint`, `format:check`
 conventions, and the content boundary — is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-To compare rendering backends, append `?renderer=canvas`, `?renderer=webgl`, or
-`?renderer=auto` to the URL (the default is Canvas); the choice persists across
-navigation. See [`docs/architecture.md`](docs/architecture.md#renderer-canvas--webgl).
+The rendering backend can be switched from the start menu's **Renderer**
+dropdown — **Canvas** (the default), **WebGL** (GPU, faster), or **Auto** — and
+the choice is persisted and applied to the next game started. It can also be set
+with a `?renderer=canvas|webgl|auto` URL parameter, which is handy for an A/B
+comparison. See [`docs/architecture.md`](docs/architecture.md#renderer-canvas--webgl).
 
 ## License
 

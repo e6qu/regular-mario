@@ -27,6 +27,11 @@ import {
 } from "./shell/deploy-info-footer";
 import { createGameConfig } from "./shell/create-game-config";
 import { resetStoredState, storedStateKeys } from "./shell/reset-stored-state";
+import {
+  isRendererChoice,
+  persistRendererChoice,
+  resolveRendererChoice,
+} from "./shell/select-renderer";
 import { BootScene } from "./shell/scenes/boot-scene";
 import {
   loadUserAssetBundle,
@@ -1954,6 +1959,22 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     ["shabby", "Shabby (ba-ba vocals + ouch)"],
     ["classic", "Classic (chiptune)"],
   ]);
+  // The rendering backend. Canvas is the default; WebGL is faster (especially on
+  // mobile). The choice is persisted and applied to the next game started.
+  const rendererSelect = makeStartMenuDropdown("Renderer", [
+    ["canvas", "Canvas (default)"],
+    ["webgl", "WebGL (GPU, faster)"],
+    ["auto", "Auto (WebGL if available)"],
+  ]);
+  rendererSelect.value = resolveRendererChoice(
+    window.location.search,
+    window.localStorage,
+  );
+  rendererSelect.addEventListener("change", () => {
+    if (isRendererChoice(rendererSelect.value)) {
+      persistRendererChoice(rendererSelect.value, window.localStorage);
+    }
+  });
 
   const playButton = document.createElement("button");
   playButton.className = "start-menu-play";
@@ -1996,6 +2017,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   appendField("LEVEL", levelSelect);
   appendField("GAME MODE", modeSelect);
   appendField("SOUND", audioSelect);
+  appendField("RENDERER", rendererSelect);
   panel.appendChild(controls);
   panel.appendChild(playButton);
 

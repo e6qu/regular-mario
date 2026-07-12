@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 // Renderer-backend coverage. The renderer is selectable via `?renderer=`
 // (Canvas is the default); these guard that the WebGL path boots and recovers
@@ -8,35 +8,13 @@ import { expect, test } from "@playwright/test";
 const playRoute =
   "#play?skin=castaway-parody&map=official-smb&level=smb-1-1&mode=classic&sound=classic";
 
-for (const renderer of ["canvas", "webgl", "auto"] as const) {
-  test(`boots and runs under the ${renderer} renderer`, async ({ page }) => {
-    const pageErrors: string[] = [];
-    page.on("pageerror", (error) => pageErrors.push(String(error)));
-
-    await page.setViewportSize({ width: 700, height: 440 });
-    await page.goto(`/?renderer=${renderer}${playRoute}`);
-    await page.waitForFunction(
-      () => window.__originalBrowserPlatformerDebug !== undefined,
-    );
-    await page.keyboard.press("Space");
-    await page.waitForFunction(
-      () =>
-        window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
-          .frameIndex > 20,
-    );
-
-    expect(pageErrors).toEqual([]);
-  });
-}
-
-test("recovers rendering after a WebGL context is lost and restored", async ({
-  page,
-}) => {
-  const pageErrors: string[] = [];
-  page.on("pageerror", (error) => pageErrors.push(String(error)));
-
+// Boot a game under the given renderer, start it, and run past frame 20.
+async function bootAndAdvance(
+  page: Page,
+  renderer: "canvas" | "webgl" | "auto",
+): Promise<void> {
   await page.setViewportSize({ width: 700, height: 440 });
-  await page.goto(`/?renderer=webgl${playRoute}`);
+  await page.goto(`/?renderer=${renderer}${playRoute}`);
   await page.waitForFunction(
     () => window.__originalBrowserPlatformerDebug !== undefined,
   );
@@ -46,6 +24,65 @@ test("recovers rendering after a WebGL context is lost and restored", async ({
       window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
         .frameIndex > 20,
   );
+}
+
+for (const renderer of ["canvas", "webgl", "auto"] as const) {
+  test(`boots and runs under the ${renderer} renderer`, async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+    await bootAndAdvance(page, renderer);
+
+    expect(pageErrors).toEqual([]);
+  });
+}
+
+test("the start menu's renderer selector persists and applies to the next game", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 800, height: 760 });
+  await page.goto("/");
+
+  const selector = page.locator('select[aria-label="Renderer"]');
+  await expect(selector).toBeVisible();
+  await expect(selector).toHaveValue("canvas");
+
+  await selector.selectOption("webgl");
+  expect(
+    await page.evaluate(() => localStorage.getItem("regular-mario:renderer")),
+  ).toBe("webgl");
+
+  // The next game started uses the chosen backend — a WebGL drawing context.
+  await page.getByText("PLAY", { exact: false }).first().click();
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  const usesWebgl = await page.evaluate(() => {
+    const canvas = document.querySelector("canvas");
+    if (canvas === null) {
+      return false;
+    }
+    // getContext throws if the canvas already has a different context type, so a
+    // throw here means a (webgl) context is already established.
+    try {
+      return (
+        canvas.getContext("webgl2") !== null ||
+        canvas.getContext("webgl") !== null
+      );
+    } catch {
+      return true;
+    }
+  });
+  expect(usesWebgl).toBe(true);
+});
+
+test("recovers rendering after a WebGL context is lost and restored", async ({
+  page,
+}) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
+
+  await bootAndAdvance(page, "webgl");
 
   const frameBeforeLoss = await page.evaluate(
     () =>

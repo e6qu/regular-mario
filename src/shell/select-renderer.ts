@@ -11,7 +11,9 @@ export type RendererChoice = "canvas" | "webgl" | "auto";
 const rendererStorageKey = "regular-mario:renderer";
 const defaultRenderer: RendererChoice = "canvas";
 
-function isRendererChoice(value: string | null): value is RendererChoice {
+export function isRendererChoice(
+  value: string | null,
+): value is RendererChoice {
   return value === "canvas" || value === "webgl" || value === "auto";
 }
 
@@ -53,6 +55,20 @@ export function resolveRendererChoice(
   }
 
   return defaultRenderer;
+}
+
+// Persist an explicit renderer choice (e.g. from the start-menu selector). The
+// next game created reads it via resolveRendererChoice. Best-effort — storage
+// may be unavailable (private mode / disabled).
+export function persistRendererChoice(
+  choice: RendererChoice,
+  storage: Pick<Storage, "setItem"> | undefined,
+): void {
+  try {
+    storage?.setItem(rendererStorageKey, choice);
+  } catch {
+    // Ignore — the choice simply will not persist across navigation.
+  }
 }
 
 // True when the chosen renderer may use WebGL (webgl or auto): WebGL discards
