@@ -25,6 +25,10 @@ import {
 } from "./simulation-units";
 import type { MovementConstants } from "./movement-model";
 
+// Downward gravity for thrown, arcing enemy projectiles (hammers, spiny eggs),
+// matching the fireball's arc so tosses come back down.
+const enemyProjectileGravity = 540;
+
 export type TimedHazardProjectilesState = {
   readonly projectiles: readonly Projectile[];
   readonly playerContact: boolean;
@@ -359,6 +363,9 @@ function makeThrowingEnemyProjectile(
     width: movementConstants.throwingEnemyProjectileColliderWidth,
     height: movementConstants.throwingEnemyProjectileColliderHeight,
     active: true,
+    // Thrown up and out, then it arcs down under gravity (as in the ROM's
+    // ProcHammerObj) instead of flying off in a straight line forever.
+    gravityPixelsPerSecondSquared: enemyProjectileGravity,
     remainingLifetimeFrames: requireProjectileFrameCount(
       movementConstants.throwingEnemyProjectileLifetimeFrameCount,
       "throwingEnemyProjectile.remainingLifetimeFrames",

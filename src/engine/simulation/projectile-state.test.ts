@@ -339,6 +339,44 @@ describe("projectile-state", () => {
     expect(projectiles[0]?.position.x).toBeGreaterThan(spawned.position.x);
   });
 
+  it("arcs a projectile that carries its own gravity (thrown hammer) even at uniform gravity 0", () => {
+    const spawned = activeProjectiles(
+      resolveOnce(makeEmptyProjectilesState(), { firePressed: true }),
+    )[0];
+    if (spawned === undefined) {
+      throw new Error("Expected a fireball to spawn.");
+    }
+    // A hammer-like projectile: thrown upward, carrying its own gravity.
+    let projectiles: readonly Projectile[] = [
+      {
+        ...spawned,
+        position: { x: 32 as never, y: 8 as never },
+        velocity: { x: 0 as never, y: -120 as never },
+        gravityPixelsPerSecondSquared: 540,
+      },
+    ];
+
+    const levelSpec = makeProjectileLevelSpec();
+    let sawRising = false;
+    let sawFalling = false;
+    for (let frame = 0; frame < 20; frame += 1) {
+      projectiles = stepExistingProjectiles(
+        projectiles,
+        nominalSixtyHertzFrameDurationMilliseconds / 1000,
+        levelSpec,
+        makeEmptyBreakableBlockState(),
+        0, // uniform gravity 0 (straight-hazard step)
+        0,
+      );
+      const y = projectiles[0]?.velocity.y;
+      if (y !== undefined && y < 0) sawRising = true;
+      if (y !== undefined && y > 0) sawFalling = true;
+    }
+    // Its own gravity turned the upward throw into a down-arc despite uniform 0.
+    expect(sawRising).toBe(true);
+    expect(sawFalling).toBe(true);
+  });
+
   it("defeats an enemy when a projectile overlaps it", () => {
     const levelSpec = makeProjectileLevelSpec();
     const initialState = makeInitialTestState(levelSpec);

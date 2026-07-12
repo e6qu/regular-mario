@@ -51,6 +51,10 @@ export type Projectile = {
   readonly stompable?: boolean;
   // Lakitu's eggs hatch into walking Spinies when they land on solid ground.
   readonly hatchesOnLanding?: boolean;
+  // Arcing projectiles (thrown hammers, spiny eggs) carry their own downward
+  // gravity so they fall in an arc; straight hazards (cannonballs, flames)
+  // leave this undefined and use the caller's uniform gravity (0).
+  readonly gravityPixelsPerSecondSquared?: number;
   // The hazardous collision box can be inset from the rendered sprite (the ROM
   // Bowser flame is a wide sprite with a tiny hitbox). Absent means no inset.
   readonly hazardInsetXPixels?: number;
@@ -360,9 +364,12 @@ export function stepExistingProjectiles(
     }
 
     // Gravity pulls the fireball down so it travels in an arc (0 underwater,
-    // where it flies straight and buoyant).
+    // where it flies straight and buoyant). A thrown hammer / spiny egg carries
+    // its own gravity so it arcs even in a straight-hazard step.
+    const gravity =
+      projectile.gravityPixelsPerSecondSquared ?? projectileGravity;
     const velocityYAfterGravity =
-      projectile.velocity.y + projectileGravity * frameDurationSeconds;
+      projectile.velocity.y + gravity * frameDurationSeconds;
 
     // Horizontal move first — running into a wall kills the fireball.
     const nextX = requireSimulationPixelPosition(
