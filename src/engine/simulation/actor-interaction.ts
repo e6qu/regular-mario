@@ -65,6 +65,49 @@ export function makeActorColliderSizePixels(
   };
 }
 
+// How far to inset each side of a standard 16×16 enemy's hurtbox so its width
+// matches the ROM's BoundBoxCtrlData (goomba/spiny 10, koopa/buzzy/lakitu 12,
+// hammer bro 8). Only the *width* is narrowed — the top and height stay at the
+// render box so the stomp geometry (which keys off the enemy's top) and the
+// vertical dodge are unchanged; for a grounded enemy only the width and top
+// affect play, so this is the ROM's horizontal forgiveness with no stomp-feel
+// risk. Enemies with a custom collider (Bowser, 28×28) keep their own box.
+const enemyHurtboxInsetPerSideByRole: Partial<Record<ActorRole, number>> = {
+  [ActorRole.Enemy]: 3,
+  [ActorRole.ChasingEnemy]: 3,
+  [ActorRole.PiranhaPlant]: 3,
+  [ActorRole.ArmoredEnemy]: 2,
+  [ActorRole.FlyingEnemy]: 2,
+  [ActorRole.AerialThrowingEnemy]: 2,
+  [ActorRole.ThrowingEnemy]: 4,
+};
+
+// The rectangle an enemy actually hurts/collides the player with — its render
+// box narrowed to the ROM width (standard 16px enemies only).
+export function makeEnemyHurtbox(
+  levelSpec: LevelSpec,
+  actorId: string,
+  role: ActorRole,
+  position: { readonly x: number; readonly y: number },
+): {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+} {
+  const size = makeActorColliderSizePixels(levelSpec, actorId);
+  const inset =
+    size.width === levelSpec.tileSizePixels
+      ? (enemyHurtboxInsetPerSideByRole[role] ?? 0)
+      : 0;
+  return {
+    x: position.x + inset,
+    y: position.y,
+    width: size.width - inset * 2,
+    height: size.height,
+  };
+}
+
 export function playerOverlapsLevelActor(
   player: PlayerSimulationState,
   levelSpec: LevelSpec,

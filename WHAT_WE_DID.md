@@ -34,7 +34,15 @@ committed — only numeric metadata, code, docs, and scripts.
   Wired through the central `playerOverlapsActorPixel` plus the three ad-hoc
   frenzy/spiny overlap checks; contact tests repositioned and the four
   enemy-contact replay-fixture golden states regenerated deterministically.
-  Enemy hitboxes (BUG 5) and crouch (BUG 4) remain (see BUGS.md).
+- **BUG 5 — enemy object-hitboxes.** Added `makeEnemyHurtbox`: standard 16×16
+  enemies now collide the player with their ROM _width_ (goomba/spiny/piranha
+  10, koopa/buzzy/lakitu 12, hammer bro 8), centred, keeping the render top and
+  height. For a grounded enemy only the width and top affect play, so this is
+  the ROM's horizontal near-miss forgiveness with the stomp geometry (which
+  keys off the enemy's top) left intact — confirmed by the stomp-heavy headless
+  playthrough still completing. Custom-collider enemies (Bowser 28×28) keep
+  their box. The four enemy-contact replay fixtures were regenerated again.
+  Only the crouch mechanic (BUG 4) now remains (see BUGS.md).
 
 ## 2026-07-12 — Mobile NES control deck outside the drawing surface
 

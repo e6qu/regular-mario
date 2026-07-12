@@ -6,25 +6,17 @@
 
 A full audit against the ROM's `BoundBoxCtrlData` (disassembly) found our
 collision _logic_ faithful but the collision _geometry_ systematically larger
-than the original, so the game plays harder than SMB. Four of the audit's bugs
-are **fixed** (cannon Bullet Bills now stompable; stomp keys on descent at any
-depth; the Bowser flame now has a small inset collision box; the **player now
-uses a ROM-sized feet-anchored hurtbox** for object collisions — small 10×12,
-big 12×24 — via `playerHurtbox`, distinct from the terrain collider). The
-remaining two are **characterised but not yet fixed**:
+than the original, so the game plays harder than SMB. Five of the audit's bugs
+are **fixed**: cannon Bullet Bills now stompable; stomp keys on descent at any
+depth; the Bowser flame has a small inset collision box; the **player uses a
+ROM-sized feet-anchored hurtbox** (`playerHurtbox`, small 10×12 / big 12×24);
+and **enemies narrow to their ROM widths** (`makeEnemyHurtbox` — goomba/spiny/
+piranha 10, koopa/buzzy/lakitu 12, hammer bro 8), which delivers the ROM's
+horizontal near-miss forgiveness. The enemy box keeps the render top and height
+so the stomp geometry (which keys off the enemy's top) is unchanged — verified
+by the stomp-heavy headless playthrough still completing. The one remaining
+bug:
 
-- **BUG 5 — every enemy uses a 16×16 collider.** ROM boxes: goomba/spiny 10×6,
-  koopa/buzzy 12×12, hammer bro 8×24, piranha 10×6, Bowser two 16×19 halves.
-  Needs per-enemy collision boxes (distinct from the 16×16 render tile) — the
-  same feet-anchored approach the player hurtbox now uses, applied per enemy.
-  **Stomp-geometry caveat (needs playtesting):** `isEnemyStomp` keys the stomp
-  off the enemy's _top_ (`enemyActor.position.y`); a feet-anchored ROM box
-  moves that top downward, so the player must descend lower to stomp. The box
-  height and vertical anchor must be tuned per enemy so stomping still feels
-  right — this is why it wants a visual pass, not just numbers. Also re-churns
-  the replay-fixture golden states (recompute by dumping each fixture's final
-  state, as BUG 3 did). The player hurtbox (BUG 3) already delivered most of
-  the "not harder than the ROM" gain; this is the finishing refinement.
 - **BUG 4 — no crouch mechanic / crouch hitbox.** Big Mario has no duck; the
   ROM shrinks him to 12×12 (entry 2) when Down is held on the ground — the
   canonical way to duck hammers/flames. Add the crouch state + collider.

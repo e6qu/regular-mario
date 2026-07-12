@@ -5,7 +5,7 @@ import {
   assertValidActorRoleEntityIdArray,
   assertValidAnyEnemyRoleEntityIdArray,
   isEnemyRole,
-  makeActorColliderSizePixels,
+  makeEnemyHurtbox,
   makeActorRoleLookup,
   requireActorRole,
 } from "./actor-interaction";
@@ -268,12 +268,21 @@ export function resolveEnemyInteractionState(
   for (const actor of levelSpec.actors) {
     const role = requireActorRole(actorRoleLookup, actor.actorId);
 
+    if (!isEnemyRole(role)) {
+      nudgedShellDirectionByEntityId.delete(actor.entityId);
+      continue;
+    }
+    const enemyHurtbox = makeEnemyHurtbox(
+      levelSpec,
+      actor.actorId,
+      role,
+      requireEnemyActorState(enemyMotion, actor.entityId).position,
+    );
     if (
-      !isEnemyRole(role) ||
       !playerOverlapsActorPixel(
         player,
-        requireEnemyActorState(enemyMotion, actor.entityId).position,
-        makeActorColliderSizePixels(levelSpec, actor.actorId),
+        { x: enemyHurtbox.x, y: enemyHurtbox.y },
+        { width: enemyHurtbox.width, height: enemyHurtbox.height },
       )
     ) {
       nudgedShellDirectionByEntityId.delete(actor.entityId);
