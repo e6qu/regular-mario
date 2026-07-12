@@ -57,6 +57,15 @@ slower browser and full-integration tests run as part of task verification. See
 The full walkthrough — entry points, per-frame data flow, and each module's
 responsibility — is in [`docs/architecture.md`](docs/architecture.md).
 
+## Persisted state
+
+The only client-side persistence is `localStorage`, under keys prefixed
+`regular-mario` (the renderer choice, the editor's tileset/tutorial flags and
+saved levels, the replay timeline-collapsed flag, and the touch-control scale).
+`src/shell/reset-stored-state.ts` centralizes clearing them, and the start
+menu's "Reset saved data" button calls it. New persisted state must use the same
+prefix so the reset covers it.
+
 ## Testing
 
 The testing pyramid:
