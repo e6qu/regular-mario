@@ -126,6 +126,10 @@ const fireworkLifetimeFrames = 26;
 // Below this displayed time the "hurry up!" sting fires and the music speeds up.
 const timeWarningDisplaySeconds = 100;
 const timeWarningTempoScale = 1.35;
+// A stomped Goomba stays squashed on the ground for this many frames before it
+// is removed (the original's flatten-then-vanish), instead of blinking out.
+const stompedGoombaFlattenFrames = 42;
+const stompedGoombaSquashScaleY = 0.45;
 // Flow screens: the classic starting life count and how long the "WORLD w-l"
 // intro card holds the level frozen before play begins.
 const startingLives = 3;
@@ -708,6 +712,9 @@ export class BootScene extends Phaser.Scene {
   }[] = [];
   private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
   private previousEnemyKillScore = 0;
+  // Per-Goomba flatten countdown: a stomped Goomba renders squashed until this
+  // reaches zero, then it is hidden.
+  private readonly flattenedEnemyTimers = new Map<string, number>();
   // Victory fireworks: a shell-timed celebration launched on a flag finish when
   // the remaining-time ones digit is 1, 3, or 6 (that many bursts, 500 each).
   private fireworkSprites: {
@@ -2376,6 +2383,7 @@ export class BootScene extends Phaser.Scene {
     this.scorePopups = [];
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
+    this.flattenedEnemyTimers.clear();
     for (const firework of this.fireworkSprites) {
       firework.star.destroy();
     }
@@ -2741,6 +2749,43 @@ export class BootScene extends Phaser.Scene {
   // Classic SMB feel: a small score number rises and fades over each enemy
   // defeated this frame, showing the points gained (attributed to the new
   // kills). Coins/blocks/time don't get one, as in the original.
+  // Decide whether a (possibly defeated) enemy sprite should render this frame.
+  // A live enemy always renders (and any leftover squash from a prior life is
+  // cleared). A defeated Goomba stays squashed on the ground for a short window
+  // before it is hidden; every other defeated enemy vanishes at once.
+  private resolveEnemyDefeatVisibility(
+    actor: RuntimeRenderedActor,
+    defeated: boolean,
+  ): boolean {
+    if (!isRenderedEnemyRole(actor.role)) {
+      return true;
+    }
+    if (!defeated) {
+      // Reset any squash a retried enemy inherited from its previous death.
+      actor.renderObject.setScale(1);
+      return true;
+    }
+    if (actor.role !== ActorRole.Enemy) {
+      return false;
+    }
+
+    const remaining =
+      this.flattenedEnemyTimers.get(actor.entityId) ??
+      stompedGoombaFlattenFrames;
+    if (remaining <= 0) {
+      this.flattenedEnemyTimers.set(actor.entityId, 0);
+      return false;
+    }
+    this.flattenedEnemyTimers.set(actor.entityId, remaining - 1);
+    // Squash the sprite flat and drop it so it sits on the ground.
+    actor.renderObject.setScale(1, stompedGoombaSquashScaleY);
+    actor.renderObject.setY(
+      actor.renderObject.y +
+        this.levelSpec.tileSizePixels * (1 - stompedGoombaSquashScaleY),
+    );
+    return true;
+  }
+
   private stepScorePopups(defeatedEnemyIds: ReadonlySet<string>): void {
     this.scorePopups = this.scorePopups.filter((popup) => {
       popup.framesRemaining -= 1;
@@ -2996,20 +3041,22 @@ export class BootScene extends Phaser.Scene {
         renderedPosition.x + shakeOffsetX,
         renderedPosition.y,
       );
-      actor.renderObject.setVisible(
+      const collectibleUncollected =
         (actor.role !== ActorRole.Coin ||
           !collectedCoinEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.Item ||
-            !collectedItemEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.PowerUp ||
-            !collectedPowerUpEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.ExtraLife ||
-            !collectedExtraLifeEntityIdStrings.has(actor.entityId)) &&
-          (actor.role !== ActorRole.InvincibilityPowerUp ||
-            !collectedInvincibilityEntityIdStrings.has(actor.entityId)) &&
-          (!isRenderedEnemyRole(actor.role) ||
-            !defeatedEnemyEntityIdStrings.has(actor.entityId)),
+        (actor.role !== ActorRole.Item ||
+          !collectedItemEntityIdStrings.has(actor.entityId)) &&
+        (actor.role !== ActorRole.PowerUp ||
+          !collectedPowerUpEntityIdStrings.has(actor.entityId)) &&
+        (actor.role !== ActorRole.ExtraLife ||
+          !collectedExtraLifeEntityIdStrings.has(actor.entityId)) &&
+        (actor.role !== ActorRole.InvincibilityPowerUp ||
+          !collectedInvincibilityEntityIdStrings.has(actor.entityId));
+      const enemyVisible = this.resolveEnemyDefeatVisibility(
+        actor,
+        defeatedEnemyEntityIdStrings.has(actor.entityId),
       );
+      actor.renderObject.setVisible(collectibleUncollected && enemyVisible);
     }
 
     this.stepScorePopups(defeatedEnemyEntityIdStrings);
