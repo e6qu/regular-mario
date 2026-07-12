@@ -166,12 +166,38 @@ test("pausing and unpausing a session leaves it controllable", async ({
   await openDesigner(page, levelCode());
   await playDismissWalk(page, 1);
 
-  await page.keyboard.press("KeyP");
-  await page.waitForTimeout(200);
-  await page.keyboard.press("KeyP");
-  await page.waitForTimeout(200);
+  // Hold the pause key until the game reports paused, release, then repeat to
+  // unpause — a quick press can fall between the per-frame held-key polls under
+  // parallel-suite load and be missed, leaving the game stuck paused.
+  await setPausedByHoldingKey(page, true);
+  await setPausedByHoldingKey(page, false);
   await expectCanWalkRight(page);
 });
+
+// Hold KeyP until the game's paused state reaches `paused`, then release. Some
+// entry states (a start prompt / advance delay) ignore the key, so keep pressing
+// on a fresh down-edge until it takes.
+async function setPausedByHoldingKey(
+  page: Page,
+  paused: boolean,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        await page.keyboard.down("KeyP");
+        await page.waitForTimeout(80);
+        await page.keyboard.up("KeyP");
+        await page.waitForTimeout(30);
+        return page.evaluate(
+          () =>
+            window.__originalBrowserPlatformerDebug?.getSimulationSnapshot()
+              .paused ?? null,
+        );
+      },
+      { timeout: 8000 },
+    )
+    .toBe(paused);
+}
 
 // Dying in one session doesn't stop the next one from being playable.
 test("dying in a session, then starting another that is controllable", async ({

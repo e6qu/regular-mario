@@ -4009,6 +4009,7 @@ export class BootScene extends Phaser.Scene {
         gameOver: this.pendingGameOver,
         warpZone: this.warpZoneBannerShown,
         timeBonusCountdownUnits: this.timeBonusCountdownUnitsRemaining,
+        paused: this.paused,
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         level: {
           widthTiles: this.levelSpec.widthTiles,

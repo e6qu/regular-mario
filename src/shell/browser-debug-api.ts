@@ -231,6 +231,7 @@ export type BrowserSimulationSnapshot = {
   readonly gameOver: boolean;
   readonly warpZone: boolean;
   readonly timeBonusCountdownUnits: number;
+  readonly paused: boolean;
   readonly lastSoundEvents: readonly string[];
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
