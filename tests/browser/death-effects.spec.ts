@@ -77,8 +77,9 @@ test("an enemy-contact death bursts the body into four sprite pieces", async ({
   const effect = await deathEffect(page);
   expect(effect.started).toBe(true);
   expect(effect.style).toBe("explode");
-  // Four quadrant crops of the authored player sprite.
-  expect(effect.pieceCount).toBe(4);
+  // Six anatomical crops of the authored player sprite (head, torso, 2 arms,
+  // 2 legs) burst apart.
+  expect(effect.pieceCount).toBe(6);
 });
 
 test("falling onto spikes pins the body with X-ed-out eyes", async ({

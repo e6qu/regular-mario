@@ -9,7 +9,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // prettier-ignore
-import { deadEyesGrid, deadEyesPalette, drawGridSprite, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
+import { deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette as deathFlamePalette, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
+import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -1529,6 +1530,8 @@ async function main() {
     ["castaway-ouch.png", castawayOuch, palette],
     ["castaway-dead-eyes.png", deadEyesGrid, deadEyesPalette],
     ["smoke-puff.png", smokeGrid, smokePalette],
+    ["burn-flame.png", flameGrid, deathFlamePalette],
+    ["rescued-friend.png", princessGrid, princessPalette],
     ["grumbler-idle.png", grumblerIdle, enemyPalette],
     ["grumbler-squashed.png", grumblerSquashed, enemyPalette],
     ["tile-sand.png", tileSand, tilePalette],
@@ -1691,6 +1694,8 @@ async function main() {
       // (burn). Authored art so every death effect has its own graphics.
       "player-dead-eyes": spriteEntry("castaway-dead-eyes.png"),
       "smoke-puff": spriteEntry("smoke-puff.png"),
+      "burn-flame": spriteEntry("burn-flame.png"),
+      "rescued-friend": spriteEntry("rescued-friend.png"),
     },
     playerSprite: {
       ...spriteEntry("castaway-idle.png"),

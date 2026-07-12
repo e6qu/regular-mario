@@ -109,6 +109,11 @@ export const standardSurfaceTileDefinitions: LevelSpecInput["tileDefinitions"] =
       collision: TileCollisionKind.Solid,
     },
     {
+      // Spikes kill on contact (Hazard): the player dies the moment their box
+      // overlaps a spike tile — walking into ground spikes or dropping onto/into
+      // raised spikes both trigger the impale death. (SolidHazard is avoided
+      // here: a body resting exactly on top of a solid tile does not overlap it,
+      // so it would not register the hazard and would not die.)
       tileId: "thorn",
       collision: TileCollisionKind.Hazard,
     },

@@ -792,6 +792,52 @@ export class GameAudio {
     }
   }
 
+  // A long, agonized, cartoony scream for burning to death: a wavering wail that
+  // slides up in panic then falls away, with a nasal vocal formant and a tremolo.
+  public playScream(): void {
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    try {
+      const now = audioContext.currentTime;
+      const duration = 0.9;
+      const oscillator = audioContext.createOscillator();
+      oscillator.type = "sawtooth";
+      oscillator.frequency.setValueAtTime(420, now);
+      oscillator.frequency.linearRampToValueAtTime(880, now + 0.12);
+      oscillator.frequency.linearRampToValueAtTime(760, now + 0.5);
+      oscillator.frequency.exponentialRampToValueAtTime(180, now + duration);
+      // A vibrato/tremolo LFO wobbling the pitch so the wail sounds panicked.
+      const vibrato = audioContext.createOscillator();
+      vibrato.type = "sine";
+      vibrato.frequency.setValueAtTime(11, now);
+      const vibratoGain = audioContext.createGain();
+      vibratoGain.gain.setValueAtTime(35, now);
+      vibrato.connect(vibratoGain);
+      vibratoGain.connect(oscillator.frequency);
+      // A voiced formant so it reads as a scream, not a synth sweep.
+      const formant = audioContext.createBiquadFilter();
+      formant.type = "bandpass";
+      formant.frequency.setValueAtTime(1400, now);
+      formant.Q.setValueAtTime(5, now);
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.16, now + 0.05);
+      gain.gain.setValueAtTime(0.16, now + 0.6);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+      oscillator.connect(formant);
+      formant.connect(gain);
+      gain.connect(audioContext.destination);
+      oscillator.start(now);
+      oscillator.stop(now + duration + 0.02);
+      vibrato.start(now);
+      vibrato.stop(now + duration + 0.02);
+    } catch {
+      // Best-effort audio.
+    }
+  }
+
   private playBuffer(audioContext: AudioContext, buffer: AudioBuffer): void {
     try {
       const source = audioContext.createBufferSource();

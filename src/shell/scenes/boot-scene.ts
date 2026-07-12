@@ -182,24 +182,31 @@ const deathArcOffscreenMarginPixels = 96;
 type DeathEffectStyle = "launch" | "explode" | "burn" | "float" | "impale";
 // Explode: each body-sprite piece pops up and flings outward, then falls.
 const deathExplodePopSpeedPixels = 5.5;
-const deathExplodeSpreadSpeedPixels = 2.6;
 const deathExplodeGravityPixels = 0.42;
 const deathExplodeSpinRadiansPerFrame = 0.22;
-// Burn: the body sinks and shrinks to nothing while smoke puffs rise off it.
-const deathBurnSinkSpeedPixels = 0.35;
+// Burn: the body catches fire, chars, sinks, and shrinks to nothing while flame
+// tongues lick over it and smoke puffs rise off it.
+const deathBurnSinkSpeedPixels = 0.3;
 const deathBurnSmokeIntervalFrames = 5;
 const deathBurnSmokeRiseSpeedPixels = 0.8;
 const deathBurnSmokeLifeFrames = 44;
-const deathBurnDurationFrames = 90;
+const deathBurnDurationFrames = 130;
+const deathBurnFlameCount = 3;
+const deathBurnFlameFlickerAmplitude = 0.25;
 // Float: a drowned drift up to the surface with a gentle side-to-side wobble.
-const deathFloatRiseSpeedPixels = 0.55;
+const deathFloatRiseSpeedPixels = 0.75;
 const deathFloatWobbleAmplitudePixels = 1.4;
 const deathFloatWobbleFramesPerCycle = 40;
+// The float stops this many pixels below the top of the level (its "surface").
+const deathFloatSurfaceMarginPixels = 6;
+// A brief hold at the surface once the body has floated up, before the menu.
+const deathFloatSurfaceHoldFrames = 40;
 // How long each style animates before the replay/retry menu is allowed to open,
 // so the death plays out on screen first (the launch style instead holds until
-// its arc has fallen off-screen — see deathEffectAnimating).
-const deathExplodeMenuHoldFrames = 72;
-const deathFloatMenuHoldFrames = 90;
+// its arc has fallen off-screen, and float holds until it reaches the surface —
+// see deathEffectAnimating).
+const deathExplodeMenuHoldFrames = 96;
+const deathFloatMaxHoldFrames = 360;
 const deathImpaleMenuHoldFrames = 48;
 const playerBodyColor = 0x2563eb;
 const playerCapColor = 0x0d9488;
@@ -759,6 +766,8 @@ export class BootScene extends Phaser.Scene {
   // (scattering body-sprite pieces, rising smoke) and its progress counter.
   private deathEffectStyle: DeathEffectStyle = "launch";
   private deathEffectFrame = 0;
+  // The frame a drowning float first reached the surface (-1 until it does).
+  private deathFloatSurfaceFrame = -1;
   private deathPieces: {
     readonly image: Phaser.GameObjects.Image;
     vx: number;
@@ -769,6 +778,15 @@ export class BootScene extends Phaser.Scene {
     readonly image: Phaser.GameObjects.Image;
     vy: number;
     life: number;
+  }[] = [];
+  // Flame tongues clinging to a burning body (offset from its centre + a phase
+  // so they flicker out of sync).
+  private deathFlames: {
+    readonly image: Phaser.GameObjects.Image;
+    readonly offsetX: number;
+    readonly offsetY: number;
+    readonly phase: number;
+    readonly baseScale: number;
   }[] = [];
   private deathXEyesImage: Phaser.GameObjects.Image | undefined;
   private previousPlayerVertical: VerticalMovementState =
@@ -1771,8 +1789,30 @@ export class BootScene extends Phaser.Scene {
           ...this.levelRenderedObjects,
           this.castleClearMessageText,
         ];
+        this.renderRescuedFriend(camera);
       }
     }
+  }
+
+  // Show the rescued friend (a princess, in the ROM skin) above the castle-clear
+  // message — the payoff of the boss falling, as authored art rather than only
+  // the "YOUR FRIEND" text.
+  private renderRescuedFriend(camera: Phaser.Cameras.Scene2D.Camera): void {
+    const friendAsset =
+      this.userAssetBundle?.reactionImages.get("rescued-friend");
+    if (friendAsset === undefined) {
+      return;
+    }
+    const image = addUserFrameImage(this, 0, 0, friendAsset);
+    image
+      .setOrigin(0.5)
+      .setDisplaySize(24, 24)
+      .setPosition(
+        camera.scrollX + camera.width / (2 * camera.zoom),
+        camera.scrollY + camera.height / (3 * camera.zoom) - 26,
+      )
+      .setDepth(120);
+    this.levelRenderedObjects = [...this.levelRenderedObjects, image];
   }
 
   private hasFinishedOutcome(): boolean {
@@ -2256,22 +2296,53 @@ export class BootScene extends Phaser.Scene {
     this.deathEffectStyle = style;
     // A cartoony, exaggerated death yelp keyed to the cause.
     this.gameAudio.playDeathSound(this.deathSoundForStyle(style));
-    // Freeze the camera so the death plays out in place instead of the camera
-    // following the launched/floating body and masking the motion.
-    this.cameras.main.stopFollow();
+    // A drowning body floats up, so keep the camera following it to the surface;
+    // every other style plays in place, so freeze the camera there instead of
+    // chasing the launched/scattered body and masking the motion.
+    if (style !== "float") {
+      this.cameras.main.stopFollow();
+    }
     if (style === "explode") {
       this.beginExplodeEffect();
     } else if (style === "float") {
       this.beginFloatEffect();
+    } else if (style === "burn") {
+      this.beginBurnEffect();
     } else if (style === "launch") {
       this.deathArcActive = true;
       this.deathArcVelocityY = -deathArcPopSpeedPixels;
     }
-    // "burn" and "impale" need no launch velocity — they play where he fell.
+    // "impale" needs no launch velocity — it plays where he fell.
   }
 
-  // Explode: hide the whole-body sprite and spawn four quadrant crops of it that
-  // pop up, fling apart, spin, and fall under gravity — his body coming apart.
+  // Burn: set the body alight — pin flickering flame tongues over it and add a
+  // scream on top of the sizzle. The body then chars and shrinks in stepBurn.
+  private beginBurnEffect(): void {
+    this.gameAudio.playScream();
+    const flameAsset = this.userAssetBundle?.reactionImages.get("burn-flame");
+    if (flameAsset === undefined) {
+      return;
+    }
+    const width = this.simulationState.player.collider.width;
+    const height = this.simulationState.player.collider.height;
+    for (let index = 0; index < deathBurnFlameCount; index += 1) {
+      const image = addUserFrameImage(this, 0, 0, flameAsset);
+      image.setOrigin(0.5).setDepth(62).setVisible(true);
+      const spread = (index / (deathBurnFlameCount - 1) - 0.5) * width * 0.8;
+      this.deathFlames.push({
+        image,
+        offsetX: spread,
+        offsetY: -height * 0.15 + (index % 2) * height * 0.2,
+        phase: index * 1.7,
+        baseScale: 0.8 + (index % 2) * 0.35,
+      });
+    }
+  }
+
+  // Explode: hide the whole-body sprite and burst it into anatomical chunks —
+  // head, torso, two arms, two legs — each a real crop of the authored player
+  // frame (never a stand-in). They pop up, fling wide, spin, and rain down all
+  // over the map under gravity.
   private beginExplodeEffect(): void {
     const playerImage = this.userAssetBundle?.playerImage;
     if (playerImage === undefined) {
@@ -2288,58 +2359,73 @@ export class BootScene extends Phaser.Scene {
     ]);
     const width = this.simulationState.player.collider.width;
     const height = this.simulationState.player.collider.height;
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setVisible(false);
     }
     this.setPlayerBodyRectanglesVisible(false);
-    for (let quadrantY = 0; quadrantY < 2; quadrantY += 1) {
-      for (let quadrantX = 0; quadrantX < 2; quadrantX += 1) {
-        const piece = this.makeCropPiece(
-          source,
-          quadrantX,
-          quadrantY,
-          halfWidth,
-          halfHeight,
-        );
-        const centerBiasX = quadrantX === 0 ? -1 : 1;
-        piece.setPosition(
-          this.deathArcX + quadrantX * halfWidth + halfWidth / 2,
-          this.deathArcY + quadrantY * halfHeight + halfHeight / 2,
-        );
-        this.deathPieces.push({
-          image: piece,
-          vx: centerBiasX * deathExplodeSpreadSpeedPixels,
-          vy: -deathExplodePopSpeedPixels + quadrantY * 1.2,
-          vr: centerBiasX * deathExplodeSpinRadiansPerFrame,
-        });
-      }
-    }
+    // Body regions as fractions of the sprite box (left, top, right, bottom),
+    // plus the sideways fling each chunk gets. The player sprite has the head up
+    // top, torso in the middle, and feet at the bottom, so these crops read as
+    // the matching body parts.
+    const parts: {
+      readonly region: readonly [number, number, number, number];
+      readonly flingX: number;
+    }[] = [
+      { region: [0.28, 0.0, 0.72, 0.4], flingX: 1.1 }, // head
+      { region: [0.24, 0.4, 0.76, 0.74], flingX: -0.5 }, // torso
+      { region: [0.0, 0.36, 0.34, 0.7], flingX: -6.2 }, // left arm
+      { region: [0.66, 0.36, 1.0, 0.7], flingX: 6.4 }, // right arm
+      { region: [0.2, 0.72, 0.52, 1.0], flingX: -3.4 }, // left leg
+      { region: [0.48, 0.72, 0.8, 1.0], flingX: 3.6 }, // right leg
+    ];
+    parts.forEach((part, index) => {
+      const [left, top, right, bottom] = part.region;
+      const piece = this.makeCropPiece(source, part.region);
+      piece.setPosition(
+        this.deathArcX + ((left + right) / 2) * width,
+        this.deathArcY + ((top + bottom) / 2) * height,
+      );
+      this.deathPieces.push({
+        image: piece,
+        vx: part.flingX,
+        // Alternate the upward pop so the chunks separate rather than clump.
+        vy: -deathExplodePopSpeedPixels - (index % 3) * 0.9,
+        vr:
+          (part.flingX >= 0 ? 1 : -1) *
+          deathExplodeSpinRadiansPerFrame *
+          (1 + (index % 2) * 0.6),
+      });
+    });
   }
 
-  // Build one quadrant crop of the authored player frame as an independent
-  // image, so the exploding pieces are real cuts of his body, not stand-ins.
+  // Build one anatomical crop (region given as left/top/right/bottom fractions
+  // of the sprite box) as an independent image, so each exploding chunk is a
+  // real cut of the authored player, not a stand-in.
   private makeCropPiece(
     source: LoadedImageAsset,
-    quadrantX: number,
-    quadrantY: number,
-    displayWidth: number,
-    displayHeight: number,
+    region: readonly [number, number, number, number],
   ): Phaser.GameObjects.Image {
     const key = registerUserImageTexture(this, source);
-    const cropWidth = source.frame.width / 2;
-    const cropHeight = source.frame.height / 2;
+    const [left, top, right, bottom] = region;
+    const frameWidth = source.frame.width;
+    const frameHeight = source.frame.height;
+    const cropWidth = (right - left) * frameWidth;
+    const cropHeight = (bottom - top) * frameHeight;
+    const colliderWidth = this.simulationState.player.collider.width;
+    const colliderHeight = this.simulationState.player.collider.height;
     return this.add
       .image(0, 0, key)
       .setOrigin(0.5)
       .setCrop(
-        source.frame.x + quadrantX * cropWidth,
-        source.frame.y + quadrantY * cropHeight,
+        source.frame.x + left * frameWidth,
+        source.frame.y + top * frameHeight,
         cropWidth,
         cropHeight,
       )
-      .setDisplaySize(displayWidth, displayHeight)
+      .setDisplaySize(
+        (right - left) * colliderWidth,
+        (bottom - top) * colliderHeight,
+      )
       .setDepth(60);
   }
 
@@ -2424,6 +2510,7 @@ export class BootScene extends Phaser.Scene {
         );
     }
     this.setPlayerBodyRectanglesVisible(false);
+    this.stepBurnFlames(scale);
     if (
       this.deathEffectFrame % deathBurnSmokeIntervalFrames === 0 &&
       this.deathEffectFrame <= deathBurnDurationFrames
@@ -2431,6 +2518,29 @@ export class BootScene extends Phaser.Scene {
       this.spawnSmokePuff();
     }
     this.stepSmoke();
+  }
+
+  // Flicker the flame tongues over the burning body and shrink/fade them along
+  // with it, so the fire dies down as the body is consumed.
+  private stepBurnFlames(bodyScale: number): void {
+    const centerX =
+      this.deathArcX + this.simulationState.player.collider.width / 2;
+    const centerY =
+      this.deathArcY + this.simulationState.player.collider.height / 2;
+    for (const flame of this.deathFlames) {
+      const flicker =
+        1 +
+        Math.sin(this.deathEffectFrame * 0.6 + flame.phase) *
+          deathBurnFlameFlickerAmplitude;
+      const scale = flame.baseScale * flicker * Math.max(0.15, bodyScale);
+      flame.image
+        .setPosition(
+          centerX + flame.offsetX * bodyScale,
+          centerY + flame.offsetY,
+        )
+        .setScale(scale)
+        .setAlpha(Math.max(0, bodyScale));
+    }
   }
 
   private spawnSmokePuff(): void {
@@ -2475,11 +2585,20 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  // The world y a drowned body floats up to: just below the top of the level.
+  private floatSurfaceY(): number {
+    return deathFloatSurfaceMarginPixels;
+  }
+
   private stepFloatEffect(): void {
     // Drift up to (but not through) the surface with a gentle wobble.
-    const surfaceY = this.simulationState.player.collider.height;
+    const surfaceY = this.floatSurfaceY();
     if (this.deathArcY > surfaceY) {
       this.deathArcY -= deathFloatRiseSpeedPixels;
+    } else if (this.deathFloatSurfaceFrame < 0) {
+      // Record the frame the body first reached the surface, so the menu can
+      // hold a beat longer there before opening.
+      this.deathFloatSurfaceFrame = this.deathEffectFrame;
     }
     const wobble =
       Math.sin(
@@ -2543,15 +2662,26 @@ export class BootScene extends Phaser.Scene {
       puff.image.destroy();
     }
     this.deathSmoke = [];
+    for (const flame of this.deathFlames) {
+      flame.image.destroy();
+    }
+    this.deathFlames = [];
     if (this.deathXEyesImage !== undefined) {
       this.deathXEyesImage.destroy();
       this.deathXEyesImage = undefined;
     }
     this.deathEffectStyle = "launch";
     this.deathEffectFrame = 0;
-    this.setPlayerBodyRectanglesVisible(true);
+    this.deathFloatSurfaceFrame = -1;
     if (this.playerImageObject !== undefined) {
+      // A skinned player: the sprite is the body; the vector rectangles stay
+      // hidden (showing them here is what left a "vector man" behind the sprite
+      // after a retry). Restore the sprite to upright, untinted, full size.
       this.playerImageObject.setVisible(true).setFlipY(false).clearTint();
+      this.setPlayerBodyRectanglesVisible(false);
+    } else {
+      // No skin: the vector rectangles are the body, so restore them.
+      this.setPlayerBodyRectanglesVisible(true);
     }
   }
 
@@ -3268,7 +3398,18 @@ export class BootScene extends Phaser.Scene {
       case "burn":
         return this.deathEffectFrame < deathBurnDurationFrames;
       case "float":
-        return this.deathEffectFrame < deathFloatMenuHoldFrames;
+        // Keep animating until the body has floated up to the surface and held
+        // there a beat — but never longer than the safety cap.
+        if (this.deathEffectFrame >= deathFloatMaxHoldFrames) {
+          return false;
+        }
+        if (this.deathFloatSurfaceFrame < 0) {
+          return true;
+        }
+        return (
+          this.deathEffectFrame - this.deathFloatSurfaceFrame <
+          deathFloatSurfaceHoldFrames
+        );
       case "impale":
         return this.deathEffectFrame < deathImpaleMenuHoldFrames;
     }

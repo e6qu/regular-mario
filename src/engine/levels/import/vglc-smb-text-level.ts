@@ -395,8 +395,11 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
   // Swim-through coral banks in water areas (the ROM's water terrain sits
   // above the player-solidity bound — decoration, not walls).
   ["~", { tileId: "coral", collision: TileCollisionKind.Empty }],
-  ["^", { tileId: "lava-surface", collision: TileCollisionKind.Empty }],
-  [":", { tileId: "lava-body", collision: TileCollisionKind.Empty }],
+  // Lava is lethal: touching the surface (or the body while falling in) kills
+  // the player on contact — a HazardContact, which the shell renders as the
+  // burn death — rather than letting them drop through to a pit death.
+  ["^", { tileId: "lava-surface", collision: TileCollisionKind.Hazard }],
+  [":", { tileId: "lava-body", collision: TileCollisionKind.Hazard }],
 ]);
 
 const multiLayerTileLegendCharacters: ReadonlyMap<

@@ -9,7 +9,8 @@ import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // prettier-ignore
-import { deadEyesGrid, deadEyesPalette, drawGridSprite, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
+import { deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
+import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -295,6 +296,14 @@ async function main() {
     resolve(outDir, "smb-smoke-puff.png"),
     drawGridSprite(smokeGrid, smokePalette),
   );
+  await writeFile(
+    resolve(outDir, "smb-burn-flame.png"),
+    drawGridSprite(flameGrid, flamePalette),
+  );
+  await writeFile(
+    resolve(outDir, "smb-rescued-friend.png"),
+    drawGridSprite(princessGrid, princessPalette),
+  );
 
   const playerStateSprites = buildPlayerStateSprites();
   const descriptor = {
@@ -306,6 +315,8 @@ async function main() {
       // drown/impale deaths and a smoke puff for burn deaths.
       "player-dead-eyes": spriteEntry("smb-dead-eyes.png"),
       "smoke-puff": spriteEntry("smb-smoke-puff.png"),
+      "burn-flame": spriteEntry("smb-burn-flame.png"),
+      "rescued-friend": spriteEntry("smb-rescued-friend.png"),
     },
     playerSprite: {
       ...spriteEntry(smallPlayerStateSources["small-idle"]),

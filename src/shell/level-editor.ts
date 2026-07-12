@@ -322,6 +322,13 @@ const paletteItems: readonly PaletteItem[] = [
     tileId: "thorn",
   },
   {
+    key: "lava",
+    label: "Lava",
+    color: "#e8531a",
+    kind: "tile",
+    tileId: "lava-surface",
+  },
+  {
     key: "goal",
     label: "Goal",
     color: "#2ecc71",
@@ -629,6 +636,7 @@ const cellCharByKey: Readonly<Record<string, string>> = {
   hidden: "i",
   cannon: "o",
   spikes: "s",
+  lava: "Z",
   goal: "x",
   player: "p",
   goomba: "e",
@@ -2602,6 +2610,13 @@ function extraTileDefinitionsFor(
     definitions.push({
       tileId: "cannon-top",
       collision: TileCollisionKind.SolidHazard,
+    });
+  }
+  if (usedTileIds.has("lava-surface")) {
+    // Lava kills on contact (Hazard) — a fall into it is a burn death.
+    definitions.push({
+      tileId: "lava-surface",
+      collision: TileCollisionKind.Hazard,
     });
   }
   for (const pipeTileId of [

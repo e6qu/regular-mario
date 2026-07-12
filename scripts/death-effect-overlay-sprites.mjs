@@ -69,3 +69,31 @@ export const smokeGrid = [
   "................",
   "................",
 ];
+
+// Flame tongue: a licking fire that clings to a burning body. Skin-agnostic
+// (fire is orange/yellow regardless of the character), so it is shared like the
+// smoke puff. Yellow-white core (Y), orange body (r), deep-red edges (R).
+export const flamePalette = {
+  ".": [0, 0, 0, 0],
+  R: [176, 42, 16, 235],
+  r: [240, 122, 28, 240],
+  Y: [255, 224, 120, 255],
+};
+export const flameGrid = [
+  "................",
+  ".......R........",
+  "......RrR.......",
+  "......rrR.......",
+  ".....RrrrR......",
+  ".....RrYrR......",
+  "....RrrYrrR.....",
+  "....RrYYYrR.....",
+  "...RrrYYYrrR....",
+  "...RrYYYYYrR....",
+  "..RrrYYYYYrrR...",
+  "..RrrYYYYYrrR...",
+  "..RrRrYYYrRrR...",
+  "...RRRrrrRRR....",
+  "....RR.R.RR.....",
+  "................",
+];
