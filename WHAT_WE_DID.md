@@ -66,6 +66,18 @@ committed — only numeric metadata, code, docs, and scripts.
   pause/menu). A landscape browser test asserts each panel is entirely to its
   side of the canvas, the canvas is narrower than the window but ~full height,
   every control is present, and pressing Right drives the player.
+- **Web-touch best practices** (from researching how others build NES-style web
+  controls): (1) the browser applies _implicit pointer capture_ on pointerdown,
+  which blocks pointerenter/leave — so we `releasePointerCapture` on pointerdown
+  and press on pointerenter, letting the thumb roll ◀→▶ across the D-pad without
+  lifting (browser-tested). (2) A short **haptic tick** (`navigator.vibrate`,
+  no-op on iOS) on each press. (3) A **dead-zone hub** in the D-pad centre.
+  (4) `touch-action:none` + `preventDefault` (no scroll/zoom), plus
+  `-webkit-touch-callout:none` / `tap-highlight-color:transparent` (no iOS
+  long-press callout or grey tap flash). (5) A **size toggle** (⤢, top-left)
+  cycles the deck S/M/L via a `--ctl` scale on the panels/buttons, persists in
+  localStorage, and re-narrows the canvas live — browser-tested for resize +
+  persistence.
 - **Deep-link any pack level.** A `#play?...&level=` URL naming a warp/bonus
   sub-area (hidden from the menu picker) now boots that level directly instead
   of falling back to the first main — used by the all-54 position check.

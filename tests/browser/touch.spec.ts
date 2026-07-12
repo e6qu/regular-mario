@@ -109,6 +109,37 @@ test.describe("touch device (landscape)", () => {
     expect((await readSnapshot(page)).player.position.x).toBeGreaterThan(start);
   });
 
+  test("the size toggle resizes the control panels and persists", async ({
+    page,
+  }) => {
+    await page.goto("/?browserLevel=first-authored");
+    await page.waitForFunction(
+      () => window.__originalBrowserPlatformerDebug !== undefined,
+    );
+
+    const leftPanel = page.locator('[data-role="touch-control-left"]');
+    const widthOf = async (): Promise<number> => {
+      const box = await leftPanel.boundingBox();
+      if (box === null) {
+        throw new Error("left panel has no bounding box");
+      }
+      return box.width;
+    };
+
+    const before = await widthOf();
+    // Cycle to the next size (S/M/L wraps); the panel width must change.
+    await page.locator('[aria-label="touch-control-size"]').click();
+    await expect.poll(widthOf).not.toBe(before);
+    const afterToggle = await widthOf();
+
+    // The choice persists across a reload (within sub-pixel rounding).
+    await page.reload();
+    await page.waitForFunction(
+      () => window.__originalBrowserPlatformerDebug !== undefined,
+    );
+    expect(Math.abs((await widthOf()) - afterToggle)).toBeLessThan(2);
+  });
+
   test("thumb-rolls across the D-pad without lifting (◀ → ▶)", async ({
     page,
   }) => {

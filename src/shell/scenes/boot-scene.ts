@@ -1103,6 +1103,7 @@ export class BootScene extends Phaser.Scene {
         this.touchStartRequested = true;
         onDown();
         button.style.filter = "brightness(1.5)";
+        buzzTouchControl();
       };
     };
     // Rolling onto a button while a finger is already down (buttons !== 0)
@@ -1184,9 +1185,35 @@ export class BootScene extends Phaser.Scene {
       this.exitRequested = true;
     });
 
-    const leftPanel = makeTouchSidePanel("left");
-    leftPanel.append(deck.dpad);
-    const rightPanel = makeTouchSidePanel("right");
+    let scale = readTouchControlScale();
+    const leftPanel = makeTouchSidePanel("left", scale);
+    const rightPanel = makeTouchSidePanel("right", scale);
+
+    // A small size toggle at the top of the left panel cycles S/M/L; the choice
+    // persists and re-narrows the canvas live.
+    const sizeToggle = document.createElement("button");
+    sizeToggle.type = "button";
+    sizeToggle.textContent = "⤢";
+    sizeToggle.setAttribute("aria-label", "touch-control-size");
+    sizeToggle.style.cssText =
+      "margin-bottom:auto;width:34px;height:24px;border-radius:8px;" +
+      "background:#2a2a2a;color:#cfcfcf;border:2px solid #555;touch-action:none;" +
+      "font:700 13px monospace;-webkit-tap-highlight-color:transparent;";
+    sizeToggle.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      const currentIndex = touchControlScales.indexOf(
+        scale as (typeof touchControlScales)[number],
+      );
+      scale =
+        touchControlScales[(currentIndex + 1) % touchControlScales.length] ?? 1;
+      writeTouchControlScale(scale);
+      applyTouchControlScale(leftPanel, scale);
+      applyTouchControlScale(rightPanel, scale);
+      this.resizeToDisplay();
+      buzzTouchControl();
+    });
+
+    leftPanel.append(sizeToggle, deck.dpad);
     rightPanel.append(deck.actions);
 
     if (viewport !== null && viewport.parentElement === host) {
@@ -3517,10 +3544,58 @@ const singleUseQuestionBlockTileIds: ReadonlySet<string> = new Set([
   "full-question-block-power-up",
 ]);
 
+// A short haptic tick on a touch-control press, where the Vibration API exists
+// (Android Chrome/Firefox). iOS Safari has no vibrate(); the guard no-ops there.
+function buzzTouchControl(): void {
+  if (
+    typeof navigator !== "undefined" &&
+    typeof navigator.vibrate === "function"
+  ) {
+    navigator.vibrate(8);
+  }
+}
+
+// The touch deck can be scaled to taste (thumb size / screen size) and the
+// choice persists. The scale drives both the panel width and — via the `--ctl`
+// custom property the buttons read — the button sizes.
+const touchControlScales = [0.85, 1, 1.2] as const;
+const touchControlScaleStorageKey = "regular-mario:touch-control-scale";
+
+function readTouchControlScale(): number {
+  try {
+    const stored = Number(
+      window.localStorage.getItem(touchControlScaleStorageKey),
+    );
+    return (touchControlScales as readonly number[]).includes(stored)
+      ? stored
+      : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function writeTouchControlScale(scale: number): void {
+  try {
+    window.localStorage.setItem(touchControlScaleStorageKey, String(scale));
+  } catch {
+    // Private-mode / storage-disabled: the scale just won't persist.
+  }
+}
+
+function applyTouchControlScale(panel: HTMLElement, scale: number): void {
+  panel.style.flexBasis = `min(${(32 * scale).toFixed(1)}vw,${Math.round(
+    176 * scale,
+  )}px)`;
+  panel.style.setProperty("--ctl", String(scale));
+}
+
 // A full-height panel that flanks the canvas (left or right) and hosts one half
 // of the touch deck, anchored to the bottom where the thumb rests. Styled like
 // the grey shell of a classic console pad, with the accent edge facing the game.
-function makeTouchSidePanel(side: "left" | "right"): HTMLDivElement {
+function makeTouchSidePanel(
+  side: "left" | "right",
+  scale: number,
+): HTMLDivElement {
   const panel = document.createElement("div");
   panel.setAttribute("data-role", `touch-control-${side}`);
   const safeInset =
@@ -3528,14 +3603,17 @@ function makeTouchSidePanel(side: "left" | "right"): HTMLDivElement {
       ? "env(safe-area-inset-left)"
       : "env(safe-area-inset-right)";
   panel.style.cssText =
-    "flex:0 0 min(32vw,176px);height:100%;box-sizing:border-box;" +
+    "flex-grow:0;flex-shrink:0;height:100%;box-sizing:border-box;" +
     "display:flex;flex-direction:column;justify-content:flex-end;" +
     "align-items:center;gap:14px;" +
     `padding:12px max(10px,${safeInset}) max(16px,env(safe-area-inset-bottom));` +
     "background:linear-gradient(#c9c9c9,#9c9c9c);" +
     `border-${side === "left" ? "right" : "left"}:3px solid #6a1b1b;` +
     "font-family:monospace;touch-action:none;user-select:none;" +
-    "-webkit-user-select:none;";
+    // Kill the iOS long-press callout and the grey tap-highlight flash.
+    "-webkit-user-select:none;-webkit-touch-callout:none;" +
+    "-webkit-tap-highlight-color:transparent;";
+  applyTouchControlScale(panel, scale);
   return panel;
 }
 
@@ -3556,8 +3634,10 @@ type NesControlDeck = {
 // cross D-pad (left) and the SELECT/START pills over the round red B/A buttons
 // (right). Sizes are panel-relative (px caps) so the cross fits a narrow panel.
 function buildNesControlDeck(): NesControlDeck {
+  // Sizes scale with the panel's `--ctl` custom property (the user's size
+  // choice), on top of the responsive min(vw, px-cap).
   // --- D-pad (a 3×3 grid; only the plus-shaped arms are buttons) ---
-  const arm = "min(14vw,48px)";
+  const arm = "calc(min(14vw,48px) * var(--ctl, 1))";
   const dpad = document.createElement("div");
   dpad.style.cssText =
     `display:grid;grid-template-columns:repeat(3,${arm});` +
@@ -3576,7 +3656,8 @@ function buildNesControlDeck(): NesControlDeck {
     button.style.cssText =
       `grid-column:${String(column)};grid-row:${String(row)};` +
       "background:#1b1b1b;color:#e8e8e8;border:none;touch-action:none;" +
-      `border-radius:${radius};font:700 min(4vw,16px) monospace;` +
+      `border-radius:${radius};` +
+      "font:700 calc(min(4vw,16px) * var(--ctl, 1)) monospace;" +
       "display:flex;align-items:center;justify-content:center;";
     return button;
   };
@@ -3601,9 +3682,10 @@ function buildNesControlDeck(): NesControlDeck {
     button.textContent = label;
     button.setAttribute("aria-label", `touch-${label.toLowerCase()}`);
     button.style.cssText =
-      "width:min(15vw,60px);height:min(4.5vw,18px);border-radius:9px;" +
+      "width:calc(min(15vw,60px) * var(--ctl, 1));" +
+      "height:calc(min(4.5vw,18px) * var(--ctl, 1));border-radius:9px;" +
       "background:#2a2a2a;color:#cfcfcf;border:2px solid #555;touch-action:none;" +
-      "font:700 min(2.4vw,9px) monospace;letter-spacing:1px;";
+      "font:700 calc(min(2.4vw,9px) * var(--ctl, 1)) monospace;letter-spacing:1px;";
     return button;
   };
   const buttonSelect = makePill("SELECT");
@@ -3612,23 +3694,24 @@ function buildNesControlDeck(): NesControlDeck {
 
   const abGroup = document.createElement("div");
   abGroup.style.cssText =
-    "display:flex;align-items:flex-end;gap:min(4vw,14px);";
+    "display:flex;align-items:flex-end;gap:calc(min(4vw,14px) * var(--ctl, 1));";
   const makeRound = (label: string): HTMLButtonElement => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
     button.setAttribute("aria-label", `touch-${label}`);
     button.style.cssText =
-      "width:min(15vw,58px);height:min(15vw,58px);border-radius:50%;" +
+      "width:calc(min(15vw,58px) * var(--ctl, 1));" +
+      "height:calc(min(15vw,58px) * var(--ctl, 1));border-radius:50%;" +
       "background:radial-gradient(circle at 38% 32%,#e64b4b,#b21414);" +
       "color:#fff;border:3px solid #7a0f0f;touch-action:none;" +
-      "font:800 min(6vw,22px) monospace;";
+      "font:800 calc(min(6vw,22px) * var(--ctl, 1)) monospace;";
     return button;
   };
   // B left of A (the NES A/B row); A raised, where the thumb rests.
   const buttonB = makeRound("B");
   const buttonA = makeRound("A");
-  buttonA.style.marginBottom = "min(5vw,18px)";
+  buttonA.style.marginBottom = "calc(min(5vw,18px) * var(--ctl, 1))";
   abGroup.append(buttonB, buttonA);
 
   actions.append(pillGroup, abGroup);
