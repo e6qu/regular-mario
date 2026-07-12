@@ -4,7 +4,7 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **766 unit tests + browser journeys
+Preparing for a public beta/demo release. **794 unit tests + browser journeys
 pass; all gates green.**
 
 What exists now:
@@ -57,8 +57,23 @@ What exists now:
 - **Level editor / designer** (unchanged surface): paint tiles, blocks, hidden
   blocks, cannons, piranha plants, enemies; multiple areas with warp pipes;
   themes; guided tutorial.
+- **Session-persistent lives, coins, score, and power tier.** All persist
+  across levels and deaths within a play session and reset only on a new game,
+  as in the original (lives/coins live in the engine's `SimulationState`; the
+  shell carries them across level rebuilds along with the score total and the
+  power tier). Coins/score cross the every-100-coins 1-Up and never reset per
+  level; a death restarts the level small. See
+  `docs/terminology.md#session-persistent-state-lives-coins-and-score`.
+- **End-of-level time-bonus countdown** — remaining time converts to score
+  (50/unit) with the clock draining and a rapid tick per unit.
+- **Selectable renderer (opt-in)** — a start-menu **Renderer** dropdown and
+  `?renderer=` parameter choose Canvas (default), WebGL, or Auto; verified
+  pixel-faithful and context-loss-recoverable (decision 0020).
+- **Reset saved data** — a confirmed start-menu button clears all persisted
+  preferences and saved editor levels.
 - **Themes + water, audio, HUD, viewport, timeline replay, multi-session tabs,
-  mobile** — as before (see git history).
+  mobile** — mobile-landscape menus/editor/replay overlay all fit without
+  scrolling; canvas pixel ratio capped on touch devices for performance.
 - **Verification layers**: a start-to-end completability proof and a pinned
   content census over all 54 levels, a live browser check that every menu
   level's running game holds its full decoded content, and headless engine

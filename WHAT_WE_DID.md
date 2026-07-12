@@ -5,6 +5,48 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-12 — session-persistent state, mobile UX, WebGL renderer, end-of-level polish
+
+- **Session-persistent lives, coins, score, and power tier (SMB-faithful).** The
+  shell rebuilds a fresh `SimulationState` on every level advance and retry,
+  which was resetting these per level. Fixed so each persists across levels
+  within a play session and resets only on a new game:
+  - **Lives** now come from the engine's `SimulationState.livesRemaining`
+    (1-Ups, the every-100-coins threshold, stomp/shell chains, on-death
+    decrement); the shell carries the value across rebuilds instead of keeping a
+    parallel counter that only credited 1-Ups.
+  - **Coins** persist via a new `SimulationState.sessionCoinBase`; the
+    every-100-coins 1-Up is computed from the whole-session total so it crosses
+    levels, and the HUD wraps 0–99.
+  - **Score** is a whole-session running total banked at each score-keeping
+    transition (advance, warp, non-game-over retry), instead of resetting to
+    000000 each level.
+  - **Power tier** (Super/Fire) carries across a level advance/warp and is
+    resized to match on spawn; a death restarts small, a non-fatal manual retry
+    keeps the entering tier. Documented in `docs/terminology.md`.
+- **End-of-level time-bonus countdown.** Remaining time converts to score at 50
+  per unit with the clock draining and a rapid blip per unit, animated over the
+  level-advance delay (engine computes the final score instantly; the shell
+  animates the HUD toward it). Adds a `timed-finish-route` fixture and a
+  `SoundEvent.TimeTick`.
+- **WebGL renderer (opt-in).** Decoupled the Phaser renderer choice
+  (`select-renderer.ts`): a start-menu **Renderer** dropdown plus a
+  `?renderer=canvas|webgl|auto` URL parameter, persisted and applied to the next
+  game. Fidelity verified pixel-faithful (<0.4% mean channel delta) and WebGL
+  context loss/restore verified to recover in-app (Phaser's built-in restore) —
+  see decision 0020 and `tests/browser/renderer.spec.ts`.
+- **Mobile-landscape UX.** Compacted the start menu (grid; then 3 columns for
+  the six fields), the replay overlay, and the level editor (full-height flex
+  column) so none scroll on a short landscape screen. Capped the canvas device
+  pixel ratio to 2× on touch devices and throttled thumbnail capture (perf), and
+  cached the render loop's entity-id lookup sets.
+- **Reset saved data.** A confirmed start-menu button clears all
+  `regular-mario`-prefixed `localStorage` keys (preferences + saved editor
+  levels), leaving unrelated origin keys intact (`reset-stored-state.ts`).
+- **Developer docs.** Added `docs/architecture.md`, `docs/terminology.md`, and
+  `CONTRIBUTING.md`; cross-linked from the README; documented the
+  session-persistent-state model and the renderer.
+
 ## 2026-07-12 — ROM hitbox audit; two discrete collision bugs fixed
 
 - **Full hitbox audit vs the ROM's `BoundBoxCtrlData`.** Traced every game
