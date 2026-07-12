@@ -105,12 +105,13 @@ describe("flame hazards", () => {
     // The player spawns far from the firebar: no contact at frame 0.
     expect(playerTouchesFlameHazard(player, levelSpec, frame(0))).toBe(false);
 
-    // Teleport the player onto the anchor: immediate contact.
+    // Teleport the player so its hurtbox sits over the base orb (~68–76,
+    // 132–140): immediate contact.
     const touching = {
       ...player,
       position: {
-        x: 68 as PixelPosition,
-        y: 128 as PixelPosition,
+        x: 66 as PixelPosition,
+        y: 120 as PixelPosition,
       },
     };
     expect(playerTouchesFlameHazard(touching, levelSpec, frame(0))).toBe(true);

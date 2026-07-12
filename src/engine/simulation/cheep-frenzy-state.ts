@@ -12,6 +12,7 @@
 import type { LevelSpec } from "../domain/level-spec";
 import type { EntityId } from "../domain/identifiers";
 import type { PlayerSimulationState } from "./player-state";
+import { playerHurtbox } from "./player-actor-overlap";
 import {
   pseudoRandomByteForSlot,
   type PseudoRandomState,
@@ -175,11 +176,12 @@ function cheepOverlapsPlayer(
   cheep: FrenzyCheep,
   player: PlayerSimulationState,
 ): boolean {
+  const hurtbox = playerHurtbox(player);
   return (
-    cheep.position.x < player.position.x + player.collider.width &&
-    cheep.position.x + cheepColliderSizePixels > player.position.x &&
-    cheep.position.y < player.position.y + player.collider.height &&
-    cheep.position.y + cheepColliderSizePixels > player.position.y
+    cheep.position.x < hurtbox.right &&
+    cheep.position.x + cheepColliderSizePixels > hurtbox.left &&
+    cheep.position.y < hurtbox.bottom &&
+    cheep.position.y + cheepColliderSizePixels > hurtbox.top
   );
 }
 

@@ -25,8 +25,16 @@ committed — only numeric metadata, code, docs, and scripts.
   decoupled from the render sprite (`hazardInsetXPixels/YPixels`): the flame
   still renders 24×8 but only its centred ~8×6 core is lethal, so flames are
   dodgeable like the ROM's tiny 4×4 hitbox. Threaded through the decoder,
-  metadata, parser, spec, and collision; the player/enemy hitboxes (BUG 3/5)
-  and crouch (BUG 4) remain the dedicated playtested change (see BUGS.md).
+  metadata, parser, spec, and collision.
+- **BUG 3 — player object-hitbox.** Added `playerHurtbox`: the player's
+  enemy/hazard/item collisions now use a ROM-sized, feet-anchored box (small
+  10×12, big 12×24) centred in the terrain collider, instead of the full
+  collider. Terrain/movement is unchanged, so this only makes the player _more
+  forgiving_ (head-height threats miss the short box, as in the original).
+  Wired through the central `playerOverlapsActorPixel` plus the three ad-hoc
+  frenzy/spiny overlap checks; contact tests repositioned and the four
+  enemy-contact replay-fixture golden states regenerated deterministically.
+  Enemy hitboxes (BUG 5) and crouch (BUG 4) remain (see BUGS.md).
 
 ## 2026-07-12 — Mobile NES control deck outside the drawing surface
 

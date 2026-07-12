@@ -323,7 +323,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 32,
       playerPosition: {
-        x: 15.944_333_333_331_107,
+        x: 13.995_999_999_919_84,
         y: 56,
       },
       playerVelocity: {
@@ -339,7 +339,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "beetle-2",
         contactSide: EnemySideContactSide.Left,
-        frameIndex: 1,
+        frameIndex: 8,
         velocity: {
           x: initialMovementConstants.enemySideContactKnockbackSpeed,
         },
@@ -383,7 +383,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 58,
       playerPosition: {
-        x: 57.249_000_001_649_96,
+        x: 59.420_000_001_736_8,
         y: 56,
       },
       playerVelocity: {
@@ -399,7 +399,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "beetle-1",
         contactSide: EnemySideContactSide.Right,
-        frameIndex: 38,
+        frameIndex: 39,
         velocity: {
           x: -150,
         },
@@ -564,7 +564,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 60,
       playerPosition: {
-        x: 44.946_666_667_824_51,
+        x: 46.431_111_112_328_33,
         y: 56,
       },
       playerVelocity: {
@@ -580,7 +580,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "hunter-1",
         contactSide: EnemySideContactSide.Right,
-        frameIndex: 39,
+        frameIndex: 40,
         velocity: {
           x: -150,
         },
@@ -610,7 +610,7 @@ describe("replay fixture", () => {
     expectGoldenEnemyContactDefeatState(finalState, {
       frameIndex: 80,
       playerPosition: {
-        x: 57.249_000_001_649_96,
+        x: 59.420_000_001_736_8,
         y: 56,
       },
       playerVelocity: {
@@ -626,7 +626,7 @@ describe("replay fixture", () => {
         kind: EnemyContactResponseKind.SideContact,
         enemyEntityId: "crab-1",
         contactSide: EnemySideContactSide.Right,
-        frameIndex: 38,
+        frameIndex: 39,
         velocity: {
           x: -150,
         },

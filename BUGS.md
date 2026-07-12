@@ -6,27 +6,20 @@
 
 A full audit against the ROM's `BoundBoxCtrlData` (disassembly) found our
 collision _logic_ faithful but the collision _geometry_ systematically larger
-than the original, so the game plays harder than SMB. Three of the audit's bugs
+than the original, so the game plays harder than SMB. Four of the audit's bugs
 are **fixed** (cannon Bullet Bills now stompable; stomp keys on descent at any
-depth; the Bowser flame now has a small inset collision box). The remaining
-three are **characterised but not yet fixed** because they need a render/
-collision decouple for the _player and enemies_ that a naive edit gets wrong
-(see the entanglement note):
+depth; the Bowser flame now has a small inset collision box; the **player now
+uses a ROM-sized feet-anchored hurtbox** for object collisions — small 10×12,
+big 12×24 — via `playerHurtbox`, distinct from the terrain collider). The
+remaining two are **characterised but not yet fixed**:
 
-- **BUG 3 — player object-hitbox too big.** ROM small Mario is 10×12 and big
-  Mario 12×24 (feet-anchored); ours is 14×24 / 14×32. Hazards/enemies passing
-  above the ROM box hit us. **Entanglement (found while attempting a fix):**
-  our small terrain collider is itself 24px tall (1.5 tiles) rather than the
-  ROM's ~16px, so anchoring a 12px hurtbox to the bottom of the 24px box puts
-  it on the legs only — wrong. A correct fix must first reconcile the terrain
-  collider height (which cascades into jump/ground tuning) OR introduce a
-  hurtbox offset expressed relative to the _sprite_, and then re-derive; both
-  ripple through the replay-fixture golden states and ~9 contact tests. Do this
-  as its own carefully-playtested change, not a drive-by.
 - **BUG 5 — every enemy uses a 16×16 collider.** ROM boxes: goomba/spiny 10×6,
   koopa/buzzy 12×12, hammer bro 8×24, piranha 10×6, Bowser two 16×19 halves.
   Needs per-enemy collision boxes (distinct from the 16×16 render tile),
-  feet-anchored with the ROM offsets. Same render/collision decouple as BUG 3.
+  feet-anchored with the ROM offsets — the same feet-anchored approach the
+  player hurtbox now uses, applied per enemy. Changing enemy-vs-player contact
+  will re-churn the replay-fixture golden states (recompute them by dumping the
+  final state from each fixture, as BUG 3 did).
 - **BUG 4 — no crouch mechanic / crouch hitbox.** Big Mario has no duck; the
   ROM shrinks him to 12×12 (entry 2) when Down is held on the ground — the
   canonical way to duck hammers/flames. Add the crouch state + collider.

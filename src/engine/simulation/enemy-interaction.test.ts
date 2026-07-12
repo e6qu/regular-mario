@@ -176,8 +176,10 @@ describe("enemy interactions", () => {
   });
 
   it("records every enemy actor overlapped by the player", () => {
+    // The two beetles sit at px 32–48 and 48–64; straddle their seam so the
+    // (narrower, ROM-sized) player hurtbox overlaps both.
     const player = playerAt({
-      x: 35,
+      x: 42,
       y: 64,
     });
 

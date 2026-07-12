@@ -184,13 +184,15 @@ describe("timed-hazard-projectile-state", () => {
 
   it("moves spawned hazard projectiles and reports player contact", () => {
     const levelSpec = timedHazardLevelSpec();
+    // The projectile spawns at row 1 (y=16); place the player so its
+    // feet-anchored hurtbox (the lower 12px of its collider) overlaps that row.
     const first = resolveHazard(
       makeEmptyTimedHazardProjectilesState(),
       levelSpec,
-      testPlayerAt(16, 16),
+      testPlayerAt(16, 8),
       1,
     );
-    const second = resolveHazard(first, levelSpec, testPlayerAt(17, 16), 2);
+    const second = resolveHazard(first, levelSpec, testPlayerAt(17, 8), 2);
 
     expect(second.projectiles[0]?.position.x).toBeGreaterThan(16);
     expect(second.playerContact).toBe(true);

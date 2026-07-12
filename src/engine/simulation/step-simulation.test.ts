@@ -1408,9 +1408,11 @@ describe("simulation primitives", () => {
       ...firstAuthoredLevelInput,
       timedHazardProjectileSpawners: [
         {
+          // Fire at the player's grounded body height so the projectile meets
+          // the feet-anchored hurtbox (the lower part of the collider).
           spawnerId: "test-cannon",
           x: 1,
-          y: 3,
+          y: 4,
           direction: "right",
           intervalFrames: 60,
           initialDelayFrames: 1,

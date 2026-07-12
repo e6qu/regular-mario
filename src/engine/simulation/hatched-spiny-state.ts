@@ -7,6 +7,7 @@
 import type { TileId } from "../domain/identifiers";
 import type { LevelSpec } from "../domain/level-spec";
 import type { PlayerSimulationState } from "./player-state";
+import { playerHurtbox } from "./player-actor-overlap";
 import type { Projectile } from "./projectile-state";
 import { makeSolidTileIds, tileIsSolid } from "./tile-collision-support";
 
@@ -138,11 +139,12 @@ function spinyOverlapsPlayer(
   spiny: HatchedSpiny,
   player: PlayerSimulationState,
 ): boolean {
+  const hurtbox = playerHurtbox(player);
   return (
-    spiny.position.x < player.position.x + player.collider.width &&
-    spiny.position.x + spinyColliderSizePixels > player.position.x &&
-    spiny.position.y < player.position.y + player.collider.height &&
-    spiny.position.y + spinyColliderSizePixels > player.position.y
+    spiny.position.x < hurtbox.right &&
+    spiny.position.x + spinyColliderSizePixels > hurtbox.left &&
+    spiny.position.y < hurtbox.bottom &&
+    spiny.position.y + spinyColliderSizePixels > hurtbox.top
   );
 }
 

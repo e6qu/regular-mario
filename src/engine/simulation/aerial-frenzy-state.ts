@@ -9,6 +9,7 @@
 import type { LevelSpec } from "../domain/level-spec";
 import type { EntityId } from "../domain/identifiers";
 import type { PlayerSimulationState } from "./player-state";
+import { playerHurtbox } from "./player-actor-overlap";
 import type { MovementConstants } from "./movement-model";
 import {
   pseudoRandomByteForSlot,
@@ -165,11 +166,12 @@ function entityOverlapsPlayer(
   entity: AerialFrenzyEntity,
   player: PlayerSimulationState,
 ): boolean {
+  const hurtbox = playerHurtbox(player);
   return (
-    entity.position.x < player.position.x + player.collider.width &&
-    entity.position.x + entityColliderSizePixels > player.position.x &&
-    entity.position.y < player.position.y + player.collider.height &&
-    entity.position.y + entityColliderSizePixels > player.position.y
+    entity.position.x < hurtbox.right &&
+    entity.position.x + entityColliderSizePixels > hurtbox.left &&
+    entity.position.y < hurtbox.bottom &&
+    entity.position.y + entityColliderSizePixels > hurtbox.top
   );
 }
 
