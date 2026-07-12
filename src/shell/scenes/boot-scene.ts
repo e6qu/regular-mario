@@ -22,6 +22,7 @@ import {
 } from "../../engine/simulation/flame-hazards";
 import { computePlatformPlacements } from "../../engine/simulation/platform-state";
 import {
+  computeEnemyScore,
   computeTotalScore,
   timeBonusFramesPerDisplayUnit,
 } from "../../engine/simulation/game-score";
@@ -114,6 +115,8 @@ const initialFrameDurationMilliseconds =
 const outcomeFeedbackPositionX = 300;
 const outcomeFeedbackPositionY = 54;
 const scoreTextPositionX = 8;
+// How long a floating "+points" score popup rises and fades.
+const scorePopupFrames = 36;
 const scoreBadgeX = 4;
 const scoreBadgeY = 3;
 const scoreBadgeWidth = 56;
@@ -669,6 +672,13 @@ export class BootScene extends Phaser.Scene {
   private playerReactionImage: Phaser.GameObjects.Image | undefined;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
   private readonly exaggeratedReactions: boolean;
+  // Floating "+100" score numbers that rise and fade over a defeated enemy.
+  private scorePopups: {
+    readonly text: Phaser.GameObjects.Text;
+    framesRemaining: number;
+  }[] = [];
+  private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
+  private previousEnemyKillScore = 0;
   private scoreBadgeRectangle!: Phaser.GameObjects.Rectangle;
   private scoreGemRectangle!: Phaser.GameObjects.Rectangle;
   private scoreText!: Phaser.GameObjects.Text;
@@ -2082,6 +2092,14 @@ export class BootScene extends Phaser.Scene {
     );
     this.runThumbnails = [];
     this.recordedCameraScrolls = [];
+    // Clear any lingering score popups and re-baseline the tracking so a level
+    // rebuild / respawn never fires a spurious burst.
+    for (const popup of this.scorePopups) {
+      popup.text.destroy();
+    }
+    this.scorePopups = [];
+    this.previousDefeatedEnemyIds = new Set();
+    this.previousEnemyKillScore = 0;
   }
 
   private togglePause(): void {
@@ -2427,6 +2445,57 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // Classic SMB feel: a small score number rises and fades over each enemy
+  // defeated this frame, showing the points gained (attributed to the new
+  // kills). Coins/blocks/time don't get one, as in the original.
+  private stepScorePopups(defeatedEnemyIds: ReadonlySet<string>): void {
+    this.scorePopups = this.scorePopups.filter((popup) => {
+      popup.framesRemaining -= 1;
+      if (popup.framesRemaining <= 0) {
+        popup.text.destroy();
+        return false;
+      }
+      popup.text.setY(popup.text.y - 0.6);
+      popup.text.setAlpha(Math.max(0, popup.framesRemaining / scorePopupFrames));
+      return true;
+    });
+
+    const enemyKillScore =
+      computeEnemyScore(this.simulationState.enemies) +
+      this.simulationState.bulletBillStompScore;
+    const gained = enemyKillScore - this.previousEnemyKillScore;
+    const newlyDefeated = [...defeatedEnemyIds].filter(
+      (entityId) => !this.previousDefeatedEnemyIds.has(entityId),
+    );
+    if (gained > 0 && newlyDefeated.length > 0) {
+      const perKill = Math.round(gained / newlyDefeated.length);
+      for (const entityId of newlyDefeated) {
+        const actor = this.renderedActors.find(
+          (candidate) => candidate.entityId === entityId,
+        );
+        if (actor === undefined) {
+          continue;
+        }
+        const position = makeRuntimeRenderedActorPixelPosition(
+          actor,
+          this.simulationState,
+        );
+        const text = this.add
+          .text(position.x + 8, position.y, String(perKill), {
+            fontFamily: "monospace",
+            fontSize: "8px",
+            color: "#ffffff",
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(130);
+        this.scorePopups.push({ text, framesRemaining: scorePopupFrames });
+      }
+    }
+
+    this.previousEnemyKillScore = enemyKillScore;
+    this.previousDefeatedEnemyIds = new Set(defeatedEnemyIds);
+  }
+
   private renderSimulationState(): void {
     const currentVertical = this.simulationState.player.movement.vertical;
 
@@ -2648,6 +2717,8 @@ export class BootScene extends Phaser.Scene {
             !defeatedEnemyEntityIdStrings.has(actor.entityId)),
       );
     }
+
+    this.stepScorePopups(defeatedEnemyEntityIdStrings);
 
     this.renderSpawnedActors(
       collectedCoinEntityIdStrings,
