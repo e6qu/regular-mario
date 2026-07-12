@@ -111,13 +111,21 @@ all three to their level-start values.
   retry that is not a fresh game) and displays the base plus the current level's
   score. The score is never lost on death, only on a new game.
 
+A fourth value, the **player power tier** (`SimulationState.playerVitality` —
+small, Super, or Fire), also carries across a level advance or warp, but it is
+the exception to the "persists across deaths" rule: dying restarts the level
+small, since a death costs the tier in the original. The shell carries the
+enlarged tier forward and resizes the freshly-spawned player to match; a death
+retry resets it to small, while a manual retry that is not a death restarts with
+the tier the player entered the level.
+
 The imperative shell (`BootScene`) carries these values across the states it
 rebuilds and resets them when a new game begins. The life count and coin total
-are read straight from the engine, which owns their rules; only the score's
-running total is accumulated in the shell (from engine-computed per-level
-scores). The start menu's free level selection is independent of session state —
-choosing any level begins a fresh session at three lives, zero coins, and zero
-score.
+are read straight from the engine, which owns their rules; the score's running
+total and the carried power tier are managed in the shell (from engine-computed
+per-level scores and the engine's vitality state). The start menu's free level
+selection is independent of session state — choosing any level begins a fresh
+session at three lives, zero coins, zero score, and the level's starting tier.
 
 ## Acronyms
 
