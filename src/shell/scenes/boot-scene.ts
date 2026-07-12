@@ -1086,13 +1086,35 @@ export class BootScene extends Phaser.Scene {
     const viewport = this.game.canvas.parentElement;
     const host = viewport?.parentElement ?? document.body;
 
+    // On touch, the browser applies *implicit pointer capture* on pointerdown,
+    // which suppresses pointerenter/leave and would stop the thumb rolling from
+    // one D-pad arm to the next without lifting (◀→▶) — so release the capture
+    // immediately and drive press/release off boundary crossings too.
     const press = (
       onDown: () => void,
       button: HTMLElement,
     ): ((e: Event) => void) => {
       return (event: Event): void => {
         event.preventDefault();
+        const pointerEvent = event as PointerEvent;
+        if (button.hasPointerCapture(pointerEvent.pointerId)) {
+          button.releasePointerCapture(pointerEvent.pointerId);
+        }
         this.touchStartRequested = true;
+        onDown();
+        button.style.filter = "brightness(1.5)";
+      };
+    };
+    // Rolling onto a button while a finger is already down (buttons !== 0)
+    // presses it; a plain hover (a pen with no button) does not.
+    const enter = (
+      onDown: () => void,
+      button: HTMLElement,
+    ): ((e: Event) => void) => {
+      return (event: Event): void => {
+        if ((event as PointerEvent).buttons === 0) {
+          return;
+        }
         onDown();
         button.style.filter = "brightness(1.5)";
       };
@@ -1113,6 +1135,7 @@ export class BootScene extends Phaser.Scene {
       onUp: () => void,
     ): void => {
       button.addEventListener("pointerdown", press(onDown, button));
+      button.addEventListener("pointerenter", enter(onDown, button));
       button.addEventListener("pointerup", release(onUp, button));
       button.addEventListener("pointerleave", release(onUp, button));
       button.addEventListener("pointercancel", release(onUp, button));

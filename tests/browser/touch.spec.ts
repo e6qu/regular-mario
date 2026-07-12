@@ -108,6 +108,53 @@ test.describe("touch device (landscape)", () => {
 
     expect((await readSnapshot(page)).player.position.x).toBeGreaterThan(start);
   });
+
+  test("thumb-rolls across the D-pad without lifting (◀ → ▶)", async ({
+    page,
+  }) => {
+    await page.goto("/?browserLevel=first-authored");
+    await page.waitForFunction(() => {
+      const api = window.__originalBrowserPlatformerDebug;
+      return api !== undefined && api.getSimulationSnapshot().frameIndex > 5;
+    });
+
+    const leftBox = await page
+      .locator('button[aria-label="touch-left"]')
+      .boundingBox();
+    const rightBox = await page
+      .locator('button[aria-label="touch-right"]')
+      .boundingBox();
+    if (leftBox === null || rightBox === null) {
+      throw new Error("d-pad arms have no bounding box");
+    }
+
+    // Press ◀, then slide the still-held pointer onto ▶ (no lift). Implicit
+    // pointer capture would swallow this; releasePointerCapture + pointerenter
+    // make the roll register, so the player ends up moving right.
+    await page.mouse.move(
+      leftBox.x + leftBox.width / 2,
+      leftBox.y + leftBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      rightBox.x + rightBox.width / 2,
+      rightBox.y + rightBox.height / 2,
+      { steps: 6 },
+    );
+    const afterRoll = (await readSnapshot(page)).player.position.x;
+    await page.waitForFunction((startX) => {
+      const api = window.__originalBrowserPlatformerDebug;
+      return (
+        api !== undefined &&
+        api.getSimulationSnapshot().player.position.x > startX
+      );
+    }, afterRoll);
+    await page.mouse.up();
+
+    expect((await readSnapshot(page)).player.position.x).toBeGreaterThan(
+      afterRoll,
+    );
+  });
 });
 
 // Portrait on a touch device prompts a rotate, since play is landscape-only.
