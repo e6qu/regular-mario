@@ -63,6 +63,7 @@ const songsByTheme: Record<string, Song> = {
   overworld: overworldSong,
   underground: makeSong(romMusic.underground ?? []),
   castle: makeSong(romMusic.castle ?? []),
+  water: makeSong(romMusic.water ?? []),
 };
 
 const toneSpecs: Record<SoundEvent, ToneSpec> = {
@@ -159,6 +160,11 @@ export class GameAudio {
   // One independent timer per voice: each voice walks its own note stream and
   // loops, so channels with different rhythms don't need a shared grid.
   private voiceTimers: (ReturnType<typeof setTimeout> | undefined)[] = [];
+  // The node every music voice connects to. Usually the raw destination; for
+  // water levels it's the head of the "underwater Morty" effect bus.
+  private musicOutput: AudioNode | undefined;
+  // LFO oscillators driving the water bus, kept so they can be stopped on exit.
+  private musicBusOscillators: OscillatorNode[] = [];
 
   public registerSoundBuffers(
     buffers: ReadonlyMap<SoundEvent, AudioBuffer>,
@@ -184,6 +190,12 @@ export class GameAudio {
     }
 
     this.currentSong = songsByTheme[theme ?? "overworld"] ?? overworldSong;
+    // Water levels play the theme as if heard underwater and hummed by a
+    // nervous, nasal, Morty-ish voice — a small comedic touch.
+    this.musicOutput =
+      theme === "water"
+        ? this.makeUnderwaterMortyBus(audioContext)
+        : audioContext.destination;
     this.musicEnabled = true;
     this.voiceTimers = this.currentSong.voices.map(() => undefined);
     this.currentSong.voices.forEach((_voice, voiceIndex) => {
@@ -201,6 +213,67 @@ export class GameAudio {
       }
     }
     this.voiceTimers = [];
+
+    for (const oscillator of this.musicBusOscillators) {
+      try {
+        oscillator.stop();
+      } catch {
+        // Already stopped; ignore.
+      }
+    }
+    this.musicBusOscillators = [];
+    this.musicOutput = undefined;
+  }
+
+  // The water-level effect bus: the chiptune voices are muffled by a lowpass
+  // (sound travels poorly underwater), that cutoff slowly wobbles (a bubbly
+  // sway), a peaking boost adds a nasal "honk", and a tremolo makes it waver —
+  // together it reads as the theme hummed, nervously and underwater, by a
+  // Morty-ish voice (high, nasal, unsteady). Returns the bus input node.
+  private makeUnderwaterMortyBus(audioContext: AudioContext): AudioNode {
+    const now = audioContext.currentTime;
+    const input = audioContext.createGain();
+
+    // Nasal honk (Morty): a peaking boost in the nasal band.
+    const nasal = audioContext.createBiquadFilter();
+    nasal.type = "peaking";
+    nasal.frequency.setValueAtTime(1700, now);
+    nasal.Q.setValueAtTime(1.3, now);
+    nasal.gain.setValueAtTime(10, now);
+
+    // Underwater muffle: a resonant lowpass whose cutoff slowly wobbles.
+    const muffle = audioContext.createBiquadFilter();
+    muffle.type = "lowpass";
+    muffle.frequency.setValueAtTime(900, now);
+    muffle.Q.setValueAtTime(7, now);
+    const wobble = audioContext.createOscillator();
+    wobble.type = "sine";
+    wobble.frequency.setValueAtTime(1.7, now);
+    const wobbleDepth = audioContext.createGain();
+    wobbleDepth.gain.setValueAtTime(360, now);
+    wobble.connect(wobbleDepth);
+    wobbleDepth.connect(muffle.frequency);
+
+    // Nervous waver: a tremolo on the output level.
+    const tremolo = audioContext.createGain();
+    tremolo.gain.setValueAtTime(0.82, now);
+    const waver = audioContext.createOscillator();
+    waver.type = "sine";
+    waver.frequency.setValueAtTime(6.5, now);
+    const waverDepth = audioContext.createGain();
+    waverDepth.gain.setValueAtTime(0.2, now);
+    waver.connect(waverDepth);
+    waverDepth.connect(tremolo.gain);
+
+    input.connect(nasal);
+    nasal.connect(muffle);
+    muffle.connect(tremolo);
+    tremolo.connect(audioContext.destination);
+
+    wobble.start(now);
+    waver.start(now);
+    this.musicBusOscillators = [wobble, waver];
+    return input;
   }
 
   // Play one voice's note, then schedule its next after the note's duration.
@@ -267,7 +340,7 @@ export class GameAudio {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + sustain);
 
       oscillator.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.musicOutput ?? audioContext.destination);
       oscillator.start(now);
       oscillator.stop(now + sustain + 0.02);
     } catch {
@@ -336,7 +409,7 @@ export class GameAudio {
       amp.gain.setValueAtTime(peak, now + Math.min(0.07, sustain * 0.5));
       amp.gain.exponentialRampToValueAtTime(0.0001, now + sustain);
       mix.connect(amp);
-      amp.connect(audioContext.destination);
+      amp.connect(this.musicOutput ?? audioContext.destination);
 
       source.start(now);
       vibrato.start(now);

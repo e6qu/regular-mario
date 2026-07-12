@@ -59,6 +59,8 @@ const THEMES = {
   ],
   underground: ["82 14 2c 62 26 10 28 80 04"],
   castle: ["80 22 28 22 26 22 24 22 26"],
+  // WaterMusData — the swimming theme's square-2 stream.
+  water: ["82 18 1c 20 22 26 28 81 2a 2a 2a"],
 };
 
 const loadPrg = (rom) => rom.subarray(INES_HEADER, INES_HEADER + 32 * 1024);

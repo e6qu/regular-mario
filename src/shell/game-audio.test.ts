@@ -39,8 +39,20 @@ class FakeGainNode {
   }
 }
 
+class FakeBiquadFilterNode {
+  public type: BiquadFilterType = "lowpass";
+  public readonly frequency = new FakeAudioParam();
+  public readonly Q = new FakeAudioParam();
+  public readonly gain = new FakeAudioParam();
+
+  public connect(): void {
+    return;
+  }
+}
+
 class FakeAudioContext {
   public static createdOscillators: FakeOscillatorNode[] = [];
+  public static createdFilters: FakeBiquadFilterNode[] = [];
 
   public readonly currentTime = 0;
   public readonly destination = {};
@@ -54,10 +66,17 @@ class FakeAudioContext {
   public createGain(): FakeGainNode {
     return new FakeGainNode();
   }
+
+  public createBiquadFilter(): FakeBiquadFilterNode {
+    const filter = new FakeBiquadFilterNode();
+    FakeAudioContext.createdFilters.push(filter);
+    return filter;
+  }
 }
 
 function installFakeAudioContext(): void {
   FakeAudioContext.createdOscillators = [];
+  FakeAudioContext.createdFilters = [];
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
@@ -104,6 +123,37 @@ describe("GameAudio background music", () => {
     expect(FakeAudioContext.createdOscillators).toHaveLength(2);
     expect(FakeAudioContext.createdOscillators[0]?.type).toBe("square");
     expect(FakeAudioContext.createdOscillators[1]?.type).toBe("triangle");
+  });
+
+  it("routes the water theme through the underwater Morty effect bus", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("water");
+
+    // The bus adds two sine LFOs (cutoff wobble + tremolo waver) on top of the
+    // song's voices, and builds biquad filters (nasal peak + underwater
+    // lowpass) that a plain theme never creates.
+    const sineOscillators = FakeAudioContext.createdOscillators.filter(
+      (oscillator) => oscillator.type === "sine",
+    );
+    expect(sineOscillators).toHaveLength(2);
+    expect(FakeAudioContext.createdFilters.length).toBeGreaterThanOrEqual(2);
+
+    // Stopping the music stops the bus LFOs too.
+    gameAudio.stopBackgroundMusic();
+    expect(sineOscillators.every((oscillator) => oscillator.stopped)).toBe(
+      true,
+    );
+  });
+
+  it("does not build the effect bus for a non-water theme", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+
+    new GameAudio().startBackgroundMusic("overworld");
+    expect(FakeAudioContext.createdFilters).toHaveLength(0);
   });
 
   it("does not start duplicate music loops", () => {
