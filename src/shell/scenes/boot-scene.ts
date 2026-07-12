@@ -62,9 +62,15 @@ import {
 import { PlayerReactionKind } from "../../engine/simulation/player-reaction";
 import {
   assertValidPlayerVitalityState,
+  isEnlargedPlayerVitalityKind,
+  makeInitialPlayerVitalityState,
   PlayerVitalityKind,
+  type PlayerVitalityState,
 } from "../../engine/simulation/player-vitality";
-import { initialPlayerSimulationStateConfig } from "../../engine/simulation/player-state";
+import {
+  initialPlayerSimulationStateConfig,
+  resizePlayerForVitality,
+} from "../../engine/simulation/player-state";
 import {
   initialLivesCount,
   makeInitialSimulationStateWithPlayerVitality,
@@ -681,6 +687,11 @@ export class BootScene extends Phaser.Scene {
   // Reset only on a new game. See the "Session-persistent state" section of
   // docs/terminology.md.
   private carriedSessionScoreBase = 0;
+  // The player's power tier carried into the next level. Finishing or warping
+  // keeps an enlarged tier (Super/Fire); dying resets it to small — as the
+  // original carries power across levels but not across a death.
+  private carriedPlayerVitality: PlayerVitalityState =
+    makeInitialPlayerVitalityState();
   private levelIntroFramesRemaining = 0;
   private pendingGameOver = false;
   private flowCardBackground?: Phaser.GameObjects.Rectangle;
@@ -921,6 +932,9 @@ export class BootScene extends Phaser.Scene {
     this.levelIndex = browserGameBootstrap.levelIndex;
     this.currentMainLevelName = browserGameBootstrap.userLevelVisualName;
     this.activeWorldLevelLabel = browserGameBootstrap.worldLevelLabel;
+    // The first level starts at the bootstrap's tier (usually small); later
+    // levels carry the tier the player finished the prior level with.
+    this.carriedPlayerVitality = browserGameBootstrap.initialPlayerVitality;
     window.addEventListener("keydown", this.handleEarlyStartKey);
   }
 
@@ -1603,8 +1617,10 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    // Bank the finished level's score before its state is rebuilt away.
+    // Bank the finished level's score and carry the player's power tier before
+    // its state is rebuilt away.
     this.bankCurrentLevelScore();
+    this.carriedPlayerVitality = this.tierToCarryForward();
     this.levelIndex = nextIndex;
     this.destroyLevelObjects();
     this.buildLevelObjects();
@@ -2340,8 +2356,10 @@ export class BootScene extends Phaser.Scene {
       return; // Unknown target — stay in the current level.
     }
 
-    // Bank the current area's score before the warp rebuilds the level.
+    // Bank the current area's score and carry the power tier before the warp
+    // rebuilds the level.
     this.bankCurrentLevelScore();
+    this.carriedPlayerVitality = this.tierToCarryForward();
     this.warpedLevelInput = targetInput;
     // A warp landing at another MAIN level's start is a world jump (the warp
     // zones): the run now belongs to that level — retitle the HUD and advance
@@ -2402,11 +2420,27 @@ export class BootScene extends Phaser.Scene {
   // retries that rebuild the state, as the original carries them through a play
   // session.
   private seedCarriedSessionTotals(state: SimulationState): SimulationState {
+    // Resize the freshly-spawned player to match the carried tier (feet-anchored
+    // grow), so a level entered as Super/Fire starts with the correct collider
+    // rather than growing on the first step.
     return {
       ...state,
+      player: resizePlayerForVitality(state.player, this.carriedPlayerVitality),
       livesRemaining: this.carriedLivesRemaining,
       sessionCoinBase: this.carriedSessionCoinTotal,
+      playerVitality: this.carriedPlayerVitality,
     };
+  }
+
+  // The tier to carry into the next level: an enlarged tier (Super/Fire) is
+  // kept as-is; small and the transient post-hit recovering state both carry as
+  // small, since the recovering state is tied to the level being left.
+  private tierToCarryForward(): PlayerVitalityState {
+    return isEnlargedPlayerVitalityKind(
+      this.simulationState.playerVitality.kind,
+    )
+      ? this.simulationState.playerVitality
+      : makeInitialPlayerVitalityState();
   }
 
   // The score earned in the current level, from the (per-level) SimulationState
@@ -2449,8 +2483,22 @@ export class BootScene extends Phaser.Scene {
       this.carriedLivesRemaining = initialLivesCount;
       this.carriedSessionCoinTotal = 0;
       this.carriedSessionScoreBase = 0;
+      this.carriedPlayerVitality =
+        this.browserGameBootstrap.initialPlayerVitality;
     } else {
       this.bankCurrentLevelScore();
+    }
+    // Dying costs the power tier — a retry after a death restarts small, as in
+    // the original. A manual retry that is not a death (e.g. restarting after a
+    // non-fatal hit) restarts with the tier the player entered the level with,
+    // so the carried tier is left unchanged. A fresh game already restored the
+    // bootstrap tier above.
+    const retriedFromDeath =
+      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated ||
+      this.simulationState.playerOutcome.kind ===
+        PlayerOutcomeKind.DefeatedAndFinished;
+    if (!this.pendingGameOver && retriedFromDeath) {
+      this.carriedPlayerVitality = makeInitialPlayerVitalityState();
     }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint

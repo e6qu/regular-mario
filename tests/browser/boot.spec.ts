@@ -2701,6 +2701,39 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+test("carries the player's power tier across a level advance", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  await page.goto("/?browserLevel=multi-level-powered-route");
+  await expect(page.locator("canvas")).toBeVisible();
+
+  const initialSnapshot = await readSimulationSnapshot(page);
+  expect(initialSnapshot.playerVitality.kind).toBe("powered");
+
+  await page.keyboard.down("ArrowRight");
+  await waitForSimulationSnapshotCondition(page, "finished-outcome");
+  await page.keyboard.up("ArrowRight");
+
+  await page.waitForFunction(() => {
+    const debugApi = window.__originalBrowserPlatformerDebug;
+    return (
+      debugApi !== undefined &&
+      debugApi.getSimulationSnapshot().levelProgression.levelIndex === 1
+    );
+  });
+
+  // The next level begins with the same powered tier — power carries across a
+  // level advance, as in the original.
+  const advancedSnapshot = await readSimulationSnapshot(page);
+  expect(advancedSnapshot.levelProgression.levelIndex).toBe(1);
+  expect(advancedSnapshot.playerVitality.kind).toBe("powered");
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
 test("shows the user asset import UI when importAssets query parameter is set", async ({
   page,
 }) => {

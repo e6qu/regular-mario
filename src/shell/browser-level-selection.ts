@@ -39,6 +39,7 @@ enum BrowserLevelKey {
   FlyingEnemyRoute = "flying-enemy-route",
   HazardOnlyFeedback = "hazard-only-feedback",
   MultiLevelRoute = "multi-level-route",
+  MultiLevelPoweredRoute = "multi-level-powered-route",
   PipeRoute = "pipe-route",
   PoweredContactRoute = "powered-contact-route",
   PowerUpRoute = "power-up-route",
@@ -230,6 +231,18 @@ function makeBrowserGameBootstrap(
         levelSequence: multiLevelRouteSequence,
         levelIndex: 0,
         initialPlayerVitality: makeInitialPlayerVitalityState(),
+        userAssetBundle: undefined,
+        viewport: authoredFixtureViewport,
+        userLevelVisualName: undefined,
+      };
+    case BrowserLevelKey.MultiLevelPoweredRoute:
+      // The same two-level sequence but starting the player powered, so a test
+      // can verify the power tier carries across a level advance.
+      return {
+        levelInput: multiLevelRouteSequence[0]!,
+        levelSequence: multiLevelRouteSequence,
+        levelIndex: 0,
+        initialPlayerVitality: makePoweredPlayerVitalityState(),
         userAssetBundle: undefined,
         viewport: authoredFixtureViewport,
         userLevelVisualName: undefined,
