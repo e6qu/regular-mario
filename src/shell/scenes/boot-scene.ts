@@ -1012,6 +1012,10 @@ export class BootScene extends Phaser.Scene {
   private paused = false;
   private pausedByDeath = false;
   private replayPlaying = false;
+  // True while the instant replay is playing back the death animation as its
+  // finale (the recording ended in a contact death). The frozen final frame is
+  // re-exploded/burned/etc. so the replay shows the death, not just the corpse.
+  private replayingDeath = false;
   private scrubFrame = 0;
   private pauseFrame = 0;
   private pauseFrameState: SimulationState | undefined = undefined;
@@ -3143,6 +3147,8 @@ export class BootScene extends Phaser.Scene {
     this.deathKnockedEnemies.clear();
     this.deathKnockedEnemyCount = 0;
     this.deathPartCollisionLookup = undefined;
+    // Tearing the death effect down also exits any replay-death playback.
+    this.replayingDeath = false;
     // A new level / retry starts bot tracking fresh so a respawn is never read
     // as a death and no stale bot parts linger.
     this.resetCoopBotState();
@@ -3262,7 +3268,13 @@ export class BootScene extends Phaser.Scene {
       // While paused the simulation is frozen and the timeline drives what is
       // shown: play the recording back, hold left/right to scrub (Shift scrubs
       // faster, and pauses playback), or retry.
-      if (this.anyDown(leftKeyCodes) || this.anyDown(rightKeyCodes)) {
+      const scrubbing =
+        this.anyDown(leftKeyCodes) || this.anyDown(rightKeyCodes);
+      if (this.replayingDeath && !scrubbing) {
+        // The replay reached the end and is playing out the death animation.
+        this.stepReplayDeath();
+      } else if (scrubbing) {
+        this.clearReplayDeath();
         this.setReplayPlaying(false);
         this.handleScrubInput();
       } else if (this.replayPlaying) {
@@ -3839,6 +3851,8 @@ export class BootScene extends Phaser.Scene {
   // end rewinds to the beginning first; reaching the end stops playback.
   private setReplayPlaying(playing: boolean): void {
     if (playing && this.scrubFrame >= this.pauseFrame) {
+      // Starting over from the top: drop any finished death-animation aftermath.
+      this.clearReplayDeath();
       this.seekToFrame(0);
     }
     this.replayPlaying = playing;
@@ -3847,10 +3861,53 @@ export class BootScene extends Phaser.Scene {
 
   private advanceReplayPlayback(): void {
     if (this.scrubFrame >= this.pauseFrame) {
+      // Reached the end: if the run ended in a contact death, replay that death
+      // animation as the finale before stopping; otherwise just stop.
+      if (this.beginReplayDeath()) {
+        return;
+      }
       this.setReplayPlaying(false);
       return;
     }
     this.seekToFrame(this.scrubFrame + 1);
+  }
+
+  // Re-trigger the recorded run's contact-death animation over its
+  // reconstructed final frame so the instant replay ends on the death, not the
+  // frozen corpse. Returns false (and changes nothing) for a pit / time-up /
+  // finish ending, which has no authored animation to replay.
+  private beginReplayDeath(): boolean {
+    this.seekToFrame(this.pauseFrame);
+    // deathArcStarted is already false here (enterPause / clearReplayDeath tore
+    // any prior effect down), so maybeBeginDeathEffect is free to re-fire.
+    this.deathEffectFrame = 0;
+    this.maybeBeginDeathEffect();
+    if (!this.deathArcStarted) {
+      return false;
+    }
+    this.replayingDeath = true;
+    return true;
+  }
+
+  // Advance the replayed death animation one frame; when it finishes, hold the
+  // aftermath on screen and stop playback.
+  private stepReplayDeath(): void {
+    this.stepDeathEffect();
+    this.stepBotDeathPieces();
+    if (!this.deathEffectAnimating()) {
+      this.replayingDeath = false;
+      this.setReplayPlaying(false);
+    }
+  }
+
+  // Abort an in-progress / finished replay death animation and tear its pieces
+  // down (so scrubbing or restarting shows clean recorded frames again).
+  private clearReplayDeath(): void {
+    if (!this.replayingDeath && !this.deathArcStarted) {
+      return;
+    }
+    this.replayingDeath = false;
+    this.clearDeathEffect();
   }
 
   // Hold left/right to scrub the timeline while paused; Shift scrubs faster.
