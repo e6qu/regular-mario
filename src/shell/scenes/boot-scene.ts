@@ -1710,20 +1710,20 @@ export class BootScene extends Phaser.Scene {
           ? "THE KEEP HAS FALLEN!\nYOUR FRIEND IS FREE — THE ISLAND IS AT PEACE."
           : "THE KEEPER PLUNGED INTO THE MOAT!\nBUT YOUR FRIEND IS IN ANOTHER KEEP...";
         const camera = this.cameras.main;
+        // Position in world space at the centre of the actually-visible world
+        // rectangle. With a zoomed camera `scrollX/scrollY` are NOT the visible
+        // top-left, so `worldView` (the real visible rect) is what keeps the
+        // message on screen.
+        const view = camera.worldView;
         this.castleClearMessageText = this.add
-          .text(
-            camera.scrollX + camera.width / (2 * camera.zoom),
-            camera.scrollY + camera.height / (3 * camera.zoom),
-            message,
-            {
-              fontFamily: "monospace",
-              fontSize: "10px",
-              color: "#fef3c7",
-              align: "center",
-              stroke: "#1f2937",
-              strokeThickness: 3,
-            },
-          )
+          .text(view.centerX, view.y + view.height / 3, message, {
+            fontFamily: "monospace",
+            fontSize: "10px",
+            color: "#fef3c7",
+            align: "center",
+            stroke: "#1f2937",
+            strokeThickness: 3,
+          })
           .setOrigin(0.5)
           .setResolution(3)
           .setDepth(120);
@@ -1745,14 +1745,12 @@ export class BootScene extends Phaser.Scene {
     if (friendAsset === undefined) {
       return;
     }
+    const view = camera.worldView;
     const image = addUserFrameImage(this, 0, 0, friendAsset);
     image
       .setOrigin(0.5)
       .setDisplaySize(24, 24)
-      .setPosition(
-        camera.scrollX + camera.width / (2 * camera.zoom),
-        camera.scrollY + camera.height / (3 * camera.zoom) - 26,
-      )
+      .setPosition(view.centerX, view.y + view.height / 3 - 26)
       .setDepth(120);
     this.levelRenderedObjects = [...this.levelRenderedObjects, image];
   }

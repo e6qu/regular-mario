@@ -1,5 +1,6 @@
 import type { LevelSpecInput } from "../engine/domain/level-spec";
 import { armoredEnemyRouteLevelInput } from "../engine/levels/armored-enemy-route-level";
+import { castleClearRouteLevelInput } from "../engine/levels/castle-clear-route-level";
 import { cavernRouteLevelInput } from "../engine/levels/cavern-route-level";
 import { chasingEnemyRouteLevelInput } from "../engine/levels/chasing-enemy-route-level";
 import { coinBlockRouteLevelInput } from "../engine/levels/coin-block-route-level";
@@ -35,6 +36,7 @@ enum BrowserLevelKey {
   CoinBlockRoute = "coin-block-route",
   EnemyGauntletRoute = "enemy-gauntlet-route",
   EnemyStompRoute = "enemy-stomp-route",
+  CastleClearRoute = "castle-clear-route",
   FinishRoute = "finish-route",
   TimedFinishRoute = "timed-finish-route",
   FirstAuthored = "first-authored",
@@ -166,6 +168,7 @@ function makeBrowserLevelKey(value: string): BrowserLevelKey {
 function makeSingleLevelBootstrap(
   levelInput: LevelSpecInput,
   initialPlayerVitality: PlayerVitalityState,
+  theme?: LevelTheme,
 ): BrowserGameBootstrap {
   return {
     levelInput,
@@ -175,6 +178,7 @@ function makeSingleLevelBootstrap(
     userAssetBundle: undefined,
     viewport: authoredFixtureViewport,
     userLevelVisualName: undefined,
+    ...(theme !== undefined ? { theme } : {}),
   };
 }
 
@@ -206,6 +210,12 @@ function makeBrowserGameBootstrap(
       return makeSingleLevelBootstrap(
         enemyStompRouteLevelInput,
         makeInitialPlayerVitalityState(),
+      );
+    case BrowserLevelKey.CastleClearRoute:
+      return makeSingleLevelBootstrap(
+        castleClearRouteLevelInput,
+        makeInitialPlayerVitalityState(),
+        "castle",
       );
     case BrowserLevelKey.FinishRoute:
       return makeSingleLevelBootstrap(
