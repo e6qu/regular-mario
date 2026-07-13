@@ -2,11 +2,11 @@ import { ActorRole, type LevelSpecInput } from "../domain/level-spec";
 import { makeTileRun, standardSurfaceTileDefinitions } from "./level-builder";
 
 const hardLandingRouteWidthTiles = 12;
-const hardLandingRouteHeightTiles = 12;
+const hardLandingRouteHeightTiles = 16;
 
 // A small ledge high on the left over a deep drop to a full-width floor: the
-// runner walks off the ledge and falls about seven blocks straight down, well
-// past the two-block threshold, so the landing fires a ground quake (screen
+// runner walks off the ledge and falls about eleven blocks straight down, well
+// past the hard-landing threshold, so the landing fires a ground quake (screen
 // shake). Used to prove the hard-landing earthquake in the browser.
 export const hardLandingRouteLevelInput: LevelSpecInput = {
   widthTiles: hardLandingRouteWidthTiles,
@@ -35,7 +35,7 @@ export const hardLandingRouteLevelInput: LevelSpecInput = {
       ...makeTileRun("sky", hardLandingRouteWidthTiles - 3),
     ],
     // The long fall.
-    ...Array.from({ length: 6 }, () =>
+    ...Array.from({ length: 10 }, () =>
       makeTileRun("sky", hardLandingRouteWidthTiles),
     ),
     // The landing floor.
@@ -52,7 +52,7 @@ export const hardLandingRouteLevelInput: LevelSpecInput = {
       entityId: "gate-1",
       actorId: "open-gate",
       x: 10,
-      y: 10,
+      y: 14,
     },
   ],
 };

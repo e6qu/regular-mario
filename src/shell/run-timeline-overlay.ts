@@ -25,6 +25,10 @@ export type RunTimelineCallbacks = {
   // Download the run as a replay log (no screenshots) or a full zip.
   readonly onExportLog: () => void;
   readonly onExportZip: () => void;
+  // Report how many pixels of bottom space the strip currently occupies (0 when
+  // hidden), so the scene can shrink the game area to keep the strip strictly
+  // below the play field rather than overlapping it.
+  readonly onReserveSpace?: (pixels: number) => void;
 };
 
 // Step sizes offered as buttons, in frames (≈ 1 frame, 0.1s, 1s, 5s at 60fps).
@@ -127,14 +131,11 @@ export class RunTimelineOverlay {
 
   // Shared base so the normal and level-complete bar styles differ only in their
   // background/border/glow, not in layout.
-  // Centred, inset panel rather than a full-bleed bar: capped to a max width and
-  // horizontally centred (left/right:0 + margin:auto) so it no longer spans the
-  // whole play area — the game stays visible on either side of it. Insets by a
-  // little on narrow viewports.
+  // A full-width strip pinned to the bottom of the game viewport. The scene
+  // reserves matching space below the game canvas (see onReserveSpace) so the
+  // strip sits strictly BELOW the play area and never overlaps it.
   private static readonly rootBaseCss =
-    "position:absolute;left:0;right:0;bottom:0;margin:0 auto;" +
-    "width:100%;max-width:min(560px,calc(100% - 24px));" +
-    "z-index:20;display:none;" +
+    "position:absolute;left:0;right:0;bottom:0;z-index:20;display:none;" +
     "padding:12px 16px 16px;box-sizing:border-box;" +
     "backdrop-filter:blur(2px);font-family:monospace;user-select:none;";
   private pauseFrame = 0;
@@ -223,6 +224,14 @@ export class RunTimelineOverlay {
     this.root.style.display = "block";
     this.renderThumbnails(thumbnails);
     this.setCurrentFrame(currentFrame);
+    this.reportReservedSpace();
+  }
+
+  // Tell the scene how much bottom space the strip needs (its laid-out height),
+  // or zero when hidden, so the game area can be shrunk to sit above it.
+  private reportReservedSpace(): void {
+    const visible = this.root.style.display !== "none";
+    this.callbacks.onReserveSpace?.(visible ? this.root.offsetHeight : 0);
   }
 
   // On a level-complete pause, promote the whole bar: a gold-bordered glowing
@@ -260,6 +269,7 @@ export class RunTimelineOverlay {
   public hide(): void {
     this.root.style.display = "none";
     this.tooltip.style.display = "none";
+    this.reportReservedSpace();
   }
 
   public destroy(): void {
@@ -270,15 +280,14 @@ export class RunTimelineOverlay {
     this.root.style.cssText =
       RunTimelineOverlay.rootBaseCss +
       "background:linear-gradient(180deg,#0b0f19cc,#0b0f19ee);" +
-      "border:1px solid #374151;border-bottom:none;border-radius:8px 8px 0 0;";
+      "border-top:1px solid #374151;";
   }
 
   private applyProminentRootStyle(): void {
     this.root.style.cssText =
       RunTimelineOverlay.rootBaseCss +
       "background:linear-gradient(180deg,#1c1407f2,#0b0f19f5);" +
-      "border:1px solid #ffd54a;border-top-width:4px;border-bottom:none;" +
-      "border-radius:8px 8px 0 0;box-shadow:0 -10px 34px #ffd54a2e;";
+      "border-top:4px solid #ffd54a;box-shadow:0 -10px 34px #ffd54a2e;";
   }
 
   // A small toggle that collapses/expands the filmstrip scrubber (the "timeline"
@@ -296,6 +305,8 @@ export class RunTimelineOverlay {
     this.timelineToggleButton.textContent = this.timelineCollapsed
       ? "▸ Timeline"
       : "▾ Timeline";
+    // Collapsing/expanding the filmstrip changes the strip's height; re-reserve.
+    this.reportReservedSpace();
   }
 
   private makeControls(): HTMLDivElement {

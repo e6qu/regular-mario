@@ -851,6 +851,16 @@ export class BootScene extends Phaser.Scene {
   private lastGroundedWorldY: number | null = null;
   // How many hard-landing ground quakes have fired (exposed for debug/tests).
   private groundQuakeCount = 0;
+  // Cinematic camera shake state. Purely visual: it offsets the camera's
+  // viewport position (not scrollX/scrollY), so it never touches the recorded
+  // camera scroll, the simulation, or the physics — the world and physics carry
+  // on unshaken while only the framing trembles, like a movie camera bump.
+  private cameraShakeFramesRemaining = 0;
+  private cameraShakeTotalFrames = 0;
+  private cameraShakeAmplitudePixels = 0;
+  // Bottom space (px) reserved for the replay strip so the game area shrinks to
+  // sit strictly above it instead of the strip overlapping the play field.
+  private reservedBottomPixels = 0;
   // An invisible anchor for the player's position (camera follow, death arc,
   // flagpole slide). The visible player is always the authored sprite
   // (playerImageObject); there is no procedural vector-rectangle player.
@@ -1033,7 +1043,12 @@ export class BootScene extends Phaser.Scene {
     const canvas = this.game.canvas;
     const parent = canvas.parentElement;
     const cssWidth = Math.max(1, parent?.clientWidth ?? window.innerWidth);
-    const cssHeight = Math.max(1, parent?.clientHeight ?? window.innerHeight);
+    // Shrink the canvas by the space the replay strip reserves at the bottom so
+    // the strip sits below the game area rather than over it.
+    const cssHeight = Math.max(
+      1,
+      (parent?.clientHeight ?? window.innerHeight) - this.reservedBottomPixels,
+    );
     // The Canvas-2D renderer fills the whole backing store in software every
     // frame, so its cost scales with pixelRatio². On phones (coarse pointer,
     // often DPR 3) that native-resolution fill is the main stutter source, and
@@ -1047,6 +1062,17 @@ export class BootScene extends Phaser.Scene {
     this.scale.resize(cssWidth * pixelRatio, cssHeight * pixelRatio);
     canvas.style.width = `${cssWidth}px`;
     canvas.style.height = `${cssHeight}px`;
+  }
+
+  // The replay strip reports how much bottom space it needs; reserve it and
+  // resize the game area to sit above it (no-op when unchanged).
+  private setReservedBottomSpace(pixels: number): void {
+    const rounded = Math.max(0, Math.round(pixels));
+    if (rounded === this.reservedBottomPixels) {
+      return;
+    }
+    this.reservedBottomPixels = rounded;
+    this.resizeToDisplay();
   }
 
   private resizeToDisplay(): void {
@@ -3001,6 +3027,10 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
     );
 
+    // Advance the cinematic camera shake every frame (before any early return),
+    // so its viewport offset always resolves cleanly back to zero.
+    this.stepCameraShake();
+
     // ESC exits to wherever the level was launched from (start menu or editor).
     if (
       this.exitRequested &&
@@ -3383,6 +3413,7 @@ export class BootScene extends Phaser.Scene {
 
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
+    this.cancelCameraShake();
     // A retry after running out of lives starts a fresh game: the full life
     // count restored and the session coin total and score cleared. A normal
     // retry keeps the carried (post-death) totals and banks the failed attempt's
@@ -3536,6 +3567,8 @@ export class BootScene extends Phaser.Scene {
   private enterPause(byDeath: boolean): void {
     this.paused = true;
     this.pausedByDeath = byDeath;
+    // A mid-flight quake shouldn't wobble the paused/replay view.
+    this.cancelCameraShake();
     // The death animation has finished playing (the menu waits for it); tear its
     // pieces/overlays down and restore the player so the paused/replay view and
     // any scrubbing render the recorded frames cleanly, not the scattered body.
@@ -3781,6 +3814,9 @@ export class BootScene extends Phaser.Scene {
         },
         onExportZip: () => {
           this.exportRun(true);
+        },
+        onReserveSpace: (pixels) => {
+          this.setReservedBottomSpace(pixels);
         },
         ...(this.browserGameBootstrap.onAdvanceToNextLevel !== undefined
           ? {
@@ -4530,16 +4566,62 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // A hard landing shakes the whole main camera (every rendered object rides
-  // it) and buzzes a rolling rumble, both scaled by how far the player fell.
+  // A hard landing trembles the camera framing (a cinematic bump) and buzzes a
+  // rolling rumble, both scaled by how far the player fell. The shake is applied
+  // in stepCameraShake as a viewport offset — the world and physics are never
+  // touched.
   private triggerGroundQuake(dropTiles: number): void {
     const quake = resolveGroundQuake(dropTiles);
     if (quake === null) {
       return;
     }
-    this.cameras.main.shake(quake.durationMs, quake.intensity);
+    // The quake's abstract intensity is a fraction of the view height; turn it
+    // into a pixel amplitude for our own smooth shake. Keep the larger of any
+    // shake already in flight so a second big fall doesn't weaken the first.
+    this.cameraShakeAmplitudePixels = Math.max(
+      this.cameraShakeAmplitudePixels,
+      quake.intensity * this.scale.height,
+    );
+    this.cameraShakeTotalFrames = Math.max(
+      1,
+      Math.round((quake.durationMs / 1000) * 60),
+    );
+    this.cameraShakeFramesRemaining = this.cameraShakeTotalFrames;
     vibrateHaptic(groundQuakeHapticPattern);
     this.groundQuakeCount += 1;
+  }
+
+  // Apply the cinematic camera shake for this frame: a smooth, decaying two-tone
+  // sinusoid offset on the camera's viewport position (deterministic — no random
+  // per-frame jitter, which is what read as flicker). Runs every frame so the
+  // offset always resets cleanly to zero when no quake is active.
+  private stepCameraShake(): void {
+    const camera = this.cameras.main;
+    if (this.cameraShakeFramesRemaining <= 0) {
+      if (camera.x !== 0 || camera.y !== 0) {
+        camera.setPosition(0, 0);
+      }
+      return;
+    }
+    this.cameraShakeFramesRemaining -= 1;
+    const progress =
+      1 - this.cameraShakeFramesRemaining / this.cameraShakeTotalFrames;
+    const amplitude = this.cameraShakeAmplitudePixels * (1 - progress);
+    const phase = progress * Math.PI * 2;
+    const offsetX = amplitude * Math.sin(phase * 6.3);
+    const offsetY = amplitude * 0.7 * Math.sin(phase * 8.1 + 1.1);
+    camera.setPosition(offsetX, offsetY);
+    if (this.cameraShakeFramesRemaining <= 0) {
+      camera.setPosition(0, 0);
+      this.cameraShakeAmplitudePixels = 0;
+    }
+  }
+
+  // Immediately cancel any in-progress camera shake and restore the framing.
+  private cancelCameraShake(): void {
+    this.cameraShakeFramesRemaining = 0;
+    this.cameraShakeAmplitudePixels = 0;
+    this.cameras.main.setPosition(0, 0);
   }
 
   private renderSpawnedActors(

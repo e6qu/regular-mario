@@ -12,13 +12,18 @@ export type GroundQuake = {
 };
 
 // A fall of more than this many tiles shakes the screen; a shorter drop doesn't.
-export const hardLandingDropTiles = 2;
+// Kept high on purpose: routine platforming in stepped levels (1-2's pillars,
+// etc.) drops the player three-to-five tiles constantly, and shaking on every
+// one of those reads as flicker and makes the motion feel unsteady. Only a
+// genuine plunge — most of the screen's height — should shake.
+export const hardLandingDropTiles = 6;
 // The fall depth (tiles) at which the quake reaches full strength.
-const hardLandingSaturationTiles = 8;
-const minIntensity = 0.004;
-const maxIntensity = 0.013;
-const minDurationMs = 150;
-const maxDurationMs = 340;
+const hardLandingSaturationTiles = 12;
+// A brief, subtle bump — not a long jittery rumble.
+const minIntensity = 0.003;
+const maxIntensity = 0.008;
+const minDurationMs = 110;
+const maxDurationMs = 200;
 
 function lerp(from: number, to: number, fraction: number): number {
   return from + fraction * (to - from);
