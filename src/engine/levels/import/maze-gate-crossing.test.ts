@@ -26,7 +26,7 @@ describe("4-4 second loop gate", () => {
       );
       const right = makeScenarioInput({ horizontal: HorizontalInput.Right });
       const settled = stepScenario(state, right, spec, 300);
-      expect(settled.player.position.x).toBeGreaterThan(130 * 16);
+      expect(settled.players[0].player.position.x).toBeGreaterThan(130 * 16);
     });
   }
 });

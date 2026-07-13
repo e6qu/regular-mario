@@ -146,10 +146,10 @@ type GoldenReplayStateExpectation = {
     readonly x: number;
     readonly y: number;
   };
-  readonly playerMovement: SimulationState["player"]["movement"];
+  readonly playerMovement: SimulationState["players"][0]["player"]["movement"];
   readonly playerVitality: unknown;
   readonly levelContacts: SimulationState["levelContacts"];
-  readonly playerOutcome: SimulationState["playerOutcome"];
+  readonly playerOutcome: SimulationState["players"][0]["outcome"];
   readonly collectedCoinEntityIds: readonly string[];
   readonly collectedItemEntityIds: readonly string[];
   readonly contactedEnemyEntityIds: readonly string[];
@@ -162,26 +162,26 @@ function expectGoldenReplayState(
   expected: GoldenReplayStateExpectation,
 ): void {
   expect(finalState.clock.frameIndex).toBe(expected.frameIndex);
-  expect(finalState.player.position.x).toBeCloseTo(
+  expect(finalState.players[0].player.position.x).toBeCloseTo(
     expected.playerPosition.x,
     9,
   );
-  expect(finalState.player.position.y).toBeCloseTo(
+  expect(finalState.players[0].player.position.y).toBeCloseTo(
     expected.playerPosition.y,
     9,
   );
-  expect(finalState.player.velocity.x).toBeCloseTo(
+  expect(finalState.players[0].player.velocity.x).toBeCloseTo(
     expected.playerVelocity.x,
     9,
   );
-  expect(finalState.player.velocity.y).toBeCloseTo(
+  expect(finalState.players[0].player.velocity.y).toBeCloseTo(
     expected.playerVelocity.y,
     9,
   );
-  expect(finalState.player.movement).toEqual(expected.playerMovement);
-  expect(finalState.playerVitality).toEqual(expected.playerVitality);
+  expect(finalState.players[0].player.movement).toEqual(expected.playerMovement);
+  expect(finalState.players[0].vitality).toEqual(expected.playerVitality);
   expect(finalState.levelContacts).toEqual(expected.levelContacts);
-  expect(finalState.playerOutcome).toEqual(expected.playerOutcome);
+  expect(finalState.players[0].outcome).toEqual(expected.playerOutcome);
   expect(finalState.collectibles.collectedCoinEntityIds).toEqual(
     expected.collectedCoinEntityIds,
   );
@@ -203,7 +203,7 @@ function expectRightwardHazardReplayState(
   finalState: SimulationState,
   playerPositionX: number,
   expectedPlayerVelocityX: number,
-  playerOutcome: SimulationState["playerOutcome"],
+  playerOutcome: SimulationState["players"][0]["outcome"],
   contactedEnemyEntityIds: readonly string[],
   enemyContactResponse: unknown,
 ): void {

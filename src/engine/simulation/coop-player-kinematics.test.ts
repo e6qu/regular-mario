@@ -1,23 +1,17 @@
 import { describe, expect, it } from "vitest";
 
 import { stepCoopPlayerKinematics } from "./coop-player-kinematics";
-import { firstAuthoredLevelSpec } from "./level-test-support";
+import {
+  firstAuthoredLevelSpec,
+  spawnedPrimaryPlayer,
+} from "./level-test-support";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
 import type { PlayerSimulationState } from "./player-state";
-import { makeInitialSimulationState } from "./simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "./simulation-units";
 
 function spawnPlayer(): PlayerSimulationState {
-  const result = makeInitialSimulationState(
-    nominalSixtyHertzFrameDurationMilliseconds,
-    firstAuthoredLevelSpec(),
-    initialMovementConstants,
-  );
-  if (!result.ok) {
-    throw new Error("expected a valid initial state");
-  }
-  return result.value.player;
+  return spawnedPrimaryPlayer();
 }
 
 function input(

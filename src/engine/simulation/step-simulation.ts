@@ -118,8 +118,11 @@ import {
   assertValidHatchedSpinyState,
   resolveHatchedSpinyState,
 } from "./hatched-spiny-state";
-import type { SimulationState } from "./simulation-state";
-import { deriveSimulationPlayers } from "./simulation-state";
+import type {
+  PlayerRuntime,
+  SimulationPlayers,
+  SimulationState,
+} from "./simulation-state";
 import { stepCoopPlayerKinematics } from "./coop-player-kinematics";
 import { resolvePlayerCollisions } from "./player-player-collision";
 import {
@@ -159,18 +162,18 @@ export function stepSimulation(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   // Per-player inputs for the additional co-op players (index i drives
-  // state.coopPlayers[i]); empty/short means those players hold neutral. Single-
+  // state.players[i + 1]); empty/short means those players hold neutral. Single-
   // player callers omit this entirely.
   coopInputCommands: readonly SimulationInputCommand[] = [],
 ): SimulationState {
   const nextClock = makeNextSimulationClock(state);
-  assertValidPlayerVitalityState(state.playerVitality);
+  assertValidPlayerVitalityState(state.players[0].vitality);
   assertValidPlayerInvincibilityState(
-    state.playerInvincibility,
+    state.players[0].invincibility,
     levelSpec,
     state.spawnedActors.spawnedActors,
   );
-  assertValidPlayerOutcomeState(state.playerOutcome);
+  assertValidPlayerOutcomeState(state.players[0].outcome);
   assertValidSpawnedActorsState(state.spawnedActors);
   assertValidCollectibleInteractionState(
     state.collectibles,
@@ -203,8 +206,9 @@ export function stepSimulation(
     levelSpec,
     nextClock,
   );
-  const coopPlayers = stepCoopPlayers(
-    state.coopPlayers ?? [],
+  const primaryRuntime = primaryStepped.players[0];
+  const coopRuntimes = stepCoopPlayers(
+    state.players.slice(1),
     coopInputCommands,
     state.clock.frameDurationMilliseconds,
     movementConstants,
@@ -213,32 +217,40 @@ export function stepSimulation(
     primaryStepped.enemies.defeatedEnemyEntityIds,
   );
   // Players are solid to each other (no walk-through, stand on heads, a stack
-  // rides its bottom player). Resolve all players together — no special case for
-  // the primary. Single-player short-circuits (nothing to collide with).
+  // rides its bottom player). Resolve every player's kinematics together — no
+  // special case for the primary. Single-player short-circuits.
   const collided = resolvePlayerCollisions(
-    [primaryStepped.player, ...coopPlayers],
-    [state.player, ...(state.coopPlayers ?? [])],
+    [primaryRuntime.player, ...coopRuntimes.map((runtime) => runtime.player)],
+    [
+      state.players[0].player,
+      ...state.players.slice(1).map((runtime) => runtime.player),
+    ],
   );
   // Any player reaching the goal completes the level for everyone: if a co-op
   // player touches the goal while the primary is still active, finish the level.
-  const anyCoopReachedGoal = coopPlayers.some(
-    (player) => detectLevelContactState(player, levelSpec).goal,
+  const anyCoopReachedGoal = coopRuntimes.some((runtime) =>
+    detectLevelContactState(runtime.player, levelSpec).goal,
   );
-  const playerOutcome =
-    anyCoopReachedGoal &&
-    primaryStepped.playerOutcome.kind === PlayerOutcomeKind.Active
+  const primaryOutcome =
+    anyCoopReachedGoal && primaryRuntime.outcome.kind === PlayerOutcomeKind.Active
       ? {
           kind: PlayerOutcomeKind.Finished as const,
           reason: PlayerFinishReason.GoalContact,
         }
-      : primaryStepped.playerOutcome;
+      : primaryRuntime.outcome;
 
-  return withDerivedPlayers({
-    ...primaryStepped,
-    playerOutcome,
-    player: collided[0] ?? primaryStepped.player,
-    coopPlayers: collided.slice(1),
-  });
+  const players: SimulationPlayers = [
+    {
+      ...primaryRuntime,
+      player: collided[0] ?? primaryRuntime.player,
+      outcome: primaryOutcome,
+    },
+    ...coopRuntimes.map((runtime, index) => ({
+      ...runtime,
+      player: collided[index + 1] ?? runtime.player,
+    })),
+  ];
+  return { ...primaryStepped, players };
 }
 
 // The primary player's full pipeline (unchanged), selected by outcome.
@@ -249,7 +261,7 @@ function stepPrimaryPlayer(
   levelSpec: LevelSpec,
   nextClock: SimulationClock,
 ): SimulationState {
-  switch (state.playerOutcome.kind) {
+  switch (state.players[0].outcome.kind) {
     case PlayerOutcomeKind.Active:
       return stepActiveSimulation(
         state,
@@ -263,7 +275,7 @@ function stepPrimaryPlayer(
     case PlayerOutcomeKind.DefeatedAndFinished:
       return { ...state, clock: nextClock };
     default: {
-      const invalidOutcome: never = state.playerOutcome;
+      const invalidOutcome: never = state.players[0].outcome;
       throw new Error(
         `Invalid player outcome state: ${String(invalidOutcome)}`,
       );
@@ -274,41 +286,42 @@ function stepPrimaryPlayer(
 // Advance each additional co-op player through the shared terrain kinematics
 // with its own input (or neutral when none is provided this frame).
 function stepCoopPlayers(
-  coopPlayers: readonly PlayerSimulationState[],
+  coopRuntimes: readonly PlayerRuntime[],
   coopInputCommands: readonly SimulationInputCommand[],
   frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   enemyMotion: EnemyMotionState,
   defeatedEnemyEntityIds: readonly EntityId[],
-): readonly PlayerSimulationState[] {
-  if (coopPlayers.length === 0) {
-    return coopPlayers;
+): readonly PlayerRuntime[] {
+  if (coopRuntimes.length === 0) {
+    return coopRuntimes;
   }
-  const moved = coopPlayers.map((player, index) =>
-    stepCoopPlayerKinematics(
-      player,
+  const moved = coopRuntimes.map((runtime, index) => ({
+    ...runtime,
+    player: stepCoopPlayerKinematics(
+      runtime.player,
       coopInputCommands[index] ?? neutralInputCommand,
       frameDurationMilliseconds,
       movementConstants,
       levelSpec,
     ),
-  );
+  }));
   // A co-op player that touches an enemy, walks into a hazard, or falls into a
   // pit is out for the rest of the level (removed from the field) — the "dead
   // until level ends" rule, applied uniformly.
   return moved.filter(
-    (player) =>
+    (runtime) =>
       !playerContactsLiveEnemy(
-        player,
+        runtime.player,
         levelSpec,
         enemyMotion,
         defeatedEnemyEntityIds,
       ) &&
-      !detectLevelContactState(player, levelSpec).hazard &&
+      !detectLevelContactState(runtime.player, levelSpec).hazard &&
       !(
         levelSpec.fallExitTransition === undefined &&
-        hasPlayerFallenIntoPit(player, levelSpec)
+        hasPlayerFallenIntoPit(runtime.player, levelSpec)
       ),
   );
 }
@@ -323,12 +336,6 @@ const neutralInputCommand: SimulationInputCommand = {
 };
 
 type SimulationClock = SimulationState["clock"];
-
-// Refresh the uniform `players` array from the (authoritative) singular player
-// slices so it is always consistent with them, however the state was built.
-function withDerivedPlayers(state: SimulationState): SimulationState {
-  return { ...state, players: deriveSimulationPlayers(state) };
-}
 
 function makeNextSimulationClock(state: SimulationState): SimulationClock {
   if (state.clock.frameIndex === Number.MAX_SAFE_INTEGER) {
@@ -358,13 +365,13 @@ function stepActiveSimulation(
   nextClock: SimulationClock,
 ): SimulationState {
   const playerVitalityAfterRecoveryTick = stepPlayerVitalityRecovery(
-    state.playerVitality,
+    state.players[0].vitality,
   );
   const levelTimer = stepLevelTimerState(state.levelTimer);
 
   const pipeState = resolvePipeState(
     { downHeld: inputCommand.downHeld, horizontal: inputCommand.horizontal },
-    state.player,
+    state.players[0].player,
     state.pipeEntry,
     movementConstants,
     levelSpec,
@@ -382,7 +389,7 @@ function stepActiveSimulation(
     playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Fire;
   const crouching =
     isBigVitality &&
-    state.player.movement.vertical === VerticalMovementState.Grounded &&
+    state.players[0].player.movement.vertical === VerticalMovementState.Grounded &&
     inputCommand.downHeld &&
     !isPlayerFrozenByPipeEntry(pipeState.pipeEntry);
 
@@ -397,7 +404,7 @@ function stepActiveSimulation(
     : baseInputCommand;
 
   const horizontallyMovedPlayer = applyHorizontalMovement(
-    state.player,
+    state.players[0].player,
     effectiveInputCommand,
     state.clock.frameDurationMilliseconds,
     movementConstants,
@@ -432,7 +439,7 @@ function stepActiveSimulation(
     ),
   );
   const resolvedPlayerWithBumps = resolveSolidTileCollisionWithBlockBumps(
-    state.player,
+    state.players[0].player,
     movedPlayer,
     levelSpec,
     state.breakableBlocks,
@@ -486,7 +493,7 @@ function stepActiveSimulation(
   const loopZonesResolution = resolveLoopZones(
     state.loopZones,
     levelSpec,
-    state.player,
+    state.players[0].player,
     platformAdjustedPlayer,
   );
   const loopAdjustedPlayer = loopZonesResolution.player;
@@ -546,7 +553,7 @@ function stepActiveSimulation(
               ),
         )
       : state.bloodiness;
-  const playerReaction = resolvePlayerReactionState(state.playerReaction, {
+  const playerReaction = resolvePlayerReactionState(state.players[0].reaction, {
     headBonked,
   });
   const levelContacts = detectLevelContactState(teleportedPlayer, levelSpec);
@@ -574,7 +581,7 @@ function stepActiveSimulation(
     playerAfterPowerUpResize,
     levelSpec,
     spawnedActors.spawnedActors,
-    state.playerInvincibility,
+    state.players[0].invincibility,
   );
   const enemyMotion = stepEnemyMotionState(
     state.enemyMotion,
@@ -603,7 +610,7 @@ function stepActiveSimulation(
     nextClock.frameIndex,
   );
   const enemiesBeforeProjectileMerge = resolveEnemyInteractionState(
-    state.player,
+    state.players[0].player,
     playerAfterPowerUpResize,
     levelSpec,
     enemyMotion,
@@ -747,7 +754,7 @@ function stepActiveSimulation(
     movementConstants,
     state.clock.frameDurationMilliseconds,
     nextClock.frameIndex,
-    state.player,
+    state.players[0].player,
   );
   // Stomping a Bullet Bill bounces the player up, just like stomping an enemy.
   const playerAfterProjectileStomp =
@@ -772,7 +779,7 @@ function stepActiveSimulation(
   const aerialFrenzy = resolveAerialFrenzyState(
     state.aerialFrenzy,
     levelSpec,
-    state.player,
+    state.players[0].player,
     playerAfterProjectileStomp,
     nextPseudoRandom,
     movementConstants,
@@ -850,7 +857,7 @@ function stepActiveSimulation(
   };
 
   const playerOutcome = resolvePlayerOutcomeState(
-    state.playerOutcome,
+    state.players[0].outcome,
     outcomeLevelContacts,
     damagingEnemies,
     playerVitalityAfterHazard,
@@ -860,7 +867,7 @@ function stepActiveSimulation(
   );
 
   const justFinished =
-    state.playerOutcome.kind !== PlayerOutcomeKind.Finished &&
+    state.players[0].outcome.kind !== PlayerOutcomeKind.Finished &&
     playerOutcome.kind === PlayerOutcomeKind.Finished;
 
   const timeBonusScore = justFinished
@@ -912,8 +919,8 @@ function stepActiveSimulation(
     state.enemies.cumulativeShellKillExtraLives;
 
   const justDefeated =
-    state.playerOutcome.kind !== PlayerOutcomeKind.Defeated &&
-    state.playerOutcome.kind !== PlayerOutcomeKind.DefeatedAndFinished &&
+    state.players[0].outcome.kind !== PlayerOutcomeKind.Defeated &&
+    state.players[0].outcome.kind !== PlayerOutcomeKind.DefeatedAndFinished &&
     (playerOutcome.kind === PlayerOutcomeKind.Defeated ||
       playerOutcome.kind === PlayerOutcomeKind.DefeatedAndFinished);
 
@@ -937,14 +944,19 @@ function stepActiveSimulation(
 
   return {
     clock: nextClock,
-    // Placeholder; stepSimulation re-derives players from the final slices below
-    // via withDerivedPlayers before returning.
-    players: state.players,
-    player: finalPlayer,
-    playerVitality: playerVitalityAfterHazard,
-    playerInvincibility,
+    // Player one's freshly-computed runtime at index 0; the co-op players are
+    // carried through unchanged here and re-stepped by the outer stepSimulation.
+    players: [
+      {
+        player: finalPlayer,
+        vitality: playerVitalityAfterHazard,
+        invincibility: playerInvincibility,
+        outcome: playerOutcome,
+        reaction: playerReaction,
+      },
+      ...state.players.slice(1),
+    ],
     levelContacts: outcomeLevelContacts,
-    playerOutcome,
     collectibles,
     powerUps: powerUpResolution.state,
     enemies,
@@ -969,7 +981,6 @@ function stepActiveSimulation(
     bulletBillStompScore,
     livesRemaining,
     sessionCoinBase: state.sessionCoinBase,
-    playerReaction,
     enemyStompReaction,
     bloodiness,
     pseudoRandom: nextPseudoRandom,

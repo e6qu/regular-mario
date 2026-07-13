@@ -41,13 +41,19 @@ export function startStateAtPixel(
   }
   return {
     ...init.value,
-    player: {
-      ...init.value.player,
-      position: {
-        x: pixelX as never,
-        y: pixelY as never,
+    players: [
+      {
+        ...init.value.players[0],
+        player: {
+          ...init.value.players[0].player,
+          position: {
+            x: pixelX as never,
+            y: pixelY as never,
+          },
+        },
       },
-    },
+      ...init.value.players.slice(1),
+    ],
   };
 }
 

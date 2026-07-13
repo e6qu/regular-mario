@@ -882,7 +882,7 @@ export class BootScene extends Phaser.Scene {
   private playerRectangle!: Phaser.GameObjects.Rectangle;
   private playerImageObject: Phaser.GameObjects.Image | undefined;
   // Sprites for the additional co-op players (demo bots), kept in sync with
-  // simulationState.coopPlayers and positioned from them each frame.
+  // simulationState.players[1..] and positioned from them each frame.
   private readonly coopPlayerImages: Phaser.GameObjects.Image[] = [];
   // Last non-trivial horizontal travel direction, so the water merman can face
   // the way he swims.
@@ -1894,8 +1894,8 @@ export class BootScene extends Phaser.Scene {
 
   private hasFinishedOutcome(): boolean {
     return (
-      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Finished ||
-      this.simulationState.playerOutcome.kind ===
+      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Finished ||
+      this.simulationState.players[0].outcome.kind ===
         PlayerOutcomeKind.DefeatedAndFinished
     );
   }
@@ -1925,7 +1925,7 @@ export class BootScene extends Phaser.Scene {
   // snaps onto the pole column and computes how far/long to slide down.
   private beginFlagpoleSlide(): void {
     this.flagpoleSlideActive = false;
-    const outcome = this.simulationState.playerOutcome;
+    const outcome = this.simulationState.players[0].outcome;
     const finished =
       outcome.kind === PlayerOutcomeKind.Finished ||
       outcome.kind === PlayerOutcomeKind.DefeatedAndFinished;
@@ -1935,8 +1935,8 @@ export class BootScene extends Phaser.Scene {
 
     const tileSizePixels = this.levelSpec.tileSizePixels;
     const collisionLookup = makeTileCollisionLookup(this.levelSpec);
-    const colliderWidth = this.simulationState.player.collider.width;
-    const colliderHeight = this.simulationState.player.collider.height;
+    const colliderWidth = this.simulationState.players[0].player.collider.width;
+    const colliderHeight = this.simulationState.players[0].player.collider.height;
     const column = Math.min(
       Math.max(
         Math.round(
@@ -2075,7 +2075,7 @@ export class BootScene extends Phaser.Scene {
 
   private stepEventMusic(): void {
     const invincible =
-      this.simulationState.playerInvincibility.remainingFrames > 0;
+      this.simulationState.players[0].invincibility.remainingFrames > 0;
     if (invincible !== this.starMusicActive) {
       this.starMusicActive = invincible;
       this.gameAudio.setInvincibilityMusic(invincible, this.currentTheme);
@@ -2094,7 +2094,7 @@ export class BootScene extends Phaser.Scene {
 
     if (
       !this.deathJinglePlayed &&
-      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated
+      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Defeated
     ) {
       this.deathJinglePlayed = true;
       // The engine has already decremented the life on this defeat frame.
@@ -2113,7 +2113,7 @@ export class BootScene extends Phaser.Scene {
     if (
       !this.timeWarningTriggered &&
       remainingFrames !== undefined &&
-      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Active &&
+      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Active &&
       Math.floor(remainingFrames / timeBonusFramesPerDisplayUnit) <
         timeWarningDisplaySeconds
     ) {
@@ -2141,7 +2141,7 @@ export class BootScene extends Phaser.Scene {
     this.fireworksBurstIndex = 0;
     this.fireworksNextBurstFrames = fireworksBurstIntervalFrames;
     this.fireworksOriginX =
-      this.playerRectangle.x + this.simulationState.player.collider.width / 2;
+      this.playerRectangle.x + this.simulationState.players[0].player.collider.width / 2;
     // Keep the level open until every burst has launched and its sparkle faded.
     const fireworksTotalFrames =
       count * fireworksBurstIntervalFrames + fireworkLifetimeFrames;
@@ -2273,11 +2273,11 @@ export class BootScene extends Phaser.Scene {
   // and the defeat reason alone does not name the tile.
   private playerOverlapsTileId(tileId: string): boolean {
     const columnSpan = makePlayerTileColumnSpan(
-      this.simulationState.player,
+      this.simulationState.players[0].player,
       this.levelSpec.tileSizePixels,
     );
     const rowSpan = makePlayerTileRowSpan(
-      this.simulationState.player,
+      this.simulationState.players[0].player,
       this.levelSpec.tileSizePixels,
     );
     for (let row = rowSpan.start; row <= rowSpan.end; row += 1) {
@@ -2348,7 +2348,7 @@ export class BootScene extends Phaser.Scene {
     if (this.deathArcStarted) {
       return;
     }
-    const outcome = this.simulationState.playerOutcome;
+    const outcome = this.simulationState.players[0].outcome;
     if (
       outcome.kind !== PlayerOutcomeKind.Defeated ||
       (outcome.reason !== PlayerDefeatReason.EnemyContact &&
@@ -2392,8 +2392,8 @@ export class BootScene extends Phaser.Scene {
     if (flameAsset === undefined) {
       return;
     }
-    const width = this.simulationState.player.collider.width;
-    const height = this.simulationState.player.collider.height;
+    const width = this.simulationState.players[0].player.collider.width;
+    const height = this.simulationState.players[0].player.collider.height;
     for (let index = 0; index < deathBurnFlameCount; index += 1) {
       const image = addUserFrameImage(this, 0, 0, flameAsset);
       image.setOrigin(0.5).setDepth(62).setVisible(true);
@@ -2421,8 +2421,8 @@ export class BootScene extends Phaser.Scene {
       this.deathArcVelocityY = -deathArcPopSpeedPixels;
       return;
     }
-    const width = this.simulationState.player.collider.width;
-    const height = this.simulationState.player.collider.height;
+    const width = this.simulationState.players[0].player.collider.width;
+    const height = this.simulationState.players[0].player.collider.height;
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setVisible(false);
     }
@@ -2512,8 +2512,8 @@ export class BootScene extends Phaser.Scene {
     if (eyesAsset === undefined) {
       return undefined;
     }
-    const width = this.simulationState.player.collider.width;
-    const height = this.simulationState.player.collider.height;
+    const width = this.simulationState.players[0].player.collider.width;
+    const height = this.simulationState.players[0].player.collider.height;
     return addUserFrameImage(this, 0, 0, eyesAsset)
       .setOrigin(0.5)
       .setDisplaySize(width, height)
@@ -2617,12 +2617,12 @@ export class BootScene extends Phaser.Scene {
     this.deathPieces = survivors;
     // Remove any co-op players the flying parts struck (dead until level ends).
     if (hitCoopPlayerIndices.size > 0) {
-      const remaining = (this.simulationState.coopPlayers ?? []).filter(
-        (_unused, index) => !hitCoopPlayerIndices.has(index),
-      );
+      const remaining = this.simulationState.players
+        .slice(1)
+        .filter((_unused, index) => !hitCoopPlayerIndices.has(index));
       this.simulationState = {
         ...this.simulationState,
-        coopPlayers: remaining,
+        players: [this.simulationState.players[0], ...remaining],
       };
     }
     this.stepKnockedEnemies(belowLevelY);
@@ -2685,7 +2685,8 @@ export class BootScene extends Phaser.Scene {
       boxes.push({ left: x, top: y, right: x + size, bottom: y + size });
       targets.push({ kind: "enemy", entityId: actor.entityId });
     }
-    (this.simulationState.coopPlayers ?? []).forEach((player, index) => {
+    this.simulationState.players.slice(1).forEach((runtime, index) => {
+      const player = runtime.player;
       const left = Number(player.position.x);
       const top = Number(player.position.y);
       boxes.push({
@@ -2827,8 +2828,8 @@ export class BootScene extends Phaser.Scene {
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setVisible(false);
     }
-    const width = this.simulationState.player.collider.width;
-    const height = this.simulationState.player.collider.height;
+    const width = this.simulationState.players[0].player.collider.width;
+    const height = this.simulationState.players[0].player.collider.height;
     const huskAsset = this.userAssetBundle?.reactionImages.get("burned-husk");
     const image =
       huskAsset !== undefined
@@ -2853,9 +2854,9 @@ export class BootScene extends Phaser.Scene {
   // with it, so the fire dies down as the body is consumed.
   private stepBurnFlames(bodyScale: number): void {
     const centerX =
-      this.deathArcX + this.simulationState.player.collider.width / 2;
+      this.deathArcX + this.simulationState.players[0].player.collider.width / 2;
     const centerY =
-      this.deathArcY + this.simulationState.player.collider.height / 2;
+      this.deathArcY + this.simulationState.players[0].player.collider.height / 2;
     for (const flame of this.deathFlames) {
       const flicker =
         1 +
@@ -2883,7 +2884,7 @@ export class BootScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setPosition(
         this.deathArcX +
-          this.simulationState.player.collider.width / 2 +
+          this.simulationState.players[0].player.collider.width / 2 +
           jitter,
         this.deathArcY,
       )
@@ -2936,8 +2937,8 @@ export class BootScene extends Phaser.Scene {
     const bodyX = this.deathArcX + wobble;
     this.positionPlayerSpriteAt(bodyX, this.deathArcY);
     this.holdDeadPose();
-    const width = this.simulationState.player.collider.width;
-    const height = this.simulationState.player.collider.height;
+    const width = this.simulationState.players[0].player.collider.width;
+    const height = this.simulationState.players[0].player.collider.height;
     // Pin the sprite to the upright collider box, belly-up (the normal render
     // leaves the wide, mirrored swim box), so the X-ed-eyes overlay — laid over
     // the exact same box — lands on the face rather than drifting off it.
@@ -3041,8 +3042,8 @@ export class BootScene extends Phaser.Scene {
         .setFlipY(false)
         .clearTint()
         .setDisplaySize(
-          this.simulationState.player.collider.width,
-          this.simulationState.player.collider.height,
+          this.simulationState.players[0].player.collider.width,
+          this.simulationState.players[0].player.collider.height,
         );
     }
   }
@@ -3063,8 +3064,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   public override update(): void {
-    assertValidPlayerVitalityState(this.simulationState.playerVitality);
-    assertValidPlayerOutcomeState(this.simulationState.playerOutcome);
+    assertValidPlayerVitalityState(this.simulationState.players[0].vitality);
+    assertValidPlayerOutcomeState(this.simulationState.players[0].outcome);
     assertValidCollectibleInteractionState(
       this.simulationState.collectibles,
       this.levelSpec,
@@ -3196,7 +3197,7 @@ export class BootScene extends Phaser.Scene {
     // inputs (replay-stable), one per co-op player this frame.
     const coopInputCommands = makeBotInputCommands(
       Number(previousSimulationState.clock.frameIndex),
-      previousSimulationState.coopPlayers?.length ?? 0,
+      previousSimulationState.players.length - 1,
     );
     this.simulationState = stepSimulation(
       previousSimulationState,
@@ -3333,20 +3334,17 @@ export class BootScene extends Phaser.Scene {
     // collider on the tile, which would otherwise leave a taller player embedded
     // in the floor).
     const teleportedPlayer = teleportPlayerToTilePosition(
-      this.simulationState.player,
+      this.simulationState.players[0].player,
       targetTilePosition,
       this.levelSpec,
     );
-    this.simulationState = {
-      ...this.simulationState,
-      player: {
-        ...teleportedPlayer,
-        movement: {
-          ...teleportedPlayer.movement,
-          vertical: VerticalMovementState.Falling,
-        },
+    this.simulationState = this.withPrimaryPlayer({
+      ...teleportedPlayer,
+      movement: {
+        ...teleportedPlayer.movement,
+        vertical: VerticalMovementState.Falling,
       },
-    };
+    });
     this.resetRun();
     configureMainCamera(
       this.cameras.main,
@@ -3368,10 +3366,33 @@ export class BootScene extends Phaser.Scene {
     // rather than growing on the first step.
     return {
       ...state,
-      player: resizePlayerForVitality(state.player, this.carriedPlayerVitality),
+      players: [
+        {
+          ...state.players[0],
+          player: resizePlayerForVitality(
+            state.players[0].player,
+            this.carriedPlayerVitality,
+          ),
+          vitality: this.carriedPlayerVitality,
+        },
+        ...state.players.slice(1),
+      ],
       livesRemaining: this.carriedLivesRemaining,
       sessionCoinBase: this.carriedSessionCoinTotal,
-      playerVitality: this.carriedPlayerVitality,
+    };
+  }
+
+  // Replace the primary player's kinematics, preserving its other runtime slices
+  // and the co-op players.
+  private withPrimaryPlayer(
+    player: SimulationState["players"][0]["player"],
+  ): SimulationState {
+    return {
+      ...this.simulationState,
+      players: [
+        { ...this.simulationState.players[0], player },
+        ...this.simulationState.players.slice(1),
+      ],
     };
   }
 
@@ -3380,9 +3401,9 @@ export class BootScene extends Phaser.Scene {
   // small, since the recovering state is tied to the level being left.
   private tierToCarryForward(): PlayerVitalityState {
     return isEnlargedPlayerVitalityKind(
-      this.simulationState.playerVitality.kind,
+      this.simulationState.players[0].vitality.kind,
     )
-      ? this.simulationState.playerVitality
+      ? this.simulationState.players[0].vitality
       : makeInitialPlayerVitalityState();
   }
 
@@ -3502,8 +3523,8 @@ export class BootScene extends Phaser.Scene {
     // so the carried tier is left unchanged. A fresh game already restored the
     // bootstrap tier above.
     const retriedFromDeath =
-      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated ||
-      this.simulationState.playerOutcome.kind ===
+      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Defeated ||
+      this.simulationState.players[0].outcome.kind ===
         PlayerOutcomeKind.DefeatedAndFinished;
     if (!this.pendingGameOver && retriedFromDeath) {
       this.carriedPlayerVitality = makeInitialPlayerVitalityState();
@@ -3514,8 +3535,8 @@ export class BootScene extends Phaser.Scene {
     const respawnAtHalfway =
       this.warpedLevelInput === undefined &&
       this.levelSpec.halfwayTileX !== undefined &&
-      this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Defeated &&
-      this.simulationState.player.position.x >=
+      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Defeated &&
+      this.simulationState.players[0].player.position.x >=
         this.levelSpec.halfwayTileX * this.levelSpec.tileSizePixels;
     // A retry after a pipe warp returns to the main-sequence level, so rebuild
     // it before resetting the simulation state.
@@ -3539,16 +3560,15 @@ export class BootScene extends Phaser.Scene {
     if (respawnAtHalfway && this.levelSpec.halfwayTileX !== undefined) {
       // Drop in from the top of the checkpoint column; the landing collision
       // settles the player onto the ground there.
-      this.simulationState = {
-        ...this.simulationState,
-        player: teleportPlayerToTilePosition(
-          this.simulationState.player,
+      this.simulationState = this.withPrimaryPlayer(
+        teleportPlayerToTilePosition(
+          this.simulationState.players[0].player,
           { x: this.levelSpec.halfwayTileX, y: 2 } as Parameters<
             typeof teleportPlayerToTilePosition
           >[1],
           this.levelSpec,
         ),
-      };
+      );
     }
     this.lastSoundEvents = [];
     this.levelAdvanceDelayFramesRemaining = 0;
@@ -3759,7 +3779,7 @@ export class BootScene extends Phaser.Scene {
   private maybeEnterReplayMenu(): void {
     if (
       this.paused ||
-      this.simulationState.playerOutcome.kind !== PlayerOutcomeKind.Defeated ||
+      this.simulationState.players[0].outcome.kind !== PlayerOutcomeKind.Defeated ||
       this.deathEffectAnimating()
     ) {
       return;
@@ -3978,10 +3998,10 @@ export class BootScene extends Phaser.Scene {
     const retryPressedThisFrame = retryDown && !this.retryWasDown;
     this.retryWasDown = retryDown;
 
-    switch (this.simulationState.playerOutcome.kind) {
+    switch (this.simulationState.players[0].outcome.kind) {
       case PlayerOutcomeKind.Active:
         return (
-          this.simulationState.playerVitality.kind ===
+          this.simulationState.players[0].vitality.kind ===
             PlayerVitalityKind.Recovering &&
           (retryDown || this.retryKeyHeld)
         );
@@ -3990,7 +4010,7 @@ export class BootScene extends Phaser.Scene {
       case PlayerOutcomeKind.DefeatedAndFinished:
         return retryPressedThisFrame;
       default: {
-        const invalidOutcome: never = this.simulationState.playerOutcome;
+        const invalidOutcome: never = this.simulationState.players[0].outcome;
         throw new Error(
           `Invalid player outcome state: ${String(invalidOutcome)}`,
         );
@@ -4106,8 +4126,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   private renderSimulationState(): void {
-    const currentVertical = this.simulationState.player.movement.vertical;
-    const currentWorldY = this.simulationState.player.position.y;
+    const currentVertical = this.simulationState.players[0].player.movement.vertical;
+    const currentWorldY = this.simulationState.players[0].player.position.y;
     const isGrounded = currentVertical === VerticalMovementState.Grounded;
 
     if (
@@ -4120,7 +4140,7 @@ export class BootScene extends Phaser.Scene {
       // whole screen — a little earthquake, scaled to how far the player fell.
       if (
         this.lastGroundedWorldY !== null &&
-        this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Active
+        this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Active
       ) {
         const dropTiles =
           (currentWorldY - this.lastGroundedWorldY) /
@@ -4136,17 +4156,17 @@ export class BootScene extends Phaser.Scene {
     this.previousPlayerVertical = currentVertical;
 
     this.playerRectangle.setPosition(
-      this.simulationState.player.position.x,
-      this.simulationState.player.position.y,
+      this.simulationState.players[0].player.position.x,
+      this.simulationState.players[0].player.position.y,
     );
     this.playerRectangle
       .setSize(
-        this.simulationState.player.collider.width,
-        this.simulationState.player.collider.height,
+        this.simulationState.players[0].player.collider.width,
+        this.simulationState.players[0].player.collider.height,
       )
       .setDisplaySize(
-        this.simulationState.player.collider.width,
-        this.simulationState.player.collider.height,
+        this.simulationState.players[0].player.collider.width,
+        this.simulationState.players[0].player.collider.height,
       );
     this.emitSwimBubbles();
 
@@ -4164,7 +4184,7 @@ export class BootScene extends Phaser.Scene {
 
       // Track travel direction and, in the water world, mirror the right-facing
       // merman so he faces the way he swims (land poses stay unflipped).
-      const velocityX = this.simulationState.player.velocity.x;
+      const velocityX = this.simulationState.players[0].player.velocity.x;
       if (velocityX > 4) {
         this.facingRight = true;
       } else if (velocityX < -4) {
@@ -4176,22 +4196,22 @@ export class BootScene extends Phaser.Scene {
       // The merman is a horizontal fish, so give the swim sprite a squarer,
       // wider display box (centred on the collider) instead of the tall player
       // box that would squash it thin.
-      const collider = this.simulationState.player.collider;
+      const collider = this.simulationState.players[0].player.collider;
       const displayWidth = swimming ? collider.height : collider.width;
       const displayOffsetX = (collider.width - displayWidth) / 2;
       this.playerImageObject
         .setPosition(
-          this.simulationState.player.position.x + displayOffsetX,
-          this.simulationState.player.position.y,
+          this.simulationState.players[0].player.position.x + displayOffsetX,
+          this.simulationState.players[0].player.position.y,
         )
         .setDisplaySize(displayWidth, collider.height);
     }
 
     const isRecoveringVitality =
-      this.simulationState.playerVitality.kind ===
+      this.simulationState.players[0].vitality.kind ===
       PlayerVitalityKind.Recovering;
     const isStarInvincible =
-      this.simulationState.playerInvincibility.remainingFrames > 0;
+      this.simulationState.players[0].invincibility.remainingFrames > 0;
     const playerAlpha =
       (isRecoveringVitality || isStarInvincible) &&
       Math.floor(this.simulationState.clock.frameIndex / 3) % 2 === 1
@@ -4205,7 +4225,7 @@ export class BootScene extends Phaser.Scene {
     this.renderCoopPlayers();
 
     const feedbackText = makeOutcomeFeedbackText(
-      this.simulationState.playerOutcome,
+      this.simulationState.players[0].outcome,
     );
     this.outcomeFeedbackText
       .setText(feedbackText)
@@ -4213,7 +4233,7 @@ export class BootScene extends Phaser.Scene {
 
     const headBonking =
       this.exaggeratedReactions &&
-      this.simulationState.playerReaction.kind === PlayerReactionKind.HeadBonk;
+      this.simulationState.players[0].reaction.kind === PlayerReactionKind.HeadBonk;
     const headBonkX = this.playerRectangle.x;
     const headBonkY =
       this.playerRectangle.y - this.playerRectangle.height / 2 - 2;
@@ -4271,7 +4291,7 @@ export class BootScene extends Phaser.Scene {
     );
     const collectedInvincibilityEntityIdStrings = this.cachedEntityIdSet(
       "invincibility",
-      this.simulationState.playerInvincibility.collectedInvincibilityEntityIds,
+      this.simulationState.players[0].invincibility.collectedInvincibilityEntityIds,
     );
     const defeatedEnemyEntityIdStrings = this.cachedEntityIdSet(
       "defeated",
@@ -4506,59 +4526,65 @@ export class BootScene extends Phaser.Scene {
   // (the camera follows the primary). A player pushed to the left or right screen
   // edge is stopped there rather than walking off. No-op in single-player.
   private clampCoopPlayersToScreen(): void {
-    const coopPlayers = this.simulationState.coopPlayers;
-    if (coopPlayers === undefined || coopPlayers.length === 0) {
+    const coopRuntimes = this.simulationState.players.slice(1);
+    if (coopRuntimes.length === 0) {
       return;
     }
     const view = this.cameras.main.worldView;
-    const clamped = coopPlayers.map((player) => {
+    const clamped = coopRuntimes.map((runtime) => {
+      const player = runtime.player;
       const width = Number(player.collider.width);
       const x = Number(player.position.x);
       const clampedX = Math.max(view.x, Math.min(x, view.right - width));
       if (clampedX === x) {
-        return player;
+        return runtime;
       }
       return {
-        ...player,
-        position: {
-          x: requireSimulationPixelPosition(clampedX, "player.position.x"),
-          y: player.position.y,
-        },
-        velocity: {
-          x: requireSimulationVelocity(0, "player.velocity.x"),
-          y: player.velocity.y,
+        ...runtime,
+        player: {
+          ...player,
+          position: {
+            x: requireSimulationPixelPosition(clampedX, "player.position.x"),
+            y: player.position.y,
+          },
+          velocity: {
+            x: requireSimulationVelocity(0, "player.velocity.x"),
+            y: player.velocity.y,
+          },
         },
       };
     });
-    this.simulationState = { ...this.simulationState, coopPlayers: clamped };
+    this.simulationState = {
+      ...this.simulationState,
+      players: [this.simulationState.players[0], ...clamped],
+    };
   }
 
   // Render each additional co-op player (demo bot) as a Luigi sprite, keeping the
-  // sprite pool in sync with simulationState.coopPlayers and positioning each
+  // sprite pool in sync with simulationState.players[1..] and positioning each
   // from its own kinematics.
   private renderCoopPlayers(): void {
-    const coopPlayers = this.simulationState.coopPlayers ?? [];
-    while (this.coopPlayerImages.length < coopPlayers.length) {
+    const coopRuntimes = this.simulationState.players.slice(1);
+    while (this.coopPlayerImages.length < coopRuntimes.length) {
       const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
       if (image === undefined) {
         break;
       }
       this.coopPlayerImages.push(image);
     }
-    while (this.coopPlayerImages.length > coopPlayers.length) {
+    while (this.coopPlayerImages.length > coopRuntimes.length) {
       this.coopPlayerImages.pop()?.destroy();
     }
-    coopPlayers.forEach((coopPlayer, index) => {
+    coopRuntimes.forEach((runtime, index) => {
       const image = this.coopPlayerImages[index];
       if (image === undefined) {
         return;
       }
+      const coopPlayer = runtime.player;
       // Resolve this player's own sprite by viewing the sim through its slice.
-      const runtime = this.simulationState.players[index + 1];
       const view: SimulationState = {
         ...this.simulationState,
-        player: coopPlayer,
-        playerVitality: runtime?.vitality ?? this.simulationState.playerVitality,
+        players: [{ ...runtime }],
       };
       const sprite = resolvePlayerSpriteImage(
         this.userAssetBundle?.playerImage,
@@ -4598,12 +4624,12 @@ export class BootScene extends Phaser.Scene {
   private emitSwimBubbles(): void {
     if (
       this.currentTheme !== "water" ||
-      this.simulationState.playerOutcome.kind !== PlayerOutcomeKind.Active ||
+      this.simulationState.players[0].outcome.kind !== PlayerOutcomeKind.Active ||
       this.simulationState.clock.frameIndex % swimBubbleIntervalFrames !== 0
     ) {
       return;
     }
-    const player = this.simulationState.player;
+    const player = this.simulationState.players[0].player;
     const bubbleX = player.position.x + player.collider.width * 0.72;
     const bubbleY = player.position.y + 2;
     const radius = 1.8;
@@ -4685,10 +4711,10 @@ export class BootScene extends Phaser.Scene {
   }
 
   private spawnLandingDustParticles(): void {
-    const playerX = this.simulationState.player.position.x;
+    const playerX = this.simulationState.players[0].player.position.x;
     const playerBottomY =
-      this.simulationState.player.position.y +
-      this.simulationState.player.collider.height;
+      this.simulationState.players[0].player.position.y +
+      this.simulationState.players[0].player.collider.height;
 
     for (let i = 0; i < 4; i += 1) {
       const offsetX = (i - 1.5) * 4;
@@ -5121,8 +5147,8 @@ export class BootScene extends Phaser.Scene {
       enemyContactResponse: makeBrowserEnemyContactResponseSnapshot(
         state.enemyContactResponse,
       ),
-      playerVelocityX: state.player.velocity.x,
-      playerOutcome: makeBrowserPlayerOutcomeSnapshot(state.playerOutcome),
+      playerVelocityX: state.players[0].player.velocity.x,
+      playerOutcome: makeBrowserPlayerOutcomeSnapshot(state.players[0].outcome),
     };
   }
 
@@ -5207,18 +5233,18 @@ export class BootScene extends Phaser.Scene {
           goal: this.simulationState.levelContacts.goal,
         },
         playerVitality: makeBrowserPlayerVitalitySnapshot(
-          this.simulationState.playerVitality,
+          this.simulationState.players[0].vitality,
         ),
         playerInvincibility: {
           collectedInvincibilityEntityIds:
-            this.simulationState.playerInvincibility.collectedInvincibilityEntityIds.map(
+            this.simulationState.players[0].invincibility.collectedInvincibilityEntityIds.map(
               (entityId) => entityId,
             ),
           remainingFrames:
-            this.simulationState.playerInvincibility.remainingFrames,
+            this.simulationState.players[0].invincibility.remainingFrames,
         },
         playerOutcome: makeBrowserPlayerOutcomeSnapshot(
-          this.simulationState.playerOutcome,
+          this.simulationState.players[0].outcome,
         ),
         collectibles: {
           collectedCoinEntityIds:
@@ -5345,31 +5371,31 @@ export class BootScene extends Phaser.Scene {
         ),
         player: {
           position: {
-            x: this.simulationState.player.position.x,
-            y: this.simulationState.player.position.y,
+            x: this.simulationState.players[0].player.position.x,
+            y: this.simulationState.players[0].player.position.y,
           },
           velocity: {
-            x: this.simulationState.player.velocity.x,
-            y: this.simulationState.player.velocity.y,
+            x: this.simulationState.players[0].player.velocity.x,
+            y: this.simulationState.players[0].player.velocity.y,
           },
           collider: {
-            width: this.simulationState.player.collider.width,
-            height: this.simulationState.player.collider.height,
+            width: this.simulationState.players[0].player.collider.width,
+            height: this.simulationState.players[0].player.collider.height,
           },
           movement: {
-            horizontal: this.simulationState.player.movement.horizontal,
-            vertical: this.simulationState.player.movement.vertical,
+            horizontal: this.simulationState.players[0].player.movement.horizontal,
+            vertical: this.simulationState.players[0].player.movement.vertical,
           },
           coyoteFramesRemaining:
-            this.simulationState.player.coyoteFramesRemaining,
+            this.simulationState.players[0].player.coyoteFramesRemaining,
           jumpBufferFramesRemaining:
-            this.simulationState.player.jumpBufferFramesRemaining,
-          jumpCutApplied: this.simulationState.player.jumpCutApplied,
-          jumpTierIndex: this.simulationState.player.jumpTierIndex,
+            this.simulationState.players[0].player.jumpBufferFramesRemaining,
+          jumpCutApplied: this.simulationState.players[0].player.jumpCutApplied,
+          jumpTierIndex: this.simulationState.players[0].player.jumpTierIndex,
         },
         playerReaction: {
-          kind: this.simulationState.playerReaction.kind,
-          remainingFrames: this.simulationState.playerReaction.remainingFrames,
+          kind: this.simulationState.players[0].reaction.kind,
+          remainingFrames: this.simulationState.players[0].reaction.remainingFrames,
         },
         enemyStompReaction: {
           active: this.simulationState.enemyStompReaction.active,
@@ -5969,7 +5995,7 @@ function makeEmptyCollisionCounts(): MutableLevelCollisionCounts {
 }
 
 function makeBrowserPlayerOutcomeSnapshot(
-  playerOutcome: SimulationState["playerOutcome"],
+  playerOutcome: SimulationState["players"][0]["outcome"],
 ): BrowserSimulationSnapshot["playerOutcome"] {
   switch (playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -6002,7 +6028,7 @@ function makeBrowserPlayerOutcomeSnapshot(
 }
 
 function makeBrowserPlayerVitalitySnapshot(
-  playerVitality: SimulationState["playerVitality"],
+  playerVitality: SimulationState["players"][0]["vitality"],
 ): BrowserSimulationSnapshot["playerVitality"] {
   assertValidPlayerVitalityState(playerVitality);
 
@@ -6094,7 +6120,7 @@ function worldLevelLabelFor(levelVisualName: string | undefined): string {
 }
 
 function makeOutcomeFeedbackText(
-  playerOutcome: SimulationState["playerOutcome"],
+  playerOutcome: SimulationState["players"][0]["outcome"],
 ): string {
   switch (playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -6415,22 +6441,22 @@ function resolvePlayerSpriteImage(
   }
 
   const vitalityPrefix = makePlayerSpriteVitalityPrefix(
-    simulationState.playerVitality.kind,
+    simulationState.players[0].vitality.kind,
   );
   // Fire art is optional in a sprite set; fall back to powered, then bare.
   const prefixes =
     vitalityPrefix === "fire" ? ["fire", "powered"] : [vitalityPrefix];
   const action = makePlayerSpriteAction(
-    simulationState.player.movement,
+    simulationState.players[0].player.movement,
     theme,
-    simulationState.player.crouching === true,
+    simulationState.players[0].player.crouching === true,
   );
 
   // The merman's swim stroke (arms + tail flick) only animates while he is
   // actually moving through the water; drifting still holds the first frame.
   // Each frame falls back to the other swim frame, then the jump pose for sets
   // without dedicated swim art.
-  const player = simulationState.player;
+  const player = simulationState.players[0].player;
   const moving =
     Math.abs(player.velocity.x) > 6 || Math.abs(player.velocity.y) > 6;
   const swimStroke =

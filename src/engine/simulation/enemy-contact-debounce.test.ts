@@ -122,13 +122,13 @@ describe("per-enemy contact debounce", () => {
       );
       if (
         demoteFrame < 0 &&
-        current.playerVitality.kind !== PlayerVitalityKind.Powered
+        current.players[0].vitality.kind !== PlayerVitalityKind.Powered
       ) {
         demoteFrame = frame;
       }
       if (
         defeatFrame < 0 &&
-        current.playerOutcome.kind === PlayerOutcomeKind.Defeated
+        current.players[0].outcome.kind === PlayerOutcomeKind.Defeated
       ) {
         defeatFrame = frame;
         break;
@@ -164,7 +164,7 @@ describe("per-enemy contact debounce", () => {
     for (
       let frame = 0;
       frame < 120 &&
-      current.playerOutcome.kind !== PlayerOutcomeKind.Defeated;
+      current.players[0].outcome.kind !== PlayerOutcomeKind.Defeated;
       frame += 1
     ) {
       current = stepSimulation(
@@ -174,6 +174,6 @@ describe("per-enemy contact debounce", () => {
         level.value,
       );
     }
-    expect(current.playerOutcome.kind).toBe(PlayerOutcomeKind.Defeated);
+    expect(current.players[0].outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
 });

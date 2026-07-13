@@ -198,6 +198,6 @@ describe("parseTiledJsonLevel", () => {
     const nextState = stepImportedLevelOnce(value);
 
     expect(nextState.clock.frameIndex).toBe(1);
-    expect(nextState.playerOutcome.kind).toBe("active");
+    expect(nextState.players[0].outcome.kind).toBe("active");
   });
 });

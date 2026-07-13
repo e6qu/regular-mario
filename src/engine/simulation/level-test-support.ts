@@ -9,8 +9,11 @@ import { playerWithTestState } from "./movement-test-support";
 import type { PlayerSimulationState } from "./player-state";
 import {
   HorizontalMovementState,
+  initialMovementConstants,
   VerticalMovementState,
 } from "./movement-model";
+import { makeInitialSimulationState } from "./simulation-state";
+import { nominalSixtyHertzFrameDurationMilliseconds } from "./simulation-units";
 import type { PixelPosition, VelocityPixelsPerSecond } from "../domain/units";
 
 function makeTileRun(tileId: string, length: number): string[] {
@@ -603,6 +606,20 @@ export function makeUpwardMovingPlayerAt(position: {
       y: -120 as VelocityPixelsPerSecond,
     },
   };
+}
+
+// The primary player as spawned by the initial simulation state for the first
+// authored level — the real spawn kinematics, not a synthetic test override.
+export function spawnedPrimaryPlayer(): PlayerSimulationState {
+  const result = makeInitialSimulationState(
+    nominalSixtyHertzFrameDurationMilliseconds,
+    firstAuthoredLevelSpec(),
+    initialMovementConstants,
+  );
+  if (!result.ok) {
+    throw new Error("expected a valid initial state");
+  }
+  return result.value.players[0].player;
 }
 
 export function playerAt(position: {

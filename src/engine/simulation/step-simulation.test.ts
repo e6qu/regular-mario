@@ -88,6 +88,60 @@ function validInitialState(): SimulationState {
   return result.value;
 }
 
+// Apply primary-player-slice overrides (using the historical field names) onto
+// the players[0] runtime, leaving co-op players untouched.
+function withPlayerOverrides(
+  state: SimulationState,
+  overrides: {
+    readonly player?: SimulationState["players"][0]["player"];
+    readonly playerVitality?: SimulationState["players"][0]["vitality"];
+    readonly playerInvincibility?: SimulationState["players"][0]["invincibility"];
+    readonly playerOutcome?: SimulationState["players"][0]["outcome"];
+    readonly playerReaction?: SimulationState["players"][0]["reaction"];
+  },
+): SimulationState {
+  const primary = state.players[0];
+  return {
+    ...state,
+    players: [
+      {
+        player: overrides.player ?? primary.player,
+        vitality: overrides.playerVitality ?? primary.vitality,
+        invincibility: overrides.playerInvincibility ?? primary.invincibility,
+        outcome: overrides.playerOutcome ?? primary.outcome,
+        reaction: overrides.playerReaction ?? primary.reaction,
+      },
+      ...state.players.slice(1),
+    ],
+  };
+}
+
+// Build a deliberately-invalid simulation state for validation tests: the
+// primary player's outcome (and optionally vitality) is corrupted, plus any
+// top-level interaction fields, all cast past the type system on purpose.
+function corruptedSimulationState(
+  outcome: unknown,
+  extra?: {
+    readonly vitality?: unknown;
+    readonly top?: Readonly<Record<string, unknown>>;
+  },
+): SimulationState {
+  const base = validInitialState();
+  const primary = base.players[0];
+  return {
+    ...base,
+    ...(extra?.top ?? {}),
+    players: [
+      {
+        ...primary,
+        outcome,
+        ...(extra?.vitality === undefined ? {} : { vitality: extra.vitality }),
+      },
+      ...base.players.slice(1),
+    ],
+  } as unknown as SimulationState;
+}
+
 function testEnemyEntityId(value: string): EntityId {
   return value as EntityId;
 }
@@ -170,9 +224,8 @@ function upwardBlockHitPlayer() {
 function stompPlayerSimulationState(
   playerVitality?: PlayerVitalityState,
 ): SimulationState {
-  return {
-    ...validInitialState(),
-    player: playerWithTestState({
+  return withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
       position: {
         x: 96,
         y: 40,
@@ -187,7 +240,7 @@ function stompPlayerSimulationState(
       },
     }),
     ...(playerVitality === undefined ? {} : { playerVitality }),
-  };
+      });
 }
 
 function testSkyGroundTileDefinitions() {
@@ -322,10 +375,10 @@ function expectBeetleStompDefeatedWithRebound(state: SimulationState): void {
   expect(state.enemyContactResponse).toEqual({
     kind: "none",
   });
-  expect(state.player.velocity.y).toBe(
+  expect(state.players[0].player.velocity.y).toBe(
     0 - initialMovementConstants.enemyStompReboundSpeed,
   );
-  expect(state.playerOutcome).toEqual({
+  expect(state.players[0].outcome).toEqual({
     kind: "active",
   });
 }
@@ -336,18 +389,36 @@ function stepRecoveringVitalityState(
   remainingInvulnerabilityFrames: number,
 ): SimulationState {
   return stepSimulation(
-    {
-      ...stateWithPlayerAt(position),
-      playerVitality: recoveringVitalityState(
+    withPlayerOverrides(stateWithPlayerAt(position), {
+        playerVitality: recoveringVitalityState(
         EnemySideContactSide.Right,
         remainingKnockbackFrames,
         remainingInvulnerabilityFrames,
       ),
-    },
+      }),
     validInputCommand(),
     initialMovementConstants,
     firstAuthoredLevelWithoutHazardSpec(),
   );
+}
+
+// Step a recovering player one frame with invulnerability about to expire and
+// assert its vitality collapses back to small, returning the stepped state so
+// callers can further assert on the resulting outcome.
+function stepRecoveringVitalityToSmall(
+  position: { readonly x: number; readonly y: number },
+  remainingKnockbackFrames: number,
+  remainingInvulnerabilityFrames: number,
+): SimulationState {
+  const nextState = stepRecoveringVitalityState(
+    position,
+    remainingKnockbackFrames,
+    remainingInvulnerabilityFrames,
+  );
+  expect(nextState.players[0].vitality).toEqual({
+    kind: "small",
+  });
+  return nextState;
 }
 
 function slideShell(
@@ -441,7 +512,7 @@ function expectActiveStateWithoutInteractions(state: SimulationState): void {
     hazard: false,
     goal: false,
   });
-  expect(state.playerOutcome).toEqual({
+  expect(state.players[0].outcome).toEqual({
     kind: "active",
   });
   expect(state.collectibles).toEqual({
@@ -465,7 +536,7 @@ function expectRightSideBeetleContactResponse(state: SimulationState): void {
       x: expectedResponseVelocity,
     },
   });
-  expect(state.player.velocity.x).toBe(expectedResponseVelocity);
+  expect(state.players[0].player.velocity.x).toBe(expectedResponseVelocity);
 }
 
 function expectBeetleSideContactEnemyState(state: SimulationState): void {
@@ -550,9 +621,8 @@ function stateWithPlayerAt(position: {
   readonly x: number;
   readonly y: number;
 }): SimulationState {
-  return {
-    ...validInitialState(),
-    player: playerWithTestState({
+  return withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
       position,
       velocity: {
         x: 0,
@@ -563,7 +633,7 @@ function stateWithPlayerAt(position: {
         vertical: VerticalMovementState.Grounded,
       },
     }),
-  };
+      });
 }
 
 function stepRightSideEnemyContactWithoutHazard(
@@ -665,21 +735,9 @@ describe("simulation primitives", () => {
             reaction: { kind: PlayerReactionKind.None, remainingFrames: 0 },
           },
         ],
-        coopPlayers: [],
-        player: expectedInitialPlayerSimulationState,
-        playerVitality: {
-          kind: "small",
-        },
-        playerInvincibility: {
-          collectedInvincibilityEntityIds: [],
-          remainingFrames: 0,
-        },
         levelContacts: {
           hazard: false,
           goal: false,
-        },
-        playerOutcome: {
-          kind: "active",
         },
         interactiveBlocks: {
           bumpedBlockTilePositions: [],
@@ -759,7 +817,6 @@ describe("simulation primitives", () => {
         goalHeightScore: 0,
         livesRemaining: initialLivesCount,
         sessionCoinBase: 0,
-        playerReaction: { kind: PlayerReactionKind.None, remainingFrames: 0 },
         enemyStompReaction: {
           active: false,
           remainingFrames: 0,
@@ -814,14 +871,14 @@ describe("simulation primitives", () => {
       frameIndex: 1,
       frameDurationMilliseconds: nominalSixtyHertzFrameDurationMilliseconds,
     });
-    expect(nextState.player.position.x).toBe(16);
-    expect(nextState.player.position.y).toBe(56);
-    expect(nextState.player.velocity).toEqual({
-      ...validInitialState().player.velocity,
+    expect(nextState.players[0].player.position.x).toBe(16);
+    expect(nextState.players[0].player.position.y).toBe(56);
+    expect(nextState.players[0].player.velocity).toEqual({
+      ...validInitialState().players[0].player.velocity,
       y: 0,
     });
-    expect(nextState.player.movement).toEqual({
-      ...validInitialState().player.movement,
+    expect(nextState.players[0].player.movement).toEqual({
+      ...validInitialState().players[0].player.movement,
       vertical: VerticalMovementState.Grounded,
     });
     expectActiveStateWithoutInteractions(nextState);
@@ -835,13 +892,12 @@ describe("simulation primitives", () => {
     );
 
     const nextState = stepSimulation(
-      {
-        ...initialState,
+      withPlayerOverrides(initialState, {
         player: upwardBlockHitPlayer(),
         playerVitality: {
           kind: PlayerVitalityKind.Powered,
         },
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
@@ -861,10 +917,9 @@ describe("simulation primitives", () => {
     );
 
     const nextState = stepSimulation(
-      {
-        ...initialState,
+      withPlayerOverrides(initialState, {
         player: upwardBlockHitPlayer(),
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
@@ -887,7 +942,7 @@ describe("simulation primitives", () => {
       levelSpec,
     );
 
-    expect(nextState.playerOutcome.kind).toBe(PlayerOutcomeKind.Defeated);
+    expect(nextState.players[0].outcome.kind).toBe(PlayerOutcomeKind.Defeated);
     expect(nextState.livesRemaining).toBe(2);
   });
 
@@ -903,7 +958,7 @@ describe("simulation primitives", () => {
       levelSpec,
     );
 
-    expect(nextState.playerOutcome.kind).toBe(PlayerOutcomeKind.Defeated);
+    expect(nextState.players[0].outcome.kind).toBe(PlayerOutcomeKind.Defeated);
     expect(nextState.livesRemaining).toBe(0);
   });
 
@@ -915,17 +970,16 @@ describe("simulation primitives", () => {
     );
 
     const bonkedState = stepSimulation(
-      {
-        ...initialState,
+      withPlayerOverrides(initialState, {
         player: upwardBlockHitPlayer(),
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
     );
 
-    expect(bonkedState.playerReaction.kind).toBe(PlayerReactionKind.HeadBonk);
-    expect(bonkedState.playerReaction.remainingFrames).toBeGreaterThan(0);
+    expect(bonkedState.players[0].reaction.kind).toBe(PlayerReactionKind.HeadBonk);
+    expect(bonkedState.players[0].reaction.remainingFrames).toBeGreaterThan(0);
 
     // With no further bonk, the reaction counts down.
     const laterState = stepSimulation(
@@ -934,8 +988,8 @@ describe("simulation primitives", () => {
       initialMovementConstants,
       levelSpec,
     );
-    expect(laterState.playerReaction.remainingFrames).toBeLessThan(
-      bonkedState.playerReaction.remainingFrames,
+    expect(laterState.players[0].reaction.remainingFrames).toBeLessThan(
+      bonkedState.players[0].reaction.remainingFrames,
     );
   });
 
@@ -956,17 +1010,21 @@ describe("simulation primitives", () => {
 
     // Original (faithful) mode: a bonk happens but never draws blood.
     const original = stepSimulation(
-      { ...initialState, player: fastBonkPlayer },
+      withPlayerOverrides(initialState, {
+        player: fastBonkPlayer,
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
     );
-    expect(original.playerReaction.kind).toBe(PlayerReactionKind.HeadBonk);
+    expect(original.players[0].reaction.kind).toBe(PlayerReactionKind.HeadBonk);
     expect(original.bloodiness).toBe(0);
 
     // Shabby mechanics: the same fast bonk bloodies the player.
     const shabby = stepSimulation(
-      { ...initialState, player: fastBonkPlayer },
+      withPlayerOverrides(initialState, {
+        player: fastBonkPlayer,
+      }),
       validInputCommand(),
       { ...initialMovementConstants, bloodyBonks: true },
       levelSpec,
@@ -982,10 +1040,9 @@ describe("simulation primitives", () => {
     );
 
     const nextState = stepSimulation(
-      {
-        ...initialState,
+      withPlayerOverrides(initialState, {
         player: upwardBlockHitPlayer(),
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
@@ -1024,19 +1081,17 @@ describe("simulation primitives", () => {
       "Expected repeatable coin block initial state to validate.",
     );
     const firstCoinState = stepSimulation(
-      {
-        ...initialState,
+      withPlayerOverrides(initialState, {
         player: upwardBlockHitPlayer(),
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
     );
     const secondCoinState = stepSimulation(
-      {
-        ...firstCoinState,
+      withPlayerOverrides(firstCoinState, {
         player: upwardBlockHitPlayer(),
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
@@ -1069,11 +1124,10 @@ describe("simulation primitives", () => {
       "Expected repeatable coin block initial state to validate.",
     );
 
-    const beforeState = {
-      ...initialState,
-      sessionCoinBase: coinsPerExtraLife - 1,
-      player: upwardBlockHitPlayer(),
-    };
+    const beforeState = withPlayerOverrides(
+      { ...initialState, sessionCoinBase: coinsPerExtraLife - 1 },
+      { player: upwardBlockHitPlayer() },
+    );
     const afterState = stepSimulation(
       beforeState,
       validInputCommand(),
@@ -1104,12 +1158,12 @@ describe("simulation primitives", () => {
       rightInputResult.value,
     );
 
-    expect(nextState.player.velocity.x).toBeCloseTo(
+    expect(nextState.players[0].player.velocity.x).toBeCloseTo(
       initialMovementConstants.walkAcceleration *
         (nominalSixtyHertzFrameDurationMilliseconds / 1000),
       9,
     );
-    expect(nextState.player.movement.horizontal).toBe(
+    expect(nextState.players[0].player.movement.horizontal).toBe(
       HorizontalMovementState.Walking,
     );
   });
@@ -1133,27 +1187,26 @@ describe("simulation primitives", () => {
       jumpInputResult.value,
     );
 
-    expect(nextState.player.velocity.y).toBe(
+    expect(nextState.players[0].player.velocity.y).toBe(
       0 - initialMovementConstants.jumpLaunchSpeed,
     );
-    expect(nextState.player.position.y).toBeCloseTo(
+    expect(nextState.players[0].player.position.y).toBeCloseTo(
       56 -
         initialMovementConstants.jumpLaunchSpeed *
           (nominalSixtyHertzFrameDurationMilliseconds / 1000),
       9,
     );
-    expect(nextState.player.movement.vertical).toBe(
+    expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Jumping,
     );
   });
 
   it("spawns a projectile when fire is pressed while in fire form", () => {
-    const poweredState: SimulationState = {
-      ...validInitialState(),
-      playerVitality: {
+    const poweredState: SimulationState = withPlayerOverrides(validInitialState(), {
+        playerVitality: {
         kind: PlayerVitalityKind.Fire,
       },
-    };
+      });
     const fireInputResult = makeSimulationInputCommand(
       HorizontalInput.Right,
       false,
@@ -1182,9 +1235,8 @@ describe("simulation primitives", () => {
   });
 
   it("resolves landing on crossed solid tiles after position integration", () => {
-    const fallingState: SimulationState = {
-      ...validInitialState(),
-      player: playerWithTestState({
+    const fallingState: SimulationState = withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
         position: {
           x: 16,
           y: 54,
@@ -1198,16 +1250,16 @@ describe("simulation primitives", () => {
           vertical: VerticalMovementState.Falling,
         },
       }),
-    };
+      });
 
     const nextState = stepWithInitialMovementConstants(
       fallingState,
       validInputCommand(),
     );
 
-    expect(nextState.player.position.y).toBe(56);
-    expect(nextState.player.velocity.y).toBe(0);
-    expect(nextState.player.movement.vertical).toBe(
+    expect(nextState.players[0].player.position.y).toBe(56);
+    expect(nextState.players[0].player.velocity.y).toBe(0);
+    expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Grounded,
     );
   });
@@ -1226,9 +1278,8 @@ describe("simulation primitives", () => {
       throw new Error("Expected valid right run input command.");
     }
 
-    const rightwardState: SimulationState = {
-      ...validInitialState(),
-      player: playerWithTestState({
+    const rightwardState: SimulationState = withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
         position: {
           x: 113,
           y: 40,
@@ -1242,16 +1293,16 @@ describe("simulation primitives", () => {
           vertical: VerticalMovementState.Falling,
         },
       }),
-    };
+      });
 
     const nextState = stepWithInitialMovementConstants(
       rightwardState,
       rightRunInputResult.value,
     );
 
-    expect(nextState.player.position.x).toBe(114);
-    expect(nextState.player.velocity.x).toBe(0);
-    expect(nextState.player.movement.horizontal).toBe(
+    expect(nextState.players[0].player.position.x).toBe(114);
+    expect(nextState.players[0].player.velocity.x).toBe(0);
+    expect(nextState.players[0].player.movement.horizontal).toBe(
       HorizontalMovementState.Running,
     );
     expect(nextState.clock.frameIndex).toBe(1);
@@ -1259,9 +1310,8 @@ describe("simulation primitives", () => {
   });
 
   it("resolves upward underside solid collision after position integration", () => {
-    const jumpingState: SimulationState = {
-      ...validInitialState(),
-      player: playerWithTestState({
+    const jumpingState: SimulationState = withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
         position: {
           x: 66,
           y: 49,
@@ -1275,16 +1325,16 @@ describe("simulation primitives", () => {
           vertical: VerticalMovementState.Jumping,
         },
       }),
-    };
+      });
 
     const nextState = stepWithInitialMovementConstants(
       jumpingState,
       validInputCommand(),
     );
 
-    expect(nextState.player.position.y).toBe(48);
-    expect(nextState.player.velocity.y).toBe(0);
-    expect(nextState.player.movement.vertical).toBe(
+    expect(nextState.players[0].player.position.y).toBe(48);
+    expect(nextState.players[0].player.velocity.y).toBe(0);
+    expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Falling,
     );
     expect(nextState.clock.frameIndex).toBe(1);
@@ -1292,12 +1342,11 @@ describe("simulation primitives", () => {
   });
 
   it("defeats the player with a pit-contact outcome when they fall below the level bottom", () => {
-    const fallingBelowLevel: SimulationState = {
-      ...stateWithPlayerAt({
+    const fallingBelowLevel: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 16,
         y: 96,
-      }),
-      player: playerWithTestState({
+      }), {
+        player: playerWithTestState({
         position: {
           x: 16,
           y: 96,
@@ -1311,14 +1360,14 @@ describe("simulation primitives", () => {
           vertical: VerticalMovementState.Falling,
         },
       }),
-    };
+      });
 
     const nextState = stepWithInitialMovementConstants(
       fallingBelowLevel,
       validInputCommand(),
     );
 
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: PlayerOutcomeKind.Defeated,
       reason: PlayerDefeatReason.PitContact,
     });
@@ -1342,7 +1391,7 @@ describe("simulation primitives", () => {
     // route runs a little longer than it used to.
     for (let frame = 0; frame < 110; frame += 1) {
       const playerNearGap =
-        state.player.position.x >= 112 && state.player.position.x <= 148;
+        state.players[0].player.position.x >= 112 && state.players[0].player.position.x <= 148;
       state = stepSimulation(
         state,
         runningRightInputCommand(playerNearGap),
@@ -1351,11 +1400,11 @@ describe("simulation primitives", () => {
       );
     }
 
-    expect(state.playerOutcome.kind).toBe(PlayerOutcomeKind.Active);
-    expect(state.player.position.x).toBeGreaterThan(
+    expect(state.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(state.players[0].player.position.x).toBeGreaterThan(
       12 * levelSpec.tileSizePixels,
     );
-    expect(state.player.position.y).toBeLessThanOrEqual(56);
+    expect(state.players[0].player.position.y).toBeLessThanOrEqual(56);
   });
 
   it("can survive a running jump into a basic enemy cluster after a flat runup", () => {
@@ -1379,7 +1428,7 @@ describe("simulation primitives", () => {
             levelSpec,
           );
 
-          if (state.playerOutcome.kind !== PlayerOutcomeKind.Active) {
+          if (state.players[0].outcome.kind !== PlayerOutcomeKind.Active) {
             break;
           }
 
@@ -1407,12 +1456,12 @@ describe("simulation primitives", () => {
       throw new Error("Expected a timed running jump to stomp the lead enemy.");
     }
 
-    expect(successfulState.playerOutcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(successfulState.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
     expect(successfulState.enemies.contactedEnemyEntityIds).toEqual([]);
     expect(successfulState.enemies.defeatedEnemyEntityIds).toContain(
       testEnemyEntityId("beetle-a"),
     );
-    expect(successfulState.player.velocity.y).toBeLessThan(0);
+    expect(successfulState.players[0].player.velocity.y).toBeLessThan(0);
   });
 
   it("defeats the player with a time-up outcome when the level timer expires", () => {
@@ -1450,7 +1499,7 @@ describe("simulation primitives", () => {
     expect(nextState.levelTimer).toEqual({
       remainingFrames: 0,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: PlayerOutcomeKind.Defeated,
       reason: PlayerDefeatReason.TimeUp,
     });
@@ -1501,7 +1550,7 @@ describe("simulation primitives", () => {
     );
 
     expect(nextState.timedHazardProjectiles.playerContact).toBe(true);
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: PlayerOutcomeKind.Defeated,
       reason: PlayerDefeatReason.HazardContact,
     });
@@ -1532,7 +1581,7 @@ describe("simulation primitives", () => {
       hazard: true,
       goal: false,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",
       reason: PlayerDefeatReason.HazardAndEnemyContact,
     });
@@ -1563,7 +1612,7 @@ describe("simulation primitives", () => {
       collectedItemEntityIds: ["shard-1"],
       collectedExtraLifeEntityIds: [],
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
@@ -1585,62 +1634,63 @@ describe("simulation primitives", () => {
   });
 
   it("defeats side-contact enemies while invincibility is active", () => {
-    const enemyState: SimulationState = {
-      ...stateWithPlayerAt({
+    const enemyState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 96,
         y: 56,
-      }),
-      playerInvincibility: {
+      }), {
+        playerInvincibility: {
         collectedInvincibilityEntityIds: [],
         remainingFrames: testInvincibilityFrameCount(2),
       },
-    };
+      });
 
     const nextState = stepWithInitialMovementConstants(
       enemyState,
       validInputCommand(),
     );
 
-    expect(nextState.playerInvincibility.remainingFrames).toBe(1);
+    expect(nextState.players[0].invincibility.remainingFrames).toBe(1);
     expectBeetleInvincibilityDefeatedEnemyState(nextState);
     expect(nextState.enemyContactResponse).toEqual({
       kind: "none",
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
 
   it("climbs upward while overlapping a climbable actor and holding up", () => {
     const nextState = stepSimulation(
-      {
-        ...initialStateForLevel(
+      withPlayerOverrides(
+        initialStateForLevel(
           climbableLevelSpec(),
           "Expected climbable initial state.",
         ),
-        player: playerWithTestState({
-          position: { x: 16, y: 64 },
-          velocity: { x: 0, y: 0 },
-          movement: {
-            horizontal: HorizontalMovementState.Idle,
-            vertical: VerticalMovementState.Falling,
-          },
-        }),
-      },
+        {
+          player: playerWithTestState({
+            position: { x: 16, y: 64 },
+            velocity: { x: 0, y: 0 },
+            movement: {
+              horizontal: HorizontalMovementState.Idle,
+              vertical: VerticalMovementState.Falling,
+            },
+          }),
+        },
+      ),
       climbingInputCommand({ upHeld: true, downHeld: false }),
       initialMovementConstants,
       climbableLevelSpec(),
     );
 
-    expect(nextState.player.velocity).toEqual({
+    expect(nextState.players[0].player.velocity).toEqual({
       x: 0,
       y: 0 - initialMovementConstants.climbSpeed,
     });
-    expect(nextState.player.movement).toEqual({
+    expect(nextState.players[0].player.movement).toEqual({
       horizontal: HorizontalMovementState.Idle,
       vertical: VerticalMovementState.Climbing,
     });
-    expect(nextState.player.position.y).toBeCloseTo(
+    expect(nextState.players[0].player.position.y).toBeCloseTo(
       64 -
         initialMovementConstants.climbSpeed *
           (nominalSixtyHertzFrameDurationMilliseconds / 1000),
@@ -1650,30 +1700,32 @@ describe("simulation primitives", () => {
 
   it("climbs downward while overlapping a climbable actor and holding down", () => {
     const nextState = stepSimulation(
-      {
-        ...initialStateForLevel(
+      withPlayerOverrides(
+        initialStateForLevel(
           climbableLevelSpec(),
           "Expected climbable initial state.",
         ),
-        player: playerWithTestState({
-          position: { x: 16, y: 48 },
-          velocity: { x: 0, y: 0 },
-          movement: {
-            horizontal: HorizontalMovementState.Idle,
-            vertical: VerticalMovementState.Climbing,
-          },
-        }),
-      },
+        {
+          player: playerWithTestState({
+            position: { x: 16, y: 48 },
+            velocity: { x: 0, y: 0 },
+            movement: {
+              horizontal: HorizontalMovementState.Idle,
+              vertical: VerticalMovementState.Climbing,
+            },
+          }),
+        },
+      ),
       climbingInputCommand({ upHeld: false, downHeld: true }),
       initialMovementConstants,
       climbableLevelSpec(),
     );
 
-    expect(nextState.player.velocity).toEqual({
+    expect(nextState.players[0].player.velocity).toEqual({
       x: 0,
       y: initialMovementConstants.climbSpeed,
     });
-    expect(nextState.player.movement.vertical).toBe(
+    expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Climbing,
     );
   });
@@ -1732,7 +1784,7 @@ describe("simulation primitives", () => {
       cumulativeShellKillExtraLives: 0,
       cumulativeProjectileKillScore: 0,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",
       reason: PlayerDefeatReason.EnemyContact,
     });
@@ -1749,27 +1801,26 @@ describe("simulation primitives", () => {
     const nextState = stepRightSideEnemyContactWithoutHazard(enemyState);
 
     expectRightSideEnemyContactWithoutHazard(nextState);
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",
       reason: PlayerDefeatReason.EnemyContact,
     });
   });
 
   it("starts recovery instead of defeat after powered enemy side contact", () => {
-    const enemyState: SimulationState = {
-      ...stateWithPlayerAt({
+    const enemyState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 96,
         y: 56,
-      }),
-      playerVitality: {
+      }), {
+        playerVitality: {
         kind: PlayerVitalityKind.Powered,
       },
-    };
+      });
 
     const nextState = stepRightSideEnemyContactWithoutHazard(enemyState);
 
     expectRightSideEnemyContactWithoutHazard(nextState);
-    expect(nextState.playerVitality).toEqual({
+    expect(nextState.players[0].vitality).toEqual({
       kind: "recovering",
       sourceEnemyEntityId: testEnemyEntityId("beetle-1"),
       contactSide: EnemySideContactSide.Right,
@@ -1779,19 +1830,18 @@ describe("simulation primitives", () => {
       remainingInvulnerabilityFrames:
         initialMovementConstants.damageRecoveryInvulnerabilityFrameCount,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
 
   it("continues recovery knockback while ignoring horizontal input", () => {
-    const recoveringState: SimulationState = {
-      ...stateWithPlayerAt({
+    const recoveringState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 32,
         y: 56,
-      }),
-      playerVitality: recoveringVitalityState(EnemySideContactSide.Left, 2, 3),
-    };
+      }), {
+        playerVitality: recoveringVitalityState(EnemySideContactSide.Left, 2, 3),
+      });
     const rightInputResult = makeSimulationInputCommand(
       HorizontalInput.Right,
       false,
@@ -1812,25 +1862,24 @@ describe("simulation primitives", () => {
       firstAuthoredLevelWithoutHazardSpec(),
     );
 
-    expect(nextState.playerVitality).toEqual(
+    expect(nextState.players[0].vitality).toEqual(
       recoveringVitalityState(EnemySideContactSide.Left, 1, 2),
     );
-    expect(nextState.player.velocity.x).toBe(
+    expect(nextState.players[0].player.velocity.x).toBe(
       initialMovementConstants.enemySideContactKnockbackSpeed,
     );
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
 
   it("keeps recovering enemy body contact active while invulnerable", () => {
-    const recoveringState: SimulationState = {
-      ...stateWithPlayerAt({
+    const recoveringState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 96,
         y: 56,
-      }),
-      playerVitality: recoveringVitalityState(EnemySideContactSide.Right, 0, 3),
-    };
+      }), {
+        playerVitality: recoveringVitalityState(EnemySideContactSide.Right, 0, 3),
+      });
 
     const nextState = stepSimulation(
       recoveringState,
@@ -1840,32 +1889,26 @@ describe("simulation primitives", () => {
     );
 
     expectBeetleSideContactEnemyState(nextState);
-    expect(nextState.playerVitality).toEqual(
+    expect(nextState.players[0].vitality).toEqual(
       recoveringVitalityState(EnemySideContactSide.Right, 0, 2),
     );
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
 
   it("returns recovering vitality to small when invulnerability expires", () => {
-    const nextState = stepRecoveringVitalityState({ x: 32, y: 56 }, 0, 1);
+    const nextState = stepRecoveringVitalityToSmall({ x: 32, y: 56 }, 0, 1);
 
-    expect(nextState.playerVitality).toEqual({
-      kind: "small",
-    });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
 
   it("defeats a recovering player on the frame invulnerability expires while still touching an enemy", () => {
-    const nextState = stepRecoveringVitalityState({ x: 96, y: 56 }, 0, 1);
+    const nextState = stepRecoveringVitalityToSmall({ x: 96, y: 56 }, 0, 1);
 
-    expect(nextState.playerVitality).toEqual({
-      kind: "small",
-    });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",
       reason: PlayerDefeatReason.EnemyContact,
     });
@@ -1894,10 +1937,10 @@ describe("simulation primitives", () => {
     expect(nextState.enemyStompReaction.x).toBe(beetle.position.x);
     expect(nextState.enemyStompReaction.y).toBe(beetle.position.y);
     expect(nextState.enemyStompReaction.y).toBeGreaterThan(
-      nextState.player.position.y,
+      nextState.players[0].player.position.y,
     );
     expect(beetle.velocity.x).toBe(0);
-    expect(nextState.player.movement.vertical).toBe(
+    expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Jumping,
     );
   });
@@ -1913,7 +1956,7 @@ describe("simulation primitives", () => {
     );
 
     expectBeetleStompDefeatedWithRebound(nextState);
-    expect(nextState.playerVitality).toEqual(
+    expect(nextState.players[0].vitality).toEqual(
       recoveringVitalityState(EnemySideContactSide.Right, 1, 4),
     );
   });
@@ -1963,7 +2006,7 @@ describe("simulation primitives", () => {
     );
 
     expectBeetleShellDefeatedEnemyState(nextState);
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
     expect(
@@ -1990,8 +2033,7 @@ describe("simulation primitives", () => {
     );
 
     const nextState = stepSimulation(
-      {
-        ...initialState,
+      withPlayerOverrides(initialState, {
         player: playerWithTestState({
           position: { x: 32, y: 40 },
           velocity: {
@@ -2003,7 +2045,7 @@ describe("simulation primitives", () => {
             vertical: VerticalMovementState.Falling,
           },
         }),
-      },
+      }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
@@ -2011,11 +2053,11 @@ describe("simulation primitives", () => {
 
     expect(nextState.enemies.shelledEnemyEntityIds).toEqual(["crab-1"]);
     expect(nextState.enemies.contactedEnemyEntityIds).toEqual([]);
-    expect(nextState.playerOutcome).toEqual({ kind: "active" });
-    expect(nextState.player.movement.vertical).toBe(
+    expect(nextState.players[0].outcome).toEqual({ kind: "active" });
+    expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Jumping,
     );
-    expect(nextState.player.velocity.y).toBeLessThan(0);
+    expect(nextState.players[0].player.velocity.y).toBeLessThan(0);
   });
 
   it("scores a kicked shell's kill chain with the rising sequence", () => {
@@ -2089,7 +2131,7 @@ describe("simulation primitives", () => {
       hazard: false,
       goal: true,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "finished",
       reason: PlayerFinishReason.GoalContact,
     });
@@ -2122,10 +2164,10 @@ describe("simulation primitives", () => {
       throw new Error("Expected timed initial state to validate.");
     }
 
-    const goalState: SimulationState = {
-      ...initialStateResult.value,
-      player: stateWithPlayerAt({ x: 480, y: 32 }).player,
-    };
+    const goalState: SimulationState = withPlayerOverrides(
+      initialStateResult.value,
+      { player: stateWithPlayerAt({ x: 480, y: 32 }).players[0].player },
+    );
 
     const nextState = stepSimulation(
       goalState,
@@ -2134,7 +2176,7 @@ describe("simulation primitives", () => {
       timedLevelResult.value,
     );
 
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "finished",
       reason: PlayerFinishReason.GoalContact,
     });
@@ -2165,7 +2207,7 @@ describe("simulation primitives", () => {
       hazard: false,
       goal: false,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
@@ -2195,7 +2237,7 @@ describe("simulation primitives", () => {
       goal: true,
     });
     expectBeetleSideContactEnemyState(nextState);
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "defeated-and-finished",
       defeatReason: PlayerDefeatReason.EnemyContact,
       finishReason: PlayerFinishReason.GoalContact,
@@ -2214,23 +2256,25 @@ describe("simulation primitives", () => {
       throw new Error("Expected power-up route initial state to validate.");
     }
 
-    const powerUpState: SimulationState = {
-      ...initialStateResult.value,
-      player: playerWithTestState({
-        position: {
-          x: 32,
-          y: 56,
-        },
-        velocity: {
-          x: 0,
-          y: 0,
-        },
-        movement: {
-          horizontal: HorizontalMovementState.Idle,
-          vertical: VerticalMovementState.Grounded,
-        },
-      }),
-    };
+    const powerUpState: SimulationState = withPlayerOverrides(
+      initialStateResult.value,
+      {
+        player: playerWithTestState({
+          position: {
+            x: 32,
+            y: 56,
+          },
+          velocity: {
+            x: 0,
+            y: 0,
+          },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Grounded,
+          },
+        }),
+      },
+    );
 
     const nextState = stepSimulation(
       powerUpState,
@@ -2242,30 +2286,29 @@ describe("simulation primitives", () => {
     expect(nextState.powerUps).toEqual({
       collectedPowerUpEntityIds: ["spark-1"],
     });
-    expect(nextState.playerVitality).toEqual({
+    expect(nextState.players[0].vitality).toEqual({
       kind: "powered",
     });
-    expect(nextState.player.collider).toEqual({
+    expect(nextState.players[0].player.collider).toEqual({
       width: 14,
       height: 32,
     });
-    expect(nextState.player.position.y).toBe(48);
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].player.position.y).toBe(48);
+    expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
   });
 
   it("keeps non-active player outcomes sticky through simulation steps", () => {
-    const defeatedState: SimulationState = {
-      ...stateWithPlayerAt({
+    const defeatedState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 480,
         y: 32,
-      }),
-      playerOutcome: {
+      }), {
+        playerOutcome: {
         kind: PlayerOutcomeKind.Defeated,
         reason: PlayerDefeatReason.HazardContact,
       },
-    };
+      });
 
     const nextState = stepWithInitialMovementConstants(
       defeatedState,
@@ -2276,23 +2319,22 @@ describe("simulation primitives", () => {
       hazard: false,
       goal: false,
     });
-    expect(nextState.playerOutcome).toEqual({
+    expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",
       reason: PlayerDefeatReason.HazardContact,
     });
   });
 
   it("freezes player simulation after a non-active outcome", () => {
-    const defeatedState: SimulationState = {
-      ...stateWithPlayerAt({
+    const defeatedState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
         x: 16,
         y: 56,
-      }),
-      playerOutcome: {
+      }), {
+        playerOutcome: {
         kind: PlayerOutcomeKind.Defeated,
         reason: PlayerDefeatReason.HazardContact,
       },
-    };
+      });
     const rightInputResult = makeSimulationInputCommand(
       HorizontalInput.Right,
       true,
@@ -2315,20 +2357,15 @@ describe("simulation primitives", () => {
       frameIndex: 1,
       frameDurationMilliseconds: defeatedState.clock.frameDurationMilliseconds,
     });
-    expect(nextState.player).toBe(defeatedState.player);
+    expect(nextState.players[0].player).toBe(defeatedState.players[0].player);
     expect(nextState.levelContacts).toBe(defeatedState.levelContacts);
-    expect(nextState.playerOutcome).toBe(defeatedState.playerOutcome);
+    expect(nextState.players[0].outcome).toBe(defeatedState.players[0].outcome);
     expect(nextState.collectibles).toBe(defeatedState.collectibles);
     expect(nextState.enemies).toBe(defeatedState.enemies);
   });
 
   it("rejects invalid player outcome states before freezing", () => {
-    const corruptedState = {
-      ...validInitialState(),
-      playerOutcome: {
-        kind: "corrupted",
-      },
-    } as unknown as SimulationState;
+    const corruptedState = corruptedSimulationState({ kind: "corrupted" });
 
     expect(() =>
       stepWithInitialMovementConstants(corruptedState, validInputCommand()),
@@ -2336,12 +2373,7 @@ describe("simulation primitives", () => {
   });
 
   it("rejects malformed known player outcome states before freezing", () => {
-    const corruptedState = {
-      ...validInitialState(),
-      playerOutcome: {
-        kind: "defeated",
-      },
-    } as unknown as SimulationState;
+    const corruptedState = corruptedSimulationState({ kind: "defeated" });
 
     expect(() =>
       stepWithInitialMovementConstants(corruptedState, validInputCommand()),
@@ -2349,18 +2381,18 @@ describe("simulation primitives", () => {
   });
 
   it("rejects malformed collectible interaction states before freezing", () => {
-    const corruptedState = {
-      ...validInitialState(),
-      playerOutcome: {
-        kind: "defeated",
-        reason: PlayerDefeatReason.HazardContact,
+    const corruptedState = corruptedSimulationState(
+      { kind: "defeated", reason: PlayerDefeatReason.HazardContact },
+      {
+        top: {
+          collectibles: {
+            collectedCoinEntityIds: [],
+            collectedItemEntityIds: ["beetle-1"],
+            collectedExtraLifeEntityIds: [],
+          },
+        },
       },
-      collectibles: {
-        collectedCoinEntityIds: [],
-        collectedItemEntityIds: ["beetle-1"],
-        collectedExtraLifeEntityIds: [],
-      },
-    } as unknown as SimulationState;
+    );
 
     expect(() =>
       stepWithInitialMovementConstants(corruptedState, validInputCommand()),
@@ -2370,20 +2402,20 @@ describe("simulation primitives", () => {
   });
 
   it("rejects malformed enemy interaction states before freezing", () => {
-    const corruptedState = {
-      ...validInitialState(),
-      playerOutcome: {
-        kind: "defeated",
-        reason: PlayerDefeatReason.HazardContact,
+    const corruptedState = corruptedSimulationState(
+      { kind: "defeated", reason: PlayerDefeatReason.HazardContact },
+      {
+        top: {
+          enemies: {
+            contactedEnemyEntityIds: ["shard-1"],
+            defeatedEnemyEntityIds: [],
+            shelledEnemyEntityIds: [],
+            nudgedShellEnemyEntityIds: [],
+            nudgedShellDirectionByEntityId: new Map(),
+          },
+        },
       },
-      enemies: {
-        contactedEnemyEntityIds: ["shard-1"],
-        defeatedEnemyEntityIds: [],
-        shelledEnemyEntityIds: [],
-        nudgedShellEnemyEntityIds: [],
-        nudgedShellDirectionByEntityId: new Map(),
-      },
-    } as unknown as SimulationState;
+    );
 
     expect(() =>
       stepWithInitialMovementConstants(corruptedState, validInputCommand()),
@@ -2393,22 +2425,22 @@ describe("simulation primitives", () => {
   });
 
   it("rejects malformed enemy contact response states before freezing", () => {
-    const corruptedState = {
-      ...validInitialState(),
-      playerOutcome: {
-        kind: "defeated",
-        reason: PlayerDefeatReason.HazardContact,
-      },
-      enemyContactResponse: {
-        kind: "side-contact",
-        enemyEntityId: "beetle-1",
-        contactSide: "top",
-        frameIndex: 1,
-        velocity: {
-          x: -160,
+    const corruptedState = corruptedSimulationState(
+      { kind: "defeated", reason: PlayerDefeatReason.HazardContact },
+      {
+        top: {
+          enemyContactResponse: {
+            kind: "side-contact",
+            enemyEntityId: "beetle-1",
+            contactSide: "top",
+            frameIndex: 1,
+            velocity: {
+              x: -160,
+            },
+          },
         },
       },
-    } as unknown as SimulationState;
+    );
 
     expect(() =>
       stepWithInitialMovementConstants(corruptedState, validInputCommand()),
@@ -2416,21 +2448,19 @@ describe("simulation primitives", () => {
   });
 
   it("rejects malformed player vitality states before freezing", () => {
-    const corruptedState = {
-      ...validInitialState(),
-      playerOutcome: {
-        kind: "defeated",
-        reason: PlayerDefeatReason.HazardContact,
+    const corruptedState = corruptedSimulationState(
+      { kind: "defeated", reason: PlayerDefeatReason.HazardContact },
+      {
+        vitality: {
+          kind: "recovering",
+          sourceEnemyEntityId: "beetle-1",
+          contactSide: "top",
+          startFrameIndex: 1,
+          remainingKnockbackFrames: 0,
+          remainingInvulnerabilityFrames: 1,
+        },
       },
-      playerVitality: {
-        kind: "recovering",
-        sourceEnemyEntityId: "beetle-1",
-        contactSide: "top",
-        startFrameIndex: 1,
-        remainingKnockbackFrames: 0,
-        remainingInvulnerabilityFrames: 1,
-      },
-    } as unknown as SimulationState;
+    );
 
     expect(() =>
       stepWithInitialMovementConstants(corruptedState, validInputCommand()),
@@ -2549,8 +2579,7 @@ describe("simulation primitives", () => {
     // The top two grid rows are the HUD band, so the waterline sits at row 2.
     const waterSurfaceY = 2 * 16;
     const next = stepSimulation(
-      {
-        ...validInitialState(),
+      withPlayerOverrides(validInitialState(), {
         player: playerWithTestState({
           position: { x: 40, y: waterSurfaceY + 4 },
           velocity: { x: 0, y: -600 }, // stroking hard upward, into the surface
@@ -2559,14 +2588,14 @@ describe("simulation primitives", () => {
             vertical: VerticalMovementState.Jumping,
           },
         }),
-      },
+      }),
       validInputCommand(),
       swimmingMovementConstants,
       firstAuthoredLevelWithoutHazardSpec(),
     );
 
-    expect(next.player.position.y).toBeGreaterThanOrEqual(waterSurfaceY);
-    expect(next.player.velocity.y).toBeGreaterThanOrEqual(0);
+    expect(next.players[0].player.position.y).toBeGreaterThanOrEqual(waterSurfaceY);
+    expect(next.players[0].player.velocity.y).toBeGreaterThanOrEqual(0);
   });
 
   it("rejects unsafe frame indexes before advancing", () => {
@@ -2586,45 +2615,11 @@ describe("simulation primitives", () => {
     expect(() =>
       stepSimulation(
         {
+          ...validInitialState(),
           clock: {
             frameIndex: frameIndexResult.value,
             frameDurationMilliseconds: frameDurationResult.value,
           },
-          players: validInitialState().players,
-          player: validInitialState().player,
-          playerVitality: validInitialState().playerVitality,
-          playerInvincibility: validInitialState().playerInvincibility,
-          levelContacts: validInitialState().levelContacts,
-          playerOutcome: validInitialState().playerOutcome,
-          collectibles: validInitialState().collectibles,
-          powerUps: validInitialState().powerUps,
-          enemies: validInitialState().enemies,
-          enemyDamageContactFrameByEntityId:
-            validInitialState().enemyDamageContactFrameByEntityId,
-          enemyContactResponse: validInitialState().enemyContactResponse,
-          enemyMotion: validInitialState().enemyMotion,
-          interactiveBlocks: validInitialState().interactiveBlocks,
-          breakableBlocks: validInitialState().breakableBlocks,
-          spawnedActors: validInitialState().spawnedActors,
-          projectiles: validInitialState().projectiles,
-          pipeEntry: validInitialState().pipeEntry,
-          levelTimer: validInitialState().levelTimer,
-          timedHazardProjectiles: validInitialState().timedHazardProjectiles,
-          timeBonusScore: validInitialState().timeBonusScore,
-          goalHeightScore: validInitialState().goalHeightScore,
-          breakableBlockScore: validInitialState().breakableBlockScore,
-          bulletBillStompScore: validInitialState().bulletBillStompScore,
-          livesRemaining: validInitialState().livesRemaining,
-          sessionCoinBase: validInitialState().sessionCoinBase,
-          playerReaction: validInitialState().playerReaction,
-          enemyStompReaction: validInitialState().enemyStompReaction,
-          bloodiness: validInitialState().bloodiness,
-          pseudoRandom: validInitialState().pseudoRandom,
-          cheepFrenzy: validInitialState().cheepFrenzy,
-          aerialFrenzy: validInitialState().aerialFrenzy,
-          platforms: validInitialState().platforms,
-          loopZones: validInitialState().loopZones,
-          hatchedSpinies: validInitialState().hatchedSpinies,
         },
         validInputCommand(),
         initialMovementConstants,
@@ -2653,10 +2648,9 @@ describe("crouch (big Mario duck)", () => {
     return result.value;
   }
 
-  const bigGroundedState: SimulationState = {
-    ...stateWithPlayerAt({ x: 100, y: 48 }),
-    playerVitality: { kind: PlayerVitalityKind.Powered },
-  };
+  const bigGroundedState: SimulationState = withPlayerOverrides(stateWithPlayerAt({ x: 100, y: 48 }), {
+        playerVitality: { kind: PlayerVitalityKind.Powered },
+      });
 
   it("stops big Mario walking while Down is held on the ground", () => {
     // Crouch suppresses the walk: pressing Right + Down produces no rightward
@@ -2672,8 +2666,8 @@ describe("crouch (big Mario duck)", () => {
       inputCommand(HorizontalInput.Right, false),
     );
 
-    expect(crouched.player.velocity.x).toBe(0);
-    expect(walking.player.velocity.x).toBeGreaterThan(0);
+    expect(crouched.players[0].player.velocity.x).toBe(0);
+    expect(walking.players[0].player.velocity.x).toBeGreaterThan(0);
   });
 
   it("does not crouch a small player (already short)", () => {
@@ -2682,8 +2676,8 @@ describe("crouch (big Mario duck)", () => {
       smallGrounded,
       inputCommand(HorizontalInput.Right, true),
     );
-    expect(stepped.player.crouching ?? false).toBe(false);
+    expect(stepped.players[0].player.crouching ?? false).toBe(false);
     // Small Mario still walks with Down held.
-    expect(stepped.player.velocity.x).toBeGreaterThan(0);
+    expect(stepped.players[0].player.velocity.x).toBeGreaterThan(0);
   });
 });

@@ -116,39 +116,22 @@ export type PlayerRuntime = {
   readonly reaction: PlayerReactionState;
 };
 
-// Expand/contract migration to N players: the canonical per-player slices still
-// live as the singular top-level fields, and `players` is derived from them at
-// every state boundary. This lets N-player-aware code read a uniform array while
-// the singular fields are progressively retired (contract phase), keeping every
-// step behaviour-identical for a single player in the meantime.
-export function deriveSimulationPlayers(source: {
-  readonly player: PlayerSimulationState;
-  readonly playerVitality: PlayerVitalityState;
-  readonly playerInvincibility: PlayerInvincibilityState;
-  readonly playerOutcome: PlayerOutcomeState;
-  readonly playerReaction: PlayerReactionState;
-  readonly coopPlayers?: readonly PlayerSimulationState[];
-}): readonly PlayerRuntime[] {
-  const primary: PlayerRuntime = {
-    player: source.player,
-    vitality: source.playerVitality,
-    invincibility: source.playerInvincibility,
-    outcome: source.playerOutcome,
-    reaction: source.playerReaction,
+// A non-empty tuple of players: index 0 is player one, the rest are the
+// additional same-screen co-op players. This is the authoritative store — there
+// is no privileged singular "player" field.
+export type SimulationPlayers = readonly [PlayerRuntime, ...PlayerRuntime[]];
+
+// Build a runtime for an additional co-op player from its kinematics. Co-op
+// players currently carry only kinematics; their vitality/outcome/reaction are
+// neutral (they use only the shared movement + the death/goal rules so far).
+function makeCoopPlayerRuntime(player: PlayerSimulationState): PlayerRuntime {
+  return {
+    player,
+    vitality: makeInitialPlayerVitalityState(),
+    invincibility: makeEmptyPlayerInvincibilityState(),
+    outcome: makeActivePlayerOutcomeState(),
+    reaction: makeEmptyPlayerReactionState(),
   };
-  // Additional co-op players currently carry only kinematics; their vitality/
-  // outcome/reaction are neutral placeholders until the uniform-interaction
-  // increment gives each player its own full runtime.
-  const additional: readonly PlayerRuntime[] = (source.coopPlayers ?? []).map(
-    (player) => ({
-      player,
-      vitality: makeInitialPlayerVitalityState(),
-      invincibility: makeEmptyPlayerInvincibilityState(),
-      outcome: makeActivePlayerOutcomeState(),
-      reaction: makeEmptyPlayerReactionState(),
-    }),
-  );
-  return [primary, ...additional];
 }
 
 type SimulationClock = {
@@ -158,18 +141,10 @@ type SimulationClock = {
 
 export type SimulationState = {
   readonly clock: SimulationClock;
-  // The uniform co-op player array (length 1 in single-player), derived from the
-  // singular player slices below plus coopPlayers at every state boundary during
-  // the N-player migration. See deriveSimulationPlayers.
-  readonly players: readonly PlayerRuntime[];
-  // Additional co-op players beyond the primary (empty/absent in single-player).
-  // Authoritative for their own kinematics; stepped through the shared movement.
-  readonly coopPlayers?: readonly PlayerSimulationState[];
-  readonly player: PlayerSimulationState;
-  readonly playerVitality: PlayerVitalityState;
-  readonly playerInvincibility: PlayerInvincibilityState;
+  // The uniform player array (length 1 in single-player): players[0] is player
+  // one, players[1..] the same-screen co-op players. The sole player store.
+  readonly players: SimulationPlayers;
   readonly levelContacts: LevelContactState;
-  readonly playerOutcome: PlayerOutcomeState;
   readonly collectibles: CollectibleInteractionState;
   readonly powerUps: PowerUpInteractionState;
   readonly enemies: EnemyInteractionState;
@@ -197,7 +172,6 @@ export type SimulationState = {
   // collected in the current level (collectibles.collectedCoinEntityIds), so the
   // count persists across levels as in the original. Reset only on a new game.
   readonly sessionCoinBase: number;
-  readonly playerReaction: PlayerReactionState;
   readonly enemyStompReaction: StompReactionState;
   // Accumulated head-bonk "bloodiness" in [0, 1] (shabby mode only). Each bonk
   // adds more the faster the player was going; at 1 the player is at half speed.
@@ -253,38 +227,31 @@ export function makeInitialSimulationStateWithPlayerVitality(
     return fail(errors);
   }
 
-  const player = makeInitialPlayerSimulationState();
-  const playerInvincibility = makeEmptyPlayerInvincibilityState();
-  const playerOutcome = makeActivePlayerOutcomeState();
-  const playerReaction = makeEmptyPlayerReactionState();
+  const primaryRuntime: PlayerRuntime = {
+    player: makeInitialPlayerSimulationState(),
+    vitality: playerVitality,
+    invincibility: makeEmptyPlayerInvincibilityState(),
+    outcome: makeActivePlayerOutcomeState(),
+    reaction: makeEmptyPlayerReactionState(),
+  };
   const additionalPlayerCount = Math.max(
     0,
     Math.min(playerCount, maxSimulationPlayers) - 1,
   );
-  const coopPlayers = Array.from(
-    { length: additionalPlayerCount },
-    (_unused, index) => makeCoopPlayerSimulationState(index),
-  );
+  const players: SimulationPlayers = [
+    primaryRuntime,
+    ...Array.from({ length: additionalPlayerCount }, (_unused, index) =>
+      makeCoopPlayerRuntime(makeCoopPlayerSimulationState(index)),
+    ),
+  ];
 
   return succeed({
     clock: {
       frameIndex: frameIndexResult.value,
       frameDurationMilliseconds: frameDurationResult.value,
     },
-    players: deriveSimulationPlayers({
-      player,
-      playerVitality,
-      playerInvincibility,
-      playerOutcome,
-      playerReaction,
-      coopPlayers,
-    }),
-    coopPlayers,
-    player,
-    playerVitality,
-    playerInvincibility,
+    players,
     levelContacts: makeEmptyLevelContactState(),
-    playerOutcome,
     collectibles: makeEmptyCollectibleInteractionState(),
     powerUps: makeEmptyPowerUpInteractionState(),
     enemies: makeEmptyEnemyInteractionState(),
@@ -304,7 +271,6 @@ export function makeInitialSimulationStateWithPlayerVitality(
     goalHeightScore: 0 as Score,
     livesRemaining: initialLivesCount,
     sessionCoinBase: 0,
-    playerReaction,
     enemyStompReaction: makeEmptyStompReactionState(),
     bloodiness: 0,
     pseudoRandom: makeInitialPseudoRandomState(),

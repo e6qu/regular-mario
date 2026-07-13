@@ -47,20 +47,29 @@ function makeRequiredLevelSpec() {
   return result.value;
 }
 
-function withVertical(
+function withPrimary(
   state: SimulationState,
-  vertical: SimulationState["player"]["movement"]["vertical"],
+  updates: Partial<SimulationState["players"][0]>,
 ): SimulationState {
   return {
     ...state,
+    players: [{ ...state.players[0], ...updates }, ...state.players.slice(1)],
+  };
+}
+
+function withVertical(
+  state: SimulationState,
+  vertical: SimulationState["players"][0]["player"]["movement"]["vertical"],
+): SimulationState {
+  return withPrimary(state, {
     player: {
-      ...state.player,
+      ...state.players[0].player,
       movement: {
-        ...state.player.movement,
+        ...state.players[0].player.movement,
         vertical,
       },
     },
-  };
+  });
 }
 
 function withCollectedItem(state: SimulationState): SimulationState {
@@ -107,27 +116,25 @@ function withBrokenBlock(state: SimulationState): SimulationState {
 
 function withOutcome(
   state: SimulationState,
-  kind: SimulationState["playerOutcome"]["kind"],
+  kind: SimulationState["players"][0]["outcome"]["kind"],
 ): SimulationState {
   if (kind === PlayerOutcomeKind.Active) {
-    return { ...state, playerOutcome: { kind: PlayerOutcomeKind.Active } };
+    return withPrimary(state, { outcome: { kind: PlayerOutcomeKind.Active } });
   }
   if (kind === PlayerOutcomeKind.Defeated) {
-    return {
-      ...state,
-      playerOutcome: {
+    return withPrimary(state, {
+      outcome: {
         kind: PlayerOutcomeKind.Defeated,
         reason: PlayerDefeatReason.EnemyContact,
       },
-    };
+    });
   }
-  return {
-    ...state,
-    playerOutcome: {
+  return withPrimary(state, {
+    outcome: {
       kind: PlayerOutcomeKind.Finished,
       reason: PlayerFinishReason.GoalContact,
     },
-  };
+  });
 }
 
 function withNewProjectile(state: SimulationState): SimulationState {
@@ -219,13 +226,12 @@ describe("resolveSoundEvents", () => {
   });
 
   it("emits a head-bonk event when the player starts a head-bonk reaction", () => {
-    const bonkedState: SimulationState = {
-      ...baseState(),
-      playerReaction: {
+    const bonkedState: SimulationState = withPrimary(baseState(), {
+      reaction: {
         kind: PlayerReactionKind.HeadBonk,
         remainingFrames: headBonkReactionFrames,
       },
-    };
+    });
 
     expect(resolveSoundEvents(baseState(), bonkedState)).toContain(
       SoundEvent.HeadBonk,

@@ -26,7 +26,7 @@ function isFreshHeadBonk(
 ): boolean {
   // A fresh bonk sets the countdown to its maximum; a mid-reaction re-bonk
   // resets it to the maximum too, so both fire the sound.
-  const current = currentState.playerReaction;
+  const current = currentState.players[0].reaction;
   if (
     current.kind !== PlayerReactionKind.HeadBonk ||
     current.remainingFrames !== headBonkReactionFrames
@@ -34,7 +34,7 @@ function isFreshHeadBonk(
     return false;
   }
 
-  const previous = previousState.playerReaction;
+  const previous = previousState.players[0].reaction;
   return (
     previous.kind !== PlayerReactionKind.HeadBonk ||
     previous.remainingFrames !== headBonkReactionFrames
@@ -96,8 +96,8 @@ export function resolveSoundEvents(
 ): readonly SoundEvent[] {
   const events: SoundEvent[] = [];
 
-  const previousVertical = previousState.player.movement.vertical;
-  const currentVertical = currentState.player.movement.vertical;
+  const previousVertical = previousState.players[0].player.movement.vertical;
+  const currentVertical = currentState.players[0].player.movement.vertical;
 
   if (
     previousVertical !== VerticalMovementState.Jumping &&
@@ -170,8 +170,8 @@ export function resolveSoundEvents(
     events.push(SoundEvent.BlockBreak);
   }
 
-  const previousOutcomeKind = previousState.playerOutcome.kind;
-  const currentOutcomeKind = currentState.playerOutcome.kind;
+  const previousOutcomeKind = previousState.players[0].outcome.kind;
+  const currentOutcomeKind = currentState.players[0].outcome.kind;
 
   if (
     previousOutcomeKind !== PlayerOutcomeKind.Defeated &&

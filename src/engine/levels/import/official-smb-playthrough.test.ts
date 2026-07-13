@@ -286,7 +286,7 @@ function playLevel(
     if (timer !== undefined && timer < 3000) {
       return; // poisoned clock — not a useful resume point
     }
-    if (checkpoint.state.player.position.y < 40) {
+    if (checkpoint.state.players[0].player.position.y < 40) {
       return; // on the roof above the ceiling — a dead-end route
     }
     const entry = bestByLevel.get(checkpoint.levelName) ?? {
@@ -358,7 +358,7 @@ function playLevel(
   // phase (hazard cycles are frame-locked), and a chance of ground mode.
   const resetExploration = (restore: Checkpoint): void => {
     state = restore.state;
-    previousX = restore.state.player.position.x;
+    previousX = restore.state.players[0].player.position.x;
     runtime = runtimeFor(restore.levelName);
     seed += 1;
     rng = makeRng(seed * 2654435761);
@@ -371,7 +371,7 @@ function playLevel(
 
   while (steps < budgetSteps) {
     steps += 1;
-    const player = state.player;
+    const player = state.players[0].player;
     const col = Math.floor(
       (player.position.x + player.collider.width / 2) /
         runtime.level.levelSpec.tileSizePixels,
@@ -669,7 +669,7 @@ function playLevel(
       recordBest(checkpoint, player.position.x);
     }
 
-    const outcome = state.playerOutcome.kind;
+    const outcome = state.players[0].outcome.kind;
     if (
       outcome === PlayerOutcomeKind.Finished ||
       outcome === PlayerOutcomeKind.DefeatedAndFinished
@@ -709,8 +709,8 @@ function playLevel(
       // Running out of time can't be fixed by a short rollback — restart the
       // attempt with a fresh clock and a new exploration seed.
       const reason =
-        "reason" in state.playerOutcome
-          ? state.playerOutcome.reason
+        "reason" in state.players[0].outcome
+          ? state.players[0].outcome.reason
           : undefined;
       if (player.position.x > progressHighWater + 64) {
         progressHighWater = player.position.x;
@@ -745,7 +745,7 @@ function playLevel(
           maxX,
           steps,
           lastLevel: runtime.level.name,
-          lastX: state.player.position.x,
+          lastX: state.players[0].player.position.x,
           restarts,
         };
       }
@@ -783,13 +783,19 @@ function playLevel(
         }
         state = {
           ...fresh.value,
-          player: teleportPlayerToTilePosition(
-            fresh.value.player,
-            { x: warp.x, y: warp.y } as Parameters<
-              typeof teleportPlayerToTilePosition
-            >[1],
-            runtime.level.levelSpec,
-          ),
+          players: [
+            {
+              ...fresh.value.players[0],
+              player: teleportPlayerToTilePosition(
+                fresh.value.players[0].player,
+                { x: warp.x, y: warp.y } as Parameters<
+                  typeof teleportPlayerToTilePosition
+                >[1],
+                runtime.level.levelSpec,
+              ),
+            },
+            ...fresh.value.players.slice(1),
+          ] as (typeof fresh.value)["players"],
         };
         levelEntry = { state, levelName: runtime.level.name };
         checkpoints.push(levelEntry);
@@ -801,7 +807,7 @@ function playLevel(
     maxX,
     steps,
     lastLevel: runtime.level.name,
-    lastX: state.player.position.x,
+    lastX: state.players[0].player.position.x,
     restarts,
   };
 }

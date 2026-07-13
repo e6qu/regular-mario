@@ -67,9 +67,8 @@ function neutral(): SimulationInputCommand {
   };
 }
 
-// The N-player co-op migration exposes a uniform `players` array derived from the
-// (still authoritative) singular player slices. For a single player it must
-// always be length 1 and stay perfectly in sync with those slices.
+// The uniform players array is the sole player store: players[0] is player one,
+// players[1..] the same-screen co-op players.
 describe("simulation players array", () => {
   it("supports up to sixteen players", () => {
     expect(maxSimulationPlayers).toBe(16);
@@ -88,13 +87,12 @@ describe("simulation players array", () => {
     }
     const state = result.value;
     expect(state.players).toHaveLength(3);
-    expect(state.coopPlayers).toHaveLength(2);
-    // Each additional player spawns further right than the primary.
-    expect(state.coopPlayers![0]!.position.x).toBeGreaterThan(
-      state.player.position.x,
+    // Each additional player spawns further right than the one before it.
+    expect(state.players[1]!.player.position.x).toBeGreaterThan(
+      state.players[0].player.position.x,
     );
-    expect(state.coopPlayers![1]!.position.x).toBeGreaterThan(
-      state.coopPlayers![0]!.position.x,
+    expect(state.players[2]!.player.position.x).toBeGreaterThan(
+      state.players[1]!.player.position.x,
     );
   });
 
@@ -112,18 +110,18 @@ describe("simulation players array", () => {
     expect(result.value.players).toHaveLength(maxSimulationPlayers);
   });
 
-  it("mirrors the singular player slices at the initial state", () => {
+  it("has a single full-runtime player at the initial state", () => {
     const state = initialState();
     expect(state.players).toHaveLength(1);
-    const runtime = state.players[0]!;
-    expect(runtime.player).toBe(state.player);
-    expect(runtime.vitality).toBe(state.playerVitality);
-    expect(runtime.invincibility).toBe(state.playerInvincibility);
-    expect(runtime.outcome).toBe(state.playerOutcome);
-    expect(runtime.reaction).toBe(state.playerReaction);
+    const runtime = state.players[0];
+    expect(runtime.player).toBeDefined();
+    expect(runtime.vitality).toBeDefined();
+    expect(runtime.invincibility).toBeDefined();
+    expect(runtime.outcome).toBeDefined();
+    expect(runtime.reaction).toBeDefined();
   });
 
-  it("re-derives players after a step so the array tracks movement", () => {
+  it("advances the primary player each step", () => {
     const before = initialState();
     const after = stepSimulation(
       before,
@@ -132,9 +130,7 @@ describe("simulation players array", () => {
       firstAuthoredLevelSpec(),
     );
     expect(after.players).toHaveLength(1);
-    // The array reflects the new frame's player, not the previous one.
-    expect(after.players[0]!.player).toBe(after.player);
-    expect(after.players[0]!.player).not.toBe(before.player);
+    expect(after.players[0].player).not.toBe(before.players[0].player);
   });
 
   it("steps a co-op player with its own input, leaving a non-overlapping primary untouched", () => {
@@ -158,31 +154,20 @@ describe("simulation players array", () => {
 
     // With the players apart, the primary is identical whether or not co-op
     // players are present.
-    expect(coop.player).toEqual(solo.player);
+    expect(coop.players[0].player).toEqual(solo.players[0].player);
     // The uniform array now holds both players.
     expect(coop.players).toHaveLength(2);
-    expect(coop.coopPlayers).toHaveLength(1);
   });
 
   it("removes a co-op player that has fallen into a pit (dead until level ends)", () => {
     const base = twoPlayerState();
-    const fallen: SimulationState["coopPlayers"] = [
-      {
-        ...base.coopPlayers![0]!,
-        position: {
-          x: base.coopPlayers![0]!.position.x,
-          y: requireSimulationPixelPosition(10000, "player.position.y"),
-        },
-      },
-    ];
     const stepped = stepSimulation(
-      { ...base, coopPlayers: fallen },
+      withCoopPlayerAt(base, Number(base.players[1]!.player.position.x), 10000),
       neutral(),
       initialMovementConstants,
       firstAuthoredLevelSpec(),
       [neutral()],
     );
-    expect(stepped.coopPlayers).toHaveLength(0);
     expect(stepped.players).toHaveLength(1);
   });
 
@@ -190,23 +175,14 @@ describe("simulation players array", () => {
     // firstAuthored has an enemy (beetle-1) at pixel (96, 64); put a co-op
     // player right on it.
     const base = twoPlayerState();
-    const onEnemy: SimulationState["coopPlayers"] = [
-      {
-        ...base.coopPlayers![0]!,
-        position: {
-          x: requireSimulationPixelPosition(96, "player.position.x"),
-          y: requireSimulationPixelPosition(56, "player.position.y"),
-        },
-      },
-    ];
     const stepped = stepSimulation(
-      { ...base, coopPlayers: onEnemy },
+      withCoopPlayerAt(base, 96, 56),
       neutral(),
       initialMovementConstants,
       firstAuthoredLevelSpec(),
       [neutral()],
     );
-    expect(stepped.coopPlayers).toHaveLength(0);
+    expect(stepped.players).toHaveLength(1);
   });
 
   it("finishes the level when any player (a co-op player) reaches the goal", () => {
@@ -227,28 +203,19 @@ describe("simulation players array", () => {
     }
     const base = stateResult.value;
     // Put the co-op player on the flagpole column (col 8).
-    const atGoal: SimulationState["coopPlayers"] = [
-      {
-        ...base.coopPlayers![0]!,
-        position: {
-          x: requireSimulationPixelPosition(8 * 16, "player.position.x"),
-          y: base.coopPlayers![0]!.position.y,
-        },
-      },
-    ];
     const stepped = stepSimulation(
-      { ...base, coopPlayers: atGoal },
+      withCoopPlayerAt(base, 8 * 16, Number(base.players[1]!.player.position.y)),
       neutral(),
       initialMovementConstants,
       level,
       [neutral()],
     );
-    expect(stepped.playerOutcome.kind).toBe(PlayerOutcomeKind.Finished);
+    expect(stepped.players[0].outcome.kind).toBe(PlayerOutcomeKind.Finished);
   });
 
   it("advances a co-op player's position across frames from its input", () => {
     let state = twoPlayerState();
-    const startX = state.coopPlayers![0]!.position.x;
+    const startX = Number(state.players[1]!.player.position.x);
     for (let frame = 0; frame < 15; frame += 1) {
       state = stepSimulation(
         state,
@@ -258,6 +225,33 @@ describe("simulation players array", () => {
         [runRight()],
       );
     }
-    expect(state.coopPlayers![0]!.position.x).toBeGreaterThan(startX);
+    expect(Number(state.players[1]!.player.position.x)).toBeGreaterThan(
+      Number(startX),
+    );
   });
 });
+
+// Return a copy of `base` with its single co-op player moved to (x, y).
+function withCoopPlayerAt(
+  base: SimulationState,
+  x: number,
+  y: number,
+): SimulationState {
+  const coop = base.players[1]!;
+  return {
+    ...base,
+    players: [
+      base.players[0],
+      {
+        ...coop,
+        player: {
+          ...coop.player,
+          position: {
+            x: requireSimulationPixelPosition(x, "player.position.x"),
+            y: requireSimulationPixelPosition(y, "player.position.y"),
+          },
+        },
+      },
+    ],
+  };
+}

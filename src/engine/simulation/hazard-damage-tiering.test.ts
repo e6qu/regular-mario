@@ -83,13 +83,13 @@ function stepOnce(vitality: PlayerVitalityState) {
 describe("hazard damage tiering", () => {
   it("defeats a small player on hazard contact", () => {
     const next = stepOnce(makeInitialPlayerVitalityState());
-    expect(next.playerOutcome.kind).toBe(PlayerOutcomeKind.Defeated);
+    expect(next.players[0].outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
 
   it("shrinks a fire player into recovery instead of defeating them", () => {
     const next = stepOnce(makeFirePlayerVitalityState());
-    expect(next.playerOutcome.kind).toBe(PlayerOutcomeKind.Active);
-    expect(next.playerVitality.kind).toBe(PlayerVitalityKind.Recovering);
+    expect(next.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(next.players[0].vitality.kind).toBe(PlayerVitalityKind.Recovering);
   });
 
   it("star invincibility ignores hazard contact entirely", () => {
@@ -108,10 +108,16 @@ describe("hazard damage tiering", () => {
     }
     const starred = {
       ...stateResult.value,
-      playerInvincibility: {
-        ...stateResult.value.playerInvincibility,
-        remainingFrames: 60,
-      } as (typeof stateResult.value)["playerInvincibility"],
+      players: [
+        {
+          ...stateResult.value.players[0],
+          invincibility: {
+            ...stateResult.value.players[0].invincibility,
+            remainingFrames: 60,
+          } as (typeof stateResult.value)["players"][0]["invincibility"],
+        },
+        ...stateResult.value.players.slice(1),
+      ] as (typeof stateResult.value)["players"],
     };
     const next = stepSimulation(
       starred,
@@ -126,8 +132,8 @@ describe("hazard damage tiering", () => {
       initialMovementConstants,
       levelResult.value,
     );
-    expect(next.playerOutcome.kind).toBe(PlayerOutcomeKind.Active);
-    expect(next.playerVitality.kind).toBe(PlayerVitalityKind.Fire);
+    expect(next.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(next.players[0].vitality.kind).toBe(PlayerVitalityKind.Fire);
   });
 
   it("ignores hazard contact during the recovery window", () => {
@@ -151,6 +157,6 @@ describe("hazard damage tiering", () => {
         return levelResult.value;
       })(),
     );
-    expect(afterAnotherFrame.playerOutcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(afterAnotherFrame.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
   });
 });

@@ -35,7 +35,7 @@ describe("down pipe standing entry", () => {
     const neutral = makeScenarioInput({});
 
     // Walk flush against the pipe, hop up while nudging right, settle on top.
-    while (state.player.position.x < 880) {
+    while (state.players[0].player.position.x < 880) {
       state = stepScenario(state, right, spec, 1);
     }
     state = stepScenario(state, jumpRight, spec, 26);

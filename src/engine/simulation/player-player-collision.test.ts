@@ -1,26 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { firstAuthoredLevelSpec } from "./level-test-support";
-import { initialMovementConstants } from "./movement-model";
+import { spawnedPrimaryPlayer } from "./level-test-support";
 import type { PlayerSimulationState } from "./player-state";
 import { resolvePlayerCollisions } from "./player-player-collision";
-import { makeInitialSimulationState } from "./simulation-state";
 import {
   requireSimulationPixelPosition,
   requireSimulationVelocity,
-  nominalSixtyHertzFrameDurationMilliseconds,
 } from "./simulation-units";
 
 function basePlayer(): PlayerSimulationState {
-  const result = makeInitialSimulationState(
-    nominalSixtyHertzFrameDurationMilliseconds,
-    firstAuthoredLevelSpec(),
-    initialMovementConstants,
-  );
-  if (!result.ok) {
-    throw new Error("expected a valid initial state");
-  }
-  return result.value.player;
+  return spawnedPrimaryPlayer();
 }
 
 function playerAt(x: number, y: number): PlayerSimulationState {
