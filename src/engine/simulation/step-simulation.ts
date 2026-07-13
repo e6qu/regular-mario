@@ -264,7 +264,7 @@ function stepCoopPlayers(
   if (coopPlayers.length === 0) {
     return coopPlayers;
   }
-  return coopPlayers.map((player, index) =>
+  const moved = coopPlayers.map((player, index) =>
     stepCoopPlayerKinematics(
       player,
       coopInputCommands[index] ?? neutralInputCommand,
@@ -272,6 +272,17 @@ function stepCoopPlayers(
       movementConstants,
       levelSpec,
     ),
+  );
+  // A co-op player that walks into a hazard or falls into a pit is out for the
+  // rest of the level (removed from the field) — the "dead until level ends"
+  // rule, applied uniformly.
+  return moved.filter(
+    (player) =>
+      !detectLevelContactState(player, levelSpec).hazard &&
+      !(
+        levelSpec.fallExitTransition === undefined &&
+        hasPlayerFallenIntoPit(player, levelSpec)
+      ),
   );
 }
 

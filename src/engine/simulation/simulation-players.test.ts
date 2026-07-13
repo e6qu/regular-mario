@@ -11,7 +11,10 @@ import {
   type SimulationState,
 } from "./simulation-state";
 import { stepSimulation } from "./step-simulation";
-import { nominalSixtyHertzFrameDurationMilliseconds } from "./simulation-units";
+import {
+  nominalSixtyHertzFrameDurationMilliseconds,
+  requireSimulationPixelPosition,
+} from "./simulation-units";
 
 function initialState(): SimulationState {
   const result = makeInitialSimulationState(
@@ -156,6 +159,28 @@ describe("simulation players array", () => {
     // The uniform array now holds both players.
     expect(coop.players).toHaveLength(2);
     expect(coop.coopPlayers).toHaveLength(1);
+  });
+
+  it("removes a co-op player that has fallen into a pit (dead until level ends)", () => {
+    const base = twoPlayerState();
+    const fallen: SimulationState["coopPlayers"] = [
+      {
+        ...base.coopPlayers![0]!,
+        position: {
+          x: base.coopPlayers![0]!.position.x,
+          y: requireSimulationPixelPosition(10000, "player.position.y"),
+        },
+      },
+    ];
+    const stepped = stepSimulation(
+      { ...base, coopPlayers: fallen },
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    expect(stepped.coopPlayers).toHaveLength(0);
+    expect(stepped.players).toHaveLength(1);
   });
 
   it("advances a co-op player's position across frames from its input", () => {
