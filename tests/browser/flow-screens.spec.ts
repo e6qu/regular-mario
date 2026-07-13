@@ -108,6 +108,19 @@ test("an ordinary level shows no warp-zone banner", async ({ page }) => {
   expect((await snapshot(page)).warpZone).toBe(false);
 });
 
+test("adds same-screen bot players from the menu bots selection", async ({
+  page,
+}) => {
+  // The bots=N play route (what the menu's BOTS control produces) runs you plus
+  // N same-screen robot players.
+  await page.goto(`${playRoute}&bots=5`);
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  await page.keyboard.press("Space");
+  expect((await snapshot(page)).playerCount).toBe(6);
+});
+
 test("fires haptic feedback on landing and death", async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { __vibrations: unknown[] }).__vibrations = [];

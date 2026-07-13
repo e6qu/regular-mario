@@ -332,6 +332,8 @@ type PlayRoute = {
   readonly level: string;
   readonly mode: string;
   readonly sound: string;
+  // Number of demo bot players (random movers) to add alongside you.
+  readonly bots: string;
 };
 // Update the address bar to reflect the current area without reloading (so a
 // copied link reopens this state). replaceState avoids a stray hashchange.
@@ -2014,6 +2016,16 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     ["webgl", "WebGL (GPU, faster)"],
     ["auto", "Auto (WebGL if available)"],
   ]);
+  // Same-screen co-op demo: add N robot players that wander the level on their
+  // own beside you.
+  const botsSelect = makeStartMenuDropdown("Bots", [
+    ["0", "0 (just me)"],
+    ["1", "1 robot"],
+    ["3", "3 robots"],
+    ["5", "5 robots"],
+    ["8", "8 robots"],
+    ["15", "15 robots"],
+  ]);
   rendererSelect.value = resolveRendererChoice(
     window.location.search,
     window.localStorage,
@@ -2073,6 +2085,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   appendField("GAME MODE", modeSelect);
   appendField("SOUND", audioSelect);
   appendField("RENDERER", rendererSelect);
+  appendField("BOTS", botsSelect);
   panel.appendChild(controls);
   panel.appendChild(playButton);
 
@@ -2217,7 +2230,8 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
       `play?skin=${encodeURIComponent(assetSelect.value)}` +
         `&map=${encodeURIComponent(mapSelect.value)}` +
         `&level=${encodeURIComponent(levelSelect.value)}` +
-        `&mode=${modeSelect.value}&sound=${audioSelect.value}`,
+        `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
+        `&bots=${botsSelect.value}`,
     );
     void bootSelectedContentSet(
       assetSelect.value,
@@ -2225,6 +2239,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
       levelSelect.value,
       modeSelect.value === "shabby",
       audioSelect.value === "shabby",
+      Number(botsSelect.value) || 0,
       status,
     );
   };
@@ -2234,6 +2249,9 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   if (autoplay !== undefined && !playButton.disabled) {
     modeSelect.value = autoplay.mode;
     audioSelect.value = autoplay.sound;
+    if ([...botsSelect.options].some((o) => o.value === autoplay.bots)) {
+      botsSelect.value = autoplay.bots;
+    }
     if ([...levelSelect.options].some((o) => o.value === autoplay.level)) {
       levelSelect.value = autoplay.level;
       playSelected();
@@ -2245,7 +2263,8 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         `play?skin=${encodeURIComponent(assetSelect.value)}` +
           `&map=${encodeURIComponent(mapSelect.value)}` +
           `&level=${encodeURIComponent(autoplay.level)}` +
-          `&mode=${modeSelect.value}&sound=${audioSelect.value}`,
+          `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
+          `&bots=${botsSelect.value}`,
       );
       void bootSelectedContentSet(
         assetSelect.value,
@@ -2253,6 +2272,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         autoplay.level,
         modeSelect.value === "shabby",
         audioSelect.value === "shabby",
+        Number(botsSelect.value) || 0,
         status,
       );
     }
@@ -2346,6 +2366,7 @@ async function bootSelectedContentSet(
   levelName: string,
   exaggeratedReactions: boolean,
   shabbyAudio: boolean,
+  botCount: number,
   status: HTMLElement,
 ): Promise<void> {
   status.style.color = "#3a2410";
@@ -2426,6 +2447,8 @@ async function bootSelectedContentSet(
         userAssetBundle: { ...bundle, sounds },
         viewport: classicCompatibilityViewport,
         userLevelVisualName: selectedLevel.name,
+        // You plus the chosen number of same-screen demo bots.
+        playerCount: 1 + Math.max(0, botCount),
         exaggeratedReactions,
         // The shabby "Sound" choice sings the melody as a baritone "ba ba ba".
         vocalSoundtrack: shabbyAudio,
@@ -2467,6 +2490,7 @@ async function bootSelectedContentSet(
                   next,
                   exaggeratedReactions,
                   shabbyAudio,
+                  botCount,
                   status,
                 );
               },
@@ -2507,6 +2531,7 @@ function applyRoute(): void {
         level,
         mode: params.get("mode") ?? "classic",
         sound: params.get("sound") ?? "classic",
+        bots: params.get("bots") ?? "0",
       });
       return;
     }
