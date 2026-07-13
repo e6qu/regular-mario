@@ -119,6 +119,7 @@ import {
 import type { SimulationState } from "./simulation-state";
 import { deriveSimulationPlayers } from "./simulation-state";
 import { stepCoopPlayerKinematics } from "./coop-player-kinematics";
+import { resolvePlayerCollisions } from "./player-player-collision";
 import {
   computeCoinExtraLives,
   computeTimeBonusScore,
@@ -207,7 +208,18 @@ export function stepSimulation(
     movementConstants,
     levelSpec,
   );
-  return withDerivedPlayers({ ...primaryStepped, coopPlayers });
+  // Players are solid to each other (no walk-through, stand on heads, a stack
+  // rides its bottom player). Resolve all players together — no special case for
+  // the primary. Single-player short-circuits (nothing to collide with).
+  const collided = resolvePlayerCollisions(
+    [primaryStepped.player, ...coopPlayers],
+    [state.player, ...(state.coopPlayers ?? [])],
+  );
+  return withDerivedPlayers({
+    ...primaryStepped,
+    player: collided[0] ?? primaryStepped.player,
+    coopPlayers: collided.slice(1),
+  });
 }
 
 // The primary player's full pipeline (unchanged), selected by outcome.

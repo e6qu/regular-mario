@@ -36,6 +36,20 @@ function runRight(): SimulationInputCommand {
   };
 }
 
+function twoPlayerState(): SimulationState {
+  const result = makeInitialSimulationStateWithPlayerVitality(
+    nominalSixtyHertzFrameDurationMilliseconds,
+    firstAuthoredLevelSpec(),
+    initialMovementConstants,
+    makeInitialPlayerVitalityState(),
+    2,
+  );
+  if (!result.ok) {
+    throw new Error("expected a valid two-player state");
+  }
+  return result.value;
+}
+
 function neutral(): SimulationInputCommand {
   return {
     horizontal: HorizontalInput.Neutral,
@@ -117,9 +131,10 @@ describe("simulation players array", () => {
     expect(after.players[0]!.player).not.toBe(before.player);
   });
 
-  it("steps a co-op player with its own input, leaving the primary untouched", () => {
+  it("steps a co-op player with its own input, leaving a non-overlapping primary untouched", () => {
     const base = initialState();
-    const withCoop: SimulationState = { ...base, coopPlayers: [base.player] };
+    // Seed a co-op player at its own (non-overlapping) spawn beside the primary.
+    const withCoop = twoPlayerState();
 
     const solo = stepSimulation(
       base,
@@ -132,10 +147,11 @@ describe("simulation players array", () => {
       neutral(),
       initialMovementConstants,
       firstAuthoredLevelSpec(),
-      [runRight()],
+      [neutral()],
     );
 
-    // The primary player is identical whether or not co-op players are present.
+    // With the players apart, the primary is identical whether or not co-op
+    // players are present.
     expect(coop.player).toEqual(solo.player);
     // The uniform array now holds both players.
     expect(coop.players).toHaveLength(2);
@@ -143,8 +159,7 @@ describe("simulation players array", () => {
   });
 
   it("advances a co-op player's position across frames from its input", () => {
-    const base = initialState();
-    let state: SimulationState = { ...base, coopPlayers: [base.player] };
+    let state = twoPlayerState();
     const startX = state.coopPlayers![0]!.position.x;
     for (let frame = 0; frame < 15; frame += 1) {
       state = stepSimulation(
