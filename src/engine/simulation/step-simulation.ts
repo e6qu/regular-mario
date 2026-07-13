@@ -18,6 +18,7 @@ import {
   consecutiveDefeatAwardsExtraLife,
   countNewlyDefeated,
   type EnemyInteractionState,
+  playerContactsLiveEnemy,
   resolveEnemyInteractionState,
   scoreForConsecutiveDefeat,
 } from "./enemy-interaction";
@@ -207,6 +208,8 @@ export function stepSimulation(
     state.clock.frameDurationMilliseconds,
     movementConstants,
     levelSpec,
+    primaryStepped.enemyMotion,
+    primaryStepped.enemies.defeatedEnemyEntityIds,
   );
   // Players are solid to each other (no walk-through, stand on heads, a stack
   // rides its bottom player). Resolve all players together — no special case for
@@ -260,6 +263,8 @@ function stepCoopPlayers(
   frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
+  enemyMotion: EnemyMotionState,
+  defeatedEnemyEntityIds: readonly EntityId[],
 ): readonly PlayerSimulationState[] {
   if (coopPlayers.length === 0) {
     return coopPlayers;
@@ -273,11 +278,17 @@ function stepCoopPlayers(
       levelSpec,
     ),
   );
-  // A co-op player that walks into a hazard or falls into a pit is out for the
-  // rest of the level (removed from the field) — the "dead until level ends"
-  // rule, applied uniformly.
+  // A co-op player that touches an enemy, walks into a hazard, or falls into a
+  // pit is out for the rest of the level (removed from the field) — the "dead
+  // until level ends" rule, applied uniformly.
   return moved.filter(
     (player) =>
+      !playerContactsLiveEnemy(
+        player,
+        levelSpec,
+        enemyMotion,
+        defeatedEnemyEntityIds,
+      ) &&
       !detectLevelContactState(player, levelSpec).hazard &&
       !(
         levelSpec.fallExitTransition === undefined &&

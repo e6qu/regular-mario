@@ -183,6 +183,29 @@ describe("simulation players array", () => {
     expect(stepped.players).toHaveLength(1);
   });
 
+  it("removes a co-op player that touches an enemy", () => {
+    // firstAuthored has an enemy (beetle-1) at pixel (96, 64); put a co-op
+    // player right on it.
+    const base = twoPlayerState();
+    const onEnemy: SimulationState["coopPlayers"] = [
+      {
+        ...base.coopPlayers![0]!,
+        position: {
+          x: requireSimulationPixelPosition(96, "player.position.x"),
+          y: requireSimulationPixelPosition(56, "player.position.y"),
+        },
+      },
+    ];
+    const stepped = stepSimulation(
+      { ...base, coopPlayers: onEnemy },
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    expect(stepped.coopPlayers).toHaveLength(0);
+  });
+
   it("advances a co-op player's position across frames from its input", () => {
     let state = twoPlayerState();
     const startX = state.coopPlayers![0]!.position.x;

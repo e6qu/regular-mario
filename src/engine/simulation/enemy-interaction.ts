@@ -236,6 +236,42 @@ export function assertValidEnemyInteractionState(
   }
 }
 
+// Whether a player's hurtbox overlaps any live (not-yet-defeated) enemy. Used
+// to give co-op players simple "touch an enemy and you're out" stakes without
+// the full stomp/shell pipeline. Reuses the same hurtboxes and overlap test as
+// the primary interaction.
+export function playerContactsLiveEnemy(
+  player: PlayerSimulationState,
+  levelSpec: LevelSpec,
+  enemyMotion: EnemyMotionState,
+  defeatedEnemyEntityIds: readonly EntityId[],
+): boolean {
+  const actorRoleLookup = makeActorRoleLookup(levelSpec);
+  const defeated = new Set(defeatedEnemyEntityIds);
+  for (const actor of levelSpec.actors) {
+    const role = requireActorRole(actorRoleLookup, actor.actorId);
+    if (!isEnemyRole(role) || defeated.has(actor.entityId)) {
+      continue;
+    }
+    const enemyHurtbox = makeEnemyHurtbox(
+      levelSpec,
+      actor.actorId,
+      role,
+      requireEnemyActorState(enemyMotion, actor.entityId).position,
+    );
+    if (
+      playerOverlapsActorPixel(
+        player,
+        { x: enemyHurtbox.x, y: enemyHurtbox.y },
+        { width: enemyHurtbox.width, height: enemyHurtbox.height },
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function resolveEnemyInteractionState(
   previousPlayer: PlayerSimulationState,
   player: PlayerSimulationState,
