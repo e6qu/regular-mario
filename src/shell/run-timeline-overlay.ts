@@ -212,13 +212,14 @@ export class RunTimelineOverlay {
     thumbnails: readonly RunTimelineThumbnail[],
     frameDurationMs: number,
     canContinue = false,
+    gameOver = false,
   ): void {
     this.pauseFrame = Math.max(1, pauseFrame);
     this.frameDurationMs = frameDurationMs;
     // Offer "Next level" only when this pause is a finish with a level to go to.
     const offerContinue =
       canContinue && this.callbacks.onContinue !== undefined;
-    this.applyLevelCompleteProminence(offerContinue);
+    this.applyLevelCompleteProminence(offerContinue, gameOver);
     this.continueButton.style.display = offerContinue ? "" : "none";
     // Lay the track out first so renderThumbnails can measure its width.
     this.root.style.display = "block";
@@ -237,11 +238,26 @@ export class RunTimelineOverlay {
   // On a level-complete pause, promote the whole bar: a gold-bordered glowing
   // background, a glistening "LEVEL COMPLETE / Press N" banner, and a bigger,
   // shimmering "Next level" button. A normal (mid-run or death) pause reverts.
-  private applyLevelCompleteProminence(offerContinue: boolean): void {
+  private applyLevelCompleteProminence(
+    offerContinue: boolean,
+    gameOver: boolean,
+  ): void {
     this.completeBanner.style.display = offerContinue ? "flex" : "none";
-    this.title.textContent = offerContinue ? "✓ FINISHED" : "PAUSED";
-    this.title.style.color = offerContinue ? "#3a2400" : "#fbbf24";
-    this.title.style.background = offerContinue ? "#ffd54a" : "#00000055";
+    this.title.textContent = offerContinue
+      ? "✓ FINISHED"
+      : gameOver
+        ? "GAME OVER"
+        : "PAUSED";
+    this.title.style.color = offerContinue
+      ? "#3a2400"
+      : gameOver
+        ? "#fecaca"
+        : "#fbbf24";
+    this.title.style.background = offerContinue
+      ? "#ffd54a"
+      : gameOver
+        ? "#7f1d1d"
+        : "#00000055";
     if (offerContinue) {
       this.continueButton.classList.add("tl-glisten");
       this.continueButton.style.padding = "9px 18px";

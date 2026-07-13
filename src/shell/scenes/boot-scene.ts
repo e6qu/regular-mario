@@ -2088,10 +2088,11 @@ export class BootScene extends Phaser.Scene {
       this.deathJinglePlayed = true;
       // The engine has already decremented the life on this defeat frame.
       if (this.simulationState.livesRemaining <= 0) {
-        // Out of lives: the game-over jingle and screen; a retry starts anew.
+        // Out of lives: the game-over jingle. No black "GAME OVER" card — it
+        // would blot out the game and the live replay strip; instead the frozen
+        // game stays on screen and the replay strip below is titled GAME OVER.
         this.pendingGameOver = true;
         this.gameAudio.playJingle("game-over");
-        this.showFlowCard("GAME OVER", "");
       } else {
         this.gameAudio.playJingle("death");
       }
@@ -3605,6 +3606,8 @@ export class BootScene extends Phaser.Scene {
       nominalSixtyHertzFrameDurationMilliseconds,
       // Offer "Next level" only when the pause is a finish (not a death).
       this.hasFinishedOutcome(),
+      // Title the strip GAME OVER (instead of PAUSED) when out of lives.
+      this.pendingGameOver,
     );
   }
 

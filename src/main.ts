@@ -1900,9 +1900,9 @@ function renderImportUi(options: ImportUiOptions): void {
 function styleStartMenuSelect(select: HTMLSelectElement): void {
   select.style.width = "100%";
   select.style.boxSizing = "border-box";
-  select.style.padding = "10px";
-  select.style.marginTop = "6px";
-  select.style.marginBottom = "14px";
+  select.style.padding = "8px 10px";
+  select.style.marginTop = "4px";
+  select.style.marginBottom = "8px";
   select.style.borderRadius = "8px";
   select.style.border = "3px solid #7a4a1e";
   select.style.backgroundColor = "#fff7e6";
@@ -1959,9 +1959,14 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   panel.setAttribute("role", "region");
   panel.setAttribute("aria-label", "Start menu");
   panel.className = "start-menu-panel";
-  panel.style.maxWidth = "460px";
-  panel.style.margin = "40px auto";
-  panel.style.padding = "24px";
+  panel.style.maxWidth = "480px";
+  panel.style.margin = "20px auto";
+  panel.style.padding = "18px 22px";
+  // Never taller than the viewport: fit on short screens, scrolling only as a
+  // last resort on very small ones.
+  panel.style.boxSizing = "border-box";
+  panel.style.maxHeight = "calc(100vh - 16px)";
+  panel.style.overflowY = "auto";
   panel.style.borderRadius = "14px";
   panel.style.border = "5px solid #7a4a1e";
   panel.style.background = "linear-gradient(#7ec0ff, #9fd0ff 60%, #d9b98a)";
@@ -1971,7 +1976,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   const coin = document.createElement("div");
   coin.className = "start-menu-coin";
   coin.textContent = "◉";
-  coin.style.fontSize = "40px";
+  coin.style.fontSize = "30px";
   coin.style.color = "#ffcc33";
   coin.style.textShadow = "2px 2px 0 #a9730a";
 
@@ -1979,10 +1984,10 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   title.textContent = "ORIGINAL PLATFORMER";
   title.style.fontFamily = "monospace";
   title.style.fontWeight = "900";
-  title.style.fontSize = "26px";
+  title.style.fontSize = "24px";
   title.style.letterSpacing = "2px";
   title.style.color = "#c8401b";
-  title.style.margin = "4px 0 20px 0";
+  title.style.margin = "2px 0 12px 0";
   title.style.textShadow = "2px 2px 0 #ffe08a, 3px 3px 0 #3a2410";
 
   const assetSelect = document.createElement("select");
@@ -2045,6 +2050,13 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   // two-column grid on short (mobile-landscape) viewports.
   const controls = document.createElement("div");
   controls.className = "start-menu-controls";
+  // Two columns by default so the six fields fit in three rows instead of a tall
+  // six-row stack (a short landscape screen tightens this further to three
+  // columns via the responsive rules).
+  controls.style.display = "grid";
+  controls.style.gridTemplateColumns = "1fr 1fr";
+  controls.style.columnGap = "14px";
+  controls.style.textAlign = "left";
   const appendField = (labelText: string, control: HTMLElement): void => {
     const field = document.createElement("div");
     field.className = "start-menu-field";
