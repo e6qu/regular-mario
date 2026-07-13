@@ -74,3 +74,6 @@ Thumbs.db
 # Generated static release content (authored sprites + composed manifest; regenerated at build)
 /public/game-content/
 scratchpad-shots/
+
+# Downloaded reference audio/video kept only locally (never committed).
+*.webm

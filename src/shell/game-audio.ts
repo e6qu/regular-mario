@@ -698,6 +698,24 @@ export class GameAudio {
     return buffer;
   }
 
+  // A glottal-pulse waveform for the voice: harmonics rolling off ~-12 dB/octave
+  // (amplitude 1/n²) instead of a sawtooth's harsh -6 dB/octave. This soft,
+  // vowel-like source is the biggest step from "synth" to "voice".
+  private glottalWave: PeriodicWave | undefined;
+  private requireGlottalWave(audioContext: AudioContext): PeriodicWave {
+    if (this.glottalWave !== undefined) {
+      return this.glottalWave;
+    }
+    const harmonics = 26;
+    const real = new Float32Array(harmonics + 1);
+    const imag = new Float32Array(harmonics + 1);
+    for (let n = 1; n <= harmonics; n += 1) {
+      imag[n] = 1 / (n * n);
+    }
+    this.glottalWave = audioContext.createPeriodicWave(real, imag);
+    return this.glottalWave;
+  }
+
   // A short burst of band-passed noise (the shared texture for splats/sizzles).
   private playNoiseBurst(
     audioContext: AudioContext,
@@ -917,59 +935,267 @@ export class GameAudio {
     const step = this.revengeVoiceIndex % 3;
     this.revengeVoiceIndex += 1;
     const now = audioContext.currentTime;
+    // Pitch register + vowel formants below are set from acoustic analysis of a
+    // reference voice: a bright cartoon tenor whose stressed syllables sit high
+    // (~410-440 Hz F0) and sag to ~250 on the trailing vowel, with measured
+    // vowel formants (open 'ah' F1~900/F2~1450, front 'ee' F1~440/F2~2400).
+    // Original synthesis of our own "itsa/me/ow" — not a copy of any clip.
     if (step === 0) {
-      // "IT-SA!": a bright 'ih', a hissed 'ts', then an open 'ah' punch.
-      this.playFormantYelp(audioContext, now, [[430, 8], [2000, 7], [2700, 6]], 330, 300, 0.12, 0.5);
-      this.playFormantYelp(audioContext, now + 0.13, [[3600, 3]], 2000, 2600, 0.05, 0.16);
-      this.playFormantYelp(audioContext, now + 0.19, [[820, 6], [1250, 6], [2600, 5]], 300, 380, 0.22, 0.55);
+      // "IT'S-A" (snappy, leading into the "me"): a crisp glottal-onset 'ih', a
+      // real hissed 't-s', then a short open 'a' falling away. Sharper upper
+      // formants (higher Q) read as clearer vowels.
+      this.playFormantYelp(audioContext, now, [[563, 6], [1734, 11, 1.6], [2734, 9, 1.3]], 430, 405, 0.14, 0.42, { hardOnset: true });
+      this.playFricative(audioContext, now + 0.16, 0.09, 0.14, 3600);
+      this.playFormantYelp(audioContext, now + 0.26, [[906, 6], [1453, 11, 1.4], [2703, 9, 1.2]], 400, 250, 0.16, 0.55, { vibratoDepth: 11, trailSeconds: 0.14 });
     } else if (step === 1) {
-      // "MEE!": a nasal 'm' hum opening into a bright 'ee'.
-      this.playFormantYelp(audioContext, now, [[280, 10], [1100, 8]], 300, 300, 0.08, 0.3);
-      this.playFormantYelp(audioContext, now + 0.08, [[300, 9], [2500, 7], [3100, 5]], 300, 440, 0.26, 0.55);
+      // "MEE!" (punched, with the glottal-stop catch): a muffled nasal 'm' hum
+      // that releases (mouth opening: tract + formants glide up) into a long,
+      // bright, high 'eee' — its high F2/F3 boosted so the vowel really rings.
+      this.playFormantYelp(audioContext, now, [[320, 8], [1050, 4, 2.6], [3000, 4, 1.8]], 410, 345, 0.5, 0.58, {
+        hardOnset: true,
+        nasalMuffleSeconds: 0.14,
+        endFormants: [[438, 6], [2406, 12], [3313, 9]],
+        vibratoDepth: 12,
+        trailSeconds: 0.5,
+      });
     } else {
-      // "OW!": an open 'ah' yelp falling to 'oo'.
-      this.playFormantYelp(audioContext, now, [[760, 6], [1120, 6]], 440, 250, 0.3, 0.6);
+      // "OW!" (a full word): a glottal-onset open 'ah' up high that swoops down
+      // into a long, rounded 'ooo' and lingers.
+      this.playFormantYelp(audioContext, now, [[906, 6], [1453, 10, 1.4]], 430, 335, 0.16, 0.6, { hardOnset: true });
+      this.playFormantYelp(audioContext, now + 0.16, [[453, 6], [953, 10]], 335, 205, 0.34, 0.55, { vibratoDepth: 11, trailSeconds: 0.5 });
     }
   }
 
   // One vocalised formant burst: a buzzing glottal source pitch-swept from
-  // startPitch to endPitch, shaped by bandpass "formant" resonances, with a
-  // fast attack and decay. The building block for the revenge yelps.
+  // startPitch to endPitch, shaped by bandpass "formant" resonances. Optional
+  // vibrato gives the operatic Italian waver; `trailSeconds` lets the vowel ring
+  // on and fade out slowly (the drawn-out Italian trail-off). Building block for
+  // the revenge yelps.
   private playFormantYelp(
     audioContext: AudioContext,
     startTime: number,
-    formants: readonly (readonly [number, number])[],
+    // Each formant is [centreHz, Q, gain?] — gain boosts the upper formants so
+    // a bright vowel's high F2/F3 survive the glottal source's rolloff.
+    formants: readonly (readonly [number, number, number?])[],
     startPitchHertz: number,
     endPitchHertz: number,
     durationSeconds: number,
     gain: number,
+    options?: {
+      readonly vibratoDepth?: number;
+      readonly trailSeconds?: number;
+      // A hard, creaky voiced attack (the glottal-stop onset) instead of a soft
+      // fade — used on word-initial segments for the "it's-a • me" catch.
+      readonly hardOnset?: boolean;
+      // Glide the formants to these over the segment (coarticulation), e.g. a
+      // nasal "m" opening into the "ee" of "me". Only the centre frequency is
+      // used from each.
+      readonly endFormants?: readonly (readonly [number, number, number?])[];
+      // Start muffled (mouth nearly closed for a nasal) and open the tract over
+      // this many seconds, with a slower amplitude rise — the "m" release.
+      readonly nasalMuffleSeconds?: number;
+    },
   ): void {
     try {
-      const source = audioContext.createOscillator();
-      source.type = "sawtooth";
-      source.frequency.setValueAtTime(startPitchHertz, startTime);
-      source.frequency.exponentialRampToValueAtTime(
-        Math.max(50, endPitchHertz),
-        startTime + durationSeconds,
+      const trailSeconds = options?.trailSeconds ?? 0;
+      const vibratoDepth = options?.vibratoDepth ?? 0;
+      const hardOnset = options?.hardOnset ?? false;
+      const endFormants = options?.endFormants;
+      const nasalMuffleSeconds = options?.nasalMuffleSeconds ?? 0;
+      const totalSeconds = durationSeconds + trailSeconds;
+
+      // Glottal source: two slightly detuned glottal-pulse waves (a chorus). A
+      // hard onset scoops the pitch up from below (a glottal-stop catch); a soft
+      // onset just kicks up then settles — natural, not a straight ramp.
+      const glottalWave = this.requireGlottalWave(audioContext);
+      const sources = [-6, 6].map((detune) => {
+        const osc = audioContext.createOscillator();
+        osc.setPeriodicWave(glottalWave);
+        osc.detune.setValueAtTime(detune, startTime);
+        if (hardOnset) {
+          osc.frequency.setValueAtTime(startPitchHertz * 0.88, startTime);
+          osc.frequency.linearRampToValueAtTime(
+            startPitchHertz,
+            startTime + 0.03,
+          );
+        } else {
+          osc.frequency.setValueAtTime(startPitchHertz, startTime);
+        }
+        osc.frequency.linearRampToValueAtTime(
+          startPitchHertz * 1.05,
+          startTime + durationSeconds * 0.25,
+        );
+        osc.frequency.exponentialRampToValueAtTime(
+          Math.max(50, endPitchHertz),
+          startTime + durationSeconds,
+        );
+        return osc;
+      });
+
+      // Modulate the pitch with an eased-in operatic waver PLUS a faster, tiny
+      // jitter — a real voice is never perfectly steady, and that unevenness is
+      // most of what sells it as human.
+      const addPitchLfo = (
+        rateHertz: number,
+        depthHertz: number,
+        easeIn: boolean,
+      ): void => {
+        const lfo = audioContext.createOscillator();
+        lfo.type = "sine";
+        lfo.frequency.setValueAtTime(rateHertz, startTime);
+        const lfoGain = audioContext.createGain();
+        if (easeIn) {
+          lfoGain.gain.setValueAtTime(0, startTime);
+          lfoGain.gain.linearRampToValueAtTime(
+            depthHertz,
+            startTime + Math.min(0.2, durationSeconds),
+          );
+        } else {
+          lfoGain.gain.setValueAtTime(depthHertz, startTime);
+        }
+        lfo.connect(lfoGain);
+        for (const osc of sources) {
+          lfoGain.connect(osc.frequency);
+        }
+        lfo.start(startTime);
+        lfo.stop(startTime + totalSeconds + 0.05);
+      };
+      if (vibratoDepth > 0) {
+        addPitchLfo(5.2, vibratoDepth, true);
+      }
+      addPitchLfo(11.3, Math.max(1.4, startPitchHertz * 0.006), false);
+
+      // Warm the buzz before the vocal tract (a glottal spectral rolloff), so
+      // the raw sawtooth edge doesn't read as a synth.
+      const glottalLowpass = audioContext.createBiquadFilter();
+      glottalLowpass.type = "lowpass";
+      glottalLowpass.frequency.setValueAtTime(3900, startTime);
+      glottalLowpass.Q.setValueAtTime(0.4, startTime);
+      for (const osc of sources) {
+        osc.connect(glottalLowpass);
+      }
+
+      // Breath: a bed of noise through the same vocal tract, stronger at the
+      // onset then fading — real vowels are breathy, not pure tones.
+      const breath = audioContext.createBufferSource();
+      breath.buffer = this.requireNoiseBuffer(audioContext);
+      breath.loop = true;
+      const breathGain = audioContext.createGain();
+      // A light aspiration at the onset that fades quickly — enough to feel
+      // alive without a synthetic hiss riding the whole vowel.
+      breathGain.gain.setValueAtTime(gain * 0.1, startTime);
+      breathGain.gain.linearRampToValueAtTime(
+        gain * 0.02,
+        startTime + Math.min(0.12, durationSeconds),
       );
+      breath.connect(breathGain);
+
+      const tract = audioContext.createGain();
+      tract.gain.setValueAtTime(1, startTime);
+      glottalLowpass.connect(tract);
+      breathGain.connect(tract);
+
       const mix = audioContext.createGain();
-      mix.gain.setValueAtTime(1, startTime);
-      for (const [hertz, q] of formants) {
+      formants.forEach(([hertz, q, formantGain], index) => {
         const bandpass = audioContext.createBiquadFilter();
         bandpass.type = "bandpass";
         bandpass.frequency.setValueAtTime(hertz, startTime);
         bandpass.Q.setValueAtTime(q, startTime);
-        source.connect(bandpass);
-        bandpass.connect(mix);
+        // Coarticulation: glide this formant toward its target over the segment.
+        const target = endFormants?.[index]?.[0];
+        if (target !== undefined) {
+          bandpass.frequency.linearRampToValueAtTime(
+            target,
+            startTime + durationSeconds,
+          );
+        }
+        // Per-formant gain lifts a high F2/F3 back up over the source rolloff.
+        const level = audioContext.createGain();
+        level.gain.setValueAtTime(formantGain ?? 1, startTime);
+        tract.connect(bandpass);
+        bandpass.connect(level);
+        level.connect(mix);
+      });
+      // A high "presence" formant (F4) so the voice has air, not just muffle.
+      const presence = audioContext.createBiquadFilter();
+      presence.type = "bandpass";
+      presence.frequency.setValueAtTime(3300, startTime);
+      presence.Q.setValueAtTime(5, startTime);
+      const presenceGain = audioContext.createGain();
+      presenceGain.gain.setValueAtTime(0.28, startTime);
+      tract.connect(presence);
+      presence.connect(presenceGain);
+      presenceGain.connect(mix);
+
+      // Output tilt: a nasal starts muffled (mouth closed) and opens as it
+      // releases into the vowel; otherwise it just tames the residual buzz.
+      const tilt = audioContext.createBiquadFilter();
+      tilt.type = "lowpass";
+      tilt.Q.setValueAtTime(0.5, startTime);
+      if (nasalMuffleSeconds > 0) {
+        tilt.frequency.setValueAtTime(650, startTime);
+        tilt.frequency.linearRampToValueAtTime(
+          3800,
+          startTime + nasalMuffleSeconds,
+        );
+      } else {
+        tilt.frequency.setValueAtTime(3800, startTime);
       }
+      mix.connect(tilt);
+
+      const amp = audioContext.createGain();
+      amp.gain.setValueAtTime(0.0001, startTime);
+      // A nasal builds up as the mouth opens; a plain vowel gets a soft (not
+      // clicky) onset, a hard onset a near-instant one.
+      const onsetSeconds =
+        nasalMuffleSeconds > 0
+          ? nasalMuffleSeconds * 0.9
+          : hardOnset
+            ? 0.012
+            : 0.04;
+      amp.gain.exponentialRampToValueAtTime(gain, startTime + onsetSeconds);
+      // Hold the vowel, then let it ring on and fade away slowly (the trail).
+      amp.gain.setValueAtTime(gain, startTime + durationSeconds * 0.7);
+      amp.gain.exponentialRampToValueAtTime(0.0001, startTime + totalSeconds);
+      tilt.connect(amp);
+      amp.connect(audioContext.destination);
+
+      for (const osc of sources) {
+        osc.start(startTime);
+        osc.stop(startTime + totalSeconds + 0.05);
+      }
+      breath.start(startTime);
+      breath.stop(startTime + totalSeconds + 0.05);
+    } catch {
+      // Best-effort audio.
+    }
+  }
+
+  // A voiced fricative ("s"/"ts"): a burst of (deterministic) noise through a
+  // high-pass, so the consonant hisses like a real one instead of a tonal beep.
+  private playFricative(
+    audioContext: AudioContext,
+    startTime: number,
+    durationSeconds: number,
+    gain: number,
+    cutoffHertz: number,
+  ): void {
+    try {
+      const source = audioContext.createBufferSource();
+      source.buffer = this.requireNoiseBuffer(audioContext);
+      const highpass = audioContext.createBiquadFilter();
+      highpass.type = "highpass";
+      highpass.frequency.setValueAtTime(cutoffHertz, startTime);
+      highpass.Q.setValueAtTime(0.6, startTime);
       const amp = audioContext.createGain();
       amp.gain.setValueAtTime(0.0001, startTime);
       amp.gain.exponentialRampToValueAtTime(gain, startTime + 0.02);
       amp.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSeconds);
-      mix.connect(amp);
+      source.connect(highpass);
+      highpass.connect(amp);
       amp.connect(audioContext.destination);
       source.start(startTime);
-      source.stop(startTime + durationSeconds + 0.03);
+      source.stop(startTime + durationSeconds + 0.02);
     } catch {
       // Best-effort audio.
     }
