@@ -77,7 +77,11 @@ import {
   makeInitialSimulationStateWithPlayerVitality,
   type SimulationState,
 } from "../../engine/simulation/simulation-state";
-import { nominalSixtyHertzFrameDurationMilliseconds } from "../../engine/simulation/simulation-units";
+import {
+  nominalSixtyHertzFrameDurationMilliseconds,
+  requireSimulationPixelPosition,
+  requireSimulationVelocity,
+} from "../../engine/simulation/simulation-units";
 import {
   resolveSoundEvents,
   SoundEvent,
@@ -3166,6 +3170,11 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
       coopInputCommands,
     );
+    // Same-screen co-op: keep every co-op player within the visible screen (the
+    // camera follows the human primary), so nobody wanders off — a player is
+    // blocked at the left or right screen edge. Applied before recording so the
+    // replay reproduces it.
+    this.clampCoopPlayersToScreen();
     this.runRecorder.record(inputCommand, this.simulationState);
     this.latchEnemyContactObservation();
     this.lastSoundEvents = resolveSoundEvents(
@@ -4458,6 +4467,37 @@ export class BootScene extends Phaser.Scene {
 
   // Shabby mode: redden the player as head-bonk bloodiness climbs (10 levels).
   // Off in the faithful mode, where bloodiness is always 0.
+  // Keep co-op players inside the visible screen so all players share one screen
+  // (the camera follows the primary). A player pushed to the left or right screen
+  // edge is stopped there rather than walking off. No-op in single-player.
+  private clampCoopPlayersToScreen(): void {
+    const coopPlayers = this.simulationState.coopPlayers;
+    if (coopPlayers === undefined || coopPlayers.length === 0) {
+      return;
+    }
+    const view = this.cameras.main.worldView;
+    const clamped = coopPlayers.map((player) => {
+      const width = Number(player.collider.width);
+      const x = Number(player.position.x);
+      const clampedX = Math.max(view.x, Math.min(x, view.right - width));
+      if (clampedX === x) {
+        return player;
+      }
+      return {
+        ...player,
+        position: {
+          x: requireSimulationPixelPosition(clampedX, "player.position.x"),
+          y: player.position.y,
+        },
+        velocity: {
+          x: requireSimulationVelocity(0, "player.velocity.x"),
+          y: player.velocity.y,
+        },
+      };
+    });
+    this.simulationState = { ...this.simulationState, coopPlayers: clamped };
+  }
+
   // Render each additional co-op player (demo bot) as a Luigi sprite, keeping the
   // sprite pool in sync with simulationState.coopPlayers and positioning each
   // from its own kinematics.
