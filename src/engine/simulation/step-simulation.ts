@@ -1,10 +1,6 @@
 import { makeFrameIndex } from "../domain/units";
 import type { FrameIndex } from "../domain/units";
 import type { EntityId } from "../domain/identifiers";
-
-// A given enemy can deal the player at most one damaging contact per this many
-// frames (~1 second at 60 Hz) — a per-enemy debounce, not a global one.
-const enemyDamageContactCooldownFrames = 60;
 import {
   assertValidCollectibleInteractionState,
   resolveCollectibleInteractionState,
@@ -139,6 +135,13 @@ import {
   type EnemyMotionState,
   requireEnemyActorState,
 } from "./enemy-motion";
+
+// A given enemy can deal the player at most one damaging contact per this many
+// frames (~1 second at 60 Hz) — a per-enemy debounce, not a global one. The
+// cooldown is NOT refreshed by continued overlap, so once it elapses the same
+// enemy lands another hit even while still inside the hurtbox (this is how one
+// enemy finishes off a big player: demote, then a second hit >1 second later).
+export const enemyDamageContactCooldownFrames = 60;
 
 // The top two grid rows of every decoded level are reserved for the HUD overlay
 // (the decoder's row offset), so gameplay content — and the water surface —
@@ -536,21 +539,19 @@ function stepActiveSimulation(
     ...enemies,
     contactedEnemyEntityIds: freshDamagingEnemyEntityIds,
   };
-  // Next cooldown map: refresh every currently-contacting enemy (so continuous
-  // overlap stays debounced), keep recently-separated enemies until their
-  // cooldown lapses, and drop the rest.
-  const contactingEnemyEntityIds = new Set(enemies.contactedEnemyEntityIds);
+  // Next cooldown map. The cooldown runs from the LAST damaging hit and is NOT
+  // refreshed by continued overlap: a stale entry is carried forward only while
+  // it is still within the window, so once a full second elapses the same enemy
+  // becomes "fresh" again and lands another hit even if it never left the
+  // hitbox. This frame's fresh hits start (or restart) a cooldown.
   const nextEnemyDamageFrames = new Map<EntityId, FrameIndex>();
-  for (const entityId of contactingEnemyEntityIds) {
-    nextEnemyDamageFrames.set(entityId, currentFrame);
-  }
   for (const [entityId, lastFrame] of previousEnemyDamageFrames) {
-    if (
-      !contactingEnemyEntityIds.has(entityId) &&
-      currentFrame - lastFrame < enemyDamageContactCooldownFrames
-    ) {
+    if (currentFrame - lastFrame < enemyDamageContactCooldownFrames) {
       nextEnemyDamageFrames.set(entityId, lastFrame);
     }
+  }
+  for (const entityId of freshDamagingEnemyEntityIds) {
+    nextEnemyDamageFrames.set(entityId, currentFrame);
   }
   const stompedThisFrame =
     enemies.defeatedEnemyEntityIds.length >
