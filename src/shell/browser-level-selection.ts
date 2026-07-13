@@ -34,6 +34,7 @@ import {
   parsePlayerCharacter,
   type PlayerCharacter,
 } from "./player-character";
+import { maxSimulationPlayers } from "../engine/simulation/simulation-state";
 import type { UserAssetBundle } from "./user-asset-loader";
 
 enum BrowserLevelKey {
@@ -106,6 +107,9 @@ export type BrowserGameBootstrap = {
   // Which costume the player character wears (default castaway; "luigi" is the
   // green swap). Set from the ?character= query parameter.
   readonly playerCharacter?: PlayerCharacter;
+  // Number of simultaneous same-screen co-op players (1 = single-player). Set
+  // from the ?players= query parameter; clamped to the engine's maximum.
+  readonly playerCount?: number;
   readonly userAssetBundle: UserAssetBundle | undefined;
   readonly viewport: BrowserGameViewport;
   readonly userLevelVisualName: string | undefined;
@@ -143,6 +147,7 @@ export function selectBrowserGameBootstrap(
   const playerCharacter = parsePlayerCharacter(
     searchParameters.get("character"),
   );
+  const playerCount = parsePlayerCount(searchParameters.get("players"));
   const selectedLevelKeys = searchParameters.getAll(
     browserLevelSearchParameterName,
   );
@@ -151,6 +156,7 @@ export function selectBrowserGameBootstrap(
     return {
       ...makeBrowserGameBootstrap(BrowserLevelKey.FirstAuthored),
       playerCharacter,
+      playerCount,
     };
   }
 
@@ -167,7 +173,17 @@ export function selectBrowserGameBootstrap(
   return {
     ...makeBrowserGameBootstrap(makeBrowserLevelKey(selectedLevelKey)),
     playerCharacter,
+    playerCount,
   };
+}
+
+// Parse ?players=N into a co-op player count in [1, maxSimulationPlayers].
+function parsePlayerCount(value: string | null): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return 1;
+  }
+  return Math.min(parsed, maxSimulationPlayers);
 }
 
 const browserLevelKeyValues: readonly BrowserLevelKey[] =

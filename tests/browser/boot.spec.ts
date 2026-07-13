@@ -2139,6 +2139,20 @@ test("scrolls the camera as browser movement reaches the wider authored level", 
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+test("boots additional co-op bot players from the players query parameter", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  // ?players=N runs N same-screen players: the primary plus N-1 co-op bots.
+  await page.goto("/?browserLevel=first-authored&players=4");
+  const snapshot = await readSimulationSnapshot(page);
+  expect(snapshot.playerCount).toBe(4);
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
 test("boots the player in the Luigi costume when requested", async ({
   page,
 }) => {

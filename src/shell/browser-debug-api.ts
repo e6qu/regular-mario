@@ -258,6 +258,8 @@ export type BrowserSimulationSnapshot = {
   readonly groundQuakeCount: number;
   // The costume the player is wearing ("castaway" default, "luigi" the green swap).
   readonly playerCharacter: string;
+  // Total simultaneous players (1 = single-player; more in same-screen co-op).
+  readonly playerCount: number;
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
   readonly levelTimer: BrowserLevelTimerSnapshot;

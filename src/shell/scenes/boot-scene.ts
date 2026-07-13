@@ -102,6 +102,7 @@ import {
   defaultPlayerCharacter,
   type PlayerCharacter,
 } from "../player-character";
+import { makeBotInputCommands } from "../coop-bot-input";
 import {
   stepDeathPartBody,
   type DeathPartBody,
@@ -162,6 +163,9 @@ const stompedGoombaFlattenFrames = 42;
 const stompedGoombaSquashScaleY = 0.45;
 // The "WELCOME TO WARP ZONE!" wall label sits above the tiles but below the HUD.
 const warpBannerDepth = 55;
+// Additional co-op players (demo bots) wear the Luigi costume to read as distinct
+// from the primary player.
+const coopPlayerCharacter: PlayerCharacter = "luigi";
 // Flow screens: how long the "WORLD w-l" intro card holds the level frozen
 // before play begins. (The starting life count is the engine's
 // initialLivesCount.)
@@ -873,6 +877,9 @@ export class BootScene extends Phaser.Scene {
   // (playerImageObject); there is no procedural vector-rectangle player.
   private playerRectangle!: Phaser.GameObjects.Rectangle;
   private playerImageObject: Phaser.GameObjects.Image | undefined;
+  // Sprites for the additional co-op players (demo bots), kept in sync with
+  // simulationState.coopPlayers and positioned from them each frame.
+  private readonly coopPlayerImages: Phaser.GameObjects.Image[] = [];
   // Last non-trivial horizontal travel direction, so the water merman can face
   // the way he swims.
   private facingRight = true;
@@ -3146,11 +3153,18 @@ export class BootScene extends Phaser.Scene {
 
     const previousSimulationState = this.simulationState;
     const inputCommand = this.makeCurrentInputCommand();
+    // The additional co-op players are demo bots: deterministic pseudo-random
+    // inputs (replay-stable), one per co-op player this frame.
+    const coopInputCommands = makeBotInputCommands(
+      Number(previousSimulationState.clock.frameIndex),
+      previousSimulationState.coopPlayers?.length ?? 0,
+    );
     this.simulationState = stepSimulation(
       previousSimulationState,
       inputCommand,
       resolveMovementConstants(this.currentTheme, this.exaggeratedReactions),
       this.levelSpec,
+      coopInputCommands,
     );
     this.runRecorder.record(inputCommand, this.simulationState);
     this.latchEnemyContactObservation();
@@ -4144,6 +4158,8 @@ export class BootScene extends Phaser.Scene {
       this.playerImageObject.setAlpha(playerAlpha);
     }
 
+    this.renderCoopPlayers();
+
     const feedbackText = makeOutcomeFeedbackText(
       this.simulationState.playerOutcome,
     );
@@ -4442,6 +4458,49 @@ export class BootScene extends Phaser.Scene {
 
   // Shabby mode: redden the player as head-bonk bloodiness climbs (10 levels).
   // Off in the faithful mode, where bloodiness is always 0.
+  // Render each additional co-op player (demo bot) as a Luigi sprite, keeping the
+  // sprite pool in sync with simulationState.coopPlayers and positioning each
+  // from its own kinematics.
+  private renderCoopPlayers(): void {
+    const coopPlayers = this.simulationState.coopPlayers ?? [];
+    while (this.coopPlayerImages.length < coopPlayers.length) {
+      const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
+      if (image === undefined) {
+        break;
+      }
+      this.coopPlayerImages.push(image);
+    }
+    while (this.coopPlayerImages.length > coopPlayers.length) {
+      this.coopPlayerImages.pop()?.destroy();
+    }
+    coopPlayers.forEach((coopPlayer, index) => {
+      const image = this.coopPlayerImages[index];
+      if (image === undefined) {
+        return;
+      }
+      // Resolve this player's own sprite by viewing the sim through its slice.
+      const runtime = this.simulationState.players[index + 1];
+      const view: SimulationState = {
+        ...this.simulationState,
+        player: coopPlayer,
+        playerVitality: runtime?.vitality ?? this.simulationState.playerVitality,
+      };
+      const sprite = resolvePlayerSpriteImage(
+        this.userAssetBundle?.playerImage,
+        view,
+        this.currentTheme,
+        coopPlayerCharacter,
+      );
+      if (sprite !== undefined) {
+        setUserFrameImage(this, image, sprite);
+      }
+      image
+        .setFlipX(this.currentTheme === "water" && coopPlayer.velocity.x < -4)
+        .setPosition(coopPlayer.position.x, coopPlayer.position.y)
+        .setDisplaySize(coopPlayer.collider.width, coopPlayer.collider.height);
+    });
+  }
+
   private renderPlayerBloodiness(): void {
     if (!this.exaggeratedReactions) {
       return;
@@ -5023,6 +5082,7 @@ export class BootScene extends Phaser.Scene {
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         groundQuakeCount: this.groundQuakeCount,
         playerCharacter: this.playerCharacter,
+        playerCount: this.simulationState.players.length,
         level: {
           widthTiles: this.levelSpec.widthTiles,
           heightTiles: this.levelSpec.heightTiles,
@@ -8353,6 +8413,7 @@ function makeRequiredInitialSimulationState(
       browserGameBootstrap.exaggeratedReactions ?? false,
     ),
     browserGameBootstrap.initialPlayerVitality,
+    browserGameBootstrap.playerCount ?? 1,
   );
 
   if (!result.ok) {
