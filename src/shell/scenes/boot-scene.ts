@@ -2642,13 +2642,28 @@ export class BootScene extends Phaser.Scene {
       Math.sin(
         (this.deathEffectFrame / deathFloatWobbleFramesPerCycle) * Math.PI * 2,
       ) * deathFloatWobbleAmplitudePixels;
-    this.positionPlayerSpriteAt(this.deathArcX + wobble, this.deathArcY);
+    const bodyX = this.deathArcX + wobble;
+    this.positionPlayerSpriteAt(bodyX, this.deathArcY);
     this.holdDeadPose();
+    const width = this.simulationState.player.collider.width;
+    const height = this.simulationState.player.collider.height;
+    // Pin the sprite to the upright collider box, belly-up (the normal render
+    // leaves the wide, mirrored swim box), so the X-ed-eyes overlay — laid over
+    // the exact same box — lands on the face rather than drifting off it.
     if (this.playerImageObject !== undefined) {
-      this.playerImageObject.setFlipY(true);
+      this.playerImageObject
+        .setFlipX(false)
+        .setFlipY(true)
+        .setDisplaySize(width, height)
+        .setPosition(bodyX, this.deathArcY);
     }
     if (this.deathXEyesImage !== undefined) {
-      this.deathXEyesImage.setPosition(this.deathArcX + wobble, this.deathArcY);
+      this.deathXEyesImage
+        .setOrigin(0)
+        .setFlipX(false)
+        .setFlipY(true)
+        .setDisplaySize(width, height)
+        .setPosition(bodyX, this.deathArcY);
     }
   }
 
