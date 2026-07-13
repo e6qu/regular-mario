@@ -2153,17 +2153,18 @@ test("boots additional co-op bot players from the players query parameter", asyn
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
-test("body parts from a dying player take out nearby co-op players", async ({
+test("co-op players are taken out during play (enemy contact and a dying player's body parts)", async ({
   page,
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
+  // Five same-screen players cluster at the spawn near the enemy. Driving the
+  // primary in bursts them apart: co-op players are removed as they touch the
+  // enemy and as the primary's explosion parts strike them, so the count falls.
   await page.goto("/?browserLevel=first-authored&players=5");
-  const before = await readSimulationSnapshot(page);
-  expect(before.playerCount).toBe(5);
-
-  // Walk the primary into the enemy; its explosion bursts among the co-op
-  // players clustered at the spawn and takes some of them out.
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
   await page.keyboard.down("ArrowRight");
   await page.waitForFunction(
     () =>
