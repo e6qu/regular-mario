@@ -5,6 +5,7 @@ import {
   type DeathPartBox,
   type DeathPartPhysicsParams,
   type SolidTileQuery,
+  resolveDeathPartCollisions,
   stepDeathPartBody,
 } from "./death-part-physics";
 
@@ -109,5 +110,54 @@ describe("stepDeathPartBody", () => {
     const body = makeBody({ x: 24, y: 24, vx: 1 });
     const result = stepDeathPartBody(body, noTiles, [enemy], params);
     expect(result.hitEnemyIndices).toHaveLength(0);
+  });
+
+  it("settles to rest on the ground and then goes inert", () => {
+    const body = makeBody({ y: 40, vy: 6 });
+    for (let frame = 0; frame < 200; frame += 1) {
+      stepDeathPartBody(body, floorAtRow4, [], params);
+    }
+    expect(body.resting).toBe(true);
+    // An enemy that later overlaps the settled part draws no hit, and the part
+    // does not move — it is inert debris.
+    const restedY = body.y;
+    const enemy: DeathPartBox = { left: 20, top: 56, right: 36, bottom: 72 };
+    const result = stepDeathPartBody(body, floorAtRow4, [enemy], params);
+    expect(result.hitEnemyIndices).toHaveLength(0);
+    expect(result.landed).toBe(false);
+    expect(body.y).toBe(restedY);
+  });
+});
+
+describe("resolveDeathPartCollisions", () => {
+  it("bounces two overlapping moving parts apart, exchanging velocity", () => {
+    const left = makeBody({ x: 22, y: 24, vx: 4 });
+    const right = makeBody({ x: 26, y: 24, vx: -4 });
+    const beforeGap = right.x - left.x;
+    resolveDeathPartCollisions([left, right], params);
+    // Separated along x...
+    expect(right.x - left.x).toBeGreaterThan(beforeGap);
+    // ...and their horizontal velocities swapped (equal-mass elastic), damped by
+    // restitution, so the left part now heads left and the right part right.
+    expect(left.vx).toBeLessThan(0);
+    expect(right.vx).toBeGreaterThan(0);
+  });
+
+  it("leaves a resting part untouched (inert debris blocks nothing)", () => {
+    const resting = makeBody({ x: 24, y: 24, vx: 0, resting: true });
+    const mover = makeBody({ x: 26, y: 24, vx: -4 });
+    resolveDeathPartCollisions([resting, mover], params);
+    expect(resting.x).toBe(24);
+    expect(resting.vx).toBe(0);
+    // The mover passes through unchanged (no bounce off inert debris).
+    expect(mover.vx).toBe(-4);
+  });
+
+  it("ignores parts that do not overlap", () => {
+    const a = makeBody({ x: 0, y: 0, vx: 2 });
+    const b = makeBody({ x: 100, y: 0, vx: -2 });
+    resolveDeathPartCollisions([a, b], params);
+    expect(a.vx).toBe(2);
+    expect(b.vx).toBe(-2);
   });
 });

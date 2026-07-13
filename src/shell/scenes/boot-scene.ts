@@ -110,6 +110,7 @@ import {
 import { makeBotInputCommands } from "../coop-bot-input";
 import { robotNameForBotSpawn } from "../coop-bot-names";
 import {
+  resolveDeathPartCollisions,
   stepDeathPartBody,
   type DeathPartBody,
   type DeathPartBox,
@@ -844,6 +845,8 @@ export class BootScene extends Phaser.Scene {
   // deathPieces so several bots can burst at once. Each still harms enemies and
   // the other bots via the shared death-part physics.
   private botDeathPieces: FlyingDeathPart[] = [];
+  // Seeded LCG state for the 1-in-5 "does this part strike actually harm?" roll.
+  private deathDamageRoll = 0x1a2b3c4d;
   // Enemies knocked out by a flung body part: each flips over and ragdolls off
   // under gravity. Keyed by entity id so a second part can't re-hit one, and so
   // the normal actor render skips them (leaving stepKnockedEnemies in charge).
@@ -2668,15 +2671,19 @@ export class BootScene extends Phaser.Scene {
     const isSolidTile = (column: number, row: number): boolean =>
       this.deathPartTileIsSolid(column, row);
     const { boxes, targets } = this.deathPartTargets();
-    const survivors: FlyingDeathPart[] = [];
+    // Phase 1: fly each part (gravity + terrain + enemy bounce). A struck enemy
+    // or bot is only actually harmed on a 1-in-5 roll — the part always bounces
+    // off, but rarely kills — so a burst is a hazard, not a guaranteed wipe. A
+    // part already at rest is inert and reports nothing.
     for (const piece of pieces) {
       const result = stepDeathPartBody(piece.body, isSolidTile, boxes, params);
-      // Spin damps when the part lands; each struck enemy is knocked out and
-      // each struck co-op bot is taken out (body parts harm others too).
       if (result.landed) {
         piece.vr *= 0.5;
       }
       for (const hitIndex of result.hitEnemyIndices) {
+        if (!this.rollDeathPartDamage()) {
+          continue;
+        }
         const target = targets[hitIndex];
         if (target === undefined) {
           continue;
@@ -2687,6 +2694,17 @@ export class BootScene extends Phaser.Scene {
           hitCoopPlayerIndices.add(target.index);
         }
       }
+    }
+    // Phase 2: bounce the still-moving parts off each other (settled parts are
+    // inert and block nothing).
+    resolveDeathPartCollisions(
+      pieces.map((piece) => piece.body),
+      params,
+    );
+    // Phase 3: sync each sprite to its (now fully resolved) body and drop parts
+    // that fell off the world.
+    const survivors: FlyingDeathPart[] = [];
+    for (const piece of pieces) {
       piece.image.setPosition(piece.body.x, piece.body.y);
       piece.image.rotation += piece.vr;
       // The head's X-ed eyes ride along with it.
@@ -2702,6 +2720,14 @@ export class BootScene extends Phaser.Scene {
       survivors.push(piece);
     }
     return survivors;
+  }
+
+  // A deterministic 1-in-5 roll for whether a flying body part actually harms
+  // what it struck (it always bounces regardless). A seeded LCG — not
+  // Math.random — keeps the shell reproducible, matching the codebase style.
+  private rollDeathPartDamage(): boolean {
+    this.deathDamageRoll = (this.deathDamageRoll * 1103515245 + 12345) >>> 0;
+    return (this.deathDamageRoll >>> 24) % 5 === 0;
   }
 
   // Take the struck co-op bots out of the sim (dead until the level ends); their

@@ -211,6 +211,7 @@ export function stepSimulation(
     state.players.slice(1),
     coopInputCommands,
     state.clock.frameDurationMilliseconds,
+    Number(nextClock.frameIndex),
     movementConstants,
     levelSpec,
     primaryStepped.enemyMotion,
@@ -285,10 +286,16 @@ function stepPrimaryPlayer(
 
 // Advance each additional co-op player through the shared terrain kinematics
 // with its own input (or neutral when none is provided this frame).
+// Co-op bots are invincible for the first 10 seconds of a level so they survive
+// the crowded spawn (a pile of bots would otherwise knock each other into the
+// first enemy/pit before anyone gets moving).
+const coopSpawnInvincibilityMilliseconds = 10000;
+
 function stepCoopPlayers(
   coopRuntimes: readonly PlayerRuntime[],
   coopInputCommands: readonly SimulationInputCommand[],
   frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
+  frameIndex: number,
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   enemyMotion: EnemyMotionState,
@@ -307,6 +314,14 @@ function stepCoopPlayers(
       levelSpec,
     ),
   }));
+  // During the spawn-invincibility window nobody is removed, so the bots ride
+  // out the initial scrum unharmed.
+  if (
+    frameIndex * Number(frameDurationMilliseconds) <
+    coopSpawnInvincibilityMilliseconds
+  ) {
+    return moved;
+  }
   // A co-op player that touches an enemy, walks into a hazard, or falls into a
   // pit is out for the rest of the level (removed from the field) — the "dead
   // until level ends" rule, applied uniformly.

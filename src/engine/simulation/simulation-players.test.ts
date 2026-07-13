@@ -160,7 +160,7 @@ describe("simulation players array", () => {
   });
 
   it("removes a co-op player that has fallen into a pit (dead until level ends)", () => {
-    const base = twoPlayerState();
+    const base = afterSpawnInvincibility(twoPlayerState());
     const stepped = stepSimulation(
       withCoopPlayerAt(base, Number(base.players[1]!.player.position.x), 10000),
       neutral(),
@@ -174,7 +174,7 @@ describe("simulation players array", () => {
   it("removes a co-op player that touches an enemy", () => {
     // firstAuthored has an enemy (beetle-1) at pixel (96, 64); put a co-op
     // player right on it.
-    const base = twoPlayerState();
+    const base = afterSpawnInvincibility(twoPlayerState());
     const stepped = stepSimulation(
       withCoopPlayerAt(base, 96, 56),
       neutral(),
@@ -183,6 +183,20 @@ describe("simulation players array", () => {
       [neutral()],
     );
     expect(stepped.players).toHaveLength(1);
+  });
+
+  it("keeps a co-op player alive during the spawn-invincibility window", () => {
+    // The same on-the-enemy placement, but stepped on an early frame: the bot
+    // is invincible for the first 10 seconds, so it survives.
+    const base = twoPlayerState();
+    const stepped = stepSimulation(
+      withCoopPlayerAt(base, 96, 56),
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    expect(stepped.players).toHaveLength(2);
   });
 
   it("finishes the level when any player (a co-op player) reaches the goal", () => {
@@ -230,6 +244,18 @@ describe("simulation players array", () => {
     );
   });
 });
+
+// Advance `base`'s clock past the 10-second co-op spawn-invincibility window so
+// the next step applies the normal death rules to the bots.
+function afterSpawnInvincibility(base: SimulationState): SimulationState {
+  return {
+    ...base,
+    clock: {
+      ...base.clock,
+      frameIndex: 700 as SimulationState["clock"]["frameIndex"],
+    },
+  };
+}
 
 // Return a copy of `base` with its single co-op player moved to (x, y).
 function withCoopPlayerAt(

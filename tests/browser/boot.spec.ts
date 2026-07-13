@@ -2153,27 +2153,23 @@ test("boots additional co-op bot players from the players query parameter", asyn
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
-test("co-op players are taken out during play (enemy contact and a dying player's body parts)", async ({
+test("co-op bots survive the crowded spawn (spawn invincibility)", async ({
   page,
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
-  // Five same-screen players cluster at the spawn near the enemy. Driving the
-  // primary in bursts them apart: co-op players are removed as they touch the
-  // enemy and as the primary's explosion parts strike them, so the count falls.
+  // Five same-screen players cluster at the spawn near the enemy. Without the
+  // spawn grace the crowded bots knock each other into the enemy within ~20
+  // frames and the count collapses; invincible, the whole crowd is still on the
+  // field well into the window. Checked on a fixed early frame so the assertion
+  // never races the (variable-speed) boot.
   await page.goto("/?browserLevel=first-authored&players=5");
-  await page.waitForFunction(
-    () => window.__originalBrowserPlatformerDebug !== undefined,
-  );
-  await page.keyboard.down("ArrowRight");
-  await page.waitForFunction(
-    () =>
-      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
-        .playerCount < 5,
-    undefined,
-    { timeout: 10000 },
-  );
-  await page.keyboard.up("ArrowRight");
+  await page.waitForFunction(() => {
+    const snapshot =
+      window.__originalBrowserPlatformerDebug?.getSimulationSnapshot();
+    return snapshot !== undefined && snapshot.frameIndex >= 30;
+  });
+  expect((await readSimulationSnapshot(page)).playerCount).toBe(5);
 
   expect(browserErrors.pageErrors).toEqual([]);
 });

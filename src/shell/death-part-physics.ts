@@ -1,9 +1,11 @@
 // Realistic AABB box physics for the flung body parts of the explode death
 // effect. Each part is an axis-aligned box that falls under gravity, lands on
 // (and bounces elastically off) the level's blocks and ground, bounces off the
-// sides of walls, and bounces off — and knocks out — live enemies it touches.
-// Pure and framework-free so the collision/bounce behaviour is unit-testable;
-// the scene owns the sprites and drives one of these per part each frame.
+// sides of walls, bounces off — and knocks out — live enemies it touches, and
+// bounces off the other still-moving parts. Once a part settles to rest it goes
+// inert: it no longer damages anything or blocks (collides with) other parts —
+// it is just decorative debris. Pure and framework-free so the collision/bounce
+// behaviour is unit-testable; the scene owns the sprites and drives these.
 
 export type DeathPartBody = {
   x: number;
@@ -12,7 +14,15 @@ export type DeathPartBody = {
   vy: number;
   readonly halfWidth: number;
   readonly halfHeight: number;
+  // Latched true once the part has come to rest on the ground. A resting part is
+  // skipped by gravity/collision and reports no hits — inert debris.
+  resting?: boolean;
 };
+
+// A part slower than this (horizontally) on the ground is treated as stopped and
+// latched to rest. Kept small so a part rests only once it has really settled,
+// not while it is still visibly sliding.
+const restingHorizontalSpeed = 0.25;
 
 export type DeathPartBox = {
   readonly left: number;
@@ -148,13 +158,18 @@ function resolveEnemy(
 }
 
 // Advance one part by a frame: gravity, then axis-separated tile resolution,
-// then enemy resolution. Mutates `body` in place and reports what it hit.
+// then enemy resolution. Mutates `body` in place and reports what it hit. A part
+// already at rest is inert — it neither moves nor reports any hit.
 export function stepDeathPartBody(
   body: DeathPartBody,
   isSolidTile: SolidTileQuery,
   enemyBoxes: readonly DeathPartBox[],
   params: DeathPartPhysicsParams,
 ): DeathPartStepResult {
+  if (body.resting === true) {
+    return { landed: false, bouncedWall: false, hitEnemyIndices: [] };
+  }
+
   body.vy += params.gravity;
   const bouncedWall = resolveHorizontal(body, isSolidTile, params);
   const landed = resolveVertical(body, isSolidTile, params);
@@ -168,5 +183,71 @@ export function stepDeathPartBody(
     }
   }
 
+  // Settle: resting on the ground (the vertical bounce spent to zero) with
+  // horizontal motion nearly gone latches the part inert from here on.
+  if (
+    landed &&
+    body.vy === 0 &&
+    Math.abs(body.vx) < restingHorizontalSpeed
+  ) {
+    body.vx = 0;
+    body.resting = true;
+  }
+
   return { landed, bouncedWall, hitEnemyIndices };
+}
+
+// Whether two part boxes overlap.
+function bodiesOverlap(a: DeathPartBody, b: DeathPartBody): boolean {
+  return (
+    a.x + a.halfWidth > b.x - b.halfWidth &&
+    a.x - a.halfWidth < b.x + b.halfWidth &&
+    a.y + a.halfHeight > b.y - b.halfHeight &&
+    a.y - a.halfHeight < b.y + b.halfHeight
+  );
+}
+
+// Bounce the still-moving parts off each other: for every overlapping pair of
+// non-resting bodies, separate them along the shallower axis and exchange their
+// velocity along it (equal-mass elastic bounce, damped by restitution). Resting
+// parts are skipped entirely — inert debris blocks nothing.
+export function resolveDeathPartCollisions(
+  bodies: readonly DeathPartBody[],
+  params: DeathPartPhysicsParams,
+): void {
+  for (let i = 0; i < bodies.length; i += 1) {
+    const a = bodies[i];
+    if (a === undefined || a.resting === true) {
+      continue;
+    }
+    for (let j = i + 1; j < bodies.length; j += 1) {
+      const b = bodies[j];
+      if (b === undefined || b.resting === true || !bodiesOverlap(a, b)) {
+        continue;
+      }
+      const overlapX = Math.min(
+        a.x + a.halfWidth - (b.x - b.halfWidth),
+        b.x + b.halfWidth - (a.x - a.halfWidth),
+      );
+      const overlapY = Math.min(
+        a.y + a.halfHeight - (b.y - b.halfHeight),
+        b.y + b.halfHeight - (a.y - a.halfHeight),
+      );
+      if (overlapX < overlapY) {
+        const push = (a.x <= b.x ? 1 : -1) * (overlapX / 2);
+        a.x -= push;
+        b.x += push;
+        const swap = a.vx;
+        a.vx = b.vx * params.restitution;
+        b.vx = swap * params.restitution;
+      } else {
+        const push = (a.y <= b.y ? 1 : -1) * (overlapY / 2);
+        a.y -= push;
+        b.y += push;
+        const swap = a.vy;
+        a.vy = b.vy * params.restitution;
+        b.vy = swap * params.restitution;
+      }
+    }
+  }
 }
