@@ -108,6 +108,7 @@ import {
   type PlayerCharacter,
 } from "../player-character";
 import { makeBotInputCommands } from "../coop-bot-input";
+import { robotNameForBotSpawn } from "../coop-bot-names";
 import {
   stepDeathPartBody,
   type DeathPartBody,
@@ -827,10 +828,16 @@ export class BootScene extends Phaser.Scene {
     w: number;
     h: number;
     character: PlayerCharacter;
+    name: string;
   }[] = [];
   // The resolved costume per current co-op bot (index-aligned to
   // players.slice(1)), set by the per-step tracker and read by the renderer.
   private coopBotCharacters: PlayerCharacter[] = [];
+  // Each current co-op bot's robotic call-sign (index-aligned to the costumes),
+  // shown as a label above it and carried across frames like the costume.
+  private coopBotNames: string[] = [];
+  // The floating name-label text objects, pooled parallel to coopPlayerImages.
+  private readonly coopPlayerNameLabels: Phaser.GameObjects.Text[] = [];
   // Monotonic counter so every newly-seen bot cycles onto a fresh robot variant.
   private coopBotNextVariant = 0;
   // Body parts flung by exploding bots — kept apart from the primary's
@@ -4655,8 +4662,13 @@ export class BootScene extends Phaser.Scene {
       piece.image.destroy();
     }
     this.botDeathPieces = [];
+    for (const label of this.coopPlayerNameLabels) {
+      label.destroy();
+    }
+    this.coopPlayerNameLabels.length = 0;
     this.coopBotSnapshots = [];
     this.coopBotCharacters = [];
+    this.coopBotNames = [];
     this.coopBotNextVariant = 0;
   }
 
@@ -4696,17 +4708,22 @@ export class BootScene extends Phaser.Scene {
       currentToPrevious[ci] = pi;
       previousMatched[pi] = true;
     }
-    // Each current bot keeps its matched costume, or (new) cycles to the next.
+    // Each current bot keeps its matched costume + call-sign, or (new) cycles to
+    // the next robot variant and draws a fresh call-sign.
+    const names: string[] = [];
     this.coopBotCharacters = current.map((_c, ci) => {
       const pi = currentToPrevious[ci] ?? -1;
       const matched = pi >= 0 ? previous[pi] : undefined;
       if (matched !== undefined) {
+        names[ci] = matched.name;
         return matched.character;
       }
-      const character = robotCharacterForBotIndex(this.coopBotNextVariant);
+      const spawn = this.coopBotNextVariant;
       this.coopBotNextVariant += 1;
-      return character;
+      names[ci] = robotNameForBotSpawn(spawn);
+      return robotCharacterForBotIndex(spawn);
     });
+    this.coopBotNames = names;
     // Any previous bot with no current match is gone — blow it up where it fell.
     previous.forEach((p, pi) => {
       if (!previousMatched[pi]) {
@@ -4719,6 +4736,7 @@ export class BootScene extends Phaser.Scene {
       w: c.w,
       h: c.h,
       character: this.coopBotCharacters[ci] ?? "robot1",
+      name: names[ci] ?? "ROBO",
     }));
   }
 
@@ -4835,6 +4853,12 @@ export class BootScene extends Phaser.Scene {
     while (this.coopPlayerImages.length > coopRuntimes.length) {
       this.coopPlayerImages.pop()?.destroy();
     }
+    while (this.coopPlayerNameLabels.length < coopRuntimes.length) {
+      this.coopPlayerNameLabels.push(this.makeCoopBotNameLabel());
+    }
+    while (this.coopPlayerNameLabels.length > coopRuntimes.length) {
+      this.coopPlayerNameLabels.pop()?.destroy();
+    }
     coopRuntimes.forEach((runtime, index) => {
       const image = this.coopPlayerImages[index];
       if (image === undefined) {
@@ -4859,7 +4883,35 @@ export class BootScene extends Phaser.Scene {
         .setFlipX(this.currentTheme === "water" && coopPlayer.velocity.x < -4)
         .setPosition(coopPlayer.position.x, coopPlayer.position.y)
         .setDisplaySize(coopPlayer.collider.width, coopPlayer.collider.height);
+      // Float this bot's call-sign just above its head, centred on the sprite.
+      const label = this.coopPlayerNameLabels[index];
+      if (label !== undefined) {
+        label
+          .setText(this.coopBotNames[index] ?? "")
+          .setPosition(
+            Number(coopPlayer.position.x) +
+              Number(coopPlayer.collider.width) / 2,
+            Number(coopPlayer.position.y) - 3,
+          );
+      }
     });
+  }
+
+  // A small, crisp name-tag for a co-op bot: bright text with a dark outline so
+  // it reads over any backdrop, centred on the bot and anchored at its bottom so
+  // it sits just above the head.
+  private makeCoopBotNameLabel(): Phaser.GameObjects.Text {
+    return this.add
+      .text(0, 0, "", {
+        fontFamily: "monospace",
+        fontSize: "6px",
+        color: "#eaf2ff",
+        stroke: "#101828",
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 1)
+      .setResolution(3)
+      .setDepth(58);
   }
 
   private renderPlayerBloodiness(): void {
