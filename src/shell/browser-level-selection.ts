@@ -19,6 +19,7 @@ import {
   warpRouteUndergroundLevelInput,
   warpRouteUndergroundLevelName,
 } from "../engine/levels/warp-route-level";
+import { warpZoneRouteLevelInput } from "../engine/levels/warp-zone-route-level";
 import { powerUpRouteLevelInput } from "../engine/levels/power-up-route-level";
 import { projectileRouteLevelInput } from "../engine/levels/projectile-route-level";
 import { showcaseSequence } from "../engine/levels/showcase-level";
@@ -52,6 +53,7 @@ enum BrowserLevelKey {
   ImportedVglcRoute = "imported-vglc-route",
   CavernRoute = "cavern-route",
   WarpRoute = "warp-route",
+  WarpZoneRoute = "warp-zone-route",
 }
 
 export type LevelTheme = "overworld" | "underground" | "castle" | "water";
@@ -321,6 +323,11 @@ function makeBrowserGameBootstrap(
           [warpRouteUndergroundLevelName, warpRouteUndergroundLevelInput],
         ]),
       };
+    case BrowserLevelKey.WarpZoneRoute:
+      return makeSingleLevelBootstrap(
+        warpZoneRouteLevelInput,
+        makeInitialPlayerVitalityState(),
+      );
     default: {
       const invalidLevelKey: never = levelKey;
       throw new Error(
