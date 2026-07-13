@@ -32,8 +32,50 @@ type SongVoice = {
   readonly type: OscillatorType;
   readonly gain: number;
   readonly channel: "melody" | "bass" | "harmony";
+  // Pluck the note (a short, fast-decaying ring like a ukulele string) instead
+  // of holding it for the note's full length.
+  readonly pluck?: boolean;
 };
 type Song = { readonly voices: readonly SongVoice[] };
+
+// An original, bouncy ukulele-style tune for Revenge mode, composed here from
+// scratch (major-key arpeggios over a plucked root bass) — not derived from any
+// existing song. MIDI pitch + duration in seconds, looped.
+function revengeNotes(
+  midis: readonly (number | null)[],
+  seconds: number,
+): readonly RomNote[] {
+  return midis.map((midi) => ({ midi, seconds }));
+}
+const revengeSong: Song = {
+  voices: [
+    {
+      // Cheeky arpeggio melody (C major: C, Am, F, G, then an octave-up reprise).
+      notes: revengeNotes(
+        [
+          72, 76, 79, 76, 69, 72, 76, 72, 65, 69, 72, 69, 67, 71, 74, 67, 76, 79,
+          84, 79, 72, 76, 81, 76, 74, 77, 81, 77, 79, 74, 71, 67,
+        ],
+        0.18,
+      ),
+      type: "triangle",
+      gain: 0.07,
+      channel: "melody",
+      pluck: true,
+    },
+    {
+      // A simple plucked root bass, one root per arpeggio group.
+      notes: revengeNotes(
+        [48, 45, 41, 43, 48, 45, 41, 43, 48, 45, 41, 43, 48, 45, 41, 43],
+        0.36,
+      ),
+      type: "triangle",
+      gain: 0.06,
+      channel: "bass",
+      pluck: true,
+    },
+  ],
+};
 
 // Concatenate one channel across all of a theme's parts into one looping voice.
 function makeVoice(
@@ -225,6 +267,12 @@ export class GameAudio {
     this.vocalMelody = enabled;
   }
 
+  // Revenge mode swaps the theme for the original ukulele revenge tune.
+  private revengeMusic = false;
+  public setRevengeMusic(enabled: boolean): void {
+    this.revengeMusic = enabled;
+  }
+
   public startBackgroundMusic(theme?: string): boolean {
     if (this.musicEnabled) {
       return true;
@@ -238,7 +286,9 @@ export class GameAudio {
 
     this.stopJingles();
     this.tempoScale = 1;
-    this.currentSong = songsByTheme[theme ?? "overworld"] ?? overworldSong;
+    this.currentSong = this.revengeMusic
+      ? revengeSong
+      : (songsByTheme[theme ?? "overworld"] ?? overworldSong);
     // Water levels play the theme as if heard underwater and hummed by a
     // nervous, nasal, Morty-ish voice — a small comedic touch.
     this.musicOutput =
@@ -475,12 +525,17 @@ export class GameAudio {
       const now = audioContext.currentTime;
       // Slightly detached (staccato) with a soft attack, so repeated notes
       // articulate instead of smearing into one tone.
-      const sustain = Math.max(0.05, durationSeconds * 0.85);
+      // A plucked voice rings briefly then decays (ukulele); otherwise it holds
+      // most of the note (a soft-attack staccato).
+      const sustain =
+        voice.pluck === true
+          ? Math.min(durationSeconds * 0.9, 0.22)
+          : Math.max(0.05, durationSeconds * 0.85);
 
       oscillator.type = voice.type;
       oscillator.frequency.setValueAtTime(frequencyHertz, now);
       gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.exponentialRampToValueAtTime(voice.gain, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(voice.gain, now + 0.006);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + sustain);
 
       oscillator.connect(gain);
@@ -845,6 +900,76 @@ export class GameAudio {
       gain.connect(audioContext.destination);
       oscillator.start(now);
       oscillator.stop(now + 0.26);
+    } catch {
+      // Best-effort audio.
+    }
+  }
+
+  // Exaggerated cartoon-Italian stomp yelps for revenge mode: "itsa" then "me"
+  // cycle on consecutive stomps, with an "ow" mixed in every third. Original
+  // formant synthesis (no sampled voice) — high, bright, and over-acted.
+  private revengeVoiceIndex = 0;
+  public playRevengeStompVoice(): void {
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    const step = this.revengeVoiceIndex % 3;
+    this.revengeVoiceIndex += 1;
+    const now = audioContext.currentTime;
+    if (step === 0) {
+      // "IT-SA!": a bright 'ih', a hissed 'ts', then an open 'ah' punch.
+      this.playFormantYelp(audioContext, now, [[430, 8], [2000, 7], [2700, 6]], 330, 300, 0.12, 0.5);
+      this.playFormantYelp(audioContext, now + 0.13, [[3600, 3]], 2000, 2600, 0.05, 0.16);
+      this.playFormantYelp(audioContext, now + 0.19, [[820, 6], [1250, 6], [2600, 5]], 300, 380, 0.22, 0.55);
+    } else if (step === 1) {
+      // "MEE!": a nasal 'm' hum opening into a bright 'ee'.
+      this.playFormantYelp(audioContext, now, [[280, 10], [1100, 8]], 300, 300, 0.08, 0.3);
+      this.playFormantYelp(audioContext, now + 0.08, [[300, 9], [2500, 7], [3100, 5]], 300, 440, 0.26, 0.55);
+    } else {
+      // "OW!": an open 'ah' yelp falling to 'oo'.
+      this.playFormantYelp(audioContext, now, [[760, 6], [1120, 6]], 440, 250, 0.3, 0.6);
+    }
+  }
+
+  // One vocalised formant burst: a buzzing glottal source pitch-swept from
+  // startPitch to endPitch, shaped by bandpass "formant" resonances, with a
+  // fast attack and decay. The building block for the revenge yelps.
+  private playFormantYelp(
+    audioContext: AudioContext,
+    startTime: number,
+    formants: readonly (readonly [number, number])[],
+    startPitchHertz: number,
+    endPitchHertz: number,
+    durationSeconds: number,
+    gain: number,
+  ): void {
+    try {
+      const source = audioContext.createOscillator();
+      source.type = "sawtooth";
+      source.frequency.setValueAtTime(startPitchHertz, startTime);
+      source.frequency.exponentialRampToValueAtTime(
+        Math.max(50, endPitchHertz),
+        startTime + durationSeconds,
+      );
+      const mix = audioContext.createGain();
+      mix.gain.setValueAtTime(1, startTime);
+      for (const [hertz, q] of formants) {
+        const bandpass = audioContext.createBiquadFilter();
+        bandpass.type = "bandpass";
+        bandpass.frequency.setValueAtTime(hertz, startTime);
+        bandpass.Q.setValueAtTime(q, startTime);
+        source.connect(bandpass);
+        bandpass.connect(mix);
+      }
+      const amp = audioContext.createGain();
+      amp.gain.setValueAtTime(0.0001, startTime);
+      amp.gain.exponentialRampToValueAtTime(gain, startTime + 0.02);
+      amp.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSeconds);
+      mix.connect(amp);
+      amp.connect(audioContext.destination);
+      source.start(startTime);
+      source.stop(startTime + durationSeconds + 0.03);
     } catch {
       // Best-effort audio.
     }

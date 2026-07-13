@@ -1326,6 +1326,9 @@ export class BootScene extends Phaser.Scene {
     this.gameAudio.setVocalSoundtrack(
       this.browserGameBootstrap.vocalSoundtrack === true,
     );
+    // Revenge mode plays the original ukulele revenge tune in place of the
+    // area theme.
+    this.gameAudio.setRevengeMusic(this.revengeMode);
     registerUserSoundBuffers(this.gameAudio, this.userAssetBundle);
 
     this.buildLevelObjects();
@@ -3389,6 +3392,14 @@ export class BootScene extends Phaser.Scene {
     // A pained, cartoony "ouch" layered over the head-bonk thud.
     if (this.lastSoundEvents.includes(SoundEvent.HeadBonk)) {
       this.gameAudio.playOuch();
+    }
+    // Revenge mode: each Mario/Luigi you stomp yelps an over-acted
+    // "itsa"/"me"/"ow" in sequence.
+    if (
+      this.revengeMode &&
+      this.lastSoundEvents.includes(SoundEvent.Stomp)
+    ) {
+      this.gameAudio.playRevengeStompVoice();
     }
 
     this.renderSimulationState();
