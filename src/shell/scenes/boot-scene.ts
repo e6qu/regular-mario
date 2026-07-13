@@ -104,6 +104,7 @@ import { hardLandingDropTiles, resolveGroundQuake } from "../ground-quake";
 import {
   applyCharacterToCandidates,
   defaultPlayerCharacter,
+  robotCharacterForBotIndex,
   type PlayerCharacter,
 } from "../player-character";
 import { makeBotInputCommands } from "../coop-bot-input";
@@ -167,9 +168,9 @@ const stompedGoombaFlattenFrames = 42;
 const stompedGoombaSquashScaleY = 0.45;
 // The "WELCOME TO WARP ZONE!" wall label sits above the tiles but below the HUD.
 const warpBannerDepth = 55;
-// Additional co-op players (demo bots) wear the Luigi costume to read as distinct
-// from the primary player.
-const coopPlayerCharacter: PlayerCharacter = "luigi";
+// Additional co-op players (demo bots) each wear a distinct Futurama-inspired
+// robot costume (cycled by index via robotCharacterForBotIndex) so a crowd of
+// bots reads as separate machines rather than clones of the primary player.
 // Flow screens: how long the "WORLD w-l" intro card holds the level frozen
 // before play begins. (The starting life count is the engine's
 // initialLivesCount.)
@@ -4590,7 +4591,7 @@ export class BootScene extends Phaser.Scene {
         this.userAssetBundle?.playerImage,
         view,
         this.currentTheme,
-        coopPlayerCharacter,
+        robotCharacterForBotIndex(index),
       );
       if (sprite !== undefined) {
         setUserFrameImage(this, image, sprite);

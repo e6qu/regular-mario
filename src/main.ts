@@ -20,6 +20,10 @@ import {
   type BrowserGameBootstrap,
   type LevelTheme,
 } from "./shell/browser-level-selection";
+import {
+  parsePlayerCharacter,
+  type PlayerCharacter,
+} from "./shell/player-character";
 import { decodeSharedLevel, renderLevelEditor } from "./shell/level-editor";
 import {
   renderDeployInfoFooter,
@@ -334,6 +338,8 @@ type PlayRoute = {
   readonly sound: string;
   // Number of demo bot players (random movers) to add alongside you.
   readonly bots: string;
+  // The costume the human player wears (castaway / luigi / robot1..4).
+  readonly character: string;
 };
 // Update the address bar to reflect the current area without reloading (so a
 // copied link reopens this state). replaceState avoids a stray hashchange.
@@ -1901,6 +1907,10 @@ function renderImportUi(options: ImportUiOptions): void {
 
 function styleStartMenuSelect(select: HTMLSelectElement): void {
   select.style.width = "100%";
+  // Grid items default to min-width:auto, so a select whose selected option is
+  // wider than its column pushes past the track and out of the panel. Allow it
+  // to shrink and clip its own overflowing text instead.
+  select.style.minWidth = "0";
   select.style.boxSizing = "border-box";
   select.style.padding = "8px 10px";
   select.style.marginTop = "4px";
@@ -1911,7 +1921,12 @@ function styleStartMenuSelect(select: HTMLSelectElement): void {
   select.style.color = "#3a2410";
   select.style.fontFamily = "monospace";
   select.style.fontWeight = "bold";
-  select.style.fontSize = "15px";
+  // 13px keeps the longer option labels ("Shabby (exaggerated reactions)")
+  // inside the two-column boxes; overflow clips rather than spills.
+  select.style.fontSize = "13px";
+  select.style.whiteSpace = "nowrap";
+  select.style.overflow = "hidden";
+  select.style.textOverflow = "ellipsis";
 }
 
 function makeStartMenuLabel(text: string): HTMLElement {
@@ -2016,6 +2031,16 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     ["webgl", "WebGL (GPU, faster)"],
     ["auto", "Auto (WebGL if available)"],
   ]);
+  // The costume the human player wears — the castaway, the full green
+  // companion, or any of the four Futurama-inspired robots.
+  const characterSelect = makeStartMenuDropdown("Character", [
+    ["castaway", "Castaway"],
+    ["luigi", "Green companion"],
+    ["robot1", "Robot: Clank (boxy)"],
+    ["robot2", "Robot: Sprocket (thin)"],
+    ["robot3", "Robot: Bubbles (dome)"],
+    ["robot4", "Robot: Crusher (treads)"],
+  ]);
   // Same-screen co-op demo: add N robot players that wander the level on their
   // own beside you.
   const botsSelect = makeStartMenuDropdown("Bots", [
@@ -2072,6 +2097,9 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   const appendField = (labelText: string, control: HTMLElement): void => {
     const field = document.createElement("div");
     field.className = "start-menu-field";
+    // Let the field shrink within its grid track so a wide control clips
+    // rather than overflowing the panel.
+    field.style.minWidth = "0";
     field.appendChild(makeStartMenuLabel(labelText));
     field.appendChild(control);
     controls.appendChild(field);
@@ -2085,6 +2113,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   appendField("GAME MODE", modeSelect);
   appendField("SOUND", audioSelect);
   appendField("RENDERER", rendererSelect);
+  appendField("CHARACTER", characterSelect);
   appendField("BOTS", botsSelect);
   panel.appendChild(controls);
   panel.appendChild(playButton);
@@ -2231,7 +2260,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         `&map=${encodeURIComponent(mapSelect.value)}` +
         `&level=${encodeURIComponent(levelSelect.value)}` +
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
-        `&bots=${botsSelect.value}`,
+        `&bots=${botsSelect.value}&character=${characterSelect.value}`,
     );
     void bootSelectedContentSet(
       assetSelect.value,
@@ -2240,6 +2269,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
       modeSelect.value === "shabby",
       audioSelect.value === "shabby",
       Number(botsSelect.value) || 0,
+      parsePlayerCharacter(characterSelect.value),
       status,
     );
   };
@@ -2251,6 +2281,11 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     audioSelect.value = autoplay.sound;
     if ([...botsSelect.options].some((o) => o.value === autoplay.bots)) {
       botsSelect.value = autoplay.bots;
+    }
+    if (
+      [...characterSelect.options].some((o) => o.value === autoplay.character)
+    ) {
+      characterSelect.value = autoplay.character;
     }
     if ([...levelSelect.options].some((o) => o.value === autoplay.level)) {
       levelSelect.value = autoplay.level;
@@ -2264,7 +2299,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
           `&map=${encodeURIComponent(mapSelect.value)}` +
           `&level=${encodeURIComponent(autoplay.level)}` +
           `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
-          `&bots=${botsSelect.value}`,
+          `&bots=${botsSelect.value}&character=${characterSelect.value}`,
       );
       void bootSelectedContentSet(
         assetSelect.value,
@@ -2273,6 +2308,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         modeSelect.value === "shabby",
         audioSelect.value === "shabby",
         Number(botsSelect.value) || 0,
+        parsePlayerCharacter(characterSelect.value),
         status,
       );
     }
@@ -2367,6 +2403,7 @@ async function bootSelectedContentSet(
   exaggeratedReactions: boolean,
   shabbyAudio: boolean,
   botCount: number,
+  playerCharacter: PlayerCharacter,
   status: HTMLElement,
 ): Promise<void> {
   status.style.color = "#3a2410";
@@ -2449,6 +2486,8 @@ async function bootSelectedContentSet(
         userLevelVisualName: selectedLevel.name,
         // You plus the chosen number of same-screen demo bots.
         playerCount: 1 + Math.max(0, botCount),
+        // The costume the human player wears (bots always wear robots).
+        playerCharacter,
         exaggeratedReactions,
         // The shabby "Sound" choice sings the melody as a baritone "ba ba ba".
         vocalSoundtrack: shabbyAudio,
@@ -2491,6 +2530,7 @@ async function bootSelectedContentSet(
                   exaggeratedReactions,
                   shabbyAudio,
                   botCount,
+                  playerCharacter,
                   status,
                 );
               },
@@ -2532,6 +2572,7 @@ function applyRoute(): void {
         mode: params.get("mode") ?? "classic",
         sound: params.get("sound") ?? "classic",
         bots: params.get("bots") ?? "0",
+        character: params.get("character") ?? "castaway",
       });
       return;
     }

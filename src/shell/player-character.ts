@@ -1,21 +1,50 @@
-// Which costume a player wears. The default is the castaway; player two wears
-// the Luigi costume (a green/blue palette swap of the same frames). Kept tiny
-// and framework-free so the sprite-key logic is unit-testable without a scene.
+// Which costume a player wears. The default is the castaway; the full green
+// companion ("luigi") and four distinct Futurama-inspired robots are authored
+// costumes, each with its own sprite set (not a palette tint). Kept tiny and
+// framework-free so the sprite-key logic is unit-testable without a scene.
 
-export type PlayerCharacter = "castaway" | "luigi";
+export type PlayerCharacter =
+  | "castaway"
+  | "luigi"
+  | "robot1"
+  | "robot2"
+  | "robot3"
+  | "robot4";
 
 export const defaultPlayerCharacter: PlayerCharacter = "castaway";
+
+// The four robot costumes, in the order bots cycle through them, so every bot in
+// a crowd reads as a distinct machine.
+export const robotPlayerCharacters: readonly PlayerCharacter[] = [
+  "robot1",
+  "robot2",
+  "robot3",
+  "robot4",
+];
+
+const selectablePlayerCharacters: ReadonlySet<string> = new Set<PlayerCharacter>(
+  ["castaway", "luigi", "robot1", "robot2", "robot3", "robot4"],
+);
 
 // Parse a character from a query-string value (anything unrecognised is the
 // default castaway).
 export function parsePlayerCharacter(value: string | null): PlayerCharacter {
-  return value === "luigi" ? "luigi" : "castaway";
+  return value !== null && selectablePlayerCharacters.has(value)
+    ? (value as PlayerCharacter)
+    : "castaway";
+}
+
+// The robot a co-op bot at a given index wears, cycling through the four robot
+// costumes so a stack or crowd of bots stays visually distinct.
+export function robotCharacterForBotIndex(index: number): PlayerCharacter {
+  const character = robotPlayerCharacters[index % robotPlayerCharacters.length];
+  return character ?? "robot1";
 }
 
 // Prefix the resolved sprite-state candidates with the character so a
-// non-default costume looks up its own art first (e.g. "luigi-powered-idle"),
-// then falls back to the shared default art when a frame is missing. The
-// castaway is the base art, so it needs no prefix.
+// non-default costume looks up its own art first (e.g. "luigi-powered-idle" or
+// "robot2-small-jump"), then falls back to the shared default art when a frame
+// is missing. The castaway is the base art, so it needs no prefix.
 export function applyCharacterToCandidates(
   candidates: readonly string[],
   character: PlayerCharacter,

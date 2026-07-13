@@ -5,12 +5,14 @@
 // `authored` content set (descriptor + PNGs) into the ignored cache so it can be
 // composed with any map set and selected as an alternative skin.
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // prettier-ignore
 import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette as deathFlamePalette, huskGrid, huskPalette, partArmGrid, partHeadGrid, partLegGrid, partTorsoGrid, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
+// prettier-ignore
+import { robotCostumes, luigiCostume, robotPartHeadGrid, robotPartTorsoGrid, robotPartArmGrid, robotPartLegGrid } from "./robot-costume-sprites.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -899,37 +901,96 @@ function wingedEnemySprite(walkFileName, shellFileName, wingedFileName) {
   };
 }
 
-function playerStateSprites() {
-  // Map every engine player state key to an authored frame. Powered and fire
-  // tiers are palette-swapped variants (crimson tunic / sun-bleached whites),
-  // the classic approach; recovering reuses the small frames while flashing.
-  const poses = {
-    idle: "castaway-idle",
-    walk: "castaway-walk-1",
-    run: "castaway-walk-2",
-    jump: "castaway-jump",
-    fall: "castaway-jump",
-    crouch: "castaway-crouch",
-    climb: "castaway-climb",
-    swim: "castaway-swim",
-    "swim-2": "castaway-swim-2",
-  };
+// Map each engine player action to the pose id a costume draws it with. The
+// castaway (and full Luigi) have dedicated crouch/climb/swim poses; the robots
+// have no such poses, so those actions reuse a near frame (idle / gliding jump)
+// — see the per-costume maps below.
+const fullActionPoses = {
+  idle: "idle",
+  walk: "walk-1",
+  run: "walk-2",
+  jump: "jump",
+  fall: "jump",
+  crouch: "crouch",
+  climb: "climb",
+  swim: "swim",
+  "swim-2": "swim-2",
+};
+const luigiActionPoses = {
+  ...fullActionPoses,
+  // The full Luigi has its own crouch/climb; it glides (jump pose) when swimming.
+  swim: "jump",
+  "swim-2": "jump",
+};
+const robotActionPoses = {
+  idle: "idle",
+  walk: "walk-1",
+  run: "walk-2",
+  jump: "jump",
+  fall: "jump",
+  crouch: "idle",
+  climb: "idle",
+  swim: "jump",
+  "swim-2": "jump",
+};
+
+// Emit the four vitality-tier keys for every action of one costume. `keyPrefix`
+// is "" for the base castaway (unprefixed keys) or "<character>-" for a costume
+// that resolvePlayerSpriteImage looks up by character prefix. `fileStem` is the
+// PNG basename prefix; powered/fire reuse the pose grid under a tier palette.
+function costumeStateSprites(keyPrefix, fileStem, actionPoses) {
   const stateSprites = {};
-  for (const [pose, base] of Object.entries(poses)) {
-    stateSprites[`small-${pose}`] = spriteEntry(`${base}.png`);
-    stateSprites[`recovering-${pose}`] = spriteEntry(`${base}.png`);
-    stateSprites[`powered-${pose}`] = spriteEntry(`${base}-powered.png`);
-    stateSprites[`fire-${pose}`] = spriteEntry(`${base}-fire.png`);
-    // Player two's Luigi costume — the same poses in a green/blue palette,
-    // keyed with a "luigi-" character prefix (see resolvePlayerSpriteImage).
-    stateSprites[`luigi-small-${pose}`] = spriteEntry(`${base}-luigi.png`);
-    stateSprites[`luigi-recovering-${pose}`] = spriteEntry(`${base}-luigi.png`);
-    stateSprites[`luigi-powered-${pose}`] = spriteEntry(
-      `${base}-luigi-powered.png`,
+  for (const [action, pose] of Object.entries(actionPoses)) {
+    const base = `${fileStem}-${pose}`;
+    stateSprites[`${keyPrefix}small-${action}`] = spriteEntry(`${base}.png`);
+    stateSprites[`${keyPrefix}recovering-${action}`] = spriteEntry(
+      `${base}.png`,
     );
-    stateSprites[`luigi-fire-${pose}`] = spriteEntry(`${base}-luigi-fire.png`);
+    stateSprites[`${keyPrefix}powered-${action}`] = spriteEntry(
+      `${base}-powered.png`,
+    );
+    stateSprites[`${keyPrefix}fire-${action}`] = spriteEntry(`${base}-fire.png`);
   }
   return stateSprites;
+}
+
+function playerStateSprites() {
+  return {
+    // Default castaway (unprefixed keys — the base art the others fall back to).
+    ...costumeStateSprites("", "castaway", fullActionPoses),
+    // Full green companion costume (distinct art, not a palette swap).
+    ...costumeStateSprites("luigi-", "luigi", luigiActionPoses),
+    // Four distinct Futurama-style robots, each its own character prefix.
+    ...robotCostumes.reduce(
+      (all, costume) => ({
+        ...all,
+        ...costumeStateSprites(`${costume.key}-`, costume.key, robotActionPoses),
+      }),
+      {},
+    ),
+  };
+}
+
+// Expand a costume descriptor (from robot-costume-sprites.mjs) into the
+// [filename, grid, palette] tuples the sprite writer consumes: one base +
+// powered + fire PNG per pose grid.
+function costumeSpriteFiles(costume) {
+  return Object.entries(costume.poses).flatMap(([pose, grid]) => [
+    [`${costume.key}-${pose}.png`, grid, costume.palettes.base],
+    [`${costume.key}-${pose}-powered.png`, grid, costume.palettes.powered],
+    [`${costume.key}-${pose}-fire.png`, grid, costume.palettes.fire],
+  ]);
+}
+
+// Each robot's own body-part sprites (the shared boxy-metal set under that
+// robot's palette), so it explodes into its own colours.
+function robotPartFiles(costume) {
+  return [
+    [`${costume.key}-part-head.png`, robotPartHeadGrid, costume.palettes.base],
+    [`${costume.key}-part-torso.png`, robotPartTorsoGrid, costume.palettes.base],
+    [`${costume.key}-part-arm.png`, robotPartArmGrid, costume.palettes.base],
+    [`${costume.key}-part-leg.png`, robotPartLegGrid, costume.palettes.base],
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -1519,57 +1580,15 @@ const firePlayerPalette = {
   p: [196, 62, 46, 255],
 };
 
-// Player two's "Luigi" costume: the classic green shirt over blue overalls and a
-// green cap — clearly distinct from the default castaway's olive tunic and rust
-// trousers, but the same frames. Powered brightens the green; fire bleaches the
-// shirt to white with green accents (a green fire-Luigi).
-const luigiPlayerPalette = {
-  ...palette,
-  T: [56, 162, 72, 255],
-  p: [66, 86, 150, 255],
-  H: [30, 96, 44, 255],
-};
-const luigiPoweredPlayerPalette = {
-  ...luigiPlayerPalette,
-  T: [86, 202, 104, 255],
-  p: [96, 118, 190, 255],
-};
-const luigiFirePlayerPalette = {
-  ...luigiPlayerPalette,
-  T: [236, 236, 224, 255],
-  p: [56, 162, 72, 255],
-};
-
-// Every player pose grid, so the powered/fire/luigi tiers can be generated by
-// looping instead of a wall of near-identical literal lines.
-const castawayPoseGrids = [
-  ["idle", castawayIdle],
-  ["walk-1", castawayWalk1],
-  ["walk-2", castawayWalk2],
-  ["jump", castawayJump],
-  ["crouch", castawayCrouch],
-  ["climb", castawayClimb],
-  ["swim", castawaySwimA],
-  ["swim-2", castawaySwimB],
-];
-// The Luigi tiers: base (small/recovering), powered, and fire.
-const luigiTierSprites = [
-  ["luigi", luigiPlayerPalette],
-  ["luigi-powered", luigiPoweredPlayerPalette],
-  ["luigi-fire", luigiFirePlayerPalette],
-].flatMap(([tier, tierPalette]) =>
-  castawayPoseGrids.map(([pose, grid]) => [
-    `castaway-${pose}-${tier}.png`,
-    grid,
-    tierPalette,
-  ]),
-);
-
 async function main() {
   const outDir = assertUserLevelCachePath(
     readOption("--out-dir") ?? defaultOutDir,
     "--out-dir",
   );
+  // Wipe any prior output so renamed/removed sprites (e.g. the old
+  // castaway-*-luigi tint frames replaced by dedicated luigi art) never linger
+  // as orphans that the bundler would ship.
+  await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
 
   const sprites = [
@@ -1641,8 +1660,12 @@ async function main() {
     ["castaway-climb-fire.png", castawayClimb, firePlayerPalette],
     ["castaway-swim-fire.png", castawaySwimA, firePlayerPalette],
     ["castaway-swim-2-fire.png", castawaySwimB, firePlayerPalette],
-    // Player two's Luigi costume (all tiers, generated by loop above).
-    ...luigiTierSprites,
+    // Full green companion costume — distinct art (base/powered/fire per pose).
+    ...costumeSpriteFiles(luigiCostume),
+    // Four distinct robots (base/powered/fire per pose) plus each robot's own
+    // dismemberment body parts, recoloured to that robot's palette.
+    ...robotCostumes.flatMap(costumeSpriteFiles),
+    ...robotCostumes.flatMap(robotPartFiles),
     // Background scenery.
     ["scenery-cloud-left.png", sceneryCloudLeft, sceneryPalette],
     ["scenery-cloud-middle.png", sceneryCloudMiddle, sceneryPalette],
@@ -1764,6 +1787,15 @@ async function main() {
       "part-arm": spriteEntry("part-arm.png"),
       "part-leg": spriteEntry("part-leg.png"),
       "rescued-friend": spriteEntry("rescued-friend.png"),
+      // Each robot's own body parts, so a bot explodes into its own colours.
+      ...Object.fromEntries(
+        robotCostumes.flatMap((costume) =>
+          ["head", "torso", "arm", "leg"].map((part) => [
+            `${costume.key}-part-${part}`,
+            spriteEntry(`${costume.key}-part-${part}.png`),
+          ]),
+        ),
+      ),
     },
     playerSprite: {
       ...spriteEntry("castaway-idle.png"),
