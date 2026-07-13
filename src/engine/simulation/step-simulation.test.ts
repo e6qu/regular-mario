@@ -701,6 +701,7 @@ describe("simulation primitives", () => {
           hatchedPositions: [],
         },
         enemies: makeEmptyEnemyInteractionState(),
+        enemyDamageContactFrameByEntityId: new Map(),
         enemyContactResponse: {
           kind: "none",
         },
@@ -2584,6 +2585,8 @@ describe("simulation primitives", () => {
           collectibles: validInitialState().collectibles,
           powerUps: validInitialState().powerUps,
           enemies: validInitialState().enemies,
+          enemyDamageContactFrameByEntityId:
+            validInitialState().enemyDamageContactFrameByEntityId,
           enemyContactResponse: validInitialState().enemyContactResponse,
           enemyMotion: validInitialState().enemyMotion,
           interactiveBlocks: validInitialState().interactiveBlocks,

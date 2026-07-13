@@ -1,5 +1,6 @@
 import type { DomainResult } from "../domain/result";
 import { fail, succeed } from "../domain/result";
+import type { EntityId } from "../domain/identifiers";
 import type { LevelSpec } from "../domain/level-spec";
 import type { FrameDurationMilliseconds, FrameIndex } from "../domain/units";
 import { makeFrameDurationMilliseconds, makeFrameIndex } from "../domain/units";
@@ -116,6 +117,11 @@ export type SimulationState = {
   readonly collectibles: CollectibleInteractionState;
   readonly powerUps: PowerUpInteractionState;
   readonly enemies: EnemyInteractionState;
+  // The frame each enemy last dealt the player a damaging contact, so the same
+  // enemy is debounced to at most one hit per cooldown window (a particular
+  // enemy cannot chip a big player down and then kill them; different enemies
+  // still hurt independently).
+  readonly enemyDamageContactFrameByEntityId: ReadonlyMap<EntityId, FrameIndex>;
   readonly enemyContactResponse: EnemyContactResponseState;
   readonly enemyMotion: EnemyMotionState;
   readonly interactiveBlocks: InteractiveBlockInteractionState;
@@ -201,6 +207,7 @@ export function makeInitialSimulationStateWithPlayerVitality(
     collectibles: makeEmptyCollectibleInteractionState(),
     powerUps: makeEmptyPowerUpInteractionState(),
     enemies: makeEmptyEnemyInteractionState(),
+    enemyDamageContactFrameByEntityId: new Map(),
     enemyContactResponse: makeEmptyEnemyContactResponseState(),
     enemyMotion: makeInitialEnemyMotionState(levelSpec, movementConstants),
     interactiveBlocks: makeEmptyInteractiveBlockInteractionState(),

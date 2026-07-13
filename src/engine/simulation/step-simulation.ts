@@ -1,5 +1,10 @@
 import { makeFrameIndex } from "../domain/units";
+import type { FrameIndex } from "../domain/units";
 import type { EntityId } from "../domain/identifiers";
+
+// A given enemy can deal the player at most one damaging contact per this many
+// frames (~1 second at 60 Hz) — a per-enemy debounce, not a global one.
+const enemyDamageContactCooldownFrames = 60;
 import {
   assertValidCollectibleInteractionState,
   resolveCollectibleInteractionState,
@@ -509,6 +514,44 @@ function stepActiveSimulation(
     projectiles.newlyDefeatedEnemyEntityIds,
     levelSpec,
   );
+  // Per-enemy damage debounce: a given enemy can only deal a damaging contact
+  // once per cooldown window, so it cannot chip a big player down and then kill
+  // them (and a player stuck against one enemy is not chain-hit). Different
+  // enemies still hurt independently. `enemies.contactedEnemyEntityIds` at this
+  // point is exactly the damaging-contact set (stomps / shell + star kills have
+  // already been removed), so filtering it gates only the damage path — the
+  // stomp/defeat-enemy path is untouched.
+  const currentFrame = nextClock.frameIndex;
+  const previousEnemyDamageFrames = state.enemyDamageContactFrameByEntityId;
+  const freshDamagingEnemyEntityIds = enemies.contactedEnemyEntityIds.filter(
+    (entityId) => {
+      const lastFrame = previousEnemyDamageFrames.get(entityId);
+      return (
+        lastFrame === undefined ||
+        currentFrame - lastFrame >= enemyDamageContactCooldownFrames
+      );
+    },
+  );
+  const damagingEnemies: EnemyInteractionState = {
+    ...enemies,
+    contactedEnemyEntityIds: freshDamagingEnemyEntityIds,
+  };
+  // Next cooldown map: refresh every currently-contacting enemy (so continuous
+  // overlap stays debounced), keep recently-separated enemies until their
+  // cooldown lapses, and drop the rest.
+  const contactingEnemyEntityIds = new Set(enemies.contactedEnemyEntityIds);
+  const nextEnemyDamageFrames = new Map<EntityId, FrameIndex>();
+  for (const entityId of contactingEnemyEntityIds) {
+    nextEnemyDamageFrames.set(entityId, currentFrame);
+  }
+  for (const [entityId, lastFrame] of previousEnemyDamageFrames) {
+    if (
+      !contactingEnemyEntityIds.has(entityId) &&
+      currentFrame - lastFrame < enemyDamageContactCooldownFrames
+    ) {
+      nextEnemyDamageFrames.set(entityId, lastFrame);
+    }
+  }
   const stompedThisFrame =
     enemies.defeatedEnemyEntityIds.length >
       state.enemies.defeatedEnemyEntityIds.length &&
@@ -549,7 +592,7 @@ function stepActiveSimulation(
   const enemyContactResponse = resolveEnemyContactResponseState(
     playerAfterEnemyResponse,
     enemyMotion,
-    enemies,
+    damagingEnemies,
     levelSpec,
     nextClock.frameIndex,
     movementConstants.enemySideContactKnockbackSpeed,
@@ -692,7 +735,7 @@ function stepActiveSimulation(
   const playerOutcome = resolvePlayerOutcomeState(
     state.playerOutcome,
     outcomeLevelContacts,
-    enemies,
+    damagingEnemies,
     playerVitalityAfterHazard,
     levelSpec.fallExitTransition === undefined &&
       hasPlayerFallenIntoPit(playerAfterContactResponse, levelSpec),
@@ -785,6 +828,7 @@ function stepActiveSimulation(
     collectibles,
     powerUps: powerUpResolution.state,
     enemies,
+    enemyDamageContactFrameByEntityId: nextEnemyDamageFrames,
     enemyContactResponse,
     enemyMotion: enemyMotionAfterEnemyResponse,
     interactiveBlocks,
