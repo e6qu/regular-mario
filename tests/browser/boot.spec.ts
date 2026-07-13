@@ -2153,6 +2153,30 @@ test("boots additional co-op bot players from the players query parameter", asyn
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+test("body parts from a dying player take out nearby co-op players", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  await page.goto("/?browserLevel=first-authored&players=5");
+  const before = await readSimulationSnapshot(page);
+  expect(before.playerCount).toBe(5);
+
+  // Walk the primary into the enemy; its explosion bursts among the co-op
+  // players clustered at the spawn and takes some of them out.
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+        .playerCount < 5,
+    undefined,
+    { timeout: 10000 },
+  );
+  await page.keyboard.up("ArrowRight");
+
+  expect(browserErrors.pageErrors).toEqual([]);
+});
+
 test("boots the player in the Luigi costume when requested", async ({
   page,
 }) => {

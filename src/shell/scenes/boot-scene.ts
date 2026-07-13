@@ -2575,20 +2575,27 @@ export class BootScene extends Phaser.Scene {
     };
     const isSolidTile = (column: number, row: number): boolean =>
       this.deathPartTileIsSolid(column, row);
-    const { boxes, entityIds } = this.liveEnemyCollisionBoxes();
+    const { boxes, targets } = this.deathPartTargets();
+    const hitCoopPlayerIndices = new Set<number>();
 
     const survivors: typeof this.deathPieces = [];
     for (const piece of this.deathPieces) {
       const result = stepDeathPartBody(piece.body, isSolidTile, boxes, params);
 
-      // Spin damps when the part lands, and each struck enemy is knocked out.
+      // Spin damps when the part lands; each struck enemy is knocked out and each
+      // struck co-op player is taken out (body parts harm other players too).
       if (result.landed) {
         piece.vr *= 0.5;
       }
-      for (const enemyIndex of result.hitEnemyIndices) {
-        const entityId = entityIds[enemyIndex];
-        if (entityId !== undefined) {
-          this.knockOutEnemy(entityId, piece.body.vx);
+      for (const hitIndex of result.hitEnemyIndices) {
+        const target = targets[hitIndex];
+        if (target === undefined) {
+          continue;
+        }
+        if (target.kind === "enemy") {
+          this.knockOutEnemy(target.entityId, piece.body.vx);
+        } else {
+          hitCoopPlayerIndices.add(target.index);
         }
       }
 
@@ -2608,6 +2615,16 @@ export class BootScene extends Phaser.Scene {
       survivors.push(piece);
     }
     this.deathPieces = survivors;
+    // Remove any co-op players the flying parts struck (dead until level ends).
+    if (hitCoopPlayerIndices.size > 0) {
+      const remaining = (this.simulationState.coopPlayers ?? []).filter(
+        (_unused, index) => !hitCoopPlayerIndices.has(index),
+      );
+      this.simulationState = {
+        ...this.simulationState,
+        coopPlayers: remaining,
+      };
+    }
     this.stepKnockedEnemies(belowLevelY);
   }
 
@@ -2634,18 +2651,25 @@ export class BootScene extends Phaser.Scene {
     );
   }
 
-  // Collision boxes for the enemies still on the field (not defeated, not already
-  // knocked out by a part), plus their entity ids so a hit can knock them out.
-  private liveEnemyCollisionBoxes(): {
+  // Boxes the flying body parts can strike: the enemies still on the field plus
+  // the other (co-op) players, each tagged so a hit knocks out an enemy or takes
+  // out a player.
+  private deathPartTargets(): {
     readonly boxes: readonly DeathPartBox[];
-    readonly entityIds: readonly string[];
+    readonly targets: readonly (
+      | { readonly kind: "enemy"; readonly entityId: string }
+      | { readonly kind: "coop"; readonly index: number }
+    )[];
   } {
     const size = this.levelSpec.tileSizePixels;
     const defeated = new Set(
       this.simulationState.enemies.defeatedEnemyEntityIds.map(String),
     );
     const boxes: DeathPartBox[] = [];
-    const entityIds: string[] = [];
+    const targets: (
+      | { readonly kind: "enemy"; readonly entityId: string }
+      | { readonly kind: "coop"; readonly index: number }
+    )[] = [];
     for (const actor of this.renderedActors) {
       if (
         !isEnemyRole(actor.role) ||
@@ -2659,9 +2683,20 @@ export class BootScene extends Phaser.Scene {
         this.simulationState,
       );
       boxes.push({ left: x, top: y, right: x + size, bottom: y + size });
-      entityIds.push(actor.entityId);
+      targets.push({ kind: "enemy", entityId: actor.entityId });
     }
-    return { boxes, entityIds };
+    (this.simulationState.coopPlayers ?? []).forEach((player, index) => {
+      const left = Number(player.position.x);
+      const top = Number(player.position.y);
+      boxes.push({
+        left,
+        top,
+        right: left + Number(player.collider.width),
+        bottom: top + Number(player.collider.height),
+      });
+      targets.push({ kind: "coop", index });
+    });
+    return { boxes, targets };
   }
 
   // Fling an enemy off: it pops up, flips over and ragdolls away under gravity.
