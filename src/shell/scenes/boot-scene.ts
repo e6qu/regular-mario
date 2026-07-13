@@ -96,6 +96,7 @@ import type {
   LevelTheme,
 } from "../browser-level-selection";
 import { GameAudio, type DeathSoundKind } from "../game-audio";
+import { hardLandingDropTiles, resolveGroundQuake } from "../ground-quake";
 import {
   buildRunExport,
   buildRunZip,
@@ -787,6 +788,12 @@ export class BootScene extends Phaser.Scene {
   private deathXEyesImage: Phaser.GameObjects.Image | undefined;
   private previousPlayerVertical: VerticalMovementState =
     VerticalMovementState.Grounded;
+  // The world-Y of the ground the player last stood on, held throughout an
+  // airborne stretch so a landing can be measured ground-to-ground (a net fall).
+  // Null until the player has first been grounded.
+  private lastGroundedWorldY: number | null = null;
+  // How many hard-landing ground quakes have fired (exposed for debug/tests).
+  private groundQuakeCount = 0;
   // An invisible anchor for the player's position (camera follow, death arc,
   // flagpole slide). The visible player is always the authored sprite
   // (playerImageObject); there is no procedural vector-rectangle player.
@@ -1948,10 +1955,16 @@ export class BootScene extends Phaser.Scene {
   // Haptic feedback for the frame's sound events: a light tap on landing, a
   // double thud on a head-bonk, and a longer rumble on death (touch devices).
   private stepHaptics(events: readonly SoundEvent[]): void {
+    // One vibrate() call per frame (a new call cancels the previous), so the
+    // strongest event this frame wins the buzz.
     if (events.includes(SoundEvent.Defeat)) {
       vibrateHaptic(deathHapticPattern);
+    } else if (events.includes(SoundEvent.BlockBreak)) {
+      vibrateHaptic(blockBreakHapticPattern);
     } else if (events.includes(SoundEvent.HeadBonk)) {
       vibrateHaptic(headBonkHapticPattern);
+    } else if (events.includes(SoundEvent.Stomp)) {
+      vibrateHaptic(stompHapticMilliseconds);
     } else if (events.includes(SoundEvent.Land)) {
       vibrateHaptic(landHapticMilliseconds);
     }
@@ -3779,12 +3792,31 @@ export class BootScene extends Phaser.Scene {
 
   private renderSimulationState(): void {
     const currentVertical = this.simulationState.player.movement.vertical;
+    const currentWorldY = this.simulationState.player.position.y;
+    const isGrounded = currentVertical === VerticalMovementState.Grounded;
 
     if (
       this.previousPlayerVertical !== VerticalMovementState.Grounded &&
-      currentVertical === VerticalMovementState.Grounded
+      isGrounded
     ) {
       this.spawnLandingDustParticles();
+      // Falling more than a couple of blocks (ground-to-ground, so an ordinary
+      // jump back to the same level never counts) lands hard enough to shake the
+      // whole screen — a little earthquake, scaled to how far the player fell.
+      if (
+        this.lastGroundedWorldY !== null &&
+        this.simulationState.playerOutcome.kind === PlayerOutcomeKind.Active
+      ) {
+        const dropTiles =
+          (currentWorldY - this.lastGroundedWorldY) /
+          this.levelSpec.tileSizePixels;
+        if (dropTiles > hardLandingDropTiles) {
+          this.triggerGroundQuake(dropTiles);
+        }
+      }
+    }
+    if (isGrounded) {
+      this.lastGroundedWorldY = currentWorldY;
     }
     this.previousPlayerVertical = currentVertical;
 
@@ -4284,6 +4316,18 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // A hard landing shakes the whole main camera (every rendered object rides
+  // it) and buzzes a rolling rumble, both scaled by how far the player fell.
+  private triggerGroundQuake(dropTiles: number): void {
+    const quake = resolveGroundQuake(dropTiles);
+    if (quake === null) {
+      return;
+    }
+    this.cameras.main.shake(quake.durationMs, quake.intensity);
+    vibrateHaptic(groundQuakeHapticPattern);
+    this.groundQuakeCount += 1;
+  }
+
   private renderSpawnedActors(
     collectedCoinEntityIdStrings: ReadonlySet<string>,
     collectedItemEntityIdStrings: ReadonlySet<string>,
@@ -4667,6 +4711,7 @@ export class BootScene extends Phaser.Scene {
           xEyesVisible: this.deathXEyesImage?.visible ?? false,
         },
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
+        groundQuakeCount: this.groundQuakeCount,
         level: {
           widthTiles: this.levelSpec.widthTiles,
           heightTiles: this.levelSpec.heightTiles,
@@ -4942,16 +4987,24 @@ function vibrateHaptic(pattern: number | readonly number[]): void {
   }
 }
 
-// A short haptic tick on a touch-control press.
+// A short haptic tick on a touch-control press (kept above the motor's spin-up
+// threshold so it's actually felt).
 function buzzTouchControl(): void {
-  vibrateHaptic(8);
+  vibrateHaptic(12);
 }
 
-// Distinct haptic patterns per game event: a light tap on landing, a heavier
-// double thud on a head-bonk, and a longer rumble on death.
-const landHapticMilliseconds = 6;
-const headBonkHapticPattern: readonly number[] = [18, 20, 18];
-const deathHapticPattern: readonly number[] = [55, 40, 80];
+// Distinct haptic patterns per game event. Durations are kept above ~12ms: a
+// phone's vibration motor needs a few milliseconds just to spin up, so shorter
+// pulses (the old 6ms land tap) are imperceptible and read as "haptics don't
+// work". A light tap on landing, a snappy tick on a stomp, a crunchy double
+// tick when a brick shatters, a heavier triple thud on a head-bonk, a rolling
+// rumble for a hard-landing quake, and a long buzz on death.
+const landHapticMilliseconds = 14;
+const stompHapticMilliseconds = 16;
+const blockBreakHapticPattern: readonly number[] = [14, 12, 22];
+const headBonkHapticPattern: readonly number[] = [22, 24, 22];
+const groundQuakeHapticPattern: readonly number[] = [30, 25, 45, 25, 30];
+const deathHapticPattern: readonly number[] = [60, 45, 90];
 
 // The touch deck can be scaled to taste (thumb size / screen size) and the
 // choice persists. The scale drives both the panel width and — via the `--ctl`

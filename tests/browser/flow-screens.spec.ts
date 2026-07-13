@@ -131,6 +131,6 @@ test("fires haptic feedback on landing and death", async ({ page }) => {
     () => (window as unknown as { __vibrations: unknown[] }).__vibrations,
   );
   // The land tick (a single short duration) and the death rumble (a pattern).
-  expect(vibrations).toContainEqual(6);
-  expect(vibrations).toContainEqual([55, 40, 80]);
+  expect(vibrations).toContainEqual(14);
+  expect(vibrations).toContainEqual([60, 45, 90]);
 });

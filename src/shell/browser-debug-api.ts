@@ -250,6 +250,10 @@ export type BrowserSimulationSnapshot = {
   readonly paused: boolean;
   readonly deathEffect: BrowserDeathEffectSnapshot;
   readonly lastSoundEvents: readonly string[];
+  // How many hard-landing ground quakes (screen shakes) have fired so far — a
+  // hard fall of more than two blocks bumps this. Lets tests observe the
+  // otherwise transient camera shake.
+  readonly groundQuakeCount: number;
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
   readonly levelTimer: BrowserLevelTimerSnapshot;

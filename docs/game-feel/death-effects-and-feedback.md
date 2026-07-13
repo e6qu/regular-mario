@@ -9,7 +9,10 @@ was defeated and _why_; the shell decides how the death looks, sounds, and feels
 
 - Animation and dispatch: `src/shell/scenes/boot-scene.ts` (`maybeBeginDeathEffect`,
   `stepDeathEffect`, `resolveDeathEffectStyle`).
-- Sounds: `src/shell/game-audio.ts` (`playDeathSound`, `playOuch`).
+- Sounds: `src/shell/game-audio.ts` (`playDeathSound`, `playOuch`,
+  `emitBrickShatter`).
+- Ground quake: `src/shell/ground-quake.ts` (`resolveGroundQuake`) applied by
+  `boot-scene.ts` (`triggerGroundQuake`).
 - Haptics: `src/shell/scenes/boot-scene.ts` (`stepHaptics`, `vibrateHaptic`).
 - Overlay sprites (X-ed-eyes, smoke puff, flame tongue): shared grids in
   `scripts/death-effect-overlay-sprites.mjs`, drawn into both the parody and ROM
@@ -52,12 +55,31 @@ agonized `playScream` wail over the sizzle, and a head-bonk plays a `playOuch` y
 layered over the bump. Sounds are synthesized with the Web Audio API, like the rest
 of the shell's audio; nothing is sampled.
 
+Breaking a brick (big Mario bonking a breakable block) emits a dedicated
+`SoundEvent.BlockBreak` (raised in `sound-events.ts` when the broken-tile set
+grows). Instead of a single oscillator sweep, `emitBrickShatter` layers a sharp
+bright crack, two staggered mid-band rubble crunches, and a short low thud from
+the shared noise burst so it reads as real bricks breaking, over the bonk thud.
+
+## Ground quake (hard landing)
+
+A landing after a net fall of more than two blocks — measured ground-to-ground
+(the last-grounded world-Y vs the landing Y), so an ordinary jump back to the
+same level never counts — shakes the whole main camera a little. The pure
+`resolveGroundQuake` (`src/shell/ground-quake.ts`) maps the drop to a Phaser
+camera-shake intensity/duration that grows with the fall and saturates at eight
+blocks; `triggerGroundQuake` applies it and bumps a debug `groundQuakeCount`. A
+rolling rumble haptic fires alongside.
+
 ## Haptics
 
-On a touch device with the Vibration API, `stepHaptics` buzzes a short tick on
-landing, a double thud on a head-bonk, and a longer rumble on death. Every touch
-control also buzzes briefly when pressed. iOS ignores the Vibration API, so these
-are no-ops there.
+On a touch device with the Vibration API, `stepHaptics` buzzes per event: a tick
+on landing, a snap on a stomp, a crunchy tick when a brick shatters, a triple
+thud on a head-bonk, and a longer rumble on death; a hard-landing quake buzzes a
+rolling rumble. Every touch control also buzzes when pressed. Durations are kept
+above ~12ms because a phone's vibration motor needs a few milliseconds to spin
+up, so shorter pulses are imperceptible (the old 6ms land tick read as "haptics
+don't work"). iOS ignores the Vibration API entirely, so these are no-ops there.
 
 ## No procedural fallbacks
 

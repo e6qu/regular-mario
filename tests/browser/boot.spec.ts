@@ -2139,6 +2139,45 @@ test("scrolls the camera as browser movement reaches the wider authored level", 
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+test("shakes the screen with a ground quake after a hard landing", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  // The hard-landing route drops the runner off a high ledge onto a floor about
+  // seven blocks below — well past the two-block threshold — so the landing
+  // fires a ground quake (screen shake), which the debug snapshot counts.
+  await page.goto("/?browserLevel=hard-landing-route");
+
+  await pressBrowserInputChord(page, "run-right");
+  try {
+    const quakedSnapshot = await page.waitForFunction(
+      () => {
+        const debugApi = window.__originalBrowserPlatformerDebug;
+        if (debugApi === undefined) {
+          return false;
+        }
+        const snapshot = debugApi.getSimulationSnapshot();
+        return snapshot.groundQuakeCount > 0 ? snapshot : false;
+      },
+      undefined,
+      { timeout: 60000 },
+    );
+    const snapshot = await quakedSnapshot.jsonValue();
+    if (snapshot === false) {
+      throw new Error("Expected a ground quake after the hard landing.");
+    }
+    expect(snapshot.groundQuakeCount).toBeGreaterThan(0);
+    // The runner survived the fall (it landed on the floor, not a pit).
+    expect(snapshot.playerOutcome.kind).toBe("active");
+  } finally {
+    await releaseBrowserInputChord(page, "run-right");
+  }
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
 test("finishes at the finish-route goal and retries with reset", async ({
   page,
 }) => {

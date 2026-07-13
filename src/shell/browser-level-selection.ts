@@ -10,6 +10,7 @@ import { finishRouteLevelInput } from "../engine/levels/finish-route-level";
 import { runtimeLevelTimerId } from "../engine/simulation/level-timer-state";
 import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
 import { flyingEnemyRouteLevelInput } from "../engine/levels/flying-enemy-route-level";
+import { hardLandingRouteLevelInput } from "../engine/levels/hard-landing-route-level";
 import { hazardOnlyFeedbackLevelInput } from "../engine/levels/hazard-only-feedback-level";
 import { importedVglcRouteLevelInput } from "../engine/levels/imported-vglc-route-level";
 import { multiLevelRouteSequence } from "../engine/levels/multi-level-route-level";
@@ -42,6 +43,7 @@ enum BrowserLevelKey {
   TimedFinishRoute = "timed-finish-route",
   FirstAuthored = "first-authored",
   FlyingEnemyRoute = "flying-enemy-route",
+  HardLandingRoute = "hard-landing-route",
   HazardOnlyFeedback = "hazard-only-feedback",
   MultiLevelRoute = "multi-level-route",
   MultiLevelPoweredRoute = "multi-level-powered-route",
@@ -237,6 +239,11 @@ function makeBrowserGameBootstrap(
     case BrowserLevelKey.FirstAuthored:
       return makeSingleLevelBootstrap(
         firstAuthoredLevelInput,
+        makeInitialPlayerVitalityState(),
+      );
+    case BrowserLevelKey.HardLandingRoute:
+      return makeSingleLevelBootstrap(
+        hardLandingRouteLevelInput,
         makeInitialPlayerVitalityState(),
       );
     case BrowserLevelKey.FlyingEnemyRoute:

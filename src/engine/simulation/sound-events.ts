@@ -14,6 +14,7 @@ export enum SoundEvent {
   ProjectileFire = "projectile-fire",
   LevelComplete = "level-complete",
   HeadBonk = "head-bonk",
+  BlockBreak = "block-break",
   EnemyShot = "enemy-shot",
   Firework = "firework",
   TimeTick = "time-tick",
@@ -157,6 +158,16 @@ export function resolveSoundEvents(
 
   if (isFreshHeadBonk(previousState, currentState)) {
     events.push(SoundEvent.HeadBonk);
+  }
+
+  // A brick shattering (big Mario bonking a breakable block) adds one or more
+  // tiles to the broken set — a distinct "bricks breaking" crunch, layered over
+  // the bonk thud.
+  if (
+    currentState.breakableBlocks.brokenBlockTilePositions.length >
+    previousState.breakableBlocks.brokenBlockTilePositions.length
+  ) {
+    events.push(SoundEvent.BlockBreak);
   }
 
   const previousOutcomeKind = previousState.playerOutcome.kind;

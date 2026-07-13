@@ -85,7 +85,10 @@ const jingleSongs: Record<MusicJingle, Song> = {
   "time-warning": makeSong(romMusic.timeWarning ?? []),
 };
 
-const toneSpecs: Record<SoundEvent, ToneSpec> = {
+// Every event has a synthesized fallback tone EXCEPT the brick shatter, which
+// is a dedicated multi-layer noise synth (see playBrickShatter) rather than a
+// single oscillator sweep.
+const toneSpecs: Record<Exclude<SoundEvent, SoundEvent.BlockBreak>, ToneSpec> = {
   [SoundEvent.Jump]: {
     frequencyHertz: 440,
     endFrequencyHertz: 880,
@@ -576,9 +579,17 @@ export class GameAudio {
 
       if (buffer !== undefined) {
         this.playBuffer(audioContext, buffer);
-      } else {
-        this.playTone(audioContext, toneSpecs[event]);
+        continue;
       }
+
+      if (event === SoundEvent.BlockBreak) {
+        // No generic oscillator sweep — a brick breaking is a dedicated
+        // noise-based shatter (crack + rubble + low thud).
+        this.emitBrickShatter(audioContext);
+        continue;
+      }
+
+      this.playTone(audioContext, toneSpecs[event]);
     }
   }
 
@@ -642,10 +653,13 @@ export class GameAudio {
       readonly endHertz: number;
       readonly q: number;
       readonly gain: number;
+      // Delay the burst's onset (seconds) so staggered layers read as several
+      // fragments — e.g. rubble falling after the initial crack.
+      readonly startDelaySeconds?: number;
     },
   ): void {
     try {
-      const now = audioContext.currentTime;
+      const now = audioContext.currentTime + (options.startDelaySeconds ?? 0);
       const source = audioContext.createBufferSource();
       source.buffer = this.requireNoiseBuffer(audioContext);
       const filter = audioContext.createBiquadFilter();
@@ -670,6 +684,50 @@ export class GameAudio {
     } catch {
       // Best-effort audio; never throw from the simulation step.
     }
+  }
+
+  // A brick shattering: a sharp bright crack, then two staggered mid-band
+  // crunches for the tumbling rubble, over a short low thud as the block's mass
+  // gives way. Built from the shared noise burst so it reads as real debris, not
+  // a chiptune blip.
+  private emitBrickShatter(audioContext: AudioContext): void {
+    // Sharp initial crack — bright, high, and very short.
+    this.playNoiseBurst(audioContext, {
+      durationSeconds: 0.05,
+      filterType: "highpass",
+      startHertz: 3400,
+      endHertz: 1500,
+      q: 0.7,
+      gain: 0.16,
+    });
+    // Granular rubble — two mid-band crunches, the second delayed so the shards
+    // scatter rather than land as one hit.
+    this.playNoiseBurst(audioContext, {
+      durationSeconds: 0.16,
+      filterType: "bandpass",
+      startHertz: 1150,
+      endHertz: 380,
+      q: 1.1,
+      gain: 0.14,
+    });
+    this.playNoiseBurst(audioContext, {
+      durationSeconds: 0.22,
+      filterType: "bandpass",
+      startHertz: 720,
+      endHertz: 230,
+      q: 0.9,
+      gain: 0.1,
+      startDelaySeconds: 0.045,
+    });
+    // Low body thud — the block's mass hitting.
+    this.playNoiseBurst(audioContext, {
+      durationSeconds: 0.12,
+      filterType: "lowpass",
+      startHertz: 260,
+      endHertz: 90,
+      q: 0.6,
+      gain: 0.12,
+    });
   }
 
   // Exaggerated, cartoony death sounds — one per cause — part of the "shabby"

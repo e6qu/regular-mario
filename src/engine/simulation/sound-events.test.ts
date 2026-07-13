@@ -93,6 +93,18 @@ function withDefeatedEnemy(state: SimulationState): SimulationState {
   };
 }
 
+function withBrokenBlock(state: SimulationState): SimulationState {
+  return {
+    ...state,
+    breakableBlocks: {
+      ...state.breakableBlocks,
+      brokenBlockTilePositions: [
+        { x: 5, y: 7 } as unknown as SimulationState["breakableBlocks"]["brokenBlockTilePositions"][number],
+      ],
+    },
+  };
+}
+
 function withOutcome(
   state: SimulationState,
   kind: SimulationState["playerOutcome"]["kind"],
@@ -217,6 +229,19 @@ describe("resolveSoundEvents", () => {
 
     expect(resolveSoundEvents(baseState(), bonkedState)).toContain(
       SoundEvent.HeadBonk,
+    );
+  });
+
+  it("emits a block-break event when a breakable tile is newly broken", () => {
+    expect(
+      resolveSoundEvents(baseState(), withBrokenBlock(baseState())),
+    ).toContain(SoundEvent.BlockBreak);
+  });
+
+  it("does not emit a block-break event when nothing new breaks", () => {
+    const state = withBrokenBlock(baseState());
+    expect(resolveSoundEvents(state, state)).not.toContain(
+      SoundEvent.BlockBreak,
     );
   });
 

@@ -7,6 +7,7 @@ import { enemyGauntletRouteLevelInput } from "../engine/levels/enemy-gauntlet-ro
 import { enemyStompRouteLevelInput } from "../engine/levels/enemy-stomp-route-level";
 import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
 import { flyingEnemyRouteLevelInput } from "../engine/levels/flying-enemy-route-level";
+import { hardLandingRouteLevelInput } from "../engine/levels/hard-landing-route-level";
 import { hazardOnlyFeedbackLevelInput } from "../engine/levels/hazard-only-feedback-level";
 import { powerUpRouteLevelInput } from "../engine/levels/power-up-route-level";
 import { projectileRouteLevelInput } from "../engine/levels/projectile-route-level";
@@ -38,6 +39,12 @@ describe("selectBrowserLevelInput", () => {
   it("selects the flying enemy route fixture explicitly", () => {
     expect(selectBrowserLevelInput("?browserLevel=flying-enemy-route")).toBe(
       flyingEnemyRouteLevelInput,
+    );
+  });
+
+  it("selects the hard-landing route fixture explicitly", () => {
+    expect(selectBrowserLevelInput("?browserLevel=hard-landing-route")).toBe(
+      hardLandingRouteLevelInput,
     );
   });
 
