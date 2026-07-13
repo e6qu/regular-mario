@@ -80,6 +80,16 @@ test("an enemy-contact death bursts the body into four sprite pieces", async ({
   // Six anatomical crops of the authored player sprite (head, torso, 2 arms,
   // 2 legs) burst apart.
   expect(effect.pieceCount).toBe(6);
+
+  // The player dies on the goomba, so the bursting parts overlap it and knock it
+  // off the field — body parts harm the enemies they touch.
+  await page.waitForFunction(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+        .deathEffect.knockedEnemyCount > 0,
+    undefined,
+    { timeout: 5000 },
+  );
 });
 
 test("falling onto spikes pins the body with X-ed-out eyes", async ({

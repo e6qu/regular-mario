@@ -235,6 +235,8 @@ type BrowserDeathEffectSnapshot = {
   readonly pieceCount: number;
   readonly smokeCount: number;
   readonly xEyesVisible: boolean;
+  // Enemies knocked off the field by flung body parts (explode style).
+  readonly knockedEnemyCount: number;
 };
 
 export type BrowserSimulationSnapshot = {

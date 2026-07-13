@@ -127,8 +127,14 @@ export class RunTimelineOverlay {
 
   // Shared base so the normal and level-complete bar styles differ only in their
   // background/border/glow, not in layout.
+  // Centred, inset panel rather than a full-bleed bar: capped to a max width and
+  // horizontally centred (left/right:0 + margin:auto) so it no longer spans the
+  // whole play area — the game stays visible on either side of it. Insets by a
+  // little on narrow viewports.
   private static readonly rootBaseCss =
-    "position:absolute;left:0;right:0;bottom:0;z-index:20;display:none;" +
+    "position:absolute;left:0;right:0;bottom:0;margin:0 auto;" +
+    "width:100%;max-width:min(560px,calc(100% - 24px));" +
+    "z-index:20;display:none;" +
     "padding:12px 16px 16px;box-sizing:border-box;" +
     "backdrop-filter:blur(2px);font-family:monospace;user-select:none;";
   private pauseFrame = 0;
@@ -264,14 +270,15 @@ export class RunTimelineOverlay {
     this.root.style.cssText =
       RunTimelineOverlay.rootBaseCss +
       "background:linear-gradient(180deg,#0b0f19cc,#0b0f19ee);" +
-      "border-top:1px solid #374151;";
+      "border:1px solid #374151;border-bottom:none;border-radius:8px 8px 0 0;";
   }
 
   private applyProminentRootStyle(): void {
     this.root.style.cssText =
       RunTimelineOverlay.rootBaseCss +
       "background:linear-gradient(180deg,#1c1407f2,#0b0f19f5);" +
-      "border-top:4px solid #ffd54a;box-shadow:0 -10px 34px #ffd54a2e;";
+      "border:1px solid #ffd54a;border-top-width:4px;border-bottom:none;" +
+      "border-radius:8px 8px 0 0;box-shadow:0 -10px 34px #ffd54a2e;";
   }
 
   // A small toggle that collapses/expands the filmstrip scrubber (the "timeline"

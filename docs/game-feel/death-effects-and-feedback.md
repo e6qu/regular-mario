@@ -26,7 +26,14 @@ The style is chosen from the engine's `PlayerDefeatReason` and the section's
 
 - **explode** — an enemy contact on land. The authored player sprite is cut into
   six anatomical chunks (head, torso, two arms, two legs), which pop up, fling wide,
-  spin, and rain down across the map under gravity.
+  and spin. Each chunk is an AABB rigid body (`src/shell/death-part-physics.ts`,
+  driven per-frame from the scene): it falls under gravity, lands on and bounces
+  elastically off the level's blocks/ground (a "rubber" restitution that decays so
+  bounces settle), bounces off side walls, and — if nothing catches it — keeps
+  falling off the bottom of the level. A chunk that strikes a live enemy bounces
+  off it and knocks it out: the enemy flips over and ragdolls away under gravity
+  (tracked in `deathKnockedEnemies`; the debug snapshot's `knockedEnemyCount`
+  counts them).
 - **burn** — a lava/fire hazard contact. The body visibly catches fire (authored
   flame tongues cling to and flicker over it), chars, sinks, and shrinks to nothing
   while smoke puffs rise off it.

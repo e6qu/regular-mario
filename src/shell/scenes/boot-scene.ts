@@ -98,6 +98,12 @@ import type {
 import { GameAudio, type DeathSoundKind } from "../game-audio";
 import { hardLandingDropTiles, resolveGroundQuake } from "../ground-quake";
 import {
+  stepDeathPartBody,
+  type DeathPartBody,
+  type DeathPartBox,
+  type DeathPartPhysicsParams,
+} from "../death-part-physics";
+import {
   buildRunExport,
   buildRunZip,
   downloadBytes,
@@ -185,8 +191,32 @@ type DeathEffectStyle = "launch" | "explode" | "burn" | "float" | "impale";
 // limbs) is flung only slightly outward and then falls under gravity like a
 // projectile. Kept slow with a long hold so the dismemberment reads clearly.
 const deathExplodePopSpeedPixels = 3.4;
-const deathExplodeGravityPixels = 0.2;
 const deathExplodeSpinRadiansPerFrame = 0.12;
+// Tile-collision kinds a falling body part rests on: anything a body would land
+// on — ground, pipes, and blocks (bricks / question blocks). Non-solid hazards
+// (lava/spikes) and goals don't stop a part, so it falls through them.
+const deathPartBlockingCollisionKinds: ReadonlySet<TileCollisionKind> = new Set([
+  TileCollisionKind.Solid,
+  TileCollisionKind.SolidHazard,
+  TileCollisionKind.Interactive,
+  TileCollisionKind.Breakable,
+]);
+// Box physics for the flung parts: a fairly bouncy ("rubber") restitution that
+// still decays, gravity a touch heavier than the launch arc for weight, and a
+// stop speed so bounces settle instead of jittering forever. The part box is a
+// bit smaller than a whole tile (limbs/head).
+const deathPartPhysicsParams: DeathPartPhysicsParams = {
+  gravity: 0.3,
+  restitution: 0.55,
+  friction: 0.82,
+  stopSpeed: 0.8,
+  tileSize: 16,
+};
+const deathPartHalfExtentFraction = 0.28;
+// When a part strikes a live enemy, the enemy pops up and flips over, then falls.
+const deathKnockedEnemyPopSpeedPixels = 3.2;
+const deathKnockedEnemyGravityPixels = 0.28;
+const deathKnockedEnemySpinRadians = 0.24;
 // A quick expanding starburst flash at the moment of dismemberment.
 const deathBurstLifeFrames = 16;
 const deathBurstMaxScale = 2.6;
@@ -749,19 +779,42 @@ export class BootScene extends Phaser.Scene {
   private deathFloatSurfaceFrame = -1;
   private deathPieces: {
     readonly image: Phaser.GameObjects.Image;
-    vx: number;
-    vy: number;
+    // The part's AABB physics body (position + velocity); the image tracks it.
+    readonly body: DeathPartBody;
+    // Spin, in radians per frame (damped on each landing).
     vr: number;
     // The X-ed-eyes overlay riding the head chunk (undefined for other pieces).
     readonly eyes?: Phaser.GameObjects.Image;
   }[] = [];
+  // Enemies knocked out by a flung body part: each flips over and ragdolls off
+  // under gravity. Keyed by entity id so a second part can't re-hit one, and so
+  // the normal actor render skips them (leaving stepKnockedEnemies in charge).
+  // `settled` marks one that has fallen away and is done animating.
+  private readonly deathKnockedEnemies = new Map<
+    string,
+    {
+      readonly renderObject: Phaser.GameObjects.Container;
+      readonly wingObject?: Phaser.GameObjects.Triangle;
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      angle: number;
+      settled: boolean;
+    }
+  >();
+  // How many enemies have been knocked out by body parts this death (debug/test).
+  private deathKnockedEnemyCount = 0;
   // The initial explosion-burst flash (expands and fades).
   private deathBurst:
     | { readonly image: Phaser.GameObjects.Image; life: number }
     | undefined;
-  // The y a flung body part comes to rest on (the ground it fell from), so the
-  // parts pile up and stay visible instead of raining off the bottom.
-  private deathPartFloorY = 0;
+  // Tile-collision lookup for the current level, so flung body parts land on
+  // whichever block is beneath them (or keep falling off-screen when nothing is).
+  // Built lazily when the explosion starts.
+  private deathPartCollisionLookup:
+    | ReturnType<typeof makeTileCollisionLookup>
+    | undefined;
   // The charred husk left after burning, once it topples into a ragdoll fall.
   private deathHusk:
     | {
@@ -2324,8 +2377,8 @@ export class BootScene extends Phaser.Scene {
     }
     const centreX = this.deathArcX + width / 2;
     const centreY = this.deathArcY + height / 2;
-    // The ground the body was standing on: parts settle just onto it.
-    this.deathPartFloorY = this.deathArcY + height - 4;
+    // Body parts collide with the level's blocks as they fall (built once here).
+    this.deathPartCollisionLookup = makeTileCollisionLookup(this.levelSpec);
     this.spawnExplosionBurst(centreX, centreY);
     // Each part: which authored sprite, where on the body box (fraction of w/h)
     // it starts, whether it is mirrored, and how hard it is flung sideways.
@@ -2366,10 +2419,19 @@ export class BootScene extends Phaser.Scene {
         .setDepth(60);
       const eyes =
         part.head === true ? this.makeHeadEyesOverlay(partX, partY) : undefined;
-      this.deathPieces.push({
-        image,
+      const halfExtent =
+        Math.min(width, height) * deathPartHalfExtentFraction;
+      const body: DeathPartBody = {
+        x: partX,
+        y: partY,
         vx: part.fling,
         vy: -deathExplodePopSpeedPixels - (index % 3) * 0.5,
+        halfWidth: halfExtent,
+        halfHeight: halfExtent,
+      };
+      this.deathPieces.push({
+        image,
+        body,
         vr: (part.fling >= 0 ? 1 : -1) * deathExplodeSpinRadiansPerFrame,
         ...(eyes !== undefined ? { eyes } : {}),
       });
@@ -2452,23 +2514,153 @@ export class BootScene extends Phaser.Scene {
 
   private stepExplodeEffect(): void {
     this.stepExplosionBurst();
+    const size = this.levelSpec.tileSizePixels;
+    // A part that falls this far past the level floor with nothing to catch it is
+    // gone for good — remove it instead of letting it fall forever.
+    const belowLevelY = this.levelSpec.heightTiles * size + size * 2;
+    const params: DeathPartPhysicsParams = {
+      ...deathPartPhysicsParams,
+      tileSize: size,
+    };
+    const isSolidTile = (column: number, row: number): boolean =>
+      this.deathPartTileIsSolid(column, row);
+    const { boxes, entityIds } = this.liveEnemyCollisionBoxes();
+
+    const survivors: typeof this.deathPieces = [];
     for (const piece of this.deathPieces) {
-      piece.vy += deathExplodeGravityPixels;
-      piece.image.x += piece.vx;
-      piece.image.y += piece.vy;
-      piece.image.rotation += piece.vr;
-      // Settle onto the ground it fell from — the parts pile up and stay in view
-      // instead of raining off the bottom. Friction and a small bounce damp them.
-      if (piece.image.y >= this.deathPartFloorY) {
-        piece.image.y = this.deathPartFloorY;
-        piece.vy = piece.vy > 1.2 ? -piece.vy * 0.28 : 0;
-        piece.vx *= 0.7;
-        piece.vr *= 0.4;
+      const result = stepDeathPartBody(piece.body, isSolidTile, boxes, params);
+
+      // Spin damps when the part lands, and each struck enemy is knocked out.
+      if (result.landed) {
+        piece.vr *= 0.5;
       }
+      for (const enemyIndex of result.hitEnemyIndices) {
+        const entityId = entityIds[enemyIndex];
+        if (entityId !== undefined) {
+          this.knockOutEnemy(entityId, piece.body.vx);
+        }
+      }
+
+      piece.image.setPosition(piece.body.x, piece.body.y);
+      piece.image.rotation += piece.vr;
       // The head's X-ed eyes ride along with it.
       if (piece.eyes !== undefined) {
-        piece.eyes.setPosition(piece.image.x, piece.image.y);
+        piece.eyes.setPosition(piece.body.x, piece.body.y);
         piece.eyes.rotation = piece.image.rotation;
+      }
+
+      if (piece.body.y > belowLevelY) {
+        piece.image.destroy();
+        piece.eyes?.destroy();
+        continue;
+      }
+      survivors.push(piece);
+    }
+    this.deathPieces = survivors;
+    this.stepKnockedEnemies(belowLevelY);
+  }
+
+  // Whether the tile at a grid cell stops a falling body part (ground, pipe, or
+  // block). Out-of-bounds / undefined tiles never block, so a part that runs off
+  // the side or bottom of the level keeps falling.
+  private deathPartTileIsSolid(column: number, row: number): boolean {
+    const lookup = this.deathPartCollisionLookup;
+    if (
+      lookup === undefined ||
+      row < 0 ||
+      row >= this.levelSpec.heightTiles ||
+      column < 0 ||
+      column >= this.levelSpec.widthTiles
+    ) {
+      return false;
+    }
+    const tileId = this.levelSpec.tiles[row]?.[column];
+    if (tileId === undefined) {
+      return false;
+    }
+    return deathPartBlockingCollisionKinds.has(
+      requireTileCollision(lookup, tileId),
+    );
+  }
+
+  // Collision boxes for the enemies still on the field (not defeated, not already
+  // knocked out by a part), plus their entity ids so a hit can knock them out.
+  private liveEnemyCollisionBoxes(): {
+    readonly boxes: readonly DeathPartBox[];
+    readonly entityIds: readonly string[];
+  } {
+    const size = this.levelSpec.tileSizePixels;
+    const defeated = new Set(
+      this.simulationState.enemies.defeatedEnemyEntityIds.map(String),
+    );
+    const boxes: DeathPartBox[] = [];
+    const entityIds: string[] = [];
+    for (const actor of this.renderedActors) {
+      if (
+        !isEnemyRole(actor.role) ||
+        defeated.has(actor.entityId) ||
+        this.deathKnockedEnemies.has(actor.entityId)
+      ) {
+        continue;
+      }
+      const { x, y } = makeRuntimeRenderedActorPixelPosition(
+        actor,
+        this.simulationState,
+      );
+      boxes.push({ left: x, top: y, right: x + size, bottom: y + size });
+      entityIds.push(actor.entityId);
+    }
+    return { boxes, entityIds };
+  }
+
+  // Fling an enemy off: it pops up, flips over and ragdolls away under gravity.
+  private knockOutEnemy(entityId: string, incomingVx: number): void {
+    if (this.deathKnockedEnemies.has(entityId)) {
+      return;
+    }
+    const actor = this.renderedActors.find(
+      (candidate) => candidate.entityId === entityId,
+    );
+    if (actor === undefined) {
+      return;
+    }
+    const direction = incomingVx >= 0 ? 1 : -1;
+    this.deathKnockedEnemies.set(entityId, {
+      renderObject: actor.renderObject,
+      ...(actor.wingObject !== undefined
+        ? { wingObject: actor.wingObject }
+        : {}),
+      x: actor.renderObject.x,
+      y: actor.renderObject.y,
+      vx: direction * (1 + Math.abs(incomingVx) * 0.4),
+      vy: -deathKnockedEnemyPopSpeedPixels,
+      angle: 0,
+      settled: false,
+    });
+    this.deathKnockedEnemyCount += 1;
+  }
+
+  // Advance each knocked-out enemy's ragdoll (flipped over via a negative Y
+  // scale, since a Container can't flip like an image) and hide it once it has
+  // fallen away. Entries persist (settled) so the normal actor render keeps
+  // skipping them rather than snapping them back to their live position.
+  private stepKnockedEnemies(belowLevelY: number): void {
+    for (const enemy of this.deathKnockedEnemies.values()) {
+      if (enemy.settled) {
+        continue;
+      }
+      enemy.vy += deathKnockedEnemyGravityPixels;
+      enemy.x += enemy.vx;
+      enemy.y += enemy.vy;
+      enemy.angle += deathKnockedEnemySpinRadians;
+      enemy.renderObject
+        .setPosition(enemy.x, enemy.y)
+        .setRotation(enemy.angle)
+        .setScale(1, -1);
+      enemy.wingObject?.setVisible(false);
+      if (enemy.y > belowLevelY) {
+        enemy.renderObject.setVisible(false);
+        enemy.settled = true;
       }
     }
   }
@@ -2745,6 +2937,14 @@ export class BootScene extends Phaser.Scene {
       this.deathHusk.image.destroy();
       this.deathHusk = undefined;
     }
+    // Restore any part-knocked enemy render objects (reused across a retry) to
+    // upright, unflipped, visible — the next run repositions them normally.
+    for (const enemy of this.deathKnockedEnemies.values()) {
+      enemy.renderObject.setScale(1, 1).setRotation(0).setVisible(true);
+    }
+    this.deathKnockedEnemies.clear();
+    this.deathKnockedEnemyCount = 0;
+    this.deathPartCollisionLookup = undefined;
     this.deathEffectStyle = "launch";
     this.deathEffectFrame = 0;
     this.deathFloatSurfaceFrame = -1;
@@ -3961,6 +4161,11 @@ export class BootScene extends Phaser.Scene {
     );
 
     for (const actor of this.renderedActors) {
+      // An enemy knocked out by a flying body part is owned by stepKnockedEnemies
+      // (its ragdoll fall), so skip the normal live-position render for it.
+      if (this.deathKnockedEnemies.has(actor.entityId)) {
+        continue;
+      }
       const renderedPosition = makeRuntimeRenderedActorPixelPosition(
         actor,
         this.simulationState,
@@ -4709,6 +4914,7 @@ export class BootScene extends Phaser.Scene {
           pieceCount: this.deathPieces.length,
           smokeCount: this.deathSmoke.length,
           xEyesVisible: this.deathXEyesImage?.visible ?? false,
+          knockedEnemyCount: this.deathKnockedEnemyCount,
         },
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         groundQuakeCount: this.groundQuakeCount,
