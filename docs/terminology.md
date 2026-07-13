@@ -86,6 +86,15 @@ boss). See the corresponding files in `src/engine/simulation/`.
   seeded generator.
 - **Warp Zone** — a level region whose pipes jump to other worlds' starts,
   labeled "WELCOME TO WARP ZONE!".
+- **Lava** (`lava-surface` / `lava-body`) — a lethal `Hazard` tile; falling in
+  kills on contact and plays the burn death. Paintable in the level editor.
+- **Spikes** (`thorn`) — a lethal `Hazard` tile (a non-SMB addition); contact
+  kills and plays the impale death. Paintable in the level editor.
+- **Level picker** — the start-menu dropdown lists every decoded area by its true
+  `world-area` number (e.g. World 1-5, the Bowser keep), so any level is directly
+  selectable regardless of progress. See
+  [death effects and feedback](game-feel/death-effects-and-feedback.md) for how
+  hazards translate to death animations.
 
 ## Session-persistent state (lives, coins, and score)
 

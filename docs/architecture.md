@@ -115,7 +115,12 @@ their compatibility-conformance checks. See
 
 - **`scenes/boot-scene.ts`** — the running game scene: builds level objects,
   steps the simulation, renders it, and owns the HUD, flow screens, replay
-  overlay, and touch controls.
+  overlay, touch controls, and the shabby death effects (see
+  [`game-feel/death-effects-and-feedback.md`](game-feel/death-effects-and-feedback.md)).
+  The player is always drawn as an authored sprite — there is no procedural
+  vector-rectangle player — so every game (including the debug `?browserLevel=`
+  routes) loads a skin. Tiles and non-player actors still fall back to procedural
+  shapes when a skin does not cover them.
 - **`create-game-config.ts`** + **`select-renderer.ts`** — Phaser game config and
   the renderer choice.
 - **`game-audio.ts`** — WebAudio synthesis of the ROM-decoded music themes and
