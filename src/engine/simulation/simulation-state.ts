@@ -102,6 +102,42 @@ import {
 
 export const initialLivesCount = 3;
 
+// Same-screen co-op supports up to this many players (all equally important).
+export const maxSimulationPlayers = 16;
+
+// All the per-player state slices bundled as one unit. Simultaneous co-op is a
+// uniform array of these — no privileged "main" player.
+export type PlayerRuntime = {
+  readonly player: PlayerSimulationState;
+  readonly vitality: PlayerVitalityState;
+  readonly invincibility: PlayerInvincibilityState;
+  readonly outcome: PlayerOutcomeState;
+  readonly reaction: PlayerReactionState;
+};
+
+// Expand/contract migration to N players: the canonical per-player slices still
+// live as the singular top-level fields, and `players` is derived from them at
+// every state boundary. This lets N-player-aware code read a uniform array while
+// the singular fields are progressively retired (contract phase), keeping every
+// step behaviour-identical for a single player in the meantime.
+export function deriveSimulationPlayers(source: {
+  readonly player: PlayerSimulationState;
+  readonly playerVitality: PlayerVitalityState;
+  readonly playerInvincibility: PlayerInvincibilityState;
+  readonly playerOutcome: PlayerOutcomeState;
+  readonly playerReaction: PlayerReactionState;
+}): readonly PlayerRuntime[] {
+  return [
+    {
+      player: source.player,
+      vitality: source.playerVitality,
+      invincibility: source.playerInvincibility,
+      outcome: source.playerOutcome,
+      reaction: source.playerReaction,
+    },
+  ];
+}
+
 type SimulationClock = {
   readonly frameIndex: FrameIndex;
   readonly frameDurationMilliseconds: FrameDurationMilliseconds;
@@ -109,6 +145,10 @@ type SimulationClock = {
 
 export type SimulationState = {
   readonly clock: SimulationClock;
+  // The uniform co-op player array (length 1 in single-player), derived from the
+  // singular player slices below at every state boundary during the N-player
+  // migration. See deriveSimulationPlayers.
+  readonly players: readonly PlayerRuntime[];
   readonly player: PlayerSimulationState;
   readonly playerVitality: PlayerVitalityState;
   readonly playerInvincibility: PlayerInvincibilityState;
@@ -194,16 +234,28 @@ export function makeInitialSimulationStateWithPlayerVitality(
     return fail(errors);
   }
 
+  const player = makeInitialPlayerSimulationState();
+  const playerInvincibility = makeEmptyPlayerInvincibilityState();
+  const playerOutcome = makeActivePlayerOutcomeState();
+  const playerReaction = makeEmptyPlayerReactionState();
+
   return succeed({
     clock: {
       frameIndex: frameIndexResult.value,
       frameDurationMilliseconds: frameDurationResult.value,
     },
-    player: makeInitialPlayerSimulationState(),
+    players: deriveSimulationPlayers({
+      player,
+      playerVitality,
+      playerInvincibility,
+      playerOutcome,
+      playerReaction,
+    }),
+    player,
     playerVitality,
-    playerInvincibility: makeEmptyPlayerInvincibilityState(),
+    playerInvincibility,
     levelContacts: makeEmptyLevelContactState(),
-    playerOutcome: makeActivePlayerOutcomeState(),
+    playerOutcome,
     collectibles: makeEmptyCollectibleInteractionState(),
     powerUps: makeEmptyPowerUpInteractionState(),
     enemies: makeEmptyEnemyInteractionState(),
@@ -223,7 +275,7 @@ export function makeInitialSimulationStateWithPlayerVitality(
     goalHeightScore: 0 as Score,
     livesRemaining: initialLivesCount,
     sessionCoinBase: 0,
-    playerReaction: makeEmptyPlayerReactionState(),
+    playerReaction,
     enemyStompReaction: makeEmptyStompReactionState(),
     bloodiness: 0,
     pseudoRandom: makeInitialPseudoRandomState(),

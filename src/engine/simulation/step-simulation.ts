@@ -117,6 +117,7 @@ import {
   resolveHatchedSpinyState,
 } from "./hatched-spiny-state";
 import type { SimulationState } from "./simulation-state";
+import { deriveSimulationPlayers } from "./simulation-state";
 import {
   computeCoinExtraLives,
   computeTimeBonusScore,
@@ -189,20 +190,22 @@ export function stepSimulation(
 
   switch (state.playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
-      return stepActiveSimulation(
-        state,
-        inputCommand,
-        movementConstants,
-        levelSpec,
-        nextClock,
+      return withDerivedPlayers(
+        stepActiveSimulation(
+          state,
+          inputCommand,
+          movementConstants,
+          levelSpec,
+          nextClock,
+        ),
       );
     case PlayerOutcomeKind.Defeated:
     case PlayerOutcomeKind.Finished:
     case PlayerOutcomeKind.DefeatedAndFinished:
-      return {
+      return withDerivedPlayers({
         ...state,
         clock: nextClock,
-      };
+      });
     default: {
       const invalidOutcome: never = state.playerOutcome;
       throw new Error(
@@ -213,6 +216,12 @@ export function stepSimulation(
 }
 
 type SimulationClock = SimulationState["clock"];
+
+// Refresh the uniform `players` array from the (authoritative) singular player
+// slices so it is always consistent with them, however the state was built.
+function withDerivedPlayers(state: SimulationState): SimulationState {
+  return { ...state, players: deriveSimulationPlayers(state) };
+}
 
 function makeNextSimulationClock(state: SimulationState): SimulationClock {
   if (state.clock.frameIndex === Number.MAX_SAFE_INTEGER) {
@@ -821,6 +830,9 @@ function stepActiveSimulation(
 
   return {
     clock: nextClock,
+    // Placeholder; stepSimulation re-derives players from the final slices below
+    // via withDerivedPlayers before returning.
+    players: state.players,
     player: finalPlayer,
     playerVitality: playerVitalityAfterHazard,
     playerInvincibility,

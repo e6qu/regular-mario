@@ -653,6 +653,18 @@ describe("simulation primitives", () => {
           frameIndex: 0,
           frameDurationMilliseconds: nominalSixtyHertzFrameDurationMilliseconds,
         },
+        players: [
+          {
+            player: expectedInitialPlayerSimulationState,
+            vitality: { kind: "small" },
+            invincibility: {
+              collectedInvincibilityEntityIds: [],
+              remainingFrames: 0,
+            },
+            outcome: { kind: "active" },
+            reaction: { kind: PlayerReactionKind.None, remainingFrames: 0 },
+          },
+        ],
         player: expectedInitialPlayerSimulationState,
         playerVitality: {
           kind: "small",
@@ -2577,6 +2589,7 @@ describe("simulation primitives", () => {
             frameIndex: frameIndexResult.value,
             frameDurationMilliseconds: frameDurationResult.value,
           },
+          players: validInitialState().players,
           player: validInitialState().player,
           playerVitality: validInitialState().playerVitality,
           playerInvincibility: validInitialState().playerInvincibility,
