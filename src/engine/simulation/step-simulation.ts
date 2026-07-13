@@ -64,6 +64,7 @@ import {
 } from "./player-state";
 import {
   assertValidPlayerOutcomeState,
+  PlayerFinishReason,
   PlayerOutcomeKind,
   resolvePlayerOutcomeState,
 } from "./player-outcome";
@@ -218,8 +219,23 @@ export function stepSimulation(
     [primaryStepped.player, ...coopPlayers],
     [state.player, ...(state.coopPlayers ?? [])],
   );
+  // Any player reaching the goal completes the level for everyone: if a co-op
+  // player touches the goal while the primary is still active, finish the level.
+  const anyCoopReachedGoal = coopPlayers.some(
+    (player) => detectLevelContactState(player, levelSpec).goal,
+  );
+  const playerOutcome =
+    anyCoopReachedGoal &&
+    primaryStepped.playerOutcome.kind === PlayerOutcomeKind.Active
+      ? {
+          kind: PlayerOutcomeKind.Finished as const,
+          reason: PlayerFinishReason.GoalContact,
+        }
+      : primaryStepped.playerOutcome;
+
   return withDerivedPlayers({
     ...primaryStepped,
+    playerOutcome,
     player: collided[0] ?? primaryStepped.player,
     coopPlayers: collided.slice(1),
   });

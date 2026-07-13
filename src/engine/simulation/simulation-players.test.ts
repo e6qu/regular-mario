@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import { makeLevelSpec } from "../domain/level-spec";
+import { finishRouteLevelInput } from "../levels/finish-route-level";
 import { firstAuthoredLevelSpec } from "./level-test-support";
+import { PlayerOutcomeKind } from "./player-outcome";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
 import { makeInitialPlayerVitalityState } from "./player-vitality";
@@ -204,6 +207,43 @@ describe("simulation players array", () => {
       [neutral()],
     );
     expect(stepped.coopPlayers).toHaveLength(0);
+  });
+
+  it("finishes the level when any player (a co-op player) reaches the goal", () => {
+    const levelResult = makeLevelSpec(finishRouteLevelInput);
+    if (!levelResult.ok) {
+      throw new Error("expected a valid finish-route level");
+    }
+    const level = levelResult.value;
+    const stateResult = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!stateResult.ok) {
+      throw new Error("expected a valid two-player state");
+    }
+    const base = stateResult.value;
+    // Put the co-op player on the flagpole column (col 8).
+    const atGoal: SimulationState["coopPlayers"] = [
+      {
+        ...base.coopPlayers![0]!,
+        position: {
+          x: requireSimulationPixelPosition(8 * 16, "player.position.x"),
+          y: base.coopPlayers![0]!.position.y,
+        },
+      },
+    ];
+    const stepped = stepSimulation(
+      { ...base, coopPlayers: atGoal },
+      neutral(),
+      initialMovementConstants,
+      level,
+      [neutral()],
+    );
+    expect(stepped.playerOutcome.kind).toBe(PlayerOutcomeKind.Finished);
   });
 
   it("advances a co-op player's position across frames from its input", () => {
