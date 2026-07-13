@@ -9,7 +9,7 @@ import { access, copyFile, mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // prettier-ignore
-import { deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
+import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette, huskGrid, huskPalette, partArmGrid, partHeadGrid, partLegGrid, partTorsoGrid, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 
 // Spikes ("thorn") are a non-SMB addition, so the CHR set has no sprite for
@@ -328,6 +328,25 @@ async function main() {
     drawGridSprite(flameGrid, flamePalette),
   );
   await writeFile(
+    resolve(outDir, "smb-explosion-burst.png"),
+    drawGridSprite(burstGrid, burstPalette),
+  );
+  await writeFile(
+    resolve(outDir, "smb-burned-husk.png"),
+    drawGridSprite(huskGrid, huskPalette),
+  );
+  for (const [file, grid] of [
+    ["smb-part-head.png", partHeadGrid],
+    ["smb-part-torso.png", partTorsoGrid],
+    ["smb-part-arm.png", partArmGrid],
+    ["smb-part-leg.png", partLegGrid],
+  ]) {
+    await writeFile(
+      resolve(outDir, file),
+      drawGridSprite(grid, bodyPartPalette),
+    );
+  }
+  await writeFile(
     resolve(outDir, "smb-rescued-friend.png"),
     drawGridSprite(princessGrid, princessPalette),
   );
@@ -347,6 +366,12 @@ async function main() {
       "player-dead-eyes": spriteEntry("smb-dead-eyes.png"),
       "smoke-puff": spriteEntry("smb-smoke-puff.png"),
       "burn-flame": spriteEntry("smb-burn-flame.png"),
+      "explosion-burst": spriteEntry("smb-explosion-burst.png"),
+      "burned-husk": spriteEntry("smb-burned-husk.png"),
+      "part-head": spriteEntry("smb-part-head.png"),
+      "part-torso": spriteEntry("smb-part-torso.png"),
+      "part-arm": spriteEntry("smb-part-arm.png"),
+      "part-leg": spriteEntry("smb-part-leg.png"),
       "rescued-friend": spriteEntry("smb-rescued-friend.png"),
     },
     playerSprite: {

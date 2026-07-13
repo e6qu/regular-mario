@@ -97,3 +97,144 @@ export const flameGrid = [
   "....RR.R.RR.....",
   "................",
 ];
+
+// Dismemberment body parts: dedicated, recognizable severed-part sprites (not
+// crops of the body), thrown as projectiles when the body explodes. Skin-agnostic
+// generic humanoid colours: skin (s), hair (H), tunic (T), shoe (d), dark (e),
+// and a raw-red stump (R). The head's eyes come from the X-ed-eyes overlay.
+export const bodyPartPalette = {
+  ".": [0, 0, 0, 0],
+  s: [226, 184, 140, 255],
+  H: [92, 60, 36, 255],
+  T: [120, 150, 96, 255],
+  d: [96, 64, 40, 255],
+  e: [34, 28, 28, 255],
+  R: [186, 44, 40, 255],
+};
+export const partHeadGrid = [
+  "................",
+  "................",
+  ".....HHHHHH.....",
+  "....HHHHHHHH....",
+  "....HssssssH....",
+  "....ssssssss....",
+  "....ssssssss....",
+  "....ssssssss....",
+  ".....ssssss.....",
+  ".....ssssss.....",
+  "......RRRR......",
+  "......RRRR......",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+export const partTorsoGrid = [
+  "................",
+  "................",
+  "......RRRR......",
+  ".....TTTTTT.....",
+  "....TTTTTTTT....",
+  "...RTTTTTTTTR...",
+  "...RTTTTTTTTR...",
+  "....TTTTTTTT....",
+  "....TTTTTTTT....",
+  "....TTTTTTTT....",
+  "....TT..TT......",
+  "....RR..RR......",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+export const partArmGrid = [
+  "................",
+  "................",
+  ".....RR.........",
+  ".....TTs........",
+  "....TTss........",
+  ".....sss........",
+  "......sss.......",
+  ".......sss......",
+  "........ss......",
+  "........ss......",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+export const partLegGrid = [
+  "................",
+  "................",
+  ".....RR.........",
+  "....Tss.........",
+  "....Tss.........",
+  ".....ss.........",
+  ".....ss.........",
+  ".....ss.........",
+  ".....ss.........",
+  "....ddd.........",
+  "...dddd.........",
+  "................",
+  "................",
+  "................",
+  "................",
+  "................",
+];
+
+// Explosion burst: a bright starburst flash at the moment of dismemberment.
+// White-hot core (W), yellow (Y), orange (r), deep-red rays (R). Skin-agnostic.
+export const burstPalette = {
+  ".": [0, 0, 0, 0],
+  R: [206, 62, 20, 255],
+  r: [246, 140, 40, 255],
+  Y: [255, 226, 120, 255],
+  W: [255, 252, 236, 255],
+};
+export const burstGrid = [
+  "......R..R......",
+  "...R..rYYr..R...",
+  "....r.rYYr.r....",
+  "R....rYYYYr....R",
+  ".r..rYYYYYYr..r.",
+  "..rrYYWWWWYYrr..",
+  "..rYYWWWWWWYYr..",
+  "RrYYWWWWWWWWYYrR",
+  "RrYYWWWWWWWWYYrR",
+  "..rYYWWWWWWYYr..",
+  "..rrYYWWWWYYrr..",
+  ".r..rYYYYYYr..r.",
+  "R....rYYYYr....R",
+  "....r.rYYr.r....",
+  "...R..rYYr..R...",
+  "......R..R......",
+];
+
+// Burned husk: a charred, hunched ragdoll of the body left after burning.
+// Charcoal (k), a lighter ash edge (K), and a few glowing embers (e).
+export const huskPalette = {
+  ".": [0, 0, 0, 0],
+  k: [40, 36, 40, 255],
+  K: [78, 70, 74, 255],
+  e: [210, 90, 30, 255],
+};
+export const huskGrid = [
+  "................",
+  ".....kkkkk......",
+  "....kKkkkKk.....",
+  "....kkkekkk.....",
+  "....kkkkkkk.....",
+  "...KkkkkkkkK....",
+  "..kkkkeekkkkk...",
+  "..kkkkkkkkkkk...",
+  "..Kkkkkkkkkk....",
+  "...kkkekkkk.....",
+  "...kkkkkkkk.....",
+  "...kk.kkk.k.....",
+  "..kk...kk..K....",
+  "..k....kk..k....",
+  "................",
+  "................",
+];

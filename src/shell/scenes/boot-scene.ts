@@ -180,19 +180,28 @@ const deathArcOffscreenMarginPixels = 96;
 // "float" flips him belly-up with X-ed eyes and drifts him to the surface
 // (drowning); "impale" pins him limp on the spikes he fell onto.
 type DeathEffectStyle = "launch" | "explode" | "burn" | "float" | "impale";
-// Explode: each body-sprite piece pops up and flings outward, then falls.
-const deathExplodePopSpeedPixels = 5.5;
-const deathExplodeGravityPixels = 0.42;
-const deathExplodeSpinRadiansPerFrame = 0.22;
-// Burn: the body catches fire, chars, sinks, and shrinks to nothing while flame
-// tongues lick over it and smoke puffs rise off it.
-const deathBurnSinkSpeedPixels = 0.3;
-const deathBurnSmokeIntervalFrames = 5;
+// Explode: a small initial blast dismembers the body; each chunk (head, torso,
+// limbs) is flung only slightly outward and then falls under gravity like a
+// projectile. Kept slow with a long hold so the dismemberment reads clearly.
+const deathExplodePopSpeedPixels = 3.4;
+const deathExplodeGravityPixels = 0.2;
+const deathExplodeSpinRadiansPerFrame = 0.12;
+// A quick expanding starburst flash at the moment of dismemberment.
+const deathBurstLifeFrames = 16;
+const deathBurstMaxScale = 2.6;
+// Burn: the body catches fire at full size for ~1s, then falls as a charred
+// ragdoll husk (it no longer shrinks away).
+const deathBurnFireFrames = 66;
+const deathBurnSmokeIntervalFrames = 6;
 const deathBurnSmokeRiseSpeedPixels = 0.8;
 const deathBurnSmokeLifeFrames = 44;
-const deathBurnDurationFrames = 130;
+const deathBurnDurationFrames = 150;
 const deathBurnFlameCount = 3;
 const deathBurnFlameFlickerAmplitude = 0.25;
+// Husk ragdoll fall: topple speed and gravity once the fire has done its work.
+const deathBurnHuskSpinRadiansPerFrame = 0.11;
+const deathBurnHuskGravityPixels = 0.34;
+const deathBurnHuskPopSpeedPixels = 1.6;
 // Float: a drowned drift up to the surface with a gentle side-to-side wobble.
 const deathFloatRiseSpeedPixels = 0.75;
 const deathFloatWobbleAmplitudePixels = 1.4;
@@ -205,7 +214,7 @@ const deathFloatSurfaceHoldFrames = 40;
 // so the death plays out on screen first (the launch style instead holds until
 // its arc has fallen off-screen, and float holds until it reaches the surface —
 // see deathEffectAnimating).
-const deathExplodeMenuHoldFrames = 96;
+const deathExplodeMenuHoldFrames = 200;
 const deathFloatMaxHoldFrames = 360;
 const deathImpaleMenuHoldFrames = 48;
 const activeOutcomeFeedbackText = "";
@@ -742,7 +751,25 @@ export class BootScene extends Phaser.Scene {
     vx: number;
     vy: number;
     vr: number;
+    // The X-ed-eyes overlay riding the head chunk (undefined for other pieces).
+    readonly eyes?: Phaser.GameObjects.Image;
   }[] = [];
+  // The initial explosion-burst flash (expands and fades).
+  private deathBurst:
+    | { readonly image: Phaser.GameObjects.Image; life: number }
+    | undefined;
+  // The y a flung body part comes to rest on (the ground it fell from), so the
+  // parts pile up and stay visible instead of raining off the bottom.
+  private deathPartFloorY = 0;
+  // The charred husk left after burning, once it topples into a ragdoll fall.
+  private deathHusk:
+    | {
+        readonly image: Phaser.GameObjects.Image;
+        vx: number;
+        vy: number;
+        vr: number;
+      }
+    | undefined;
   private deathSmoke: {
     readonly image: Phaser.GameObjects.Image;
     vy: number;
@@ -2264,93 +2291,108 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
-  // Explode: hide the whole-body sprite and burst it into anatomical chunks —
-  // head, torso, two arms, two legs — each a real crop of the authored player
-  // frame (never a stand-in). They pop up, fling wide, spin, and rain down all
-  // over the map under gravity.
+  // Explode: a small blast dismembers the body into dedicated, authored body-part
+  // sprites — head, torso, two arms, two legs (severed parts, not crops of the
+  // body). Each part is flung only slightly outward from the body centre, spins,
+  // and then falls under gravity like a projectile. The head carries the X-ed
+  // eyes. Falls back to the launch arc only if the part sprites are unavailable.
   private beginExplodeEffect(): void {
-    const playerImage = this.userAssetBundle?.playerImage;
-    if (playerImage === undefined) {
-      // No authored player sprite to cut apart: fall back to the launch arc so
-      // there is still a death animation (never a procedural stand-in body).
+    const partAsset = this.userAssetBundle?.reactionImages.get("part-torso");
+    if (partAsset === undefined) {
       this.deathEffectStyle = "launch";
       this.deathArcActive = true;
       this.deathArcVelocityY = -deathArcPopSpeedPixels;
       return;
     }
-    const source = resolveFirstStatefulImage(playerImage, [
-      "small-idle",
-      "idle",
-    ]);
     const width = this.simulationState.player.collider.width;
     const height = this.simulationState.player.collider.height;
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setVisible(false);
     }
-    // Body regions as fractions of the sprite box (left, top, right, bottom),
-    // plus the sideways fling each chunk gets. The player sprite has the head up
-    // top, torso in the middle, and feet at the bottom, so these crops read as
-    // the matching body parts.
+    const centreX = this.deathArcX + width / 2;
+    const centreY = this.deathArcY + height / 2;
+    // The ground the body was standing on: parts settle just onto it.
+    this.deathPartFloorY = this.deathArcY + height - 4;
+    this.spawnExplosionBurst(centreX, centreY);
+    // Each part: which authored sprite, where on the body box (fraction of w/h)
+    // it starts, whether it is mirrored, and how hard it is flung sideways.
     const parts: {
-      readonly region: readonly [number, number, number, number];
-      readonly flingX: number;
+      readonly id: string;
+      readonly fx: number;
+      readonly fy: number;
+      readonly flip: boolean;
+      readonly fling: number;
+      readonly head?: boolean;
     }[] = [
-      { region: [0.28, 0.0, 0.72, 0.4], flingX: 1.1 }, // head
-      { region: [0.24, 0.4, 0.76, 0.74], flingX: -0.5 }, // torso
-      { region: [0.0, 0.36, 0.34, 0.7], flingX: -6.2 }, // left arm
-      { region: [0.66, 0.36, 1.0, 0.7], flingX: 6.4 }, // right arm
-      { region: [0.2, 0.72, 0.52, 1.0], flingX: -3.4 }, // left leg
-      { region: [0.48, 0.72, 0.8, 1.0], flingX: 3.6 }, // right leg
+      {
+        id: "part-head",
+        fx: 0.5,
+        fy: 0.14,
+        flip: false,
+        fling: 0.6,
+        head: true,
+      },
+      { id: "part-torso", fx: 0.5, fy: 0.5, flip: false, fling: -0.4 },
+      { id: "part-arm", fx: 0.16, fy: 0.44, flip: true, fling: -2.8 },
+      { id: "part-arm", fx: 0.84, fy: 0.44, flip: false, fling: 2.9 },
+      { id: "part-leg", fx: 0.34, fy: 0.82, flip: true, fling: -1.7 },
+      { id: "part-leg", fx: 0.66, fy: 0.82, flip: false, fling: 1.8 },
     ];
     parts.forEach((part, index) => {
-      const [left, top, right, bottom] = part.region;
-      const piece = this.makeCropPiece(source, part.region);
-      piece.setPosition(
-        this.deathArcX + ((left + right) / 2) * width,
-        this.deathArcY + ((top + bottom) / 2) * height,
-      );
+      const asset = this.userAssetBundle?.reactionImages.get(part.id);
+      if (asset === undefined) {
+        return;
+      }
+      const partX = this.deathArcX + part.fx * width;
+      const partY = this.deathArcY + part.fy * height;
+      const image = addUserFrameImage(this, 0, 0, asset)
+        .setOrigin(0.5)
+        .setDisplaySize(width, height)
+        .setFlipX(part.flip)
+        .setPosition(partX, partY)
+        .setDepth(60);
+      const eyes =
+        part.head === true ? this.makeHeadEyesOverlay(partX, partY) : undefined;
       this.deathPieces.push({
-        image: piece,
-        vx: part.flingX,
-        // Alternate the upward pop so the chunks separate rather than clump.
-        vy: -deathExplodePopSpeedPixels - (index % 3) * 0.9,
-        vr:
-          (part.flingX >= 0 ? 1 : -1) *
-          deathExplodeSpinRadiansPerFrame *
-          (1 + (index % 2) * 0.6),
+        image,
+        vx: part.fling,
+        vy: -deathExplodePopSpeedPixels - (index % 3) * 0.5,
+        vr: (part.fling >= 0 ? 1 : -1) * deathExplodeSpinRadiansPerFrame,
+        ...(eyes !== undefined ? { eyes } : {}),
       });
     });
   }
 
-  // Build one anatomical crop (region given as left/top/right/bottom fractions
-  // of the sprite box) as an independent image, so each exploding chunk is a
-  // real cut of the authored player, not a stand-in.
-  private makeCropPiece(
-    source: LoadedImageAsset,
-    region: readonly [number, number, number, number],
-  ): Phaser.GameObjects.Image {
-    const key = registerUserImageTexture(this, source);
-    const [left, top, right, bottom] = region;
-    const frameWidth = source.frame.width;
-    const frameHeight = source.frame.height;
-    const cropWidth = (right - left) * frameWidth;
-    const cropHeight = (bottom - top) * frameHeight;
-    const colliderWidth = this.simulationState.player.collider.width;
-    const colliderHeight = this.simulationState.player.collider.height;
-    return this.add
-      .image(0, 0, key)
+  // The expanding starburst flash of the initial blast.
+  private spawnExplosionBurst(x: number, y: number): void {
+    const burstAsset =
+      this.userAssetBundle?.reactionImages.get("explosion-burst");
+    if (burstAsset === undefined) {
+      return;
+    }
+    const image = addUserFrameImage(this, 0, 0, burstAsset);
+    image.setOrigin(0.5).setPosition(x, y).setDepth(63).setScale(0.5);
+    this.deathBurst = { image, life: 0 };
+  }
+
+  // An X-ed-eyes overlay aligned to the head part (same frame size, so the X's
+  // land on the head's face), riding along with it.
+  private makeHeadEyesOverlay(
+    x: number,
+    y: number,
+  ): Phaser.GameObjects.Image | undefined {
+    const eyesAsset =
+      this.userAssetBundle?.reactionImages.get("player-dead-eyes");
+    if (eyesAsset === undefined) {
+      return undefined;
+    }
+    const width = this.simulationState.player.collider.width;
+    const height = this.simulationState.player.collider.height;
+    return addUserFrameImage(this, 0, 0, eyesAsset)
       .setOrigin(0.5)
-      .setCrop(
-        source.frame.x + left * frameWidth,
-        source.frame.y + top * frameHeight,
-        cropWidth,
-        cropHeight,
-      )
-      .setDisplaySize(
-        (right - left) * colliderWidth,
-        (bottom - top) * colliderHeight,
-      )
-      .setDepth(60);
+      .setDisplaySize(width, height)
+      .setPosition(x, y)
+      .setDepth(64);
   }
 
   // Float: flip the body belly-up, lay an authored X-ed-eyes overlay over the
@@ -2396,34 +2438,51 @@ export class BootScene extends Phaser.Scene {
   }
 
   private stepExplodeEffect(): void {
+    this.stepExplosionBurst();
     for (const piece of this.deathPieces) {
       piece.vy += deathExplodeGravityPixels;
       piece.image.x += piece.vx;
       piece.image.y += piece.vy;
       piece.image.rotation += piece.vr;
+      // Settle onto the ground it fell from — the parts pile up and stay in view
+      // instead of raining off the bottom. Friction and a small bounce damp them.
+      if (piece.image.y >= this.deathPartFloorY) {
+        piece.image.y = this.deathPartFloorY;
+        piece.vy = piece.vy > 1.2 ? -piece.vy * 0.28 : 0;
+        piece.vx *= 0.7;
+        piece.vr *= 0.4;
+      }
+      // The head's X-ed eyes ride along with it.
+      if (piece.eyes !== undefined) {
+        piece.eyes.setPosition(piece.image.x, piece.image.y);
+        piece.eyes.rotation = piece.image.rotation;
+      }
+    }
+  }
+
+  // Expand and fade the initial blast flash, then remove it.
+  private stepExplosionBurst(): void {
+    const burst = this.deathBurst;
+    if (burst === undefined) {
+      return;
+    }
+    burst.life += 1;
+    const progress = burst.life / deathBurstLifeFrames;
+    burst.image
+      .setScale(0.5 + progress * (deathBurstMaxScale - 0.5))
+      .setAlpha(Math.max(0, 1 - progress));
+    if (burst.life >= deathBurstLifeFrames) {
+      burst.image.destroy();
+      this.deathBurst = undefined;
     }
   }
 
   private stepBurnEffect(): void {
-    // Sink and shrink the charred body toward nothing while smoke puffs peel off
-    // it and rise. Hold the dead pose so it is not the frozen run frame.
-    this.deathArcY += deathBurnSinkSpeedPixels;
-    this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
-    this.holdDeadPose();
-    const burnProgress = Math.min(
-      1,
-      this.deathEffectFrame / deathBurnDurationFrames,
-    );
-    const scale = Math.max(0, 1 - burnProgress);
-    if (this.playerImageObject !== undefined) {
-      this.playerImageObject
-        .setTint(0x3a2a20)
-        .setDisplaySize(
-          this.simulationState.player.collider.width * scale,
-          this.simulationState.player.collider.height * scale,
-        );
+    if (this.deathEffectFrame < deathBurnFireFrames) {
+      this.stepBurnFirePhase();
+    } else {
+      this.stepBurnHuskPhase();
     }
-    this.stepBurnFlames(scale);
     if (
       this.deathEffectFrame % deathBurnSmokeIntervalFrames === 0 &&
       this.deathEffectFrame <= deathBurnDurationFrames
@@ -2431,6 +2490,72 @@ export class BootScene extends Phaser.Scene {
       this.spawnSmokePuff();
     }
     this.stepSmoke();
+  }
+
+  // Phase 1: the body stands and burns at full size for ~1s — flame tongues lick
+  // over it and it chars from its normal colour to black. It does not shrink.
+  private stepBurnFirePhase(): void {
+    this.positionPlayerSpriteAt(this.deathArcX, this.deathArcY);
+    this.holdDeadPose();
+    const char = Math.min(1, this.deathEffectFrame / deathBurnFireFrames);
+    if (this.playerImageObject !== undefined) {
+      // Darken toward charcoal as it burns (full size throughout).
+      const channel = Math.round(255 - char * 215);
+      const tint = (channel << 16) | (channel << 8) | channel;
+      this.playerImageObject.setVisible(true).setTint(tint);
+    }
+    this.stepBurnFlames(1);
+  }
+
+  // Phase 2: the fire has done its work — swap the body for the charred husk and
+  // let it topple into a ragdoll fall (a small pop, then spin under gravity).
+  private stepBurnHuskPhase(): void {
+    if (this.deathHusk === undefined) {
+      this.beginHuskRagdoll();
+    }
+    const husk = this.deathHusk;
+    if (husk !== undefined) {
+      husk.vy += deathBurnHuskGravityPixels;
+      husk.image.x += husk.vx;
+      husk.image.y += husk.vy;
+      husk.image.rotation += husk.vr;
+    }
+    // The flames gutter out as the husk falls away.
+    const fade = Math.max(
+      0,
+      1 -
+        (this.deathEffectFrame - deathBurnFireFrames) /
+          (deathBurnDurationFrames - deathBurnFireFrames),
+    );
+    this.stepBurnFlames(fade);
+  }
+
+  // Replace the burning body with the authored charred-husk sprite and give it a
+  // ragdoll topple. Falls back to the tinted player crop if no husk sprite.
+  private beginHuskRagdoll(): void {
+    if (this.playerImageObject !== undefined) {
+      this.playerImageObject.setVisible(false);
+    }
+    const width = this.simulationState.player.collider.width;
+    const height = this.simulationState.player.collider.height;
+    const huskAsset = this.userAssetBundle?.reactionImages.get("burned-husk");
+    const image =
+      huskAsset !== undefined
+        ? addUserFrameImage(this, 0, 0, huskAsset).setDisplaySize(width, height)
+        : this.add
+            .image(0, 0, this.playerImageObject?.texture.key ?? "")
+            .setDisplaySize(width, height)
+            .setTint(0x161616);
+    image
+      .setOrigin(0.5)
+      .setPosition(this.deathArcX + width / 2, this.deathArcY + height / 2)
+      .setDepth(60);
+    this.deathHusk = {
+      image,
+      vx: this.facingRight ? 1.1 : -1.1,
+      vy: -deathBurnHuskPopSpeedPixels,
+      vr: (this.facingRight ? 1 : -1) * deathBurnHuskSpinRadiansPerFrame,
+    };
   }
 
   // Flicker the flame tongues over the burning body and shrink/fade them along
@@ -2569,6 +2694,7 @@ export class BootScene extends Phaser.Scene {
   private clearDeathEffect(): void {
     for (const piece of this.deathPieces) {
       piece.image.destroy();
+      piece.eyes?.destroy();
     }
     this.deathPieces = [];
     for (const puff of this.deathSmoke) {
@@ -2583,12 +2709,27 @@ export class BootScene extends Phaser.Scene {
       this.deathXEyesImage.destroy();
       this.deathXEyesImage = undefined;
     }
+    if (this.deathBurst !== undefined) {
+      this.deathBurst.image.destroy();
+      this.deathBurst = undefined;
+    }
+    if (this.deathHusk !== undefined) {
+      this.deathHusk.image.destroy();
+      this.deathHusk = undefined;
+    }
     this.deathEffectStyle = "launch";
     this.deathEffectFrame = 0;
     this.deathFloatSurfaceFrame = -1;
     // Restore the player sprite to upright, untinted, full size after a death.
     if (this.playerImageObject !== undefined) {
-      this.playerImageObject.setVisible(true).setFlipY(false).clearTint();
+      this.playerImageObject
+        .setVisible(true)
+        .setFlipY(false)
+        .clearTint()
+        .setDisplaySize(
+          this.simulationState.player.collider.width,
+          this.simulationState.player.collider.height,
+        );
     }
   }
 

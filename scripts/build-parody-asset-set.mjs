@@ -9,7 +9,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // prettier-ignore
-import { deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette as deathFlamePalette, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
+import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette as deathFlamePalette, huskGrid, huskPalette, partArmGrid, partHeadGrid, partLegGrid, partTorsoGrid, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 import {
   assertUserLevelCachePath,
@@ -1531,6 +1531,12 @@ async function main() {
     ["castaway-dead-eyes.png", deadEyesGrid, deadEyesPalette],
     ["smoke-puff.png", smokeGrid, smokePalette],
     ["burn-flame.png", flameGrid, deathFlamePalette],
+    ["explosion-burst.png", burstGrid, burstPalette],
+    ["burned-husk.png", huskGrid, huskPalette],
+    ["part-head.png", partHeadGrid, bodyPartPalette],
+    ["part-torso.png", partTorsoGrid, bodyPartPalette],
+    ["part-arm.png", partArmGrid, bodyPartPalette],
+    ["part-leg.png", partLegGrid, bodyPartPalette],
     ["rescued-friend.png", princessGrid, princessPalette],
     ["grumbler-idle.png", grumblerIdle, enemyPalette],
     ["grumbler-squashed.png", grumblerSquashed, enemyPalette],
@@ -1695,6 +1701,12 @@ async function main() {
       "player-dead-eyes": spriteEntry("castaway-dead-eyes.png"),
       "smoke-puff": spriteEntry("smoke-puff.png"),
       "burn-flame": spriteEntry("burn-flame.png"),
+      "explosion-burst": spriteEntry("explosion-burst.png"),
+      "burned-husk": spriteEntry("burned-husk.png"),
+      "part-head": spriteEntry("part-head.png"),
+      "part-torso": spriteEntry("part-torso.png"),
+      "part-arm": spriteEntry("part-arm.png"),
+      "part-leg": spriteEntry("part-leg.png"),
       "rescued-friend": spriteEntry("rescued-friend.png"),
     },
     playerSprite: {
