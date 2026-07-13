@@ -665,6 +665,7 @@ describe("simulation primitives", () => {
             reaction: { kind: PlayerReactionKind.None, remainingFrames: 0 },
           },
         ],
+        coopPlayers: [],
         player: expectedInitialPlayerSimulationState,
         playerVitality: {
           kind: "small",

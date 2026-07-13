@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { firstAuthoredLevelSpec } from "./level-test-support";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
+import { makeInitialPlayerVitalityState } from "./player-vitality";
 import {
   makeInitialSimulationState,
+  makeInitialSimulationStateWithPlayerVitality,
   maxSimulationPlayers,
   type SimulationState,
 } from "./simulation-state";
@@ -51,6 +53,43 @@ function neutral(): SimulationInputCommand {
 describe("simulation players array", () => {
   it("supports up to sixteen players", () => {
     expect(maxSimulationPlayers).toBe(16);
+  });
+
+  it("seeds additional co-op players beside the primary from the player count", () => {
+    const result = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      3,
+    );
+    if (!result.ok) {
+      throw new Error("expected a valid initial state");
+    }
+    const state = result.value;
+    expect(state.players).toHaveLength(3);
+    expect(state.coopPlayers).toHaveLength(2);
+    // Each additional player spawns further right than the primary.
+    expect(state.coopPlayers![0]!.position.x).toBeGreaterThan(
+      state.player.position.x,
+    );
+    expect(state.coopPlayers![1]!.position.x).toBeGreaterThan(
+      state.coopPlayers![0]!.position.x,
+    );
+  });
+
+  it("clamps the player count to sixteen", () => {
+    const result = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      100,
+    );
+    if (!result.ok) {
+      throw new Error("expected a valid initial state");
+    }
+    expect(result.value.players).toHaveLength(maxSimulationPlayers);
   });
 
   it("mirrors the singular player slices at the initial state", () => {

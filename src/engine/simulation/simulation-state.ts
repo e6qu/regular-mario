@@ -6,6 +6,7 @@ import type { FrameDurationMilliseconds, FrameIndex } from "../domain/units";
 import { makeFrameDurationMilliseconds, makeFrameIndex } from "../domain/units";
 import type { ValidationError } from "../domain/validation-error";
 import {
+  makeCoopPlayerSimulationState,
   makeInitialPlayerSimulationState,
   type PlayerSimulationState,
 } from "./player-state";
@@ -229,6 +230,9 @@ export function makeInitialSimulationStateWithPlayerVitality(
   levelSpec: LevelSpec,
   movementConstants: MovementConstants,
   playerVitality: PlayerVitalityState,
+  // Total simultaneous players (1 = single-player). Additional players spawn
+  // beside the primary as co-op players; clamped to maxSimulationPlayers.
+  playerCount = 1,
 ): DomainResult<SimulationState, ValidationError> {
   const errors: ValidationError[] = [];
   const frameIndexResult = makeFrameIndex(0, "clock.frameIndex");
@@ -253,6 +257,14 @@ export function makeInitialSimulationStateWithPlayerVitality(
   const playerInvincibility = makeEmptyPlayerInvincibilityState();
   const playerOutcome = makeActivePlayerOutcomeState();
   const playerReaction = makeEmptyPlayerReactionState();
+  const additionalPlayerCount = Math.max(
+    0,
+    Math.min(playerCount, maxSimulationPlayers) - 1,
+  );
+  const coopPlayers = Array.from(
+    { length: additionalPlayerCount },
+    (_unused, index) => makeCoopPlayerSimulationState(index),
+  );
 
   return succeed({
     clock: {
@@ -265,7 +277,9 @@ export function makeInitialSimulationStateWithPlayerVitality(
       playerInvincibility,
       playerOutcome,
       playerReaction,
+      coopPlayers,
     }),
+    coopPlayers,
     player,
     playerVitality,
     playerInvincibility,

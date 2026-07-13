@@ -119,6 +119,25 @@ export function makeInitialPlayerSimulationState(): PlayerSimulationState {
   };
 }
 
+// A co-op player spawns one tile further right than the primary per index, so
+// several players line up side by side near the level entrance.
+const coopPlayerSpawnGapPixels = 16;
+export function makeCoopPlayerSimulationState(
+  index: number,
+): PlayerSimulationState {
+  const base = makeInitialPlayerSimulationState();
+  return {
+    ...base,
+    position: {
+      x: requirePixelPosition(
+        Number(base.position.x) + (index + 1) * coopPlayerSpawnGapPixels,
+        "player.position.x",
+      ),
+      y: base.position.y,
+    },
+  };
+}
+
 export function resizePlayerForVitality(
   player: PlayerSimulationState,
   vitality: PlayerVitalityState,
