@@ -248,6 +248,10 @@ const deathFloatSurfaceHoldFrames = 40;
 const deathExplodeMenuHoldFrames = 200;
 const deathFloatMaxHoldFrames = 360;
 const deathImpaleMenuHoldFrames = 48;
+// Whatever the style, keep the game on screen for at least this long after death
+// (~2.5s at 60Hz) so the full death animation finishes before the replay/retry
+// menu opens — no death is cut short.
+const deathMinimumHoldFrames = 150;
 const activeOutcomeFeedbackText = "";
 const hazardDefeatedOutcomeFeedbackText = "Hazard contact — Press R";
 const enemyDefeatedOutcomeFeedbackText = "Opponent contact — Press R";
@@ -3665,6 +3669,11 @@ export class BootScene extends Phaser.Scene {
   private deathEffectAnimating(): boolean {
     if (!this.deathArcStarted) {
       return false;
+    }
+    // Hold every death on screen for a couple of seconds minimum so the full
+    // animation is seen; individual styles can hold longer than this floor.
+    if (this.deathEffectFrame < deathMinimumHoldFrames) {
+      return true;
     }
     switch (this.deathEffectStyle) {
       case "launch":
