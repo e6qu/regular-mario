@@ -24,6 +24,14 @@ describe("selectBrowserLevelInput", () => {
     });
   });
 
+  it("wears the castaway costume by default and Luigi when requested", () => {
+    expect(selectBrowserGameBootstrap("").playerCharacter).toBe("castaway");
+    expect(
+      selectBrowserGameBootstrap("?browserLevel=first-authored&character=luigi")
+        .playerCharacter,
+    ).toBe("luigi");
+  });
+
   it("selects the hazard-only feedback fixture explicitly", () => {
     expect(selectBrowserLevelInput("?browserLevel=hazard-only-feedback")).toBe(
       hazardOnlyFeedbackLevelInput,

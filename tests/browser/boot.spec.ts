@@ -2139,6 +2139,21 @@ test("scrolls the camera as browser movement reaches the wider authored level", 
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+test("boots the player in the Luigi costume when requested", async ({
+  page,
+}) => {
+  const browserErrors = watchBrowserErrors(page);
+
+  // The ?character=luigi query parameter dresses the player in the Luigi
+  // costume (a green/blue palette swap of the same frames).
+  await page.goto("/?browserLevel=first-authored&character=luigi");
+  const snapshot = await readSimulationSnapshot(page);
+  expect(snapshot.playerCharacter).toBe("luigi");
+
+  expect(browserErrors.pageErrors).toEqual([]);
+  expect(browserErrors.consoleErrors).toEqual([]);
+});
+
 test("shakes the screen with a ground quake after a hard landing", async ({
   page,
 }) => {

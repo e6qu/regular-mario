@@ -30,6 +30,10 @@ import {
   makePoweredPlayerVitalityState,
   type PlayerVitalityState,
 } from "../engine/simulation/player-vitality";
+import {
+  parsePlayerCharacter,
+  type PlayerCharacter,
+} from "./player-character";
 import type { UserAssetBundle } from "./user-asset-loader";
 
 enum BrowserLevelKey {
@@ -99,6 +103,9 @@ export type BrowserGameBootstrap = {
   // Colour theme for the tiles + backdrop (overworld / underground / castle).
   readonly theme?: LevelTheme;
   readonly initialPlayerVitality: PlayerVitalityState;
+  // Which costume the player character wears (default castaway; "luigi" is the
+  // green swap). Set from the ?character= query parameter.
+  readonly playerCharacter?: PlayerCharacter;
   readonly userAssetBundle: UserAssetBundle | undefined;
   readonly viewport: BrowserGameViewport;
   readonly userLevelVisualName: string | undefined;
@@ -133,12 +140,18 @@ export function selectBrowserGameBootstrap(
   search: string,
 ): BrowserGameBootstrap {
   const searchParameters = new URLSearchParams(search);
+  const playerCharacter = parsePlayerCharacter(
+    searchParameters.get("character"),
+  );
   const selectedLevelKeys = searchParameters.getAll(
     browserLevelSearchParameterName,
   );
 
   if (selectedLevelKeys.length === 0) {
-    return makeBrowserGameBootstrap(BrowserLevelKey.FirstAuthored);
+    return {
+      ...makeBrowserGameBootstrap(BrowserLevelKey.FirstAuthored),
+      playerCharacter,
+    };
   }
 
   if (selectedLevelKeys.length !== 1) {
@@ -151,7 +164,10 @@ export function selectBrowserGameBootstrap(
     throw new Error("Browser level selection is missing after validation.");
   }
 
-  return makeBrowserGameBootstrap(makeBrowserLevelKey(selectedLevelKey));
+  return {
+    ...makeBrowserGameBootstrap(makeBrowserLevelKey(selectedLevelKey)),
+    playerCharacter,
+  };
 }
 
 const browserLevelKeyValues: readonly BrowserLevelKey[] =

@@ -253,9 +253,11 @@ export type BrowserSimulationSnapshot = {
   readonly deathEffect: BrowserDeathEffectSnapshot;
   readonly lastSoundEvents: readonly string[];
   // How many hard-landing ground quakes (screen shakes) have fired so far — a
-  // hard fall of more than two blocks bumps this. Lets tests observe the
-  // otherwise transient camera shake.
+  // hard fall bumps this. Lets tests observe the otherwise transient camera
+  // shake.
   readonly groundQuakeCount: number;
+  // The costume the player is wearing ("castaway" default, "luigi" the green swap).
+  readonly playerCharacter: string;
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
   readonly levelTimer: BrowserLevelTimerSnapshot;

@@ -98,6 +98,11 @@ import type {
 import { GameAudio, type DeathSoundKind } from "../game-audio";
 import { hardLandingDropTiles, resolveGroundQuake } from "../ground-quake";
 import {
+  applyCharacterToCandidates,
+  defaultPlayerCharacter,
+  type PlayerCharacter,
+} from "../player-character";
+import {
   stepDeathPartBody,
   type DeathPartBody,
   type DeathPartBox,
@@ -637,6 +642,8 @@ function makeBrowserProjectileSnapshot(projectile: {
 
 export class BootScene extends Phaser.Scene {
   private readonly browserGameBootstrap: BrowserGameBootstrap;
+  // Which costume the player wears (default castaway; Luigi is the green swap).
+  private readonly playerCharacter: PlayerCharacter;
   private readonly userAssetBundle: UserAssetBundle | undefined;
   private levelSpec!: LevelSpec;
   private simulationState!: SimulationState;
@@ -1083,6 +1090,8 @@ export class BootScene extends Phaser.Scene {
   public constructor(browserGameBootstrap: BrowserGameBootstrap) {
     super("BootScene");
     this.browserGameBootstrap = browserGameBootstrap;
+    this.playerCharacter =
+      browserGameBootstrap.playerCharacter ?? defaultPlayerCharacter;
     // Default to the faithful classic feel (no exaggerated "auch!"/burst
     // overlays); the parody experience opts in via the Shabby game mode.
     this.exaggeratedReactions =
@@ -4085,6 +4094,7 @@ export class BootScene extends Phaser.Scene {
         this.userAssetBundle?.playerImage,
         this.simulationState,
         this.currentTheme,
+        this.playerCharacter,
       );
 
       if (playerImage !== undefined) {
@@ -5009,6 +5019,7 @@ export class BootScene extends Phaser.Scene {
         },
         lastSoundEvents: this.lastSoundEvents.map((event) => event as string),
         groundQuakeCount: this.groundQuakeCount,
+        playerCharacter: this.playerCharacter,
         level: {
           widthTiles: this.levelSpec.widthTiles,
           heightTiles: this.levelSpec.heightTiles,
@@ -6259,6 +6270,7 @@ function resolvePlayerSpriteImage(
   playerImage: LoadedStatefulImageAsset | undefined,
   simulationState: SimulationState,
   theme: LevelTheme | undefined,
+  character: PlayerCharacter,
 ): LoadedImageAsset | undefined {
   if (playerImage === undefined) {
     return undefined;
@@ -6306,7 +6318,10 @@ function resolvePlayerSpriteImage(
           ]
         : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
-  return resolveFirstStatefulImage(playerImage, candidates);
+  return resolveFirstStatefulImage(
+    playerImage,
+    applyCharacterToCandidates(candidates, character),
+  );
 }
 
 function makePlayerSpriteVitalityPrefix(vitality: PlayerVitalityKind): string {
