@@ -126,16 +126,28 @@ export function deriveSimulationPlayers(source: {
   readonly playerInvincibility: PlayerInvincibilityState;
   readonly playerOutcome: PlayerOutcomeState;
   readonly playerReaction: PlayerReactionState;
+  readonly coopPlayers?: readonly PlayerSimulationState[];
 }): readonly PlayerRuntime[] {
-  return [
-    {
-      player: source.player,
-      vitality: source.playerVitality,
-      invincibility: source.playerInvincibility,
-      outcome: source.playerOutcome,
-      reaction: source.playerReaction,
-    },
-  ];
+  const primary: PlayerRuntime = {
+    player: source.player,
+    vitality: source.playerVitality,
+    invincibility: source.playerInvincibility,
+    outcome: source.playerOutcome,
+    reaction: source.playerReaction,
+  };
+  // Additional co-op players currently carry only kinematics; their vitality/
+  // outcome/reaction are neutral placeholders until the uniform-interaction
+  // increment gives each player its own full runtime.
+  const additional: readonly PlayerRuntime[] = (source.coopPlayers ?? []).map(
+    (player) => ({
+      player,
+      vitality: makeInitialPlayerVitalityState(),
+      invincibility: makeEmptyPlayerInvincibilityState(),
+      outcome: makeActivePlayerOutcomeState(),
+      reaction: makeEmptyPlayerReactionState(),
+    }),
+  );
+  return [primary, ...additional];
 }
 
 type SimulationClock = {
@@ -146,9 +158,12 @@ type SimulationClock = {
 export type SimulationState = {
   readonly clock: SimulationClock;
   // The uniform co-op player array (length 1 in single-player), derived from the
-  // singular player slices below at every state boundary during the N-player
-  // migration. See deriveSimulationPlayers.
+  // singular player slices below plus coopPlayers at every state boundary during
+  // the N-player migration. See deriveSimulationPlayers.
   readonly players: readonly PlayerRuntime[];
+  // Additional co-op players beyond the primary (empty/absent in single-player).
+  // Authoritative for their own kinematics; stepped through the shared movement.
+  readonly coopPlayers?: readonly PlayerSimulationState[];
   readonly player: PlayerSimulationState;
   readonly playerVitality: PlayerVitalityState;
   readonly playerInvincibility: PlayerInvincibilityState;

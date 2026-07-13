@@ -118,6 +118,7 @@ import {
 } from "./hatched-spiny-state";
 import type { SimulationState } from "./simulation-state";
 import { deriveSimulationPlayers } from "./simulation-state";
+import { stepCoopPlayerKinematics } from "./coop-player-kinematics";
 import {
   computeCoinExtraLives,
   computeTimeBonusScore,
@@ -154,6 +155,10 @@ export function stepSimulation(
   inputCommand: SimulationInputCommand,
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
+  // Per-player inputs for the additional co-op players (index i drives
+  // state.coopPlayers[i]); empty/short means those players hold neutral. Single-
+  // player callers omit this entirely.
+  coopInputCommands: readonly SimulationInputCommand[] = [],
 ): SimulationState {
   const nextClock = makeNextSimulationClock(state);
   assertValidPlayerVitalityState(state.playerVitality);
@@ -188,24 +193,44 @@ export function stepSimulation(
   assertValidLoopZoneState(state.loopZones);
   assertValidHatchedSpinyState(state.hatchedSpinies);
 
+  const primaryStepped = stepPrimaryPlayer(
+    state,
+    inputCommand,
+    movementConstants,
+    levelSpec,
+    nextClock,
+  );
+  const coopPlayers = stepCoopPlayers(
+    state.coopPlayers ?? [],
+    coopInputCommands,
+    state.clock.frameDurationMilliseconds,
+    movementConstants,
+    levelSpec,
+  );
+  return withDerivedPlayers({ ...primaryStepped, coopPlayers });
+}
+
+// The primary player's full pipeline (unchanged), selected by outcome.
+function stepPrimaryPlayer(
+  state: SimulationState,
+  inputCommand: SimulationInputCommand,
+  movementConstants: MovementConstants,
+  levelSpec: LevelSpec,
+  nextClock: SimulationClock,
+): SimulationState {
   switch (state.playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
-      return withDerivedPlayers(
-        stepActiveSimulation(
-          state,
-          inputCommand,
-          movementConstants,
-          levelSpec,
-          nextClock,
-        ),
+      return stepActiveSimulation(
+        state,
+        inputCommand,
+        movementConstants,
+        levelSpec,
+        nextClock,
       );
     case PlayerOutcomeKind.Defeated:
     case PlayerOutcomeKind.Finished:
     case PlayerOutcomeKind.DefeatedAndFinished:
-      return withDerivedPlayers({
-        ...state,
-        clock: nextClock,
-      });
+      return { ...state, clock: nextClock };
     default: {
       const invalidOutcome: never = state.playerOutcome;
       throw new Error(
@@ -214,6 +239,38 @@ export function stepSimulation(
     }
   }
 }
+
+// Advance each additional co-op player through the shared terrain kinematics
+// with its own input (or neutral when none is provided this frame).
+function stepCoopPlayers(
+  coopPlayers: readonly PlayerSimulationState[],
+  coopInputCommands: readonly SimulationInputCommand[],
+  frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
+  movementConstants: MovementConstants,
+  levelSpec: LevelSpec,
+): readonly PlayerSimulationState[] {
+  if (coopPlayers.length === 0) {
+    return coopPlayers;
+  }
+  return coopPlayers.map((player, index) =>
+    stepCoopPlayerKinematics(
+      player,
+      coopInputCommands[index] ?? neutralInputCommand,
+      frameDurationMilliseconds,
+      movementConstants,
+      levelSpec,
+    ),
+  );
+}
+
+const neutralInputCommand: SimulationInputCommand = {
+  horizontal: HorizontalInput.Neutral,
+  jumpPressed: false,
+  runHeld: false,
+  firePressed: false,
+  upHeld: false,
+  downHeld: false,
+};
 
 type SimulationClock = SimulationState["clock"];
 
