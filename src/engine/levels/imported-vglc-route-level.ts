@@ -34,12 +34,16 @@ function resolveImportedVglcRouteLevelInput() {
       "........",
       "gggggggg",
     ],
+    // The beetle sits far to the right of the player start so it takes seconds
+    // to patrol over — this is a boot smoke test, and a beetle right next to the
+    // spawn would defeat the idle player before a slow boot's first snapshot is
+    // even read.
     actorRows: [
       "        ",
       "        ",
       "      E ",
       "        ",
-      "P  b    ",
+      "P     b ",
       "        ",
     ],
   });

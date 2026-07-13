@@ -227,6 +227,24 @@ const deathPartPhysicsParams: DeathPartPhysicsParams = {
   tileSize: 16,
 };
 const deathPartHalfExtentFraction = 0.28;
+
+// A flung, spinning dismemberment part in flight: its AABB physics body, the
+// image that tracks it, and (for the primary's head) an X-ed-eyes overlay that
+// rides along. Shared by the primary player's explosion and each bot's.
+type FlyingDeathPart = {
+  readonly image: Phaser.GameObjects.Image;
+  readonly body: DeathPartBody;
+  vr: number;
+  readonly eyes?: Phaser.GameObjects.Image;
+};
+
+// What a flung part can strike: a live enemy (knocked out) or another co-op bot
+// (taken out). Enemies carry their entity id; bots carry their players[] slice
+// index (offset by one past the primary).
+type DeathPartTarget =
+  | { readonly kind: "enemy"; readonly entityId: string }
+  | { readonly kind: "coop"; readonly index: number };
+
 // When a part strikes a live enemy, the enemy pops up and flips over, then falls.
 const deathKnockedEnemyPopSpeedPixels = 3.2;
 const deathKnockedEnemyGravityPixels = 0.28;
@@ -797,15 +815,28 @@ export class BootScene extends Phaser.Scene {
   private deathEffectFrame = 0;
   // The frame a drowning float first reached the surface (-1 until it does).
   private deathFloatSurfaceFrame = -1;
-  private deathPieces: {
-    readonly image: Phaser.GameObjects.Image;
-    // The part's AABB physics body (position + velocity); the image tracks it.
-    readonly body: DeathPartBody;
-    // Spin, in radians per frame (damped on each landing).
-    vr: number;
-    // The X-ed-eyes overlay riding the head chunk (undefined for other pieces).
-    readonly eyes?: Phaser.GameObjects.Image;
+  private deathPieces: FlyingDeathPart[] = [];
+  // Stable per-bot tracking. Co-op players are positional in the sim's players
+  // array (no id), so each frame we match the current bots to the previous ones
+  // by nearest position: a matched bot keeps its robot costume, an unmatched
+  // previous bot has vanished (died) and is exploded at its last spot, and an
+  // unmatched current bot is new and cycles onto the next robot variant.
+  private coopBotSnapshots: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    character: PlayerCharacter;
   }[] = [];
+  // The resolved costume per current co-op bot (index-aligned to
+  // players.slice(1)), set by the per-step tracker and read by the renderer.
+  private coopBotCharacters: PlayerCharacter[] = [];
+  // Monotonic counter so every newly-seen bot cycles onto a fresh robot variant.
+  private coopBotNextVariant = 0;
+  // Body parts flung by exploding bots — kept apart from the primary's
+  // deathPieces so several bots can burst at once. Each still harms enemies and
+  // the other bots via the shared death-part physics.
+  private botDeathPieces: FlyingDeathPart[] = [];
   // Enemies knocked out by a flung body part: each flips over and ragdolls off
   // under gravity. Keyed by entity id so a second part can't re-hit one, and so
   // the normal actor render skips them (leaving stepKnockedEnemies in charge).
@@ -2463,30 +2494,59 @@ export class BootScene extends Phaser.Scene {
       }
       const partX = this.deathArcX + part.fx * width;
       const partY = this.deathArcY + part.fy * height;
-      const image = addUserFrameImage(this, 0, 0, asset)
-        .setOrigin(0.5)
-        .setDisplaySize(width, height)
-        .setFlipX(part.flip)
-        .setPosition(partX, partY)
-        .setDepth(60);
       const eyes =
         part.head === true ? this.makeHeadEyesOverlay(partX, partY) : undefined;
-      const halfExtent =
-        Math.min(width, height) * deathPartHalfExtentFraction;
-      const body: DeathPartBody = {
+      this.pushFlyingDeathPart(this.deathPieces, {
+        asset,
         x: partX,
         y: partY,
-        vx: part.fling,
-        vy: -deathExplodePopSpeedPixels - (index % 3) * 0.5,
+        width,
+        height,
+        flip: part.flip,
+        fling: part.fling,
+        popIndex: index,
+        eyes,
+      });
+    });
+  }
+
+  // Build one flung, spinning body part (image + physics body, +/- an eyes
+  // overlay) and add it to a piece list. Shared by the primary explosion and
+  // each bot's, so the launch physics stay identical.
+  private pushFlyingDeathPart(
+    into: FlyingDeathPart[],
+    spec: {
+      readonly asset: LoadedImageAsset;
+      readonly x: number;
+      readonly y: number;
+      readonly width: number;
+      readonly height: number;
+      readonly flip: boolean;
+      readonly fling: number;
+      readonly popIndex: number;
+      readonly eyes?: Phaser.GameObjects.Image | undefined;
+    },
+  ): void {
+    const image = addUserFrameImage(this, 0, 0, spec.asset)
+      .setOrigin(0.5)
+      .setDisplaySize(spec.width, spec.height)
+      .setFlipX(spec.flip)
+      .setPosition(spec.x, spec.y)
+      .setDepth(60);
+    const halfExtent =
+      Math.min(spec.width, spec.height) * deathPartHalfExtentFraction;
+    into.push({
+      image,
+      body: {
+        x: spec.x,
+        y: spec.y,
+        vx: spec.fling,
+        vy: -deathExplodePopSpeedPixels - (spec.popIndex % 3) * 0.5,
         halfWidth: halfExtent,
         halfHeight: halfExtent,
-      };
-      this.deathPieces.push({
-        image,
-        body,
-        vr: (part.fling >= 0 ? 1 : -1) * deathExplodeSpinRadiansPerFrame,
-        ...(eyes !== undefined ? { eyes } : {}),
-      });
+      },
+      vr: (spec.fling >= 0 ? 1 : -1) * deathExplodeSpinRadiansPerFrame,
+      ...(spec.eyes !== undefined ? { eyes: spec.eyes } : {}),
     });
   }
 
@@ -2566,25 +2626,46 @@ export class BootScene extends Phaser.Scene {
 
   private stepExplodeEffect(): void {
     this.stepExplosionBurst();
-    const size = this.levelSpec.tileSizePixels;
     // A part that falls this far past the level floor with nothing to catch it is
     // gone for good — remove it instead of letting it fall forever.
-    const belowLevelY = this.levelSpec.heightTiles * size + size * 2;
+    const belowLevelY = this.belowLevelFallLimit();
+    const hitCoopPlayerIndices = new Set<number>();
+    this.deathPieces = this.flyDeathParts(
+      this.deathPieces,
+      belowLevelY,
+      hitCoopPlayerIndices,
+    );
+    this.removeHitCoopPlayers(hitCoopPlayerIndices);
+    this.stepKnockedEnemies(belowLevelY);
+  }
+
+  // The y past which a fallen part is gone for good (well below the level floor).
+  private belowLevelFallLimit(): number {
+    const size = this.levelSpec.tileSizePixels;
+    return this.levelSpec.heightTiles * size + size * 2;
+  }
+
+  // Fly a list of body parts one frame: gravity + block collisions, knock out
+  // any struck enemy, collect any struck co-op bot's index, and drop parts that
+  // fell off the world. Returns the survivors. Shared by the primary explosion
+  // and each bot's, so the spin/land/strike behaviour is identical.
+  private flyDeathParts(
+    pieces: readonly FlyingDeathPart[],
+    belowLevelY: number,
+    hitCoopPlayerIndices: Set<number>,
+  ): FlyingDeathPart[] {
     const params: DeathPartPhysicsParams = {
       ...deathPartPhysicsParams,
-      tileSize: size,
+      tileSize: this.levelSpec.tileSizePixels,
     };
     const isSolidTile = (column: number, row: number): boolean =>
       this.deathPartTileIsSolid(column, row);
     const { boxes, targets } = this.deathPartTargets();
-    const hitCoopPlayerIndices = new Set<number>();
-
-    const survivors: typeof this.deathPieces = [];
-    for (const piece of this.deathPieces) {
+    const survivors: FlyingDeathPart[] = [];
+    for (const piece of pieces) {
       const result = stepDeathPartBody(piece.body, isSolidTile, boxes, params);
-
-      // Spin damps when the part lands; each struck enemy is knocked out and each
-      // struck co-op player is taken out (body parts harm other players too).
+      // Spin damps when the part lands; each struck enemy is knocked out and
+      // each struck co-op bot is taken out (body parts harm others too).
       if (result.landed) {
         piece.vr *= 0.5;
       }
@@ -2599,7 +2680,6 @@ export class BootScene extends Phaser.Scene {
           hitCoopPlayerIndices.add(target.index);
         }
       }
-
       piece.image.setPosition(piece.body.x, piece.body.y);
       piece.image.rotation += piece.vr;
       // The head's X-ed eyes ride along with it.
@@ -2607,7 +2687,6 @@ export class BootScene extends Phaser.Scene {
         piece.eyes.setPosition(piece.body.x, piece.body.y);
         piece.eyes.rotation = piece.image.rotation;
       }
-
       if (piece.body.y > belowLevelY) {
         piece.image.destroy();
         piece.eyes?.destroy();
@@ -2615,18 +2694,22 @@ export class BootScene extends Phaser.Scene {
       }
       survivors.push(piece);
     }
-    this.deathPieces = survivors;
-    // Remove any co-op players the flying parts struck (dead until level ends).
-    if (hitCoopPlayerIndices.size > 0) {
-      const remaining = this.simulationState.players
-        .slice(1)
-        .filter((_unused, index) => !hitCoopPlayerIndices.has(index));
-      this.simulationState = {
-        ...this.simulationState,
-        players: [this.simulationState.players[0], ...remaining],
-      };
+    return survivors;
+  }
+
+  // Take the struck co-op bots out of the sim (dead until the level ends); their
+  // own explosions follow next frame when the tracker notices them gone.
+  private removeHitCoopPlayers(hitCoopPlayerIndices: ReadonlySet<number>): void {
+    if (hitCoopPlayerIndices.size === 0) {
+      return;
     }
-    this.stepKnockedEnemies(belowLevelY);
+    const remaining = this.simulationState.players
+      .slice(1)
+      .filter((_unused, index) => !hitCoopPlayerIndices.has(index));
+    this.simulationState = {
+      ...this.simulationState,
+      players: [this.simulationState.players[0], ...remaining],
+    };
   }
 
   // Whether the tile at a grid cell stops a falling body part (ground, pipe, or
@@ -2657,20 +2740,14 @@ export class BootScene extends Phaser.Scene {
   // out a player.
   private deathPartTargets(): {
     readonly boxes: readonly DeathPartBox[];
-    readonly targets: readonly (
-      | { readonly kind: "enemy"; readonly entityId: string }
-      | { readonly kind: "coop"; readonly index: number }
-    )[];
+    readonly targets: readonly DeathPartTarget[];
   } {
     const size = this.levelSpec.tileSizePixels;
     const defeated = new Set(
       this.simulationState.enemies.defeatedEnemyEntityIds.map(String),
     );
     const boxes: DeathPartBox[] = [];
-    const targets: (
-      | { readonly kind: "enemy"; readonly entityId: string }
-      | { readonly kind: "coop"; readonly index: number }
-    )[] = [];
+    const targets: DeathPartTarget[] = [];
     for (const actor of this.renderedActors) {
       if (
         !isEnemyRole(actor.role) ||
@@ -3033,6 +3110,9 @@ export class BootScene extends Phaser.Scene {
     this.deathKnockedEnemies.clear();
     this.deathKnockedEnemyCount = 0;
     this.deathPartCollisionLookup = undefined;
+    // A new level / retry starts bot tracking fresh so a respawn is never read
+    // as a death and no stale bot parts linger.
+    this.resetCoopBotState();
     this.deathEffectStyle = "launch";
     this.deathEffectFrame = 0;
     this.deathFloatSurfaceFrame = -1;
@@ -3212,6 +3292,9 @@ export class BootScene extends Phaser.Scene {
     // blocked at the left or right screen edge. Applied before recording so the
     // replay reproduces it.
     this.clampCoopPlayersToScreen();
+    // Track each bot's stable robot costume and detect any bot that died this
+    // step (vanished from the sim), bursting it into its own robot's parts.
+    this.syncCoopBotsAndDetectDeaths();
     this.runRecorder.record(inputCommand, this.simulationState);
     this.latchEnemyContactObservation();
     this.lastSoundEvents = resolveSoundEvents(
@@ -3259,6 +3342,7 @@ export class BootScene extends Phaser.Scene {
     // the player sprite position after the normal render.
     this.maybeBeginDeathEffect();
     this.stepDeathEffect();
+    this.stepBotDeathPieces();
     this.maybeEnterReplayMenu();
     this.maybeExecuteLevelWarp();
   }
@@ -3601,6 +3685,9 @@ export class BootScene extends Phaser.Scene {
       popup.text.destroy();
     }
     this.scorePopups = [];
+    // Re-baseline bot tracking too: a warp/rebuild respawns the bots elsewhere,
+    // which must not read as every bot dying at once.
+    this.resetCoopBotState();
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
     this.flattenedEnemyTimers.clear();
@@ -4561,9 +4648,181 @@ export class BootScene extends Phaser.Scene {
     };
   }
 
-  // Render each additional co-op player (demo bot) as a Luigi sprite, keeping the
-  // sprite pool in sync with simulationState.players[1..] and positioning each
-  // from its own kinematics.
+  // Reset all bot tracking + in-flight bot explosions (a new level starts from a
+  // clean slate so a fresh spawn is never mistaken for a death).
+  private resetCoopBotState(): void {
+    for (const piece of this.botDeathPieces) {
+      piece.image.destroy();
+    }
+    this.botDeathPieces = [];
+    this.coopBotSnapshots = [];
+    this.coopBotCharacters = [];
+    this.coopBotNextVariant = 0;
+  }
+
+  // Once per simulation step: match the current co-op bots to the previous
+  // frame's by nearest position so each keeps a stable robot costume, and
+  // explode any previous bot that has vanished from the sim (it died this step).
+  private syncCoopBotsAndDetectDeaths(): void {
+    const coop = this.simulationState.players.slice(1);
+    const current = coop.map((runtime) => ({
+      x: Number(runtime.player.position.x),
+      y: Number(runtime.player.position.y),
+      w: Number(runtime.player.collider.width),
+      h: Number(runtime.player.collider.height),
+    }));
+    const previous = this.coopBotSnapshots;
+    // A bot moves only a few pixels per frame, so a generous radius still keeps
+    // adjacent bots (spawned a tile apart) from being confused for one another.
+    const matchThresholdSquared = 40 * 40;
+    const pairs: { ci: number; pi: number; distance: number }[] = [];
+    current.forEach((c, ci) => {
+      previous.forEach((p, pi) => {
+        const dx = c.x - p.x;
+        const dy = c.y - p.y;
+        const distance = dx * dx + dy * dy;
+        if (distance <= matchThresholdSquared) {
+          pairs.push({ ci, pi, distance });
+        }
+      });
+    });
+    pairs.sort((a, b) => a.distance - b.distance);
+    const currentToPrevious = new Array<number>(current.length).fill(-1);
+    const previousMatched = new Array<boolean>(previous.length).fill(false);
+    for (const { ci, pi } of pairs) {
+      if (currentToPrevious[ci] !== -1 || previousMatched[pi]) {
+        continue;
+      }
+      currentToPrevious[ci] = pi;
+      previousMatched[pi] = true;
+    }
+    // Each current bot keeps its matched costume, or (new) cycles to the next.
+    this.coopBotCharacters = current.map((_c, ci) => {
+      const pi = currentToPrevious[ci] ?? -1;
+      const matched = pi >= 0 ? previous[pi] : undefined;
+      if (matched !== undefined) {
+        return matched.character;
+      }
+      const character = robotCharacterForBotIndex(this.coopBotNextVariant);
+      this.coopBotNextVariant += 1;
+      return character;
+    });
+    // Any previous bot with no current match is gone — blow it up where it fell.
+    previous.forEach((p, pi) => {
+      if (!previousMatched[pi]) {
+        this.spawnBotExplosion(p.x, p.y, p.w, p.h, p.character);
+      }
+    });
+    this.coopBotSnapshots = current.map((c, ci) => ({
+      x: c.x,
+      y: c.y,
+      w: c.w,
+      h: c.h,
+      character: this.coopBotCharacters[ci] ?? "robot1",
+    }));
+  }
+
+  // Burst a dead bot into its own robot's body parts (a flash plus six flung,
+  // spinning metal parts) at its last footprint. stepBotDeathPieces then flies
+  // them under gravity so they harm enemies and the other bots on contact.
+  private spawnBotExplosion(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    character: PlayerCharacter,
+  ): void {
+    const bundle = this.userAssetBundle;
+    const partSprite = (part: string): LoadedImageAsset | undefined =>
+      bundle?.reactionImages.get(`${character}-part-${part}`) ??
+      bundle?.reactionImages.get(`part-${part}`);
+    if (partSprite("torso") === undefined) {
+      return;
+    }
+    // Body parts collide with the level's blocks as they fall — build the
+    // lookup lazily (a bot can explode with no primary death in flight).
+    this.deathPartCollisionLookup ??= makeTileCollisionLookup(this.levelSpec);
+    this.spawnBotExplosionBurst(x + width / 2, y + height / 2);
+    const parts: {
+      readonly part: string;
+      readonly fx: number;
+      readonly fy: number;
+      readonly flip: boolean;
+      readonly fling: number;
+    }[] = [
+      { part: "head", fx: 0.5, fy: 0.16, flip: false, fling: 0.5 },
+      { part: "torso", fx: 0.5, fy: 0.5, flip: false, fling: -0.4 },
+      { part: "arm", fx: 0.14, fy: 0.44, flip: true, fling: -2.7 },
+      { part: "arm", fx: 0.86, fy: 0.44, flip: false, fling: 2.8 },
+      { part: "leg", fx: 0.34, fy: 0.82, flip: true, fling: -1.6 },
+      { part: "leg", fx: 0.66, fy: 0.82, flip: false, fling: 1.7 },
+    ];
+    parts.forEach((part, index) => {
+      const asset = partSprite(part.part);
+      if (asset === undefined) {
+        return;
+      }
+      this.pushFlyingDeathPart(this.botDeathPieces, {
+        asset,
+        x: x + part.fx * width,
+        y: y + part.fy * height,
+        width,
+        height,
+        flip: part.flip,
+        fling: part.fling,
+        popIndex: index,
+      });
+    });
+  }
+
+  // A short expanding flash at a bot's blast, self-destructing via a tween so
+  // several bots can burst at once (unlike the primary's single tracked burst).
+  private spawnBotExplosionBurst(x: number, y: number): void {
+    const burstAsset =
+      this.userAssetBundle?.reactionImages.get("explosion-burst");
+    if (burstAsset === undefined) {
+      return;
+    }
+    const image = addUserFrameImage(this, 0, 0, burstAsset)
+      .setOrigin(0.5)
+      .setPosition(x, y)
+      .setDepth(63)
+      .setScale(0.4);
+    this.tweens.add({
+      targets: image,
+      scale: 1.4,
+      alpha: 0,
+      duration: 320,
+      ease: "Quad.Out",
+      onComplete: () => image.destroy(),
+    });
+  }
+
+  // Fly the in-flight bot body parts one frame: gravity + block collisions, then
+  // knock out any enemy struck and take out any other bot struck (dead until the
+  // level ends — its own explosion follows next frame).
+  private stepBotDeathPieces(): void {
+    if (this.botDeathPieces.length === 0) {
+      return;
+    }
+    const belowLevelY = this.belowLevelFallLimit();
+    const hitCoopPlayerIndices = new Set<number>();
+    this.botDeathPieces = this.flyDeathParts(
+      this.botDeathPieces,
+      belowLevelY,
+      hitCoopPlayerIndices,
+    );
+    this.removeHitCoopPlayers(hitCoopPlayerIndices);
+    // Animate part-knocked enemies here only when the primary's explode effect
+    // isn't already stepping them this frame (it owns that step when active).
+    if (!(this.deathArcStarted && this.deathEffectStyle === "explode")) {
+      this.stepKnockedEnemies(belowLevelY);
+    }
+  }
+
+  // Render each additional co-op player (demo bot) with its own distinct robot
+  // costume, keeping the sprite pool in sync with simulationState.players[1..]
+  // and positioning each from its own kinematics.
   private renderCoopPlayers(): void {
     const coopRuntimes = this.simulationState.players.slice(1);
     while (this.coopPlayerImages.length < coopRuntimes.length) {
@@ -4591,7 +4850,7 @@ export class BootScene extends Phaser.Scene {
         this.userAssetBundle?.playerImage,
         view,
         this.currentTheme,
-        robotCharacterForBotIndex(index),
+        this.coopBotCharacters[index] ?? robotCharacterForBotIndex(index),
       );
       if (sprite !== undefined) {
         setUserFrameImage(this, image, sprite);
