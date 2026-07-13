@@ -104,6 +104,8 @@ import { hardLandingDropTiles, resolveGroundQuake } from "../ground-quake";
 import {
   applyCharacterToCandidates,
   defaultPlayerCharacter,
+  defaultRevengePlayerCharacter,
+  revengePlayerCharacters,
   robotCharacterForBotIndex,
   type PlayerCharacter,
 } from "../player-character";
@@ -673,6 +675,9 @@ export class BootScene extends Phaser.Scene {
   private readonly browserGameBootstrap: BrowserGameBootstrap;
   // Which costume the player wears (default castaway; Luigi is the green swap).
   private readonly playerCharacter: PlayerCharacter;
+  // Revenge mode: you play the stomper (goomba/princess) and the walking
+  // enemies are re-skinned as half-height Mario/Luigi you stomp.
+  private readonly revengeMode: boolean;
   private readonly userAssetBundle: UserAssetBundle | undefined;
   private levelSpec!: LevelSpec;
   private simulationState!: SimulationState;
@@ -1147,8 +1152,15 @@ export class BootScene extends Phaser.Scene {
   public constructor(browserGameBootstrap: BrowserGameBootstrap) {
     super("BootScene");
     this.browserGameBootstrap = browserGameBootstrap;
-    this.playerCharacter =
+    this.revengeMode = browserGameBootstrap.revengeMode ?? false;
+    const requestedCharacter =
       browserGameBootstrap.playerCharacter ?? defaultPlayerCharacter;
+    // In revenge mode you play a stomper: fall back to the Goomba if the
+    // requested costume isn't one of the revenge protagonists.
+    this.playerCharacter =
+      this.revengeMode && !revengePlayerCharacters.includes(requestedCharacter)
+        ? defaultRevengePlayerCharacter
+        : requestedCharacter;
     // Default to the faithful classic feel (no exaggerated "auch!"/burst
     // overlays); the parody experience opts in via the Shabby game mode.
     this.exaggeratedReactions =
@@ -4486,7 +4498,12 @@ export class BootScene extends Phaser.Scene {
         actor,
         this.simulationState,
       );
-      const actorImage = resolveActorSpriteImage(actor, this.simulationState);
+      let actorImage = resolveActorSpriteImage(actor, this.simulationState);
+      // Revenge mode: re-skin every walking enemy as a half-height Mario/Luigi
+      // "hero" the player (a Goomba) stomps.
+      if (this.revengeMode && isEnemyRole(actor.role)) {
+        actorImage = this.revengeEnemySprite(actor.entityId) ?? actorImage;
+      }
 
       if (actorImage !== undefined && actor.userImageObject !== undefined) {
         setUserFrameImage(this, actor.userImageObject, actorImage);
@@ -4736,6 +4753,36 @@ export class BootScene extends Phaser.Scene {
       ...this.simulationState,
       players: [this.simulationState.players[0], ...clamped],
     };
+  }
+
+  // Whether a given enemy wears the green (Luigi) hero skin in revenge mode —
+  // a stable per-enemy split by a hash of the id so the field is a mix of reds
+  // and greens that never flickers.
+  private revengeEnemyIsLuigi(entityId: string): boolean {
+    let sum = 0;
+    for (let index = 0; index < entityId.length; index += 1) {
+      sum += entityId.charCodeAt(index);
+    }
+    return sum % 2 === 1;
+  }
+
+  // The half-height Mario/Luigi frame to draw for an enemy in revenge mode: the
+  // eye-bulge squash once it has been stomped (defeated), otherwise its animated
+  // walk.
+  private revengeEnemySprite(entityId: string): LoadedImageAsset | undefined {
+    const bundle = this.userAssetBundle;
+    const key = this.revengeEnemyIsLuigi(entityId) ? "luigi-enemy" : "mario-enemy";
+    const defeated = this.simulationState.enemies.defeatedEnemyEntityIds.some(
+      (id) => String(id) === entityId,
+    );
+    if (defeated) {
+      return bundle?.reactionImages.get(`${key}-stomped`);
+    }
+    const frame =
+      Math.floor(Number(this.simulationState.clock.frameIndex) / 8) % 2 === 0
+        ? "walk-1"
+        : "walk-2";
+    return bundle?.reactionImages.get(`${key}-${frame}`);
   }
 
   // Reset all bot tracking + in-flight bot explosions (a new level starts from a

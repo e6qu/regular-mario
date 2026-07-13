@@ -20,6 +20,11 @@ describe("parsePlayerCharacter", () => {
     expect(parsePlayerCharacter("robot4")).toBe("robot4");
   });
 
+  it("recognises the revenge protagonists", () => {
+    expect(parsePlayerCharacter("goomba")).toBe("goomba");
+    expect(parsePlayerCharacter("princess")).toBe("princess");
+  });
+
   it("defaults to the castaway for anything else", () => {
     expect(parsePlayerCharacter(null)).toBe("castaway");
     expect(parsePlayerCharacter("")).toBe("castaway");

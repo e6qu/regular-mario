@@ -13,6 +13,8 @@ import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 // prettier-ignore
 import { robotCostumes, luigiCostume, robotPartHeadGrid, robotPartTorsoGrid, robotPartArmGrid, robotPartLegGrid } from "./robot-costume-sprites.mjs";
+// prettier-ignore
+import { goombaCostume, princessCostume, revengeHeroEnemies, revengeHeroGrids } from "./revenge-costume-sprites.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -968,7 +970,34 @@ function playerStateSprites() {
       }),
       {},
     ),
+    // Revenge-mode protagonists (tall Goomba, Princess): idle/walk/jump art,
+    // reused across the crouch/climb/swim actions like the robots.
+    ...costumeStateSprites("goomba-", "goomba", robotActionPoses),
+    ...costumeStateSprites("princess-", "princess", robotActionPoses),
   };
+}
+
+// A single-tier costume (Goomba / Princess) has no powered/fire art; emit the
+// base grid under every tier suffix so the character candidate chain always
+// resolves to its one look.
+function singleTierCostumeFiles(costume) {
+  return Object.entries(costume.poses).flatMap(([pose, grid]) => [
+    [`${costume.key}-${pose}.png`, grid, costume.palette],
+    [`${costume.key}-${pose}-powered.png`, grid, costume.palette],
+    [`${costume.key}-${pose}-fire.png`, grid, costume.palette],
+  ]);
+}
+
+// The half-height Mario/Luigi "enemy" sprites for revenge mode: a walk frame,
+// a jump frame, and the eye-bulge stomped frame, one set per colour.
+function revengeEnemyFiles() {
+  return revengeHeroEnemies.flatMap((enemy) =>
+    Object.entries(revengeHeroGrids).map(([pose, grid]) => [
+      `${enemy.key}-${pose}.png`,
+      grid,
+      enemy.palette,
+    ]),
+  );
 }
 
 // Expand a costume descriptor (from robot-costume-sprites.mjs) into the
@@ -1666,6 +1695,11 @@ async function main() {
     // dismemberment body parts, recoloured to that robot's palette.
     ...robotCostumes.flatMap(costumeSpriteFiles),
     ...robotCostumes.flatMap(robotPartFiles),
+    // Revenge mode: the tall Goomba + Princess players and the half-height
+    // Mario/Luigi "enemy" frames (walk / jump / eye-bulge stomp).
+    ...singleTierCostumeFiles(goombaCostume),
+    ...singleTierCostumeFiles(princessCostume),
+    ...revengeEnemyFiles(),
     // Background scenery.
     ["scenery-cloud-left.png", sceneryCloudLeft, sceneryPalette],
     ["scenery-cloud-middle.png", sceneryCloudMiddle, sceneryPalette],
@@ -1793,6 +1827,17 @@ async function main() {
           ["head", "torso", "arm", "leg"].map((part) => [
             `${costume.key}-part-${part}`,
             spriteEntry(`${costume.key}-part-${part}.png`),
+          ]),
+        ),
+      ),
+      // Revenge mode: the half-height Mario/Luigi enemy frames (walk / jump /
+      // eye-bulge stomp), looked up directly by the shell when it re-skins the
+      // enemies as stompable heroes.
+      ...Object.fromEntries(
+        revengeHeroEnemies.flatMap((enemy) =>
+          Object.keys(revengeHeroGrids).map((pose) => [
+            `${enemy.key}-${pose}`,
+            spriteEntry(`${enemy.key}-${pose}.png`),
           ]),
         ),
       ),

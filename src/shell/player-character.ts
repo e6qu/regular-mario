@@ -9,9 +9,20 @@ export type PlayerCharacter =
   | "robot1"
   | "robot2"
   | "robot3"
-  | "robot4";
+  | "robot4"
+  // Revenge-mode protagonists: a tall Goomba and the Princess.
+  | "goomba"
+  | "princess";
 
 export const defaultPlayerCharacter: PlayerCharacter = "castaway";
+
+// The player characters offered in Revenge mode (you play the stomper): the
+// tall Goomba by default, or the Princess.
+export const revengePlayerCharacters: readonly PlayerCharacter[] = [
+  "goomba",
+  "princess",
+];
+export const defaultRevengePlayerCharacter: PlayerCharacter = "goomba";
 
 // The four robot costumes, in the order bots cycle through them, so every bot in
 // a crowd reads as a distinct machine.
@@ -23,7 +34,16 @@ export const robotPlayerCharacters: readonly PlayerCharacter[] = [
 ];
 
 const selectablePlayerCharacters: ReadonlySet<string> = new Set<PlayerCharacter>(
-  ["castaway", "luigi", "robot1", "robot2", "robot3", "robot4"],
+  [
+    "castaway",
+    "luigi",
+    "robot1",
+    "robot2",
+    "robot3",
+    "robot4",
+    "goomba",
+    "princess",
+  ],
 );
 
 // Parse a character from a query-string value (anything unrecognised is the

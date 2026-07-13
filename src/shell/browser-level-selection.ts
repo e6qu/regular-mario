@@ -119,6 +119,10 @@ export type BrowserGameBootstrap = {
   // When true, the melody is sung as a baritone "ba ba ba" vocal (the shabby
   // soundtrack); otherwise the original chiptune melody plays.
   readonly vocalSoundtrack?: boolean;
+  // Revenge mode: you play the (goomba/princess) stomper and the walking
+  // enemies are re-skinned as half-height Mario/Luigi you stomp. Set from the
+  // ?revenge= query parameter.
+  readonly revengeMode?: boolean;
 };
 
 export type BrowserGameViewport = {
@@ -144,6 +148,7 @@ export function selectBrowserGameBootstrap(
   search: string,
 ): BrowserGameBootstrap {
   const searchParameters = new URLSearchParams(search);
+  const revengeMode = searchParameters.get("revenge") === "1";
   const playerCharacter = parsePlayerCharacter(
     searchParameters.get("character"),
   );
@@ -157,6 +162,7 @@ export function selectBrowserGameBootstrap(
       ...makeBrowserGameBootstrap(BrowserLevelKey.FirstAuthored),
       playerCharacter,
       playerCount,
+      revengeMode,
     };
   }
 
@@ -174,6 +180,7 @@ export function selectBrowserGameBootstrap(
     ...makeBrowserGameBootstrap(makeBrowserLevelKey(selectedLevelKey)),
     playerCharacter,
     playerCount,
+    revengeMode,
   };
 }
 

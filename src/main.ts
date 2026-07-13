@@ -338,8 +338,11 @@ type PlayRoute = {
   readonly sound: string;
   // Number of demo bot players (random movers) to add alongside you.
   readonly bots: string;
-  // The costume the human player wears (castaway / luigi / robot1..4).
+  // The costume the human player wears (castaway / luigi / robot1..4, or in
+  // revenge mode goomba / princess).
   readonly character: string;
+  // "1" for revenge mode (play the stomper), "0" otherwise.
+  readonly revenge: string;
 };
 // Update the address bar to reflect the current area without reloading (so a
 // copied link reopens this state). replaceState avoids a stray hashchange.
@@ -2033,14 +2036,51 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   ]);
   // The costume the human player wears — the castaway, the full green
   // companion, or any of the four Futurama-inspired robots.
-  const characterSelect = makeStartMenuDropdown("Character", [
+  // The normal character roster and the revenge-mode roster (you play the
+  // stomper). The CHARACTER dropdown swaps between them when Revenge toggles.
+  const normalCharacterOptions: readonly (readonly [string, string])[] = [
     ["castaway", "Castaway"],
     ["luigi", "Green companion"],
     ["robot1", "Robot: Clank (boxy)"],
     ["robot2", "Robot: Sprocket (thin)"],
     ["robot3", "Robot: Bubbles (dome)"],
     ["robot4", "Robot: Crusher (treads)"],
+  ];
+  const revengeCharacterOptions: readonly (readonly [string, string])[] = [
+    ["goomba", "Goomba (the avenger)"],
+    ["princess", "Princess"],
+  ];
+  const characterSelect = makeStartMenuDropdown(
+    "Character",
+    normalCharacterOptions,
+  );
+  // Revenge mode: play a Goomba/Princess and stomp half-height Mario/Luigi.
+  const revengeSelect = makeStartMenuDropdown("Revenge", [
+    ["0", "Off (normal)"],
+    ["1", "Revenge mode"],
   ]);
+  const setCharacterOptions = (
+    options: readonly (readonly [string, string])[],
+  ): void => {
+    const previous = characterSelect.value;
+    characterSelect.replaceChildren();
+    for (const [value, label] of options) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      characterSelect.appendChild(option);
+    }
+    if (options.some(([value]) => value === previous)) {
+      characterSelect.value = previous;
+    }
+  };
+  revengeSelect.addEventListener("change", () => {
+    setCharacterOptions(
+      revengeSelect.value === "1"
+        ? revengeCharacterOptions
+        : normalCharacterOptions,
+    );
+  });
   // Same-screen co-op demo: add N robot players that wander the level on their
   // own beside you.
   const botsSelect = makeStartMenuDropdown("Bots", [
@@ -2113,6 +2153,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   appendField("GAME MODE", modeSelect);
   appendField("SOUND", audioSelect);
   appendField("RENDERER", rendererSelect);
+  appendField("REVENGE", revengeSelect);
   appendField("CHARACTER", characterSelect);
   appendField("BOTS", botsSelect);
   panel.appendChild(controls);
@@ -2260,7 +2301,8 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         `&map=${encodeURIComponent(mapSelect.value)}` +
         `&level=${encodeURIComponent(levelSelect.value)}` +
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
-        `&bots=${botsSelect.value}&character=${characterSelect.value}`,
+        `&bots=${botsSelect.value}&character=${characterSelect.value}` +
+        `&revenge=${revengeSelect.value}`,
     );
     void bootSelectedContentSet(
       assetSelect.value,
@@ -2270,6 +2312,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
       audioSelect.value === "shabby",
       Number(botsSelect.value) || 0,
       parsePlayerCharacter(characterSelect.value),
+      revengeSelect.value === "1",
       status,
     );
   };
@@ -2282,6 +2325,14 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     if ([...botsSelect.options].some((o) => o.value === autoplay.bots)) {
       botsSelect.value = autoplay.bots;
     }
+    // Revenge is set before the character so the roster (goomba/princess vs the
+    // normal cast) is populated before we try to select the character.
+    revengeSelect.value = autoplay.revenge;
+    setCharacterOptions(
+      autoplay.revenge === "1"
+        ? revengeCharacterOptions
+        : normalCharacterOptions,
+    );
     if (
       [...characterSelect.options].some((o) => o.value === autoplay.character)
     ) {
@@ -2299,7 +2350,8 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
           `&map=${encodeURIComponent(mapSelect.value)}` +
           `&level=${encodeURIComponent(autoplay.level)}` +
           `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
-          `&bots=${botsSelect.value}&character=${characterSelect.value}`,
+          `&bots=${botsSelect.value}&character=${characterSelect.value}` +
+          `&revenge=${revengeSelect.value}`,
       );
       void bootSelectedContentSet(
         assetSelect.value,
@@ -2309,6 +2361,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         audioSelect.value === "shabby",
         Number(botsSelect.value) || 0,
         parsePlayerCharacter(characterSelect.value),
+        revengeSelect.value === "1",
         status,
       );
     }
@@ -2404,6 +2457,7 @@ async function bootSelectedContentSet(
   shabbyAudio: boolean,
   botCount: number,
   playerCharacter: PlayerCharacter,
+  revengeMode: boolean,
   status: HTMLElement,
 ): Promise<void> {
   status.style.color = "#3a2410";
@@ -2488,6 +2542,8 @@ async function bootSelectedContentSet(
         playerCount: 1 + Math.max(0, botCount),
         // The costume the human player wears (bots always wear robots).
         playerCharacter,
+        // Revenge mode: play the stomper, enemies become Mario/Luigi.
+        revengeMode,
         exaggeratedReactions,
         // The shabby "Sound" choice sings the melody as a baritone "ba ba ba".
         vocalSoundtrack: shabbyAudio,
@@ -2531,6 +2587,7 @@ async function bootSelectedContentSet(
                   shabbyAudio,
                   botCount,
                   playerCharacter,
+                  revengeMode,
                   status,
                 );
               },
@@ -2572,6 +2629,7 @@ function applyRoute(): void {
         mode: params.get("mode") ?? "classic",
         sound: params.get("sound") ?? "classic",
         bots: params.get("bots") ?? "0",
+        revenge: params.get("revenge") ?? "0",
         character: params.get("character") ?? "castaway",
       });
       return;
