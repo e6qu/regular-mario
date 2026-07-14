@@ -390,7 +390,24 @@ async function loadStatefulImageEntry(
   };
 }
 
-async function loadImageEntry(
+function loadImageEntry(
+  entry: {
+    readonly source: UserAssetSource;
+    readonly frame: UserSpriteFrame;
+    readonly transparentColor: UserSpriteTransparentColor | undefined;
+  },
+  resolveFile: FileResolver,
+  errors: UserAssetLoadError[],
+): Promise<LoadedImageAsset | undefined> {
+  // Gate the whole per-sprite unit (fetch, decode, transparency, crop) through
+  // the shared limiter so a large content set never fires hundreds of concurrent
+  // decodes — which some browsers reject outright.
+  return withImageLoadSlot(() =>
+    loadImageEntryUnlimited(entry, resolveFile, errors),
+  );
+}
+
+async function loadImageEntryUnlimited(
   entry: {
     readonly source: UserAssetSource;
     readonly frame: UserSpriteFrame;
@@ -433,7 +450,94 @@ type ImageLoadIntermediate = {
   readonly objectUrl: string;
 };
 
+// Backoff schedule for retrying a URL-sourced sprite load. A page load during a
+// deploy can momentarily see a truncated CDN response that decodes as a broken
+// image, and a single sprite failure aborts the whole boot ("Could not start").
+// Retrying with a short backoff lets the deploy/CDN settle; the number of entries
+// is the number of retries after the first attempt.
+const urlAssetRetryDelaysMs: readonly number[] = [150, 400, 900];
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
+}
+
+// A content set can hold many hundreds of sprites, and the loader would otherwise
+// fetch-and-decode all of them at once. Some browsers (notably Safari) fail
+// HTMLImageElement.decode() under that many concurrent decodes — surfacing as a
+// spurious "Failed to decode image", which aborts the whole boot. Gate every
+// image load through a shared limiter so only a bounded number are ever in
+// flight, keeping decode pressure well under any browser's ceiling.
+const maxConcurrentImageLoads = 12;
+
+function createConcurrencyLimiter(
+  maxConcurrent: number,
+): <T>(task: () => Promise<T>) => Promise<T> {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  const pump = (): void => {
+    if (active >= maxConcurrent) {
+      return;
+    }
+    const start = waiting.shift();
+    if (start === undefined) {
+      return;
+    }
+    active += 1;
+    start();
+  };
+  return async <T>(task: () => Promise<T>): Promise<T> => {
+    await new Promise<void>((resolve) => {
+      waiting.push(resolve);
+      pump();
+    });
+    try {
+      return await task();
+    } finally {
+      active -= 1;
+      pump();
+    }
+  };
+}
+
+const withImageLoadSlot = createConcurrencyLimiter(maxConcurrentImageLoads);
+
+// Load a sprite image, retrying transient URL failures. File sources are local
+// and deterministic, so they load exactly once; URL sources retry on the backoff
+// schedule and only surface their error once every attempt has failed.
 async function loadImageAsset(
+  source: UserAssetSource,
+  transparentColor: UserSpriteTransparentColor | undefined,
+  resolveFile: FileResolver,
+  errors: UserAssetLoadError[],
+): Promise<ImageLoadIntermediate | undefined> {
+  if (source.kind === UserAssetSourceKind.File) {
+    return loadImageAssetOnce(source, transparentColor, resolveFile, errors);
+  }
+
+  for (let attempt = 0; ; attempt += 1) {
+    const attemptErrors: UserAssetLoadError[] = [];
+    const result = await loadImageAssetOnce(
+      source,
+      transparentColor,
+      resolveFile,
+      attemptErrors,
+    );
+    if (result !== undefined) {
+      return result;
+    }
+
+    const retryDelayMs = urlAssetRetryDelaysMs[attempt];
+    if (retryDelayMs === undefined) {
+      errors.push(...attemptErrors);
+      return undefined;
+    }
+    await delay(retryDelayMs);
+  }
+}
+
+async function loadImageAssetOnce(
   source: UserAssetSource,
   transparentColor: UserSpriteTransparentColor | undefined,
   resolveFile: FileResolver,
