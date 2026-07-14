@@ -184,6 +184,11 @@ test("journey: keyboard-help overlay opens from the menu corner hint", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 960, height: 560 });
+  // Returning visitor: the first-run menu tutorial is already dismissed, so its
+  // spotlight dialog doesn't overlap the keyboard-help overlay under test.
+  await page.addInitScript(() => {
+    localStorage.setItem("regular-mario.menu.tutorial-seen", "1");
+  });
   await page.goto("/");
   await expect(page.getByText("PLAY", { exact: false }).first()).toBeVisible();
   await page.getByRole("button", { name: "Show keyboard shortcuts" }).click();

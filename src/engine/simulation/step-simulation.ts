@@ -144,12 +144,14 @@ import {
   requireEnemyActorState,
 } from "./enemy-motion";
 
-// A given enemy can deal the player at most one damaging contact per this many
-// frames (~1 second at 60 Hz) — a per-enemy debounce, not a global one. The
-// cooldown is NOT refreshed by continued overlap, so once it elapses the same
-// enemy lands another hit even while still inside the hurtbox (this is how one
-// enemy finishes off a big player: demote, then a second hit >1 second later).
-export const enemyDamageContactCooldownFrames = 60;
+// A given enemy can deal the player at most one damaging contact per *unbroken*
+// contact — a per-enemy debounce keyed on overlap, not a timer. Once an enemy
+// lands a hit it stays debounced for as long as the player keeps overlapping it,
+// and only re-arms once the player fully separates (a frame with no overlap).
+// So a single, sustained touch on one enemy can only ever demote a big player
+// into recovery — it can never finish the kill while that contact is held. A
+// *different* enemy is never shielded (the debounce is per-enemy), and a small
+// player is still defeated on the very first hit.
 
 // The top two grid rows of every decoded level are reserved for the HUD overlay
 // (the decoder's row offset), so gameplay content — and the water surface —
@@ -655,36 +657,31 @@ function stepActiveSimulation(
     projectiles.newlyDefeatedEnemyEntityIds,
     levelSpec,
   );
-  // Per-enemy damage debounce: a given enemy can only deal a damaging contact
-  // once per cooldown window, so it cannot chip a big player down and then kill
-  // them (and a player stuck against one enemy is not chain-hit). Different
-  // enemies still hurt independently. `enemies.contactedEnemyEntityIds` at this
-  // point is exactly the damaging-contact set (stomps / shell + star kills have
-  // already been removed), so filtering it gates only the damage path — the
-  // stomp/defeat-enemy path is untouched.
+  // Per-enemy damage debounce: an enemy that has already landed a damaging hit
+  // stays debounced for as long as the player keeps overlapping it, so it cannot
+  // chip a big player down and then finish the kill from one sustained touch. It
+  // re-arms only once the player fully separates from it. Different enemies still
+  // hurt independently. `enemies.contactedEnemyEntityIds` here is exactly the
+  // damaging-contact set (stomps / shell + star kills have already been removed),
+  // so filtering it gates only the damage path — the stomp/defeat path is
+  // untouched.
   const currentFrame = nextClock.frameIndex;
   const previousEnemyDamageFrames = state.enemyDamageContactFrameByEntityId;
+  const contactedEnemySet = new Set(enemies.contactedEnemyEntityIds);
   const freshDamagingEnemyEntityIds = enemies.contactedEnemyEntityIds.filter(
-    (entityId) => {
-      const lastFrame = previousEnemyDamageFrames.get(entityId);
-      return (
-        lastFrame === undefined ||
-        currentFrame - lastFrame >= enemyDamageContactCooldownFrames
-      );
-    },
+    (entityId) => !previousEnemyDamageFrames.has(entityId),
   );
   const damagingEnemies: EnemyInteractionState = {
     ...enemies,
     contactedEnemyEntityIds: freshDamagingEnemyEntityIds,
   };
-  // Next cooldown map. The cooldown runs from the LAST damaging hit and is NOT
-  // refreshed by continued overlap: a stale entry is carried forward only while
-  // it is still within the window, so once a full second elapses the same enemy
-  // becomes "fresh" again and lands another hit even if it never left the
-  // hitbox. This frame's fresh hits start (or restart) a cooldown.
+  // Next debounce map. An enemy's entry is carried forward only while the player
+  // stays in contact with it; the moment contact breaks the entry is dropped, so
+  // a genuine re-engagement (separate, then touch again) can land a fresh hit.
+  // This frame's fresh hits (re)start a debounce.
   const nextEnemyDamageFrames = new Map<EntityId, FrameIndex>();
   for (const [entityId, lastFrame] of previousEnemyDamageFrames) {
-    if (currentFrame - lastFrame < enemyDamageContactCooldownFrames) {
+    if (contactedEnemySet.has(entityId)) {
       nextEnemyDamageFrames.set(entityId, lastFrame);
     }
   }

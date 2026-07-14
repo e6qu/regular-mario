@@ -11,10 +11,7 @@ import {
   PlayerVitalityKind,
 } from "./player-vitality";
 import { makeInitialSimulationStateWithPlayerVitality } from "./simulation-state";
-import {
-  enemyDamageContactCooldownFrames,
-  stepSimulation,
-} from "./step-simulation";
+import { stepSimulation } from "./step-simulation";
 import type { SimulationState } from "./simulation-state";
 
 const nominalFrameMilliseconds = 1000 / 60;
@@ -103,17 +100,19 @@ function makeState(
 }
 
 describe("per-enemy contact debounce", () => {
-  it("lets one enemy finish a big player off, but only via a second hit more than a second later", () => {
+  it("only demotes a big player through one sustained touch — never finishing the kill", () => {
     const { state, level } = makeState();
     if (!level.ok) {
       throw new Error("level");
     }
     let current = state;
     let demoteFrame = -1;
-    let defeatFrame = -1;
-    // Run right into the one Goomba and keep pushing well past the damage-
-    // recovery window (120 frames) and the per-enemy debounce window (60).
-    for (let frame = 0; frame < 260; frame += 1) {
+    let defeated = false;
+    // Run right into the one Goomba and keep pushing, holding contact well past
+    // the damage-recovery window (120 frames). One enemy in unbroken contact must
+    // never chip a big player down to a kill: it may demote them once, but the
+    // debounce holds for as long as the overlap is sustained.
+    for (let frame = 0; frame < 400; frame += 1) {
       current = stepSimulation(
         current,
         runRight(),
@@ -126,22 +125,15 @@ describe("per-enemy contact debounce", () => {
       ) {
         demoteFrame = frame;
       }
-      if (
-        defeatFrame < 0 &&
-        current.players[0].outcome.kind === PlayerOutcomeKind.Defeated
-      ) {
-        defeatFrame = frame;
+      if (current.players[0].outcome.kind === PlayerOutcomeKind.Defeated) {
+        defeated = true;
         break;
       }
     }
-    // The first hit only demotes the big player, and the SAME enemy is debounced
-    // so it cannot immediately double-hit: it must land a distinct second touch
-    // more than a second (60 frames) later to finish the small player off.
+    // The single sustained touch demotes the big player into recovery and leaves
+    // them alive — the same enemy can never finish the kill while contact holds.
     expect(demoteFrame).toBeGreaterThanOrEqual(0);
-    expect(defeatFrame).toBeGreaterThanOrEqual(0);
-    expect(defeatFrame - demoteFrame).toBeGreaterThan(
-      enemyDamageContactCooldownFrames,
-    );
+    expect(defeated).toBe(false);
   });
 
   it("still lets a DIFFERENT enemy land its own hit", () => {
