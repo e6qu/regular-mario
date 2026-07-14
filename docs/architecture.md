@@ -2,8 +2,14 @@
 
 This document explains how the codebase is organized: the technology stack, the
 functional-core / imperative-shell split, the runtime entry points, and where
-each responsibility lives. Read it before making non-trivial changes. For the
-vocabulary used here (Goomba, Koopa, `LevelSpec`, hurtbox, etc.) see
+each responsibility lives. Read it before making non-trivial changes.
+
+> **New to the codebase?** Start with the
+> [Developer Guide](developer-guide.md) — the file-by-file code map, the boot
+> sequence, the engine explained part by part, and an index of every doc. This
+> document is the architectural reference it links to.
+
+For the vocabulary used here (Goomba, Koopa, `LevelSpec`, hurtbox, etc.) see
 [`terminology.md`](terminology.md).
 
 ## Stack
@@ -164,6 +170,8 @@ keyboard / touch ─▶ SimulationInputCommand
 
 ## Related documents
 
+- [`developer-guide.md`](developer-guide.md) — the code map, boot sequence,
+  engine walkthrough, and the index of every document.
 - [`terminology.md`](terminology.md) — glossary and Super Mario Bros. name
   mapping.
 - [`run-recording-format.md`](run-recording-format.md) — replay/export format.

@@ -118,6 +118,9 @@ to GitHub Pages on every push to `main`. Enable it once under
 
 ## Documentation
 
+- [`docs/developer-guide.md`](docs/developer-guide.md) — **start here**: the code
+  map, the boot sequence, the engine explained part by part, and an index of
+  every other doc.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to build, test, and contribute.
 - [`docs/architecture.md`](docs/architecture.md) — the stack, the
   functional-core / imperative-shell split, entry points, and module map.

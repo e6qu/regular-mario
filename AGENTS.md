@@ -34,11 +34,13 @@ Compatibility importers may support user-provided local files or documented exte
 
 ## Architecture
 
-The authoritative, outsider-readable architecture walkthrough (stack, entry
-points, per-frame data flow, module map) is [`docs/architecture.md`](docs/architecture.md),
-and the vocabulary — including the engine-role → Super Mario Bros. name mapping —
-is [`docs/terminology.md`](docs/terminology.md). The summary below is the
-agent-facing view; keep the two in sync.
+The outsider-readable code map (directories, boot sequence, the engine part by
+part, and an index of every doc) is [`docs/developer-guide.md`](docs/developer-guide.md);
+the architecture walkthrough (stack, entry points, per-frame data flow, module
+map) is [`docs/architecture.md`](docs/architecture.md); and the vocabulary —
+including the engine-role → Super Mario Bros. name mapping — is
+[`docs/terminology.md`](docs/terminology.md). The summary below is the
+agent-facing view; keep these in sync.
 
 The runtime target is a JavaScript bundle that runs in the browser.
 

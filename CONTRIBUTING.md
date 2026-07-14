@@ -1,9 +1,11 @@
 # Contributing
 
 How to build, test, and change this project. For what it is and how to play, see
-[`README.md`](README.md); for how the code is organized, see
-[`docs/architecture.md`](docs/architecture.md); for vocabulary, see
-[`docs/terminology.md`](docs/terminology.md).
+[`README.md`](README.md); for a map of the code (directories, boot sequence, the
+engine part by part, and an index of every doc), see the
+[`docs/developer-guide.md`](docs/developer-guide.md); for the architectural
+reference, see [`docs/architecture.md`](docs/architecture.md); for vocabulary,
+see [`docs/terminology.md`](docs/terminology.md).
 
 ## Prerequisites
 
@@ -55,7 +57,9 @@ slower browser and full-integration tests run as part of task verification. See
 - **`tests/browser/`** — Playwright tests.
 
 The full walkthrough — entry points, per-frame data flow, and each module's
-responsibility — is in [`docs/architecture.md`](docs/architecture.md).
+responsibility — is in the [`docs/developer-guide.md`](docs/developer-guide.md)
+(the code map) and [`docs/architecture.md`](docs/architecture.md) (the
+architectural reference).
 
 ## Persisted state
 
