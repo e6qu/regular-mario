@@ -11,12 +11,12 @@ export type GroundQuake = {
   readonly durationMs: number;
 };
 
-// A fall of more than this many tiles shakes the screen; a shorter drop doesn't.
-// Kept high on purpose: routine platforming in stepped levels (1-2's pillars,
-// etc.) drops the player three-to-five tiles constantly, and shaking on every
-// one of those reads as flicker and makes the motion feel unsteady. Only a
-// genuine plunge — most of the screen's height — should shake.
-export const hardLandingDropTiles = 6;
+// A fall of more than this many tiles shakes the screen; a shorter drop doesn't
+// (an ordinary jump back to the same level is a net drop of 0). A landing after
+// falling more than two blocks bumps the camera — subtly for a small drop,
+// harder for a plunge. The shake is camera-only (a viewport offset), so it never
+// touches the world or physics and can't read as flicker in the play area.
+export const hardLandingDropTiles = 2;
 // The fall depth (tiles) at which the quake reaches full strength.
 const hardLandingSaturationTiles = 12;
 // A brief, subtle bump — not a long jittery rumble.

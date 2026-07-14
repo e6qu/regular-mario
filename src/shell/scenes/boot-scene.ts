@@ -1520,6 +1520,8 @@ export class BootScene extends Phaser.Scene {
         }
         onDown();
         button.style.filter = "brightness(1.5)";
+        // A tick when the thumb rolls onto a fresh button (e.g. ◀ → ▶).
+        buzzTouchControl();
       };
     };
     const release = (
@@ -5912,10 +5914,40 @@ function vibrateHaptic(pattern: number | readonly number[]): void {
   }
 }
 
-// A short haptic tick on a touch-control press (kept above the motor's spin-up
-// threshold so it's actually felt).
+// iOS Safari has no navigator.vibrate, but iOS 17.4+ fires a light haptic when a
+// switch control is toggled inside a user gesture. A hidden <label><input switch>
+// gives us that one legal iOS haptic — clicking the label within a touch handler
+// toggles it and buzzes. A no-op on other browsers. Best-effort (never throws).
+let iosHapticLabel: HTMLLabelElement | undefined;
+function triggerIosHaptic(): void {
+  try {
+    if (typeof document === "undefined") {
+      return;
+    }
+    if (iosHapticLabel === undefined) {
+      const label = document.createElement("label");
+      label.setAttribute("aria-hidden", "true");
+      label.style.cssText =
+        "position:fixed;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.setAttribute("switch", "");
+      label.appendChild(input);
+      document.body.appendChild(label);
+      iosHapticLabel = label;
+    }
+    iosHapticLabel.click();
+  } catch {
+    // Best-effort; iOS haptic is unavailable or blocked.
+  }
+}
+
+// A short haptic tick on a touch-control press. Fired from the pointerdown
+// gesture, so it's the one moment iOS can also buzz. 24ms is well above the
+// vibration motor's spin-up so it's actually felt on Android.
 function buzzTouchControl(): void {
-  vibrateHaptic(12);
+  vibrateHaptic(24);
+  triggerIosHaptic();
 }
 
 // Distinct haptic patterns per game event. Durations are kept above ~12ms: a

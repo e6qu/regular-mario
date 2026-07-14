@@ -24,6 +24,7 @@ import {
   parsePlayerCharacter,
   type PlayerCharacter,
 } from "./shell/player-character";
+import { runSpotlightWalkthrough } from "./shell/spotlight-tutorial";
 import { decodeSharedLevel, renderLevelEditor } from "./shell/level-editor";
 import {
   renderDeployInfoFooter,
@@ -124,6 +125,18 @@ responsiveMenuStyle.textContent = `
   .start-menu-controls select { margin-bottom: 3px !important; padding: 5px 4px !important; }
   .start-menu-panel button { margin-top: 3px !important; }
   .start-menu-panel .start-menu-play { padding: 6px 24px !important; font-size: 15px !important; }
+}
+/* The Play button's loading spinner: a small ring that spins while the level's
+   content bundle loads, so a tap gives instant feedback even on a slow network. */
+@keyframes start-menu-spin { to { transform: rotate(360deg); } }
+.start-menu-spinner {
+  display: inline-block; width: 15px; height: 15px; vertical-align: -2px;
+  margin-right: 8px; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.35); border-top-color: #ffffff;
+  animation: start-menu-spin 0.7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .start-menu-spinner { animation-duration: 1.6s; }
 }`;
 document.head.append(responsiveMenuStyle);
 
@@ -1960,6 +1973,26 @@ function makeStartMenuDropdown(
   return select;
 }
 
+// Put the Play button into (or out of) its loading state: a spinner + "LOADING…"
+// while the content bundle fetches, so a tap gives instant feedback and can't be
+// double-fired. Kept as its own function so the error path can reset the button
+// by class without threading a reference around.
+function setPlayButtonLoading(button: HTMLButtonElement, loading: boolean): void {
+  button.disabled = loading;
+  button.style.cursor = loading ? "progress" : "pointer";
+  if (loading) {
+    button.replaceChildren();
+    const spinner = document.createElement("span");
+    spinner.className = "start-menu-spinner";
+    spinner.setAttribute("aria-hidden", "true");
+    button.append(spinner, document.createTextNode("LOADING…"));
+    button.setAttribute("aria-busy", "true");
+  } else {
+    button.textContent = "▶ PLAY";
+    button.removeAttribute("aria-busy");
+  }
+}
+
 // The shabby sound pack (authored formant-synthesized "ouch" voices). Classic
 // audio uses the built-in chiptune tones and loads no pack.
 const shabbySoundPackManifestUrl = `${contentBaseUrl}sound-packs/shabby/manifest.json`;
@@ -2147,6 +2180,79 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
 
   panel.appendChild(coin);
   panel.appendChild(title);
+
+  // A guided walkthrough of every menu control, mirroring the editor's tutorial.
+  panel.style.position = "relative";
+  const tutorialButton = document.createElement("button");
+  tutorialButton.type = "button";
+  tutorialButton.textContent = "🎓 Tutorial";
+  tutorialButton.setAttribute("aria-label", "Start menu tutorial");
+  tutorialButton.style.cssText =
+    "position:absolute;top:10px;right:12px;padding:6px 10px;font:700 11px monospace;" +
+    "letter-spacing:0.5px;cursor:pointer;border-radius:8px;border:2px solid #7a4a1e;" +
+    "background:#fff3d6;color:#6b3410;";
+  const fieldOf = (control: HTMLElement): HTMLElement =>
+    control.closest<HTMLElement>(".start-menu-field") ?? control;
+  tutorialButton.addEventListener("click", () => {
+    runSpotlightWalkthrough(
+      panel,
+      [
+        {
+          target: fieldOf(assetSelect),
+          title: "1 / 10 · Skin",
+          body: "The art set that draws everything — the original shabby-castaway parody sprites. More skins appear here as they're built.",
+        },
+        {
+          target: fieldOf(mapSelect),
+          title: "2 / 10 · Map",
+          body: "Which pack of level layouts to play — e.g. the numeric SMB world maps rendered with the chosen skin.",
+        },
+        {
+          target: fieldOf(levelSelect),
+          title: "3 / 10 · Level",
+          body: "The specific level to drop into. World-numbered entries (1-1, 1-2…) come from the selected map.",
+        },
+        {
+          target: fieldOf(modeSelect),
+          title: "4 / 10 · Game mode",
+          body: "Shabby plays up the exaggerated cartoon reactions (the ouch head-hold, squash bursts, blood); Classic keeps it calm.",
+        },
+        {
+          target: fieldOf(audioSelect),
+          title: "5 / 10 · Sound",
+          body: "Shabby sings the melody as a silly 'ba-ba' voice with ouches; Classic is the plain chiptune soundtrack.",
+        },
+        {
+          target: fieldOf(rendererSelect),
+          title: "6 / 10 · Renderer",
+          body: "Canvas is the safe default; WebGL uses the GPU and is smoother, especially on phones. Your choice is remembered.",
+        },
+        {
+          target: fieldOf(revengeSelect),
+          title: "7 / 10 · Revenge",
+          body: "Flip the game on its head: you play a Goomba (or the Princess) and stomp half-height Mario/Luigi. Turning it on swaps the Character list below.",
+        },
+        {
+          target: fieldOf(characterSelect),
+          title: "8 / 10 · Character",
+          body: "Who you play — the castaway, the green companion, or one of four robots. In Revenge mode this becomes Goomba / Princess.",
+        },
+        {
+          target: fieldOf(botsSelect),
+          title: "9 / 10 · Bots",
+          body: "Add same-screen robot buddies that wander the level on their own beside you — a quick co-op demo.",
+        },
+        {
+          target: playButton,
+          title: "10 / 10 · Play",
+          body: "Start! It loads the chosen pack (you'll see a spinner) and drops you in. Press Esc in-game to come back here.",
+        },
+      ],
+      { ariaLabel: "Start menu tutorial" },
+    );
+  });
+  panel.appendChild(tutorialButton);
+
   appendField("SKIN", assetSelect);
   appendField("MAP", mapSelect);
   appendField("LEVEL", levelSelect);
@@ -2296,6 +2402,8 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   await refreshLevels();
 
   const playSelected = (): void => {
+    // Instant feedback: the button shows a spinner while the bundle loads.
+    setPlayButtonLoading(playButton, true);
     setRouteHash(
       `play?skin=${encodeURIComponent(assetSelect.value)}` +
         `&map=${encodeURIComponent(mapSelect.value)}` +
@@ -2603,6 +2711,13 @@ async function bootSelectedContentSet(
   } catch (error) {
     status.style.color = "#8a1c1c";
     status.textContent = `Could not start: ${error instanceof Error ? error.message : String(error)}`;
+    // Loading failed — restore the Play button so it can be tried again.
+    const playButton = document.querySelector<HTMLButtonElement>(
+      ".start-menu-play",
+    );
+    if (playButton !== null) {
+      setPlayButtonLoading(playButton, false);
+    }
   }
 }
 
