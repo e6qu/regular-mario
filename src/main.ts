@@ -356,6 +356,8 @@ type PlayRoute = {
   readonly character: string;
   // "1" for revenge mode (play the stomper), "0" otherwise.
   readonly revenge: string;
+  // Rendering backend (canvas / webgl / auto).
+  readonly renderer: string;
 };
 // Update the address bar to reflect the current area without reloading (so a
 // copied link reopens this state). replaceState avoids a stray hashchange.
@@ -1973,6 +1975,25 @@ function makeStartMenuDropdown(
   return select;
 }
 
+// Whether the start-menu tutorial has already been shown (or skipped). Persisted
+// like the editor's, so the first-run walkthrough appears once and then stays out
+// of the way.
+const menuTutorialSeenKey = "regular-mario.menu.tutorial-seen";
+function readMenuTutorialSeen(): boolean {
+  try {
+    return window.localStorage.getItem(menuTutorialSeenKey) === "1";
+  } catch {
+    return false;
+  }
+}
+function writeMenuTutorialSeen(): void {
+  try {
+    window.localStorage.setItem(menuTutorialSeenKey, "1");
+  } catch {
+    // Storage unavailable (private mode) — the tutorial just shows each visit.
+  }
+}
+
 // Put the Play button into (or out of) its loading state: a spinner + "LOADING…"
 // while the content bundle fetches, so a tap gives instant feedback and can't be
 // double-fired. Kept as its own function so the error path can reset the button
@@ -2000,7 +2021,10 @@ const shabbySoundPackManifestUrl = `${contentBaseUrl}sound-packs/shabby/manifest
 // A clean, original platformer-themed start menu: three auto-populated
 // dropdowns (skin, map, game mode) and a Play button that boots the composed
 // content-set bundle behind the scenes. Original styling only.
-async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
+async function renderStartMenu(
+  autoplay?: PlayRoute,
+  autoStart = true,
+): Promise<void> {
   if (autoplay === undefined) {
     setRouteHash("menu");
   }
@@ -2193,64 +2217,52 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     "background:#fff3d6;color:#6b3410;";
   const fieldOf = (control: HTMLElement): HTMLElement =>
     control.closest<HTMLElement>(".start-menu-field") ?? control;
-  tutorialButton.addEventListener("click", () => {
+  // Short, one-line-per-step tour of the menu. Skipping or finishing marks it
+  // seen so it won't auto-open again.
+  const runMenuTutorial = (): void => {
     runSpotlightWalkthrough(
       panel,
       [
         {
           target: fieldOf(assetSelect),
-          title: "1 / 10 · Skin",
-          body: "The art set that draws everything — the original shabby-castaway parody sprites. More skins appear here as they're built.",
-        },
-        {
-          target: fieldOf(mapSelect),
-          title: "2 / 10 · Map",
-          body: "Which pack of level layouts to play — e.g. the numeric SMB world maps rendered with the chosen skin.",
+          title: "1 / 7 · Skin",
+          body: "The art style everything is drawn in.",
         },
         {
           target: fieldOf(levelSelect),
-          title: "3 / 10 · Level",
-          body: "The specific level to drop into. World-numbered entries (1-1, 1-2…) come from the selected map.",
+          title: "2 / 7 · Map & Level",
+          body: "Pick the level pack (Map, above) and which level to start on.",
         },
         {
           target: fieldOf(modeSelect),
-          title: "4 / 10 · Game mode",
-          body: "Shabby plays up the exaggerated cartoon reactions (the ouch head-hold, squash bursts, blood); Classic keeps it calm.",
-        },
-        {
-          target: fieldOf(audioSelect),
-          title: "5 / 10 · Sound",
-          body: "Shabby sings the melody as a silly 'ba-ba' voice with ouches; Classic is the plain chiptune soundtrack.",
-        },
-        {
-          target: fieldOf(rendererSelect),
-          title: "6 / 10 · Renderer",
-          body: "Canvas is the safe default; WebGL uses the GPU and is smoother, especially on phones. Your choice is remembered.",
+          title: "3 / 7 · Mode & Sound",
+          body: "Shabby = loud cartoon reactions and silly voices; Classic = calm and chiptune (set Sound just below).",
         },
         {
           target: fieldOf(revengeSelect),
-          title: "7 / 10 · Revenge",
-          body: "Flip the game on its head: you play a Goomba (or the Princess) and stomp half-height Mario/Luigi. Turning it on swaps the Character list below.",
+          title: "4 / 7 · Revenge",
+          body: "Flip it: play a Goomba and stomp Mario & Luigi.",
         },
         {
           target: fieldOf(characterSelect),
-          title: "8 / 10 · Character",
-          body: "Who you play — the castaway, the green companion, or one of four robots. In Revenge mode this becomes Goomba / Princess.",
+          title: "5 / 7 · Character",
+          body: "Who you play — castaway, robots, or (in Revenge) Goomba / Princess.",
         },
         {
           target: fieldOf(botsSelect),
-          title: "9 / 10 · Bots",
-          body: "Add same-screen robot buddies that wander the level on their own beside you — a quick co-op demo.",
+          title: "6 / 7 · Bots",
+          body: "Add robot buddies for same-screen co-op.",
         },
         {
           target: playButton,
-          title: "10 / 10 · Play",
-          body: "Start! It loads the chosen pack (you'll see a spinner) and drops you in. Press Esc in-game to come back here.",
+          title: "7 / 7 · Play",
+          body: "Start! Loads the level and drops you in. Esc returns here.",
         },
       ],
-      { ariaLabel: "Start menu tutorial" },
+      { ariaLabel: "Start menu tutorial", onFinish: writeMenuTutorialSeen },
     );
-  });
+  };
+  tutorialButton.addEventListener("click", runMenuTutorial);
   panel.appendChild(tutorialButton);
 
   appendField("SKIN", assetSelect);
@@ -2302,6 +2314,16 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
 
   panel.appendChild(status);
   appElement!.appendChild(panel);
+
+  // First visit (and not a deep-link that's about to auto-start): open the
+  // tutorial once automatically. Skipping/finishing it remembers that.
+  if (autoplay === undefined && !readMenuTutorialSeen()) {
+    requestAnimationFrame(() => {
+      if (document.body.contains(panel)) {
+        runMenuTutorial();
+      }
+    });
+  }
 
   try {
     const response = await fetch(contentSetsIndexUrl);
@@ -2397,8 +2419,37 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     }
   };
 
-  assetSelect.addEventListener("change", () => void refreshLevels());
-  mapSelect.addEventListener("change", () => void refreshLevels());
+  // Mirror every selection into the URL (#menu?...) so the address bar is always
+  // a shareable link to the current configuration, and opening it restores them.
+  const writeMenuUrl = (): void => {
+    setRouteHash(
+      `menu?skin=${encodeURIComponent(assetSelect.value)}` +
+        `&map=${encodeURIComponent(mapSelect.value)}` +
+        `&level=${encodeURIComponent(levelSelect.value)}` +
+        `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
+        `&renderer=${rendererSelect.value}` +
+        `&revenge=${revengeSelect.value}&character=${characterSelect.value}` +
+        `&bots=${botsSelect.value}`,
+    );
+  };
+  for (const control of [
+    modeSelect,
+    audioSelect,
+    rendererSelect,
+    revengeSelect,
+    characterSelect,
+    botsSelect,
+    levelSelect,
+  ]) {
+    control.addEventListener("change", writeMenuUrl);
+  }
+  // Skin/Map changes rebuild the level list; sync the URL once that settles.
+  assetSelect.addEventListener("change", () => {
+    void refreshLevels().then(writeMenuUrl);
+  });
+  mapSelect.addEventListener("change", () => {
+    void refreshLevels().then(writeMenuUrl);
+  });
   await refreshLevels();
 
   const playSelected = (): void => {
@@ -2410,7 +2461,7 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
         `&level=${encodeURIComponent(levelSelect.value)}` +
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
         `&bots=${botsSelect.value}&character=${characterSelect.value}` +
-        `&revenge=${revengeSelect.value}`,
+        `&revenge=${revengeSelect.value}&renderer=${rendererSelect.value}`,
     );
     void bootSelectedContentSet(
       assetSelect.value,
@@ -2426,10 +2477,14 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
   };
   playButton.addEventListener("click", playSelected);
 
-  // A #play?... route pre-selects the knobs and starts the level immediately.
+  // A route pre-selects the knobs. #play?... also starts the level immediately;
+  // #menu?... just restores a shared configuration (autoStart false).
   if (autoplay !== undefined && !playButton.disabled) {
     modeSelect.value = autoplay.mode;
     audioSelect.value = autoplay.sound;
+    if ([...rendererSelect.options].some((o) => o.value === autoplay.renderer)) {
+      rendererSelect.value = autoplay.renderer;
+    }
     if ([...botsSelect.options].some((o) => o.value === autoplay.bots)) {
       botsSelect.value = autoplay.bots;
     }
@@ -2446,8 +2501,16 @@ async function renderStartMenu(autoplay?: PlayRoute): Promise<void> {
     ) {
       characterSelect.value = autoplay.character;
     }
-    if ([...levelSelect.options].some((o) => o.value === autoplay.level)) {
+    const levelVisible = [...levelSelect.options].some(
+      (o) => o.value === autoplay.level,
+    );
+    if (levelVisible) {
       levelSelect.value = autoplay.level;
+    }
+    if (!autoStart) {
+      // A shared config link — reflect it in the URL and leave the menu open.
+      writeMenuUrl();
+    } else if (levelVisible) {
       playSelected();
     } else {
       // A deep link may name a pack level the picker hides (a warp sub-area /
@@ -2728,25 +2791,41 @@ function sharedLevelFromHash(): LevelSpecInput | undefined {
   return code !== null ? decodeSharedLevel(code) : undefined;
 }
 
+// Parse the shared query of a play?/menu? route into a full PlayRoute, or null
+// when the required skin/map/level are missing.
+function playRouteFromQuery(query: string): PlayRoute | null {
+  const params = new URLSearchParams(query);
+  const skin = params.get("skin");
+  const map = params.get("map");
+  const level = params.get("level");
+  if (skin === null || map === null || level === null) {
+    return null;
+  }
+  return {
+    skin,
+    map,
+    level,
+    mode: params.get("mode") ?? "classic",
+    sound: params.get("sound") ?? "classic",
+    bots: params.get("bots") ?? "0",
+    revenge: params.get("revenge") ?? "0",
+    character: params.get("character") ?? "castaway",
+    // Empty when the link omits it, so the persisted renderer choice is kept
+    // (the preset block only applies a renderer that matches a real option).
+    renderer: params.get("renderer") ?? "",
+  };
+}
+
 // Route to the area named by the URL hash so every screen is a shareable link.
 function applyRoute(): void {
   const raw = window.location.hash.replace(/^#/, "");
-  if (raw.startsWith("play?")) {
-    const params = new URLSearchParams(raw.slice("play?".length));
-    const skin = params.get("skin");
-    const map = params.get("map");
-    const level = params.get("level");
-    if (skin !== null && map !== null && level !== null) {
-      void renderStartMenu({
-        skin,
-        map,
-        level,
-        mode: params.get("mode") ?? "classic",
-        sound: params.get("sound") ?? "classic",
-        bots: params.get("bots") ?? "0",
-        revenge: params.get("revenge") ?? "0",
-        character: params.get("character") ?? "castaway",
-      });
+  // #play?... restores the selection AND starts the level; #menu?... just
+  // restores a shared configuration in the open menu.
+  if (raw.startsWith("play?") || raw.startsWith("menu?")) {
+    const autoStart = raw.startsWith("play?");
+    const route = playRouteFromQuery(raw.slice(raw.indexOf("?") + 1));
+    if (route !== null) {
+      void renderStartMenu(route, autoStart);
       return;
     }
   }
