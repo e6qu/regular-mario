@@ -57,9 +57,11 @@ The runtime boots in this order:
    it reads input, calls the core's `stepSimulation`, and renders the returned
    state.
 5. **`src/engine/simulation/step-simulation.ts`** (`stepSimulation`) is the
-   core's single entry point:
+   core's sole **state-advancing** entry point:
    `stepSimulation(state, inputCommand, movementConstants, levelSpec)` returns
-   the next `SimulationState`.
+   the next `SimulationState`. The shell imports other `simulation/` modules too,
+   but only for their types and read-only accessors used while rendering — this
+   is the one call that runs game rules.
 
 ## The engine (`src/engine/`)
 

@@ -62,7 +62,7 @@ rendered frame.
 | 3   | [`src/shell/browser-level-selection.ts`](../src/shell/browser-level-selection.ts)         | `selectBrowserGameBootstrap`                    | Resolves which level + config to boot from the URL.                                                                                                           |
 | 4   | [`src/shell/create-game-config.ts`](../src/shell/create-game-config.ts)                   | `createGameConfig`                              | Builds the Phaser `GameConfig` (renderer, pixel-art scaling, `preserveDrawingBuffer` for thumbnails) and registers the single scene.                          |
 | 5   | [`src/shell/scenes/boot-scene.ts`](../src/shell/scenes/boot-scene.ts)                     | `BootScene`                                     | The running game. `create()` builds the level's Phaser objects; `update()` runs once per frame — reads input, calls `stepSimulation`, renders the result.     |
-| 6   | [`src/engine/simulation/step-simulation.ts`](../src/engine/simulation/step-simulation.ts) | `stepSimulation`                                | The core's single entry point. Everything below this line is pure.                                                                                            |
+| 6   | [`src/engine/simulation/step-simulation.ts`](../src/engine/simulation/step-simulation.ts) | `stepSimulation`                                | The engine's sole **state-advancing** entry point (defined here; the game loop calls it in `BootScene.update`). Everything it touches is pure.                |
 
 Per-frame data flow (from [`architecture.md`](architecture.md#data-flow-per-frame)):
 
@@ -78,6 +78,15 @@ keyboard / touch ─▶ SimulationInputCommand
       derive SoundEvents ─▶ GameAudio
       record the frame  ─▶ RunRecorder
 ```
+
+"Sole entry point" means state-advancement, not imports. `BootScene` imports two
+dozen engine modules, but only for their **types**, **read-only accessors** (e.g.
+`requireEnemyActorState` to read an enemy's position while drawing it), and
+**pure derivations** used for rendering/audio (`resolveSoundEvents`, sprite
+selection). The one call that runs game rules and produces the next
+`SimulationState` is `stepSimulation` — also the only engine call in the run
+recorder ([`run-recorder.ts`](../src/shell/run-recorder.ts)) and the replay
+fixtures ([`replay-fixture.ts`](../src/engine/simulation/replay-fixture.ts)).
 
 ---
 
@@ -139,7 +148,7 @@ order each frame.
 
 **Orchestration & state**
 
-- [`step-simulation.ts`](../src/engine/simulation/step-simulation.ts) — **the entry point.** `stepSimulation(state, input, constants, levelSpec, coopInputs?)` advances one frame. Also owns the per-enemy damage debounce, stomp-rebound, hazard-damage tiering, and score/lives aggregation.
+- [`step-simulation.ts`](../src/engine/simulation/step-simulation.ts) — **the state-advancing entry point.** `stepSimulation(state, input, constants, levelSpec, coopInputs?)` advances one frame. Also owns the per-enemy damage debounce, stomp-rebound, hazard-damage tiering, and score/lives aggregation.
 - [`simulation-state.ts`](../src/engine/simulation/simulation-state.ts) — `SimulationState`, the whole-world snapshot; `PlayerRuntime`/`SimulationPlayers` (uniform player array — index 0 is P1, 1..15 are co-op; `maxSimulationPlayers = 16`); the frame-0 constructors; `initialLivesCount = 3`.
 - [`simulation-units.ts`](../src/engine/simulation/simulation-units.ts), [`input-command.ts`](../src/engine/simulation/input-command.ts) — the `nominalSixtyHertz…` frame duration + assert-and-brand helpers, and `SimulationInputCommand` (horizontal / jump / run / fire / up / down).
 - [`movement-model.ts`](../src/engine/simulation/movement-model.ts), [`movement-measurements.ts`](../src/engine/simulation/movement-measurements.ts) — `MovementConstants` and the speed-indexed jump physics (tier latched at launch); metrics derived from the constants for tuning. See [decision 0005](decisions/0005-initial-movement-model.md) and [game-feel measurements](game-feel/current-movement-measurements.md).
