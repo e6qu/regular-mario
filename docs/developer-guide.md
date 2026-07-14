@@ -64,20 +64,10 @@ rendered frame.
 | 5   | [`src/shell/scenes/boot-scene.ts`](../src/shell/scenes/boot-scene.ts)                     | `BootScene`                                     | The running game. `create()` builds the level's Phaser objects; `update()` runs once per frame — reads input, calls `stepSimulation`, renders the result.     |
 | 6   | [`src/engine/simulation/step-simulation.ts`](../src/engine/simulation/step-simulation.ts) | `stepSimulation`                                | The engine's sole **state-advancing** entry point (defined here; the game loop calls it in `BootScene.update`). Everything it touches is pure.                |
 
-Per-frame data flow (from [`architecture.md`](architecture.md#data-flow-per-frame)):
-
-```
-keyboard / touch ─▶ SimulationInputCommand
-                         │
-      BootScene.update ──┼─▶ stepSimulation(state, input, constants, levelSpec)
-                         │            │
-                         │            ▼
-                         │      next SimulationState  (pure; no side effects)
-                         ▼            │
-      render the state ◀─────────────┘
-      derive SoundEvents ─▶ GameAudio
-      record the frame  ─▶ RunRecorder
-```
+Each frame, the shell turns input into a `SimulationInputCommand`, calls
+`stepSimulation` to get the next (pure) `SimulationState`, then renders it,
+derives `SoundEvent`s for `GameAudio`, and records the frame for replay. The
+[per-frame data-flow diagram](architecture.md#data-flow-per-frame) draws this out.
 
 "Sole entry point" means state-advancement, not imports. `BootScene` imports two
 dozen engine modules, but only for their **types**, **read-only accessors** (e.g.
@@ -126,18 +116,16 @@ immutable — `stepSimulation` takes state and returns new state.
 The vocabulary layer: types, smart constructors, and validators shared by
 everything above. No frame logic; never imports from `simulation/`.
 
-| File                                                                        | Responsibility                                                                                                                                                                                                                                                                                                                                           |
-| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`brand.ts`](../src/engine/domain/brand.ts)                                 | `Brand<Value, Name>` — the nominal-typing primitive that makes a `PixelPosition` un-interchangeable with a raw `number`.                                                                                                                                                                                                                                 |
-| [`units.ts`](../src/engine/domain/units.ts)                                 | All branded scalar units + validating constructors: `FrameIndex`, `PixelPosition/Distance/Delta`, `TileCoordinate`, `VelocityPixelsPerSecond`, `AccelerationPixelsPerSecondSquared`, `FrameDurationMilliseconds`, `ColliderDimensionPixels`, `TilePoint`, …                                                                                              |
-| [`identifiers.ts`](../src/engine/domain/identifiers.ts)                     | Branded id types `TileId`, `ActorId`, `EntityId` and their validated constructors.                                                                                                                                                                                                                                                                       |
-| [`result.ts`](../src/engine/domain/result.ts)                               | `DomainResult<Value, Failure>` (`{ ok: true, value }` / `{ ok: false, errors }`) + `succeed()`/`fail()` — the error-handling idiom used instead of exceptions for construction/validation.                                                                                                                                                               |
-| [`validation-error.ts`](../src/engine/domain/validation-error.ts)           | `ValidationError`, `ValidationErrorCode`, `makeValidationError()` — the failure payload in a `DomainResult`.                                                                                                                                                                                                                                             |
-| [`level-spec.ts`](../src/engine/domain/level-spec.ts)                       | The central authored-level model: `LevelSpecInput` (raw) → validated `LevelSpec`; enums `TileCollisionKind`, `ActorRole`; inputs for tiles, actors, vine/fall transitions, loop zones, platforms, frenzies, firebars, podoboos, hazard spawners. Everything reads this. See [`terminology.md`](terminology.md#actors-actorrole--super-mario-bros-names). |
-| [`compatibility-profile.ts`](../src/engine/domain/compatibility-profile.ts) | `CompatibilityProfile` — overridable physics-constant ids so an imported level can tune the engine toward a target ROM's behavior.                                                                                                                                                                                                                       |
-| [`content-sets.ts`](../src/engine/domain/content-sets.ts)                   | Build-time split of visual/audio **asset set** vs level **map set**, composed into a runtime manifest. See [decision 0019](decisions/0019-local-asset-and-map-sets.md).                                                                                                                                                                                  |
-| [`user-asset-manifest.ts`](../src/engine/domain/user-asset-manifest.ts)     | Schema + deep validation (`parseUserAssetManifest`) for uploaded asset/level packs. See [decision 0013](decisions/0013-user-asset-import-boundary.md).                                                                                                                                                                                                   |
-| [`game-title.ts`](../src/engine/domain/game-title.ts)                       | `GameTitle` branded type + constructor.                                                                                                                                                                                                                                                                                                                  |
+- [`brand.ts`](../src/engine/domain/brand.ts) — `Brand<Value, Name>`, the nominal-typing primitive that makes a `PixelPosition` un-interchangeable with a raw `number`.
+- [`units.ts`](../src/engine/domain/units.ts) — all branded scalar units + validating constructors: `FrameIndex`, `PixelPosition/Distance/Delta`, `TileCoordinate`, `VelocityPixelsPerSecond`, `AccelerationPixelsPerSecondSquared`, `FrameDurationMilliseconds`, `ColliderDimensionPixels`, `TilePoint`, …
+- [`identifiers.ts`](../src/engine/domain/identifiers.ts) — branded id types `TileId`, `ActorId`, `EntityId` and their validated constructors.
+- [`result.ts`](../src/engine/domain/result.ts) — `DomainResult<Value, Failure>` (`{ ok: true, value }` / `{ ok: false, errors }`) + `succeed()`/`fail()`; the error-handling idiom used instead of exceptions for construction/validation.
+- [`validation-error.ts`](../src/engine/domain/validation-error.ts) — `ValidationError`, `ValidationErrorCode`, `makeValidationError()`; the failure payload in a `DomainResult`.
+- [`level-spec.ts`](../src/engine/domain/level-spec.ts) — the central authored-level model: `LevelSpecInput` (raw) → validated `LevelSpec`; enums `TileCollisionKind`, `ActorRole`; inputs for tiles, actors, vine/fall transitions, loop zones, platforms, frenzies, firebars, podoboos, hazard spawners. Everything reads this. See [`terminology.md`](terminology.md#actors-actorrole--super-mario-bros-names).
+- [`compatibility-profile.ts`](../src/engine/domain/compatibility-profile.ts) — `CompatibilityProfile`, overridable physics-constant ids so an imported level can tune the engine toward a target ROM's behavior.
+- [`content-sets.ts`](../src/engine/domain/content-sets.ts) — build-time split of visual/audio **asset set** vs level **map set**, composed into a runtime manifest. See [decision 0019](decisions/0019-local-asset-and-map-sets.md).
+- [`user-asset-manifest.ts`](../src/engine/domain/user-asset-manifest.ts) — schema + deep validation (`parseUserAssetManifest`) for uploaded asset/level packs. See [decision 0013](decisions/0013-user-asset-import-boundary.md).
+- [`game-title.ts`](../src/engine/domain/game-title.ts) — `GameTitle` branded type + constructor.
 
 ### `simulation/` — the deterministic core
 
