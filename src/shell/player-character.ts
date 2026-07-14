@@ -17,12 +17,12 @@ export type PlayerCharacter =
 export const defaultPlayerCharacter: PlayerCharacter = "castaway";
 
 // The player characters offered in Revenge mode (you play the stomper): the
-// tall Goomba by default, or the Princess.
+// Princess by default, or the tall Goomba.
 export const revengePlayerCharacters: readonly PlayerCharacter[] = [
-  "goomba",
   "princess",
+  "goomba",
 ];
-export const defaultRevengePlayerCharacter: PlayerCharacter = "goomba";
+export const defaultRevengePlayerCharacter: PlayerCharacter = "princess";
 
 // The four robot costumes, in the order bots cycle through them, so every bot in
 // a crowd reads as a distinct machine.

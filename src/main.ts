@@ -2104,8 +2104,8 @@ async function renderStartMenu(
     ["robot4", "Robot: Crusher (treads)"],
   ];
   const revengeCharacterOptions: readonly (readonly [string, string])[] = [
-    ["goomba", "Goomba (the avenger)"],
     ["princess", "Princess"],
+    ["goomba", "Goomba (the avenger)"],
   ];
   const characterSelect = makeStartMenuDropdown(
     "Character",

@@ -14,7 +14,7 @@ import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 // prettier-ignore
 import { robotCostumes, luigiCostume, robotPartHeadGrid, robotPartTorsoGrid, robotPartArmGrid, robotPartLegGrid } from "./robot-costume-sprites.mjs";
 // prettier-ignore
-import { goombaCostume, princessCostume, revengeEnemyVariants } from "./revenge-costume-sprites.mjs";
+import { goombaCostume, princessCostume, revengeEnemyVariants, revengeStompPop } from "./revenge-costume-sprites.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -1701,6 +1701,7 @@ async function main() {
     ...singleTierCostumeFiles(goombaCostume),
     ...singleTierCostumeFiles(princessCostume),
     ...revengeEnemyFiles(),
+    [`${revengeStompPop.key}.png`, revengeStompPop.grid, revengeStompPop.palette],
     // Background scenery.
     ["scenery-cloud-left.png", sceneryCloudLeft, sceneryPalette],
     ["scenery-cloud-middle.png", sceneryCloudMiddle, sceneryPalette],
@@ -1842,6 +1843,9 @@ async function main() {
           ]),
         ),
       ),
+      // Revenge mode: the Mario-head-with-bulging-eyes stomp pop, shown in place
+      // of the default squashed-enemy reaction when a Goomba stomps a hero.
+      [revengeStompPop.key]: spriteEntry(`${revengeStompPop.key}.png`),
     },
     playerSprite: {
       ...spriteEntry("castaway-idle.png"),

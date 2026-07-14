@@ -1276,7 +1276,12 @@ export class BootScene extends Phaser.Scene {
       .setDepth(50)
       .setVisible(false);
     this.playerReactionImage = this.makeReactionImage("player-head-bonk", 1);
-    this.enemyStompReactionImage = this.makeReactionImage("enemy-stomped", 0.5);
+    // Revenge mode brands the stomp pop as a full Mario head with bulging eyes;
+    // normal play uses the squashed-enemy reaction.
+    this.enemyStompReactionImage = this.makeReactionImage(
+      this.revengeMode ? "revenge-stomp-pop" : "enemy-stomped",
+      0.5,
+    );
     this.scoreBadgeRectangle = this.add
       .rectangle(
         scoreBadgeX,

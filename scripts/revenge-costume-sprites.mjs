@@ -267,9 +267,9 @@ const shortHeroJump = [
 
 // The base hero palette carries the Mario/Luigi body colours PLUS a shared set
 // of "true type" marker glyphs, so one palette renders every enemy-type helmet
-// (Koopa shell, Goomba cap, Hammer Bro helmet, Spiny shell, Lakitu cloud,
-// Piranha bud) drawn over the same body. Only the tunic colour (C/c) differs
-// between Mario (red) and Luigi (green).
+// (Koopa shell, Hammer Bro helmet, Spiny shell, Lakitu cloud, Piranha bud) drawn
+// over the same body. A Goomba wears no helmet — it is just a full Mario. Only
+// the tunic colour (C/c) differs between Mario (red) and Luigi (green).
 export const marioEnemyPalette = {
   ".": [0, 0, 0, 0],
   C: [216, 56, 44, 255], // red cap + shirt
@@ -286,8 +286,6 @@ export const marioEnemyPalette = {
   K: [98, 182, 72, 255], // Koopa shell green
   k: [46, 110, 40, 255], // Koopa shell dark / segment lines
   R: [238, 224, 150, 255], // Koopa shell rim cream
-  G: [176, 120, 68, 255], // Goomba mushroom tan
-  g: [110, 70, 38, 255], // Goomba mushroom dark / gills
   H: [86, 116, 92, 255], // Hammer Bro helmet
   h: [44, 66, 50, 255], // Hammer Bro helmet dark
   V: [156, 186, 158, 255], // Hammer Bro visor
@@ -335,15 +333,16 @@ export const princessCostume = {
 // for the higher jump head and down two rows for the squashed stomp head, so one
 // design covers every frame.
 const typeMarkers = {
-  // Koopa Troopa: a domed green shell with segment lines and a cream brim.
-  koopa: [
+  // Goomba: a plain, full Mario/Luigi in his own cap — no helmet at all. (The
+  // empty overlay keeps the base body, so the tunic-coloured cap shows through.)
+  goomba: [
     "................",
     "................",
     "................",
-    "....kKKKKk......",
-    "..kKKKKKKKKk....",
-    "..kKkKKKKkKk....",
-    "..RRRRRRRRRR....",
+    "................",
+    "................",
+    "................",
+    "................",
     "................",
     "................",
     "................",
@@ -354,15 +353,15 @@ const typeMarkers = {
     "................",
     "................",
   ],
-  // Goomba: the brown mushroom cap sat on the head like a hat, dark gills below.
-  goomba: [
+  // Koopa Troopa: a domed green shell with segment lines and a cream brim.
+  koopa: [
     "................",
     "................",
     "................",
-    "...gGGGGGGg.....",
-    "..gGGGGGGGGg....",
-    "..GGGGGGGGGG....",
-    "..gggggggggg....",
+    "....kKKKKk......",
+    "..kKKKKKKKKk....",
+    "..kKkKKKKkKk....",
+    "..RRRRRRRRRR....",
     "................",
     "................",
     "................",
@@ -509,3 +508,31 @@ export const revengeEnemyVariants = revengeEnemyTypeKeys.flatMap((type) =>
     ),
   })),
 );
+
+// The stomp "pop" for revenge mode: a full Mario head with eyes bulging out of
+// their sockets (the over-acted "itsa-me!" shock), branded as Mario rather than
+// the default squashed-enemy reaction. Drawn at the stomped hero's position when
+// a Goomba lands on them.
+const revengeStompPopGrid = [
+  "................",
+  ".....CCCCC......",
+  "...CCCCCCCCC....",
+  "..CCCCCCCCCCC...",
+  "..ssssssssss....",
+  ".wwwwsssssswwww.",
+  ".weewssssssweew.",
+  ".weewssssssweew.",
+  ".wwwwsssssswwww.",
+  "...sssSSsss.....",
+  "..mmmm..mmmm....",
+  "..mmmmssmmmm....",
+  "...ssssssss.....",
+  "................",
+  "................",
+  "................",
+];
+export const revengeStompPop = {
+  key: "revenge-stomp-pop",
+  grid: revengeStompPopGrid,
+  palette: marioEnemyPalette,
+};
