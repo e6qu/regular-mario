@@ -14,7 +14,7 @@ import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
 // prettier-ignore
 import { robotCostumes, luigiCostume, robotPartHeadGrid, robotPartTorsoGrid, robotPartArmGrid, robotPartLegGrid } from "./robot-costume-sprites.mjs";
 // prettier-ignore
-import { goombaCostume, princessCostume, revengeHeroEnemies, revengeHeroGrids } from "./revenge-costume-sprites.mjs";
+import { goombaCostume, princessCostume, revengeEnemyVariants } from "./revenge-costume-sprites.mjs";
 import {
   assertUserLevelCachePath,
   readOption,
@@ -988,14 +988,15 @@ function singleTierCostumeFiles(costume) {
   ]);
 }
 
-// The half-height Mario/Luigi "enemy" sprites for revenge mode: a walk frame,
-// a jump frame, and the eye-bulge stomped frame, one set per colour.
+// The half-height Mario/Luigi "enemy" sprites for revenge mode: walk frames, a
+// jump frame, and the eye-bulge stomped frame — one set per (enemy type, colour)
+// variant, each wearing its true type as a helmet.
 function revengeEnemyFiles() {
-  return revengeHeroEnemies.flatMap((enemy) =>
-    Object.entries(revengeHeroGrids).map(([pose, grid]) => [
-      `${enemy.key}-${pose}.png`,
+  return revengeEnemyVariants.flatMap((variant) =>
+    Object.entries(variant.poses).map(([pose, grid]) => [
+      `${variant.key}-${pose}.png`,
       grid,
-      enemy.palette,
+      variant.palette,
     ]),
   );
 }
@@ -1831,13 +1832,13 @@ async function main() {
         ),
       ),
       // Revenge mode: the half-height Mario/Luigi enemy frames (walk / jump /
-      // eye-bulge stomp), looked up directly by the shell when it re-skins the
-      // enemies as stompable heroes.
+      // eye-bulge stomp) for every (type, colour) variant, looked up directly by
+      // the shell when it re-skins the enemies as stompable heroes.
       ...Object.fromEntries(
-        revengeHeroEnemies.flatMap((enemy) =>
-          Object.keys(revengeHeroGrids).map((pose) => [
-            `${enemy.key}-${pose}`,
-            spriteEntry(`${enemy.key}-${pose}.png`),
+        revengeEnemyVariants.flatMap((variant) =>
+          Object.keys(variant.poses).map((pose) => [
+            `${variant.key}-${pose}`,
+            spriteEntry(`${variant.key}-${pose}.png`),
           ]),
         ),
       ),

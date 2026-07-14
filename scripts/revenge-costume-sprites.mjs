@@ -265,6 +265,11 @@ const shortHeroJump = [
   "................",
 ];
 
+// The base hero palette carries the Mario/Luigi body colours PLUS a shared set
+// of "true type" marker glyphs, so one palette renders every enemy-type helmet
+// (Koopa shell, Goomba cap, Hammer Bro helmet, Spiny shell, Lakitu cloud,
+// Piranha bud) drawn over the same body. Only the tunic colour (C/c) differs
+// between Mario (red) and Luigi (green).
 export const marioEnemyPalette = {
   ".": [0, 0, 0, 0],
   C: [216, 56, 44, 255], // red cap + shirt
@@ -278,6 +283,22 @@ export const marioEnemyPalette = {
   w: [246, 246, 242, 255], // eye white
   b: [74, 50, 32, 255], // boots
   B: [232, 206, 96, 255], // buttons
+  K: [98, 182, 72, 255], // Koopa shell green
+  k: [46, 110, 40, 255], // Koopa shell dark / segment lines
+  R: [238, 224, 150, 255], // Koopa shell rim cream
+  G: [176, 120, 68, 255], // Goomba mushroom tan
+  g: [110, 70, 38, 255], // Goomba mushroom dark / gills
+  H: [86, 116, 92, 255], // Hammer Bro helmet
+  h: [44, 66, 50, 255], // Hammer Bro helmet dark
+  V: [156, 186, 158, 255], // Hammer Bro visor
+  P: [220, 100, 56, 255], // Spiny shell orange
+  p: [150, 52, 32, 255], // Spiny shell dark
+  Q: [242, 238, 224, 255], // spike / spot cream
+  W: [236, 240, 248, 255], // Lakitu cloud white
+  U: [198, 206, 220, 255], // Lakitu cloud shadow
+  Z: [212, 66, 70, 255], // Piranha bud red
+  z: [150, 40, 46, 255], // Piranha bud dark red
+  E: [88, 168, 72, 255], // Piranha leaf green
 };
 export const luigiEnemyPalette = {
   ...marioEnemyPalette,
@@ -307,21 +328,184 @@ export const princessCostume = {
   palette: princessPlayerPalette,
 };
 
-// The half-height hero "enemies" a Goomba stomps in revenge mode, one entry per
-// colour. `walk1`/`walk2` animate the patrol; `stomped` is the eye-bulge squash.
-export const revengeHeroEnemies = [
-  {
-    key: "mario-enemy",
-    palette: marioEnemyPalette,
-  },
-  {
-    key: "luigi-enemy",
-    palette: luigiEnemyPalette,
-  },
-];
-export const revengeHeroGrids = {
-  "walk-1": shortHeroWalk1,
-  "walk-2": shortHeroWalk2,
-  stomped: shortHeroStomped,
-  jump: shortHeroJump,
+// A "type marker" is a small helmet/hat drawn over the hero's head so a stomped
+// hero still reads as the real enemy it stands in for. Each marker is a 16-wide
+// overlay anchored to the upright walk head (the cap at rows 5-6); non-empty
+// cells overwrite the body, '.' keeps it. The same overlay is nudged up one row
+// for the higher jump head and down two rows for the squashed stomp head, so one
+// design covers every frame.
+const typeMarkers = {
+  // Koopa Troopa: a domed green shell with segment lines and a cream brim.
+  koopa: [
+    "................",
+    "................",
+    "................",
+    "....kKKKKk......",
+    "..kKKKKKKKKk....",
+    "..kKkKKKKkKk....",
+    "..RRRRRRRRRR....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
+  // Goomba: the brown mushroom cap sat on the head like a hat, dark gills below.
+  goomba: [
+    "................",
+    "................",
+    "................",
+    "...gGGGGGGg.....",
+    "..gGGGGGGGGg....",
+    "..GGGGGGGGGG....",
+    "..gggggggggg....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
+  // Hammer Bro: a horned combat helmet with a light visor band.
+  hammer: [
+    "................",
+    "................",
+    ".....hVh........",
+    "...hHHHHHHh.....",
+    "..hHHHHHHHHh....",
+    "..hHHHHHHHHh....",
+    "..hVVVVVVVVh....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
+  // Spiny: a red shell bristling with pale spikes.
+  spiny: [
+    "................",
+    "................",
+    "..Q.Q.Q.Q.Q....",
+    "..pPPPPPPPPp....",
+    "..pPPPPPPPPp....",
+    "..pPPPPPPPPp....",
+    "..pppppppppp....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
+  // Lakitu: peeking over a little white cloud, green shell on top.
+  lakitu: [
+    "................",
+    "................",
+    "...kKKKKk.......",
+    "..kKKKKKKk.....",
+    "..WUWWUWWUW....",
+    "..UWWUWWUWU....",
+    "..WUWWUWWUW....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
+  // Piranha Plant: a red bud with cream spots between two green leaves.
+  piranha: [
+    "................",
+    "................",
+    "..E.EZZE.E......",
+    "..EZZZZZZZE.....",
+    "..ZQZZZZQZZ.....",
+    "..ZZZZZZZZZZ....",
+    "..zzzzzzzzzz....",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+    "................",
+  ],
 };
+
+// Shift a 16-tall grid up (negative) or down (positive) by `rows`, padding the
+// vacated rows with empty cells so it stays 16 tall.
+function shiftGrid(grid, rows) {
+  const empty = ".".repeat(16);
+  if (rows === 0) {
+    return grid.slice();
+  }
+  if (rows > 0) {
+    return [...Array.from({ length: rows }, () => empty), ...grid].slice(0, 16);
+  }
+  return [...grid.slice(-rows), ...Array.from({ length: -rows }, () => empty)];
+}
+
+// Composite a marker overlay onto a body grid: any non-empty marker cell wins.
+function applyMarker(body, marker) {
+  return body.map((row, y) => {
+    const markerRow = marker[y] ?? "";
+    let out = "";
+    for (let x = 0; x < 16; x += 1) {
+      const markerCell = markerRow[x] ?? ".";
+      out += markerCell === "." ? (row[x] ?? ".") : markerCell;
+    }
+    return out;
+  });
+}
+
+// The half-height hero body, one grid per pose, plus how far its type marker
+// shifts to sit on that pose's head (the jump head is one row higher, the stomp
+// head two rows lower than the walk head).
+const revengeHeroBodies = {
+  "walk-1": { grid: shortHeroWalk1, markerShift: 0 },
+  "walk-2": { grid: shortHeroWalk2, markerShift: 0 },
+  jump: { grid: shortHeroJump, markerShift: -1 },
+  stomped: { grid: shortHeroStomped, markerShift: 2 },
+};
+
+// Mario (red) vs Luigi (green): the shell picks one per enemy by a stable hash.
+export const revengeEnemyColors = [
+  { key: "mario", palette: marioEnemyPalette },
+  { key: "luigi", palette: luigiEnemyPalette },
+];
+export const revengeEnemyTypeKeys = Object.keys(typeMarkers);
+
+// Every (type, colour) variant with its four composited pose grids, keyed
+// `${type}-${colour}` (e.g. "koopa-mario") to match the shell's lookup. Each is
+// a half-height Mario/Luigi wearing its true enemy type as a helmet.
+export const revengeEnemyVariants = revengeEnemyTypeKeys.flatMap((type) =>
+  revengeEnemyColors.map((color) => ({
+    key: `${type}-${color.key}`,
+    palette: color.palette,
+    poses: Object.fromEntries(
+      Object.entries(revengeHeroBodies).map(([pose, body]) => [
+        pose,
+        applyMarker(body.grid, shiftGrid(typeMarkers[type], body.markerShift)),
+      ]),
+    ),
+  })),
+);

@@ -4515,7 +4515,8 @@ export class BootScene extends Phaser.Scene {
       // Revenge mode: re-skin every walking enemy as a half-height Mario/Luigi
       // "hero" the player (a Goomba) stomps.
       if (this.revengeMode && isEnemyRole(actor.role)) {
-        actorImage = this.revengeEnemySprite(actor.entityId) ?? actorImage;
+        actorImage =
+          this.revengeEnemySprite(actor.entityId, actor.role) ?? actorImage;
       }
 
       if (actorImage !== undefined && actor.userImageObject !== undefined) {
@@ -4779,12 +4780,40 @@ export class BootScene extends Phaser.Scene {
     return sum % 2 === 1;
   }
 
-  // The half-height Mario/Luigi frame to draw for an enemy in revenge mode: the
-  // eye-bulge squash once it has been stomped (defeated), otherwise its animated
-  // walk.
-  private revengeEnemySprite(entityId: string): LoadedImageAsset | undefined {
+  // The "true type" a revenge hero wears as a helmet, chosen from the enemy's
+  // role so a stomped Mario still reads as the Koopa / Goomba / Hammer Bro / …
+  // it stands in for. Falls back to the Koopa shell for any unlisted role.
+  private revengeEnemyTypeForRole(role: ActorRole): string {
+    switch (role) {
+      case ActorRole.Enemy:
+        return "goomba";
+      case ActorRole.ThrowingEnemy:
+        return "hammer";
+      case ActorRole.AerialThrowingEnemy:
+        return "lakitu";
+      case ActorRole.ChasingEnemy:
+        return "spiny";
+      case ActorRole.PiranhaPlant:
+        return "piranha";
+      case ActorRole.ArmoredEnemy:
+      case ActorRole.FlyingEnemy:
+      default:
+        return "koopa";
+    }
+  }
+
+  // The half-height Mario/Luigi frame to draw for an enemy in revenge mode: a
+  // hero re-skinned in that enemy's true type (Koopa shell, Goomba cap, …) in
+  // Mario red or Luigi green, showing the eye-bulge squash once stomped
+  // (defeated) and otherwise its animated walk.
+  private revengeEnemySprite(
+    entityId: string,
+    role: ActorRole,
+  ): LoadedImageAsset | undefined {
     const bundle = this.userAssetBundle;
-    const key = this.revengeEnemyIsLuigi(entityId) ? "luigi-enemy" : "mario-enemy";
+    const type = this.revengeEnemyTypeForRole(role);
+    const color = this.revengeEnemyIsLuigi(entityId) ? "luigi" : "mario";
+    const key = `${type}-${color}`;
     const defeated = this.simulationState.enemies.defeatedEnemyEntityIds.some(
       (id) => String(id) === entityId,
     );
