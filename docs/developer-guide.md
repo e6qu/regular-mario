@@ -428,7 +428,8 @@ power-ups & blocks ([0011](decisions/0011-power-up-acquisition.md)/[0014](decisi
 the import & user-asset boundaries ([0012](decisions/0012-level-import-pipeline-boundary.md)/[0013](decisions/0013-user-asset-import-boundary.md)),
 projectiles, pipes & progression ([0015](decisions/0015-projectiles.md)–[0017](decisions/0017-multi-level-progression.md)),
 ROM acquisition & content sets ([0018](decisions/0018-smb-original-asset-acquisition-and-pixel-verification.md)/[0019](decisions/0019-local-asset-and-map-sets.md)),
-and the WebGL renderer evaluation ([0020](decisions/0020-webgl-renderer-evaluation.md)).
+the WebGL renderer evaluation ([0020](decisions/0020-webgl-renderer-evaluation.md)),
+and the dev-dependency license scope ([0021](decisions/0021-dev-dependency-license-scope.md)).
 
 ### Game feel & QA
 

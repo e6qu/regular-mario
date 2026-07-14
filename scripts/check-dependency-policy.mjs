@@ -26,11 +26,28 @@ const requiredMetadataFields = [
 ];
 
 const compatibleLicenseValues = ["compatible"];
-const compatibleDirectDependencyLicenses = new Set([
-  "Apache-2.0",
-  "ISC",
-  "MIT",
+// Runtime `dependencies` are bundled into the shipped site and conveyed under
+// AGPL-3.0-or-later, so they must use one of these strictly-permissive,
+// unambiguously AGPL-compatible licenses.
+const conveyedDependencyLicenses = new Set(["Apache-2.0", "ISC", "MIT"]);
+// `devDependencies` / `peerDependencies` are build- and test-only tooling that is
+// never bundled into the shipped site, so the conveyed-code AGPL-compatibility
+// bar does not apply to them. They may additionally use permissive or weak
+// (file-level) copyleft licenses that impose no obligation on our
+// non-distributed use. See docs/decisions/0021-dev-dependency-license-scope.md.
+const nonConveyedDependencyLicenses = new Set([
+  ...conveyedDependencyLicenses,
+  "MPL-2.0",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "0BSD",
 ]);
+
+function allowedLicensesForSection(dependencySection) {
+  return dependencySection === "dependencies"
+    ? conveyedDependencyLicenses
+    : nonConveyedDependencyLicenses;
+}
 const minimumPublishAgeMilliseconds = 3 * 24 * 60 * 60 * 1000;
 const exactVersionPattern = /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/;
 
@@ -192,9 +209,10 @@ function validateMetadata(
     );
   }
 
-  if (!compatibleDirectDependencyLicenses.has(metadata.license)) {
+  const allowedLicenses = allowedLicensesForSection(dependencySection);
+  if (!allowedLicenses.has(metadata.license)) {
     throw new Error(
-      `${metadataPath} field "license" must be one of: ${Array.from(compatibleDirectDependencyLicenses).join(", ")}.`,
+      `${metadataPath} field "license" must be one of: ${Array.from(allowedLicenses).join(", ")} for a ${dependencySection} dependency.`,
     );
   }
 

@@ -1,0 +1,15 @@
+{
+  "name": "@axe-core/playwright",
+  "versionRange": "4.12.1",
+  "dependencySection": "devDependencies",
+  "purpose": "Automated WCAG 2.1 A/AA accessibility scanning in the Playwright browser test suite (tests/browser/a11y.spec.ts). Test-only tooling; never bundled into the shipped site.",
+  "license": "MPL-2.0",
+  "licenseEvidence": "npm registry metadata from `npm view @axe-core/playwright version license repository.url time --json` reported license `MPL-2.0`, repository `git+https://github.com/dequelabs/axe-core-npm.git`, and publish time for 4.12.1 of 2026-06-23T15:31:17.929Z.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "4.12.1",
+  "checkedVersionPublishedAt": "2026-06-23T15:31:17.929Z",
+  "checkedAt": "2026-07-14T15:12:45Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "axe-core is Deque Labs' widely-adopted, industry-standard accessibility testing engine; @axe-core/playwright is its official Playwright integration. Accessibility scanning is part of the web-game QA scope in AGENTS.md and the web-game-qa skill."
+}
