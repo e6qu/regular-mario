@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  hardLandingDropTiles,
-  resolveGroundQuake,
-} from "./ground-quake";
+import { hardLandingDropTiles, resolveGroundQuake } from "./ground-quake";
 
 describe("resolveGroundQuake", () => {
   it("does not quake for a routine platforming drop (at or below the threshold)", () => {

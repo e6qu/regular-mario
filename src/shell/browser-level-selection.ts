@@ -30,10 +30,7 @@ import {
   makePoweredPlayerVitalityState,
   type PlayerVitalityState,
 } from "../engine/simulation/player-vitality";
-import {
-  parsePlayerCharacter,
-  type PlayerCharacter,
-} from "./player-character";
+import { parsePlayerCharacter, type PlayerCharacter } from "./player-character";
 import { maxSimulationPlayers } from "../engine/simulation/simulation-state";
 import type { UserAssetBundle } from "./user-asset-loader";
 

@@ -108,7 +108,10 @@ function withBrokenBlock(state: SimulationState): SimulationState {
     breakableBlocks: {
       ...state.breakableBlocks,
       brokenBlockTilePositions: [
-        { x: 5, y: 7 } as unknown as SimulationState["breakableBlocks"]["brokenBlockTilePositions"][number],
+        {
+          x: 5,
+          y: 7,
+        } as unknown as SimulationState["breakableBlocks"]["brokenBlockTilePositions"][number],
       ],
     },
   };

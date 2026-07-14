@@ -225,7 +225,7 @@ function stompPlayerSimulationState(
   playerVitality?: PlayerVitalityState,
 ): SimulationState {
   return withPlayerOverrides(validInitialState(), {
-        player: playerWithTestState({
+    player: playerWithTestState({
       position: {
         x: 96,
         y: 40,
@@ -240,7 +240,7 @@ function stompPlayerSimulationState(
       },
     }),
     ...(playerVitality === undefined ? {} : { playerVitality }),
-      });
+  });
 }
 
 function testSkyGroundTileDefinitions() {
@@ -390,12 +390,12 @@ function stepRecoveringVitalityState(
 ): SimulationState {
   return stepSimulation(
     withPlayerOverrides(stateWithPlayerAt(position), {
-        playerVitality: recoveringVitalityState(
+      playerVitality: recoveringVitalityState(
         EnemySideContactSide.Right,
         remainingKnockbackFrames,
         remainingInvulnerabilityFrames,
       ),
-      }),
+    }),
     validInputCommand(),
     initialMovementConstants,
     firstAuthoredLevelWithoutHazardSpec(),
@@ -622,7 +622,7 @@ function stateWithPlayerAt(position: {
   readonly y: number;
 }): SimulationState {
   return withPlayerOverrides(validInitialState(), {
-        player: playerWithTestState({
+    player: playerWithTestState({
       position,
       velocity: {
         x: 0,
@@ -633,7 +633,7 @@ function stateWithPlayerAt(position: {
         vertical: VerticalMovementState.Grounded,
       },
     }),
-      });
+  });
 }
 
 function stepRightSideEnemyContactWithoutHazard(
@@ -978,7 +978,9 @@ describe("simulation primitives", () => {
       levelSpec,
     );
 
-    expect(bonkedState.players[0].reaction.kind).toBe(PlayerReactionKind.HeadBonk);
+    expect(bonkedState.players[0].reaction.kind).toBe(
+      PlayerReactionKind.HeadBonk,
+    );
     expect(bonkedState.players[0].reaction.remainingFrames).toBeGreaterThan(0);
 
     // With no further bonk, the reaction counts down.
@@ -1202,11 +1204,14 @@ describe("simulation primitives", () => {
   });
 
   it("spawns a projectile when fire is pressed while in fire form", () => {
-    const poweredState: SimulationState = withPlayerOverrides(validInitialState(), {
+    const poweredState: SimulationState = withPlayerOverrides(
+      validInitialState(),
+      {
         playerVitality: {
-        kind: PlayerVitalityKind.Fire,
+          kind: PlayerVitalityKind.Fire,
+        },
       },
-      });
+    );
     const fireInputResult = makeSimulationInputCommand(
       HorizontalInput.Right,
       false,
@@ -1235,22 +1240,25 @@ describe("simulation primitives", () => {
   });
 
   it("resolves landing on crossed solid tiles after position integration", () => {
-    const fallingState: SimulationState = withPlayerOverrides(validInitialState(), {
+    const fallingState: SimulationState = withPlayerOverrides(
+      validInitialState(),
+      {
         player: playerWithTestState({
-        position: {
-          x: 16,
-          y: 54,
-        },
-        velocity: {
-          x: 0,
-          y: 120,
-        },
-        movement: {
-          horizontal: HorizontalMovementState.Idle,
-          vertical: VerticalMovementState.Falling,
-        },
-      }),
-      });
+          position: {
+            x: 16,
+            y: 54,
+          },
+          velocity: {
+            x: 0,
+            y: 120,
+          },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Falling,
+          },
+        }),
+      },
+    );
 
     const nextState = stepWithInitialMovementConstants(
       fallingState,
@@ -1278,22 +1286,25 @@ describe("simulation primitives", () => {
       throw new Error("Expected valid right run input command.");
     }
 
-    const rightwardState: SimulationState = withPlayerOverrides(validInitialState(), {
+    const rightwardState: SimulationState = withPlayerOverrides(
+      validInitialState(),
+      {
         player: playerWithTestState({
-        position: {
-          x: 113,
-          y: 40,
-        },
-        velocity: {
-          x: 160,
-          y: 0,
-        },
-        movement: {
-          horizontal: HorizontalMovementState.Running,
-          vertical: VerticalMovementState.Falling,
-        },
-      }),
-      });
+          position: {
+            x: 113,
+            y: 40,
+          },
+          velocity: {
+            x: 160,
+            y: 0,
+          },
+          movement: {
+            horizontal: HorizontalMovementState.Running,
+            vertical: VerticalMovementState.Falling,
+          },
+        }),
+      },
+    );
 
     const nextState = stepWithInitialMovementConstants(
       rightwardState,
@@ -1310,22 +1321,25 @@ describe("simulation primitives", () => {
   });
 
   it("resolves upward underside solid collision after position integration", () => {
-    const jumpingState: SimulationState = withPlayerOverrides(validInitialState(), {
+    const jumpingState: SimulationState = withPlayerOverrides(
+      validInitialState(),
+      {
         player: playerWithTestState({
-        position: {
-          x: 66,
-          y: 49,
-        },
-        velocity: {
-          x: 0,
-          y: -600,
-        },
-        movement: {
-          horizontal: HorizontalMovementState.Idle,
-          vertical: VerticalMovementState.Jumping,
-        },
-      }),
-      });
+          position: {
+            x: 66,
+            y: 49,
+          },
+          velocity: {
+            x: 0,
+            y: -600,
+          },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Jumping,
+          },
+        }),
+      },
+    );
 
     const nextState = stepWithInitialMovementConstants(
       jumpingState,
@@ -1342,25 +1356,28 @@ describe("simulation primitives", () => {
   });
 
   it("defeats the player with a pit-contact outcome when they fall below the level bottom", () => {
-    const fallingBelowLevel: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const fallingBelowLevel: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 16,
         y: 96,
-      }), {
-        player: playerWithTestState({
-        position: {
-          x: 16,
-          y: 96,
-        },
-        velocity: {
-          x: 0,
-          y: 600,
-        },
-        movement: {
-          horizontal: HorizontalMovementState.Idle,
-          vertical: VerticalMovementState.Falling,
-        },
       }),
-      });
+      {
+        player: playerWithTestState({
+          position: {
+            x: 16,
+            y: 96,
+          },
+          velocity: {
+            x: 0,
+            y: 600,
+          },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Falling,
+          },
+        }),
+      },
+    );
 
     const nextState = stepWithInitialMovementConstants(
       fallingBelowLevel,
@@ -1391,7 +1408,8 @@ describe("simulation primitives", () => {
     // route runs a little longer than it used to.
     for (let frame = 0; frame < 110; frame += 1) {
       const playerNearGap =
-        state.players[0].player.position.x >= 112 && state.players[0].player.position.x <= 148;
+        state.players[0].player.position.x >= 112 &&
+        state.players[0].player.position.x <= 148;
       state = stepSimulation(
         state,
         runningRightInputCommand(playerNearGap),
@@ -1456,7 +1474,9 @@ describe("simulation primitives", () => {
       throw new Error("Expected a timed running jump to stomp the lead enemy.");
     }
 
-    expect(successfulState.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(successfulState.players[0].outcome.kind).toBe(
+      PlayerOutcomeKind.Active,
+    );
     expect(successfulState.enemies.contactedEnemyEntityIds).toEqual([]);
     expect(successfulState.enemies.defeatedEnemyEntityIds).toContain(
       testEnemyEntityId("beetle-a"),
@@ -1634,15 +1654,18 @@ describe("simulation primitives", () => {
   });
 
   it("defeats side-contact enemies while invincibility is active", () => {
-    const enemyState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const enemyState: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 96,
         y: 56,
-      }), {
+      }),
+      {
         playerInvincibility: {
-        collectedInvincibilityEntityIds: [],
-        remainingFrames: testInvincibilityFrameCount(2),
+          collectedInvincibilityEntityIds: [],
+          remainingFrames: testInvincibilityFrameCount(2),
+        },
       },
-      });
+    );
 
     const nextState = stepWithInitialMovementConstants(
       enemyState,
@@ -1808,14 +1831,17 @@ describe("simulation primitives", () => {
   });
 
   it("starts recovery instead of defeat after powered enemy side contact", () => {
-    const enemyState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const enemyState: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 96,
         y: 56,
-      }), {
+      }),
+      {
         playerVitality: {
-        kind: PlayerVitalityKind.Powered,
+          kind: PlayerVitalityKind.Powered,
+        },
       },
-      });
+    );
 
     const nextState = stepRightSideEnemyContactWithoutHazard(enemyState);
 
@@ -1836,12 +1862,19 @@ describe("simulation primitives", () => {
   });
 
   it("continues recovery knockback while ignoring horizontal input", () => {
-    const recoveringState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const recoveringState: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 32,
         y: 56,
-      }), {
-        playerVitality: recoveringVitalityState(EnemySideContactSide.Left, 2, 3),
-      });
+      }),
+      {
+        playerVitality: recoveringVitalityState(
+          EnemySideContactSide.Left,
+          2,
+          3,
+        ),
+      },
+    );
     const rightInputResult = makeSimulationInputCommand(
       HorizontalInput.Right,
       false,
@@ -1874,12 +1907,19 @@ describe("simulation primitives", () => {
   });
 
   it("keeps recovering enemy body contact active while invulnerable", () => {
-    const recoveringState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const recoveringState: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 96,
         y: 56,
-      }), {
-        playerVitality: recoveringVitalityState(EnemySideContactSide.Right, 0, 3),
-      });
+      }),
+      {
+        playerVitality: recoveringVitalityState(
+          EnemySideContactSide.Right,
+          0,
+          3,
+        ),
+      },
+    );
 
     const nextState = stepSimulation(
       recoveringState,
@@ -2300,15 +2340,18 @@ describe("simulation primitives", () => {
   });
 
   it("keeps non-active player outcomes sticky through simulation steps", () => {
-    const defeatedState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const defeatedState: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 480,
         y: 32,
-      }), {
+      }),
+      {
         playerOutcome: {
-        kind: PlayerOutcomeKind.Defeated,
-        reason: PlayerDefeatReason.HazardContact,
+          kind: PlayerOutcomeKind.Defeated,
+          reason: PlayerDefeatReason.HazardContact,
+        },
       },
-      });
+    );
 
     const nextState = stepWithInitialMovementConstants(
       defeatedState,
@@ -2326,15 +2369,18 @@ describe("simulation primitives", () => {
   });
 
   it("freezes player simulation after a non-active outcome", () => {
-    const defeatedState: SimulationState = withPlayerOverrides(stateWithPlayerAt({
+    const defeatedState: SimulationState = withPlayerOverrides(
+      stateWithPlayerAt({
         x: 16,
         y: 56,
-      }), {
+      }),
+      {
         playerOutcome: {
-        kind: PlayerOutcomeKind.Defeated,
-        reason: PlayerDefeatReason.HazardContact,
+          kind: PlayerOutcomeKind.Defeated,
+          reason: PlayerDefeatReason.HazardContact,
+        },
       },
-      });
+    );
     const rightInputResult = makeSimulationInputCommand(
       HorizontalInput.Right,
       true,
@@ -2594,7 +2640,9 @@ describe("simulation primitives", () => {
       firstAuthoredLevelWithoutHazardSpec(),
     );
 
-    expect(next.players[0].player.position.y).toBeGreaterThanOrEqual(waterSurfaceY);
+    expect(next.players[0].player.position.y).toBeGreaterThanOrEqual(
+      waterSurfaceY,
+    );
     expect(next.players[0].player.velocity.y).toBeGreaterThanOrEqual(0);
   });
 
@@ -2648,9 +2696,12 @@ describe("crouch (big Mario duck)", () => {
     return result.value;
   }
 
-  const bigGroundedState: SimulationState = withPlayerOverrides(stateWithPlayerAt({ x: 100, y: 48 }), {
-        playerVitality: { kind: PlayerVitalityKind.Powered },
-      });
+  const bigGroundedState: SimulationState = withPlayerOverrides(
+    stateWithPlayerAt({ x: 100, y: 48 }),
+    {
+      playerVitality: { kind: PlayerVitalityKind.Powered },
+    },
+  );
 
   it("stops big Mario walking while Down is held on the ground", () => {
     // Crouch suppresses the walk: pressing Right + Down produces no rightward

@@ -218,7 +218,11 @@ describe("simulation players array", () => {
     const base = stateResult.value;
     // Put the co-op player on the flagpole column (col 8).
     const stepped = stepSimulation(
-      withCoopPlayerAt(base, 8 * 16, Number(base.players[1]!.player.position.y)),
+      withCoopPlayerAt(
+        base,
+        8 * 16,
+        Number(base.players[1]!.player.position.y),
+      ),
       neutral(),
       initialMovementConstants,
       level,

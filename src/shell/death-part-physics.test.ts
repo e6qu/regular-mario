@@ -106,7 +106,12 @@ describe("stepDeathPartBody", () => {
   });
 
   it("does not report an enemy it never overlaps", () => {
-    const enemy: DeathPartBox = { left: 200, top: 200, right: 216, bottom: 216 };
+    const enemy: DeathPartBox = {
+      left: 200,
+      top: 200,
+      right: 216,
+      bottom: 216,
+    };
     const body = makeBody({ x: 24, y: 24, vx: 1 });
     const result = stepDeathPartBody(body, noTiles, [enemy], params);
     expect(result.hitEnemyIndices).toHaveLength(0);

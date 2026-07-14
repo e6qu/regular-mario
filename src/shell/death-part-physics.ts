@@ -59,7 +59,11 @@ export type DeathPartStepResult = {
 // keeps falling.
 export type SolidTileQuery = (column: number, row: number) => boolean;
 
-function reflect(velocity: number, restitution: number, stopSpeed: number): number {
+function reflect(
+  velocity: number,
+  restitution: number,
+  stopSpeed: number,
+): number {
   return Math.abs(velocity) < stopSpeed ? 0 : -velocity * restitution;
 }
 
@@ -185,11 +189,7 @@ export function stepDeathPartBody(
 
   // Settle: resting on the ground (the vertical bounce spent to zero) with
   // horizontal motion nearly gone latches the part inert from here on.
-  if (
-    landed &&
-    body.vy === 0 &&
-    Math.abs(body.vx) < restingHorizontalSpeed
-  ) {
+  if (landed && body.vy === 0 && Math.abs(body.vx) < restingHorizontalSpeed) {
     body.vx = 0;
     body.resting = true;
   }

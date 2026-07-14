@@ -178,7 +178,9 @@ function expectGoldenReplayState(
     expected.playerVelocity.y,
     9,
   );
-  expect(finalState.players[0].player.movement).toEqual(expected.playerMovement);
+  expect(finalState.players[0].player.movement).toEqual(
+    expected.playerMovement,
+  );
   expect(finalState.players[0].vitality).toEqual(expected.playerVitality);
   expect(finalState.levelContacts).toEqual(expected.levelContacts);
   expect(finalState.players[0].outcome).toEqual(expected.playerOutcome);

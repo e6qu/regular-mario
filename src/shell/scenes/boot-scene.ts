@@ -213,12 +213,14 @@ const deathExplodeSpinRadiansPerFrame = 0.12;
 // Tile-collision kinds a falling body part rests on: anything a body would land
 // on — ground, pipes, and blocks (bricks / question blocks). Non-solid hazards
 // (lava/spikes) and goals don't stop a part, so it falls through them.
-const deathPartBlockingCollisionKinds: ReadonlySet<TileCollisionKind> = new Set([
-  TileCollisionKind.Solid,
-  TileCollisionKind.SolidHazard,
-  TileCollisionKind.Interactive,
-  TileCollisionKind.Breakable,
-]);
+const deathPartBlockingCollisionKinds: ReadonlySet<TileCollisionKind> = new Set(
+  [
+    TileCollisionKind.Solid,
+    TileCollisionKind.SolidHazard,
+    TileCollisionKind.Interactive,
+    TileCollisionKind.Breakable,
+  ],
+);
 // Box physics for the flung parts: a fairly bouncy ("rubber") restitution that
 // still decays, gravity a touch heavier than the launch arc for weight, and a
 // stop speed so bounces settle instead of jittering forever. The part box is a
@@ -1962,7 +1964,8 @@ export class BootScene extends Phaser.Scene {
 
   private hasFinishedOutcome(): boolean {
     return (
-      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Finished ||
+      this.simulationState.players[0].outcome.kind ===
+        PlayerOutcomeKind.Finished ||
       this.simulationState.players[0].outcome.kind ===
         PlayerOutcomeKind.DefeatedAndFinished
     );
@@ -2004,7 +2007,8 @@ export class BootScene extends Phaser.Scene {
     const tileSizePixels = this.levelSpec.tileSizePixels;
     const collisionLookup = makeTileCollisionLookup(this.levelSpec);
     const colliderWidth = this.simulationState.players[0].player.collider.width;
-    const colliderHeight = this.simulationState.players[0].player.collider.height;
+    const colliderHeight =
+      this.simulationState.players[0].player.collider.height;
     const column = Math.min(
       Math.max(
         Math.round(
@@ -2162,7 +2166,8 @@ export class BootScene extends Phaser.Scene {
 
     if (
       !this.deathJinglePlayed &&
-      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Defeated
+      this.simulationState.players[0].outcome.kind ===
+        PlayerOutcomeKind.Defeated
     ) {
       this.deathJinglePlayed = true;
       // The engine has already decremented the life on this defeat frame.
@@ -2181,7 +2186,8 @@ export class BootScene extends Phaser.Scene {
     if (
       !this.timeWarningTriggered &&
       remainingFrames !== undefined &&
-      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Active &&
+      this.simulationState.players[0].outcome.kind ===
+        PlayerOutcomeKind.Active &&
       Math.floor(remainingFrames / timeBonusFramesPerDisplayUnit) <
         timeWarningDisplaySeconds
     ) {
@@ -2209,7 +2215,8 @@ export class BootScene extends Phaser.Scene {
     this.fireworksBurstIndex = 0;
     this.fireworksNextBurstFrames = fireworksBurstIntervalFrames;
     this.fireworksOriginX =
-      this.playerRectangle.x + this.simulationState.players[0].player.collider.width / 2;
+      this.playerRectangle.x +
+      this.simulationState.players[0].player.collider.width / 2;
     // Keep the level open until every burst has launched and its sparkle faded.
     const fireworksTotalFrames =
       count * fireworksBurstIntervalFrames + fireworkLifetimeFrames;
@@ -2758,7 +2765,9 @@ export class BootScene extends Phaser.Scene {
 
   // Take the struck co-op bots out of the sim (dead until the level ends); their
   // own explosions follow next frame when the tracker notices them gone.
-  private removeHitCoopPlayers(hitCoopPlayerIndices: ReadonlySet<number>): void {
+  private removeHitCoopPlayers(
+    hitCoopPlayerIndices: ReadonlySet<number>,
+  ): void {
     if (hitCoopPlayerIndices.size === 0) {
       return;
     }
@@ -2991,9 +3000,11 @@ export class BootScene extends Phaser.Scene {
   // with it, so the fire dies down as the body is consumed.
   private stepBurnFlames(bodyScale: number): void {
     const centerX =
-      this.deathArcX + this.simulationState.players[0].player.collider.width / 2;
+      this.deathArcX +
+      this.simulationState.players[0].player.collider.width / 2;
     const centerY =
-      this.deathArcY + this.simulationState.players[0].player.collider.height / 2;
+      this.deathArcY +
+      this.simulationState.players[0].player.collider.height / 2;
     for (const flame of this.deathFlames) {
       const flicker =
         1 +
@@ -3402,10 +3413,7 @@ export class BootScene extends Phaser.Scene {
     }
     // Revenge mode: each Mario/Luigi you stomp yelps an over-acted
     // "itsa"/"me"/"ow" in sequence.
-    if (
-      this.revengeMode &&
-      this.lastSoundEvents.includes(SoundEvent.Stomp)
-    ) {
+    if (this.revengeMode && this.lastSoundEvents.includes(SoundEvent.Stomp)) {
       this.gameAudio.playRevengeStompVoice();
     }
 
@@ -3683,7 +3691,8 @@ export class BootScene extends Phaser.Scene {
     // so the carried tier is left unchanged. A fresh game already restored the
     // bootstrap tier above.
     const retriedFromDeath =
-      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Defeated ||
+      this.simulationState.players[0].outcome.kind ===
+        PlayerOutcomeKind.Defeated ||
       this.simulationState.players[0].outcome.kind ===
         PlayerOutcomeKind.DefeatedAndFinished;
     if (!this.pendingGameOver && retriedFromDeath) {
@@ -3695,7 +3704,8 @@ export class BootScene extends Phaser.Scene {
     const respawnAtHalfway =
       this.warpedLevelInput === undefined &&
       this.levelSpec.halfwayTileX !== undefined &&
-      this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Defeated &&
+      this.simulationState.players[0].outcome.kind ===
+        PlayerOutcomeKind.Defeated &&
       this.simulationState.players[0].player.position.x >=
         this.levelSpec.halfwayTileX * this.levelSpec.tileSizePixels;
     // A retry after a pipe warp returns to the main-sequence level, so rebuild
@@ -3987,7 +3997,8 @@ export class BootScene extends Phaser.Scene {
   private maybeEnterReplayMenu(): void {
     if (
       this.paused ||
-      this.simulationState.players[0].outcome.kind !== PlayerOutcomeKind.Defeated ||
+      this.simulationState.players[0].outcome.kind !==
+        PlayerOutcomeKind.Defeated ||
       this.deathEffectAnimating()
     ) {
       return;
@@ -4334,7 +4345,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   private renderSimulationState(): void {
-    const currentVertical = this.simulationState.players[0].player.movement.vertical;
+    const currentVertical =
+      this.simulationState.players[0].player.movement.vertical;
     const currentWorldY = this.simulationState.players[0].player.position.y;
     const isGrounded = currentVertical === VerticalMovementState.Grounded;
 
@@ -4348,7 +4360,8 @@ export class BootScene extends Phaser.Scene {
       // whole screen — a little earthquake, scaled to how far the player fell.
       if (
         this.lastGroundedWorldY !== null &&
-        this.simulationState.players[0].outcome.kind === PlayerOutcomeKind.Active
+        this.simulationState.players[0].outcome.kind ===
+          PlayerOutcomeKind.Active
       ) {
         const dropTiles =
           (currentWorldY - this.lastGroundedWorldY) /
@@ -4441,7 +4454,8 @@ export class BootScene extends Phaser.Scene {
 
     const headBonking =
       this.exaggeratedReactions &&
-      this.simulationState.players[0].reaction.kind === PlayerReactionKind.HeadBonk;
+      this.simulationState.players[0].reaction.kind ===
+        PlayerReactionKind.HeadBonk;
     const headBonkX = this.playerRectangle.x;
     const headBonkY =
       this.playerRectangle.y - this.playerRectangle.height / 2 - 2;
@@ -4499,7 +4513,8 @@ export class BootScene extends Phaser.Scene {
     );
     const collectedInvincibilityEntityIdStrings = this.cachedEntityIdSet(
       "invincibility",
-      this.simulationState.players[0].invincibility.collectedInvincibilityEntityIds,
+      this.simulationState.players[0].invincibility
+        .collectedInvincibilityEntityIds,
     );
     const defeatedEnemyEntityIdStrings = this.cachedEntityIdSet(
       "defeated",
@@ -5113,7 +5128,8 @@ export class BootScene extends Phaser.Scene {
   private emitSwimBubbles(): void {
     if (
       this.currentTheme !== "water" ||
-      this.simulationState.players[0].outcome.kind !== PlayerOutcomeKind.Active ||
+      this.simulationState.players[0].outcome.kind !==
+        PlayerOutcomeKind.Active ||
       this.simulationState.clock.frameIndex % swimBubbleIntervalFrames !== 0
     ) {
       return;
@@ -5872,7 +5888,8 @@ export class BootScene extends Phaser.Scene {
             height: this.simulationState.players[0].player.collider.height,
           },
           movement: {
-            horizontal: this.simulationState.players[0].player.movement.horizontal,
+            horizontal:
+              this.simulationState.players[0].player.movement.horizontal,
             vertical: this.simulationState.players[0].player.movement.vertical,
           },
           coyoteFramesRemaining:
@@ -5884,7 +5901,8 @@ export class BootScene extends Phaser.Scene {
         },
         playerReaction: {
           kind: this.simulationState.players[0].reaction.kind,
-          remainingFrames: this.simulationState.players[0].reaction.remainingFrames,
+          remainingFrames:
+            this.simulationState.players[0].reaction.remainingFrames,
         },
         enemyStompReaction: {
           active: this.simulationState.enemyStompReaction.active,

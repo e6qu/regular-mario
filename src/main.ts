@@ -1998,7 +1998,10 @@ function writeMenuTutorialSeen(): void {
 // while the content bundle fetches, so a tap gives instant feedback and can't be
 // double-fired. Kept as its own function so the error path can reset the button
 // by class without threading a reference around.
-function setPlayButtonLoading(button: HTMLButtonElement, loading: boolean): void {
+function setPlayButtonLoading(
+  button: HTMLButtonElement,
+  loading: boolean,
+): void {
   button.disabled = loading;
   button.style.cursor = loading ? "progress" : "pointer";
   if (loading) {
@@ -2482,7 +2485,9 @@ async function renderStartMenu(
   if (autoplay !== undefined && !playButton.disabled) {
     modeSelect.value = autoplay.mode;
     audioSelect.value = autoplay.sound;
-    if ([...rendererSelect.options].some((o) => o.value === autoplay.renderer)) {
+    if (
+      [...rendererSelect.options].some((o) => o.value === autoplay.renderer)
+    ) {
       rendererSelect.value = autoplay.renderer;
     }
     if ([...botsSelect.options].some((o) => o.value === autoplay.bots)) {
@@ -2775,9 +2780,8 @@ async function bootSelectedContentSet(
     status.style.color = "#8a1c1c";
     status.textContent = `Could not start: ${error instanceof Error ? error.message : String(error)}`;
     // Loading failed — restore the Play button so it can be tried again.
-    const playButton = document.querySelector<HTMLButtonElement>(
-      ".start-menu-play",
-    );
+    const playButton =
+      document.querySelector<HTMLButtonElement>(".start-menu-play");
     if (playButton !== null) {
       setPlayButtonLoading(playButton, false);
     }

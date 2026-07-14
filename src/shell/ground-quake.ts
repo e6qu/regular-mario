@@ -36,7 +36,10 @@ export function resolveGroundQuake(dropTiles: number): GroundQuake | null {
     return null;
   }
   const span = hardLandingSaturationTiles - hardLandingDropTiles;
-  const fraction = Math.min(1, Math.max(0, (dropTiles - hardLandingDropTiles) / span));
+  const fraction = Math.min(
+    1,
+    Math.max(0, (dropTiles - hardLandingDropTiles) / span),
+  );
   return {
     intensity: lerp(minIntensity, maxIntensity, fraction),
     durationMs: lerp(minDurationMs, maxDurationMs, fraction),

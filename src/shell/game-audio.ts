@@ -53,8 +53,8 @@ const revengeSong: Song = {
       // Cheeky arpeggio melody (C major: C, Am, F, G, then an octave-up reprise).
       notes: revengeNotes(
         [
-          72, 76, 79, 76, 69, 72, 76, 72, 65, 69, 72, 69, 67, 71, 74, 67, 76, 79,
-          84, 79, 72, 76, 81, 76, 74, 77, 81, 77, 79, 74, 71, 67,
+          72, 76, 79, 76, 69, 72, 76, 72, 65, 69, 72, 69, 67, 71, 74, 67, 76,
+          79, 84, 79, 72, 76, 81, 76, 74, 77, 81, 77, 79, 74, 71, 67,
         ],
         0.18,
       ),
@@ -130,7 +130,10 @@ const jingleSongs: Record<MusicJingle, Song> = {
 // Every event has a synthesized fallback tone EXCEPT the brick shatter, which
 // is a dedicated multi-layer noise synth (see playBrickShatter) rather than a
 // single oscillator sweep.
-const toneSpecs: Record<Exclude<SoundEvent, SoundEvent.BlockBreak>, ToneSpec> = {
+const toneSpecs: Record<
+  Exclude<SoundEvent, SoundEvent.BlockBreak>,
+  ToneSpec
+> = {
   [SoundEvent.Jump]: {
     frequencyHertz: 440,
     endFrequencyHertz: 880,
@@ -944,25 +947,92 @@ export class GameAudio {
       // "IT'S-A" (snappy, leading into the "me"): a crisp glottal-onset 'ih', a
       // real hissed 't-s', then a short open 'a' falling away. Sharper upper
       // formants (higher Q) read as clearer vowels.
-      this.playFormantYelp(audioContext, now, [[563, 6], [1734, 11, 1.6], [2734, 9, 1.3]], 430, 405, 0.14, 0.42, { hardOnset: true });
+      this.playFormantYelp(
+        audioContext,
+        now,
+        [
+          [563, 6],
+          [1734, 11, 1.6],
+          [2734, 9, 1.3],
+        ],
+        430,
+        405,
+        0.14,
+        0.42,
+        { hardOnset: true },
+      );
       this.playFricative(audioContext, now + 0.16, 0.09, 0.14, 3600);
-      this.playFormantYelp(audioContext, now + 0.26, [[906, 6], [1453, 11, 1.4], [2703, 9, 1.2]], 400, 250, 0.16, 0.55, { vibratoDepth: 11, trailSeconds: 0.14 });
+      this.playFormantYelp(
+        audioContext,
+        now + 0.26,
+        [
+          [906, 6],
+          [1453, 11, 1.4],
+          [2703, 9, 1.2],
+        ],
+        400,
+        250,
+        0.16,
+        0.55,
+        { vibratoDepth: 11, trailSeconds: 0.14 },
+      );
     } else if (step === 1) {
       // "MEE!" (punched, with the glottal-stop catch): a muffled nasal 'm' hum
       // that releases (mouth opening: tract + formants glide up) into a long,
       // bright, high 'eee' — its high F2/F3 boosted so the vowel really rings.
-      this.playFormantYelp(audioContext, now, [[320, 8], [1050, 4, 2.6], [3000, 4, 1.8]], 410, 345, 0.5, 0.58, {
-        hardOnset: true,
-        nasalMuffleSeconds: 0.14,
-        endFormants: [[438, 6], [2406, 12], [3313, 9]],
-        vibratoDepth: 12,
-        trailSeconds: 0.5,
-      });
+      this.playFormantYelp(
+        audioContext,
+        now,
+        [
+          [320, 8],
+          [1050, 4, 2.6],
+          [3000, 4, 1.8],
+        ],
+        410,
+        345,
+        0.5,
+        0.58,
+        {
+          hardOnset: true,
+          nasalMuffleSeconds: 0.14,
+          endFormants: [
+            [438, 6],
+            [2406, 12],
+            [3313, 9],
+          ],
+          vibratoDepth: 12,
+          trailSeconds: 0.5,
+        },
+      );
     } else {
       // "OW!" (a full word): a glottal-onset open 'ah' up high that swoops down
       // into a long, rounded 'ooo' and lingers.
-      this.playFormantYelp(audioContext, now, [[906, 6], [1453, 10, 1.4]], 430, 335, 0.16, 0.6, { hardOnset: true });
-      this.playFormantYelp(audioContext, now + 0.16, [[453, 6], [953, 10]], 335, 205, 0.34, 0.55, { vibratoDepth: 11, trailSeconds: 0.5 });
+      this.playFormantYelp(
+        audioContext,
+        now,
+        [
+          [906, 6],
+          [1453, 10, 1.4],
+        ],
+        430,
+        335,
+        0.16,
+        0.6,
+        { hardOnset: true },
+      );
+      this.playFormantYelp(
+        audioContext,
+        now + 0.16,
+        [
+          [453, 6],
+          [953, 10],
+        ],
+        335,
+        205,
+        0.34,
+        0.55,
+        { vibratoDepth: 11, trailSeconds: 0.5 },
+      );
     }
   }
 
@@ -1190,7 +1260,10 @@ export class GameAudio {
       const amp = audioContext.createGain();
       amp.gain.setValueAtTime(0.0001, startTime);
       amp.gain.exponentialRampToValueAtTime(gain, startTime + 0.02);
-      amp.gain.exponentialRampToValueAtTime(0.0001, startTime + durationSeconds);
+      amp.gain.exponentialRampToValueAtTime(
+        0.0001,
+        startTime + durationSeconds,
+      );
       source.connect(highpass);
       highpass.connect(amp);
       amp.connect(audioContext.destination);

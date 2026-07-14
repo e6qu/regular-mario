@@ -80,9 +80,10 @@ function runRight(): SimulationInputCommand {
   };
 }
 
-function makeState(
-  options: { readonly secondEnemy?: boolean } = {},
-): { state: SimulationState; level: ReturnType<typeof makeLevelSpec> } {
+function makeState(options: { readonly secondEnemy?: boolean } = {}): {
+  state: SimulationState;
+  level: ReturnType<typeof makeLevelSpec>;
+} {
   const level = makeLevelSpec(makeContactLevelInput(options));
   if (!level.ok) {
     throw new Error(level.errors.map((e) => e.message).join(", "));

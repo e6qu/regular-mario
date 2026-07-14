@@ -64,10 +64,7 @@ describe("resolvePlayerCollisions", () => {
     const prevUpper = playerAt(100, 100 - Number(prevLower.collider.height));
     // This frame the lower player moved right by 10; the upper stayed put.
     const lower = playerAt(110, 100);
-    const upper = playerAt(
-      100,
-      100 - Number(prevLower.collider.height),
-    );
+    const upper = playerAt(100, 100 - Number(prevLower.collider.height));
     const [ru] = resolvePlayerCollisions(
       [upper, lower],
       [prevUpper, prevLower],

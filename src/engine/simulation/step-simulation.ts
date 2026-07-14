@@ -231,11 +231,12 @@ export function stepSimulation(
   );
   // Any player reaching the goal completes the level for everyone: if a co-op
   // player touches the goal while the primary is still active, finish the level.
-  const anyCoopReachedGoal = coopRuntimes.some((runtime) =>
-    detectLevelContactState(runtime.player, levelSpec).goal,
+  const anyCoopReachedGoal = coopRuntimes.some(
+    (runtime) => detectLevelContactState(runtime.player, levelSpec).goal,
   );
   const primaryOutcome =
-    anyCoopReachedGoal && primaryRuntime.outcome.kind === PlayerOutcomeKind.Active
+    anyCoopReachedGoal &&
+    primaryRuntime.outcome.kind === PlayerOutcomeKind.Active
       ? {
           kind: PlayerOutcomeKind.Finished as const,
           reason: PlayerFinishReason.GoalContact,
@@ -406,7 +407,8 @@ function stepActiveSimulation(
     playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Fire;
   const crouching =
     isBigVitality &&
-    state.players[0].player.movement.vertical === VerticalMovementState.Grounded &&
+    state.players[0].player.movement.vertical ===
+      VerticalMovementState.Grounded &&
     inputCommand.downHeld &&
     !isPlayerFrozenByPipeEntry(pipeState.pipeEntry);
 

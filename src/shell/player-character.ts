@@ -33,8 +33,8 @@ export const robotPlayerCharacters: readonly PlayerCharacter[] = [
   "robot4",
 ];
 
-const selectablePlayerCharacters: ReadonlySet<string> = new Set<PlayerCharacter>(
-  [
+const selectablePlayerCharacters: ReadonlySet<string> =
+  new Set<PlayerCharacter>([
     "castaway",
     "luigi",
     "robot1",
@@ -43,8 +43,7 @@ const selectablePlayerCharacters: ReadonlySet<string> = new Set<PlayerCharacter>
     "robot4",
     "goomba",
     "princess",
-  ],
-);
+  ]);
 
 // Parse a character from a query-string value (anything unrecognised is the
 // default castaway).

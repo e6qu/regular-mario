@@ -951,7 +951,9 @@ function costumeStateSprites(keyPrefix, fileStem, actionPoses) {
     stateSprites[`${keyPrefix}powered-${action}`] = spriteEntry(
       `${base}-powered.png`,
     );
-    stateSprites[`${keyPrefix}fire-${action}`] = spriteEntry(`${base}-fire.png`);
+    stateSprites[`${keyPrefix}fire-${action}`] = spriteEntry(
+      `${base}-fire.png`,
+    );
   }
   return stateSprites;
 }
@@ -966,7 +968,11 @@ function playerStateSprites() {
     ...robotCostumes.reduce(
       (all, costume) => ({
         ...all,
-        ...costumeStateSprites(`${costume.key}-`, costume.key, robotActionPoses),
+        ...costumeStateSprites(
+          `${costume.key}-`,
+          costume.key,
+          robotActionPoses,
+        ),
       }),
       {},
     ),
@@ -1017,7 +1023,11 @@ function costumeSpriteFiles(costume) {
 function robotPartFiles(costume) {
   return [
     [`${costume.key}-part-head.png`, robotPartHeadGrid, costume.palettes.base],
-    [`${costume.key}-part-torso.png`, robotPartTorsoGrid, costume.palettes.base],
+    [
+      `${costume.key}-part-torso.png`,
+      robotPartTorsoGrid,
+      costume.palettes.base,
+    ],
     [`${costume.key}-part-arm.png`, robotPartArmGrid, costume.palettes.base],
     [`${costume.key}-part-leg.png`, robotPartLegGrid, costume.palettes.base],
   ];
@@ -1701,7 +1711,11 @@ async function main() {
     ...singleTierCostumeFiles(goombaCostume),
     ...singleTierCostumeFiles(princessCostume),
     ...revengeEnemyFiles(),
-    [`${revengeStompPop.key}.png`, revengeStompPop.grid, revengeStompPop.palette],
+    [
+      `${revengeStompPop.key}.png`,
+      revengeStompPop.grid,
+      revengeStompPop.palette,
+    ],
     // Background scenery.
     ["scenery-cloud-left.png", sceneryCloudLeft, sceneryPalette],
     ["scenery-cloud-middle.png", sceneryCloudMiddle, sceneryPalette],

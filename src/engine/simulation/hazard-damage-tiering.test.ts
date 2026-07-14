@@ -157,6 +157,8 @@ describe("hazard damage tiering", () => {
         return levelResult.value;
       })(),
     );
-    expect(afterAnotherFrame.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(afterAnotherFrame.players[0].outcome.kind).toBe(
+      PlayerOutcomeKind.Active,
+    );
   });
 });
