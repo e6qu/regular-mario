@@ -153,6 +153,14 @@ Well-known acronyms are used as-is; less common ones are expanded on first use.
 - **HUD** — heads-up display (the on-screen score/time/coins overlay).
 - **RNG** — random number generation (here, always the seeded generator).
 - **AGPL** — GNU Affero General Public License, the project's license.
+- **`smb-N-M` file names vs classic labels** — the decoded map files are named
+  by raw ROM world-list slot, and worlds 1/2/4/7 contain a fifth slot: the
+  auto-walk pipe-intro vestibule ships as `smb-N-2`, shifting the real levels
+  after it (`smb-1-3` is the level labelled 1-2; **the castle labelled 1-4 is
+  the file `smb-1-5`**). `classicLevelMap` (main.ts) skips the vestibule when
+  assigning the displayed `N-M` labels and the "Next level" order, so the
+  played progression matches the original; tests addressing a level by file
+  name must account for the shift.
 
 ## Related documents
 

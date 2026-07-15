@@ -93,6 +93,41 @@ function resolveFirstAuthoredEnemyInteraction(
   );
 }
 
+// A Bowser-shaped boss: spiky (a stomp hurts instead of defeating) with the
+// ROM's 28×28 custom collider, standing on the floor of a small arena.
+function spikyBossLevelSpec(): LevelSpec {
+  const result = makeLevelSpec({
+    widthTiles: 8,
+    heightTiles: 6,
+    tileSizePixels: 16,
+    tileDefinitions: makeSkyGrassTileDefinitions(),
+    actorDefinitions: [
+      makeRunnerStartDefinition(),
+      {
+        actorId: "keep-boss",
+        role: ActorRole.Enemy,
+        spiky: true,
+        projectileHitPoints: 5,
+        colliderWidthPixels: 28,
+        colliderHeightPixels: 28,
+      },
+      makeExitDefinition(),
+    ],
+    tiles: makeSkyGroundTiles(8),
+    actors: [
+      makeRunnerStartActor(),
+      { entityId: "boss-1", actorId: "keep-boss", x: 4, y: 4 },
+      makeExitActor(7),
+    ],
+  });
+
+  if (!result.ok) {
+    throw new Error("Expected spiky boss test level to validate.");
+  }
+
+  return result.value;
+}
+
 function profiledEnemyColliderLevelSpec(): LevelSpec {
   const result = makeLevelSpec({
     widthTiles: 4,
@@ -302,6 +337,22 @@ describe("enemy interactions", () => {
     expect(
       resolveFirstAuthoredEnemyInteraction({ x: 96, y: 45 }, { x: 96, y: 46 }),
     ).toEqual(expectedEnemyDefeatedState("beetle-1" as EntityId));
+  });
+
+  it("makes landing on a spiky boss (Bowser) harmful, not a stomp", () => {
+    const levelSpec = spikyBossLevelSpec();
+    const result = resolveEnemyInteractionState(
+      playerAt({ x: 64, y: 20 }),
+      fallingPlayerAt({ x: 64, y: 48 }),
+      levelSpec,
+      initialEnemyMotion(levelSpec),
+      initialMovementConstants,
+      makeEmptyEnemyInteractionState(),
+    );
+    // Descending onto him would be a stomp on any other enemy; his spikes make
+    // it plain harmful contact and he survives.
+    expect(result.defeatedEnemyEntityIds).toEqual([]);
+    expect(result.contactedEnemyEntityIds).toEqual(["boss-1"]);
   });
 
   it("keeps a grounded side contact (no descent) harmful", () => {

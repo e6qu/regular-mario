@@ -41,6 +41,18 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   hides/shows/removes atomically, so no per-element bookkeeping remains to
   drift.
 
+- **Fixed (2026-07-15): the timeline replay played the death animation
+  off-screen** (top-anchored camera restore + the replay bar's shorter canvas
+  cropped the ground away) — recorded camera views are now re-anchored by
+  their world-space bottom edge.
+
+- **Fixed (2026-07-15): the flagpole slide cutscene never ran on the real SMB
+  maps** (their pole column is goal tiles all the way down, so the dismount
+  scan found no in-column solid base and bailed; any grab froze the player at
+  the contact point). The base now falls back to the adjacent columns'
+  ground; the flag always lowers fully; a very-top grab knocks the pole's
+  ball off. Covered by tests/browser/cutscenes.spec.ts.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

@@ -1,6 +1,21 @@
 import { expect, type Page } from "@playwright/test";
 
+import type { BrowserSimulationSnapshot } from "../../src/shell/browser-debug-api";
+
 // Shared browser-test helpers.
+
+// The active game's full debug snapshot (throws if no game has booted).
+export function readSimulationSnapshot(
+  page: Page,
+): Promise<BrowserSimulationSnapshot> {
+  return page.evaluate(() => {
+    const api = window.__originalBrowserPlatformerDebug;
+    if (api === undefined) {
+      throw new Error("Browser simulation debug API is unavailable.");
+    }
+    return api.getSimulationSnapshot();
+  });
+}
 
 // The editor's guided tutorial auto-opens for a first-time visitor. Tests that
 // aren't about the tutorial dismiss it with its own Skip button (the real flow)

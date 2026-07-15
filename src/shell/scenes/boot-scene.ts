@@ -9,6 +9,10 @@ import {
   type LevelSpecInput,
 } from "../../engine/domain/level-spec";
 import type { TilePoint } from "../../engine/domain/units";
+import {
+  makePixelPosition,
+  makeVelocityPixelsPerSecond,
+} from "../../engine/domain/units";
 import { assertValidCollectibleInteractionState } from "../../engine/simulation/collectible-interaction";
 import { liveFrenzyCheeps } from "../../engine/simulation/cheep-frenzy-state";
 import {
@@ -813,6 +817,12 @@ export class BootScene extends Phaser.Scene {
     | Phaser.GameObjects.Image
     | undefined = undefined;
   private flagpoleFlagBaseY = 0;
+  // The decorative ball crowning the pole; a grab at the very top knocks it
+  // off (flagpoleBallFall holds its tumble velocity while falling).
+  private flagpoleBallObject: Phaser.GameObjects.Arc | undefined = undefined;
+  private flagpoleBallFall: { vx: number; vy: number } | undefined = undefined;
+  private flagpoleTopY = 0;
+  private flagpoleFlagDropActive = false;
   private deathArcActive = false;
   private deathArcStarted = false;
   private deathArcVelocityY = 0;
@@ -1029,9 +1039,10 @@ export class BootScene extends Phaser.Scene {
   private timelineOverlay: RunTimelineOverlay | undefined = undefined;
   private runThumbnails: RunTimelineThumbnail[] = [];
   private thumbnailCanvas: HTMLCanvasElement | undefined = undefined;
-  // Camera scroll per recorded frame, so scrubbing can restore the exact view
-  // that was on screen at that moment.
-  private recordedCameraScrolls: { x: number; y: number }[] = [];
+  // Camera view per recorded frame (horizontal scroll + the view's world-space
+  // bottom edge), so scrubbing can restore what was on screen at that moment
+  // even though the paused viewport is shorter than the live one.
+  private recordedCameraScrolls: { x: number; worldBottom: number }[] = [];
   private retryKeyHeld = false;
   // True while this game is a backgrounded session. Its window listeners stay
   // attached (the game isn't destroyed), so without this guard a key meant for
@@ -1153,8 +1164,18 @@ export class BootScene extends Phaser.Scene {
     if (this.suspended) {
       return;
     }
+    // While paused there is no follow target to re-frame the view after the
+    // resize (the replay bar reserving bottom space is the common trigger):
+    // keep the world-space bottom edge stable so the shrink crops sky, not the
+    // ground where the recorded action sits.
+    const pausedAnchorBottom = this.paused
+      ? this.cameraWorldBottom()
+      : undefined;
     this.sizeCanvasToDisplay();
     this.applyCameraZoom();
+    if (pausedAnchorBottom !== undefined) {
+      this.setCameraWorldBottom(this.cameras.main.scrollX, pausedAnchorBottom);
+    }
   }
 
   public constructor(browserGameBootstrap: BrowserGameBootstrap) {
@@ -2032,42 +2053,86 @@ export class BootScene extends Phaser.Scene {
     if (!finished) {
       return;
     }
+    // A castle finish is the axe, not a pole (the axe imports as a goal column
+    // too): the castle-clear cinematic owns that ending — no slide, no flag.
+    if (this.castleBridgeTilesByColumn.size > 0) {
+      return;
+    }
 
     const tileSizePixels = this.levelSpec.tileSizePixels;
     const collisionLookup = makeTileCollisionLookup(this.levelSpec);
     const colliderWidth = this.simulationState.players[0].player.collider.width;
     const colliderHeight =
       this.simulationState.players[0].player.collider.height;
-    const column = Math.min(
-      Math.max(
-        Math.round(
-          (this.playerRectangle.x + colliderWidth / 2) / tileSizePixels,
+    // The pole column is the goal tile the player actually contacted; fall
+    // back to the player's centre column for finishes that leave the overlap
+    // ambiguous (e.g. a wide gate).
+    const column =
+      this.findContactedGoalColumn(collisionLookup) ??
+      Math.min(
+        Math.max(
+          Math.round(
+            (this.playerRectangle.x + colliderWidth / 2) / tileSizePixels,
+          ),
+          0,
         ),
-        0,
-      ),
-      this.levelSpec.widthTiles - 1,
-    );
+        this.levelSpec.widthTiles - 1,
+      );
     const startRow = Math.max(
       0,
       Math.floor(this.playerRectangle.y / tileSizePixels),
     );
 
-    let groundRow: number | undefined;
-    for (let row = startRow; row < this.levelSpec.heightTiles; row += 1) {
-      const tileId = this.levelSpec.tiles[row]?.[column];
-      if (
-        tileId !== undefined &&
-        requireTileCollision(collisionLookup, tileId) ===
-          TileCollisionKind.Solid
-      ) {
-        groundRow = row;
-        break;
-      }
+    // A grab at the very top of the pole (on the ball / above the resting
+    // flag) knocks the ball off — it pops and tumbles down while the player
+    // slides. Set before any dismount bail so even a pole with no reachable
+    // base still reacts.
+    const ballKnocked =
+      this.flagpoleBallObject !== undefined &&
+      this.playerRectangle.y <= this.flagpoleTopY + tileSizePixels;
+    if (ballKnocked) {
+      this.flagpoleBallFall = { ...flagpoleBallKnockVelocity };
     }
-    if (groundRow === undefined) {
-      return;
+    // The flag always lowers fully to the base, as in the original — even when
+    // the player grabbed low (or at the base) and barely slides themselves.
+    this.flagpoleFlagDropActive = this.flagObject !== undefined;
+
+    // The dismount base: the first solid tile at/below the grab in the pole
+    // column — or, when the imported pole is goal tiles all the way down (the
+    // SMB maps replace even the ground rows with pole), the ground of an
+    // adjacent column.
+    const groundRow =
+      this.findSolidRowBelow(collisionLookup, column, startRow) ??
+      this.findSolidRowBelow(collisionLookup, column - 1, startRow) ??
+      this.findSolidRowBelow(collisionLookup, column + 1, startRow);
+    if (groundRow !== undefined) {
+      // The flag rests above the ground line even when the imported pole
+      // extends through the ground rows.
+      this.flagpoleFlagBaseY = Math.min(
+        this.flagpoleFlagBaseY,
+        groundRow * tileSizePixels - tileSizePixels * flagpoleFlagHeightRatio,
+      );
     }
 
+    // Keep the level open long enough for the flag to reach its base and a
+    // knocked ball to clear the level, so neither freezes mid-air behind the
+    // finish overlay.
+    const flagDropFrames =
+      this.flagObject === undefined
+        ? 0
+        : Math.ceil(
+            Math.max(0, this.flagpoleFlagBaseY - this.flagObject.y) /
+              flagpoleSlideSpeedPixels,
+          ) + flagpoleFinishTailFrames;
+    this.levelAdvanceDelayFramesRemaining = Math.max(
+      this.levelAdvanceDelayFramesRemaining,
+      flagDropFrames,
+      ballKnocked ? flagpoleBallFallBudgetFrames : 0,
+    );
+
+    if (groundRow === undefined) {
+      return; // A pole with no reachable base (over a pit): no slide.
+    }
     const baseY = groundRow * tileSizePixels - colliderHeight;
     if (this.playerRectangle.y >= baseY - 1) {
       return; // Already at the base — no slide needed.
@@ -2078,7 +2143,7 @@ export class BootScene extends Phaser.Scene {
     this.flagpoleSlideColumnX = column * tileSizePixels;
     const slideFrames =
       Math.ceil((baseY - this.playerRectangle.y) / flagpoleSlideSpeedPixels) +
-      24;
+      flagpoleFinishTailFrames;
     this.levelAdvanceDelayFramesRemaining = Math.max(
       this.levelAdvanceDelayFramesRemaining,
       slideFrames,
@@ -2089,7 +2154,95 @@ export class BootScene extends Phaser.Scene {
     );
   }
 
+  // The column of a goal tile inside the player's current tile span (the tile
+  // whose contact finished the level), or undefined if none overlaps.
+  private findContactedGoalColumn(
+    collisionLookup: ReturnType<typeof makeTileCollisionLookup>,
+  ): number | undefined {
+    const player = this.simulationState.players[0].player;
+    const rowSpan = makePlayerTileRowSpan(
+      player,
+      this.levelSpec.tileSizePixels,
+    );
+    const columnSpan = makePlayerTileColumnSpan(
+      player,
+      this.levelSpec.tileSizePixels,
+    );
+    for (let row = rowSpan.start; row <= rowSpan.end; row += 1) {
+      for (
+        let column = columnSpan.start;
+        column <= columnSpan.end;
+        column += 1
+      ) {
+        const tileId = this.levelSpec.tiles[row]?.[column];
+        if (
+          tileId !== undefined &&
+          requireTileCollision(collisionLookup, tileId) ===
+            TileCollisionKind.Goal
+        ) {
+          return column;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  // The first solid tile row at/below startRow in the column, or undefined.
+  private findSolidRowBelow(
+    collisionLookup: ReturnType<typeof makeTileCollisionLookup>,
+    column: number,
+    startRow: number,
+  ): number | undefined {
+    if (column < 0 || column >= this.levelSpec.widthTiles) {
+      return undefined;
+    }
+    for (let row = startRow; row < this.levelSpec.heightTiles; row += 1) {
+      const tileId = this.levelSpec.tiles[row]?.[column];
+      if (
+        tileId !== undefined &&
+        requireTileCollision(collisionLookup, tileId) ===
+          TileCollisionKind.Solid
+      ) {
+        return row;
+      }
+    }
+    return undefined;
+  }
+
+  // The knocked-off ball tumbles under gravity until it leaves the level.
+  private stepFlagpoleBallFall(): void {
+    const ball = this.flagpoleBallObject;
+    const fall = this.flagpoleBallFall;
+    if (ball === undefined || fall === undefined) {
+      return;
+    }
+    fall.vy += flagpoleBallFallGravityPixels;
+    ball.x += fall.vx;
+    ball.y += fall.vy;
+    if (ball.y > this.levelSpec.heightTiles * this.levelSpec.tileSizePixels) {
+      ball.setVisible(false);
+      this.flagpoleBallFall = undefined;
+    }
+  }
+
+  // The flag drops down the pole to its base, alongside (and independent of)
+  // the player's own slide — the original lowers it fully on any grab height.
+  private stepFlagpoleFlagDrop(): void {
+    if (!this.flagpoleFlagDropActive || this.flagObject === undefined) {
+      return;
+    }
+    this.flagObject.y = Math.min(
+      this.flagObject.y + flagpoleSlideSpeedPixels,
+      this.flagpoleFlagBaseY,
+    );
+    if (this.flagObject.y >= this.flagpoleFlagBaseY) {
+      this.flagpoleFlagDropActive = false;
+    }
+  }
+
   private stepFlagpoleSlide(): void {
+    this.stepFlagpoleBallFall();
+    this.stepFlagpoleFlagDrop();
     if (!this.flagpoleSlideActive) {
       return;
     }
@@ -2098,13 +2251,6 @@ export class BootScene extends Phaser.Scene {
       this.flagpoleSlideTargetY,
     );
     this.positionPlayerSpriteAt(this.flagpoleSlideColumnX, nextY);
-    // The flag drops down the pole alongside the player, like the original.
-    if (this.flagObject !== undefined) {
-      this.flagObject.y = Math.min(
-        this.flagObject.y + flagpoleSlideSpeedPixels,
-        this.flagpoleFlagBaseY,
-      );
-    }
     if (nextY >= this.flagpoleSlideTargetY) {
       this.flagpoleSlideActive = false;
     }
@@ -2306,6 +2452,15 @@ export class BootScene extends Phaser.Scene {
   // Segment); this adds the one-per-column furniture and remembers the flag.
   private renderFlagpoleFurniture(): void {
     this.flagObject = undefined;
+    this.flagpoleBallObject = undefined;
+    this.flagpoleBallFall = undefined;
+    this.flagpoleFlagDropActive = false;
+    this.flagpoleSlideActive = false;
+    // A castle's axe imports as a goal column too — it gets no pole furniture
+    // (the castle-clear cinematic owns that ending).
+    if (this.castleBridgeTilesByColumn.size > 0) {
+      return;
+    }
     const size = this.levelSpec.tileSizePixels;
     let column: number | undefined;
     let topRow = Number.POSITIVE_INFINITY;
@@ -2333,11 +2488,12 @@ export class BootScene extends Phaser.Scene {
 
     const centerX = column * size + size / 2;
     const topY = topRow * size;
-    this.add
+    this.flagpoleTopY = topY;
+    this.flagpoleBallObject = this.add
       .circle(centerX, topY, size * 0.34, flagpoleBallColor)
       .setDepth(flagpoleFurnitureDepth);
 
-    const flagHeight = size * 0.9;
+    const flagHeight = size * flagpoleFlagHeightRatio;
     const flagStartY = topY + size * 0.55;
     const flagTipX = size * -1.25;
     // A left-pointing flag hanging off the pole (the castle sits to the right).
@@ -3374,9 +3530,13 @@ export class BootScene extends Phaser.Scene {
 
     // Snapshot the camera view for the currently displayed frame before we step
     // past it, so scrubbing back can reproduce exactly what was on screen.
+    // Vertically we record the view's world-space BOTTOM edge rather than the
+    // raw scroll: the paused/replay viewport is shorter (the replay bar
+    // reserves bottom space), and a raw scrollY restore would anchor the TOP,
+    // cropping away the ground — where deaths and finishes play out.
     this.recordedCameraScrolls[this.runRecorder.frameCount] = {
       x: this.cameras.main.scrollX,
-      y: this.cameras.main.scrollY,
+      worldBottom: this.cameraWorldBottom(),
     };
 
     const previousSimulationState = this.simulationState;
@@ -3884,6 +4044,10 @@ export class BootScene extends Phaser.Scene {
     this.pauseFrame = this.runRecorder.frameCount;
     this.scrubFrame = this.pauseFrame;
     this.pauseFrameState = this.simulationState;
+    // presentTimelineOverlay reserves bottom space and shrinks the canvas;
+    // resizeToDisplay's paused branch re-anchors the view's bottom edge across
+    // that shrink, so the opening paused view keeps the ground/action visible
+    // even when the camera's follow was stopped (contact deaths stop it).
     this.presentTimelineOverlay();
   }
 
@@ -4019,14 +4183,42 @@ export class BootScene extends Phaser.Scene {
     this.scrubFrame = Math.max(0, Math.min(Math.round(frame), this.pauseFrame));
     this.simulationState = this.runRecorder.stateAt(this.scrubFrame);
     this.renderSimulationState();
-    // Show the camera exactly where it sat at that frame, rather than letting it
-    // chase the scrubbed player.
+    // Show the camera where it sat at that frame, rather than letting it chase
+    // the scrubbed player. The recorded view is re-anchored by its world-space
+    // BOTTOM edge: the paused viewport is shorter (replay bar below), so a raw
+    // scroll restore would keep the sky and crop away the ground where the
+    // action — including the death animation — plays.
     const scroll = this.recordedCameraScrolls[this.scrubFrame];
     if (scroll !== undefined) {
       this.cameras.main.stopFollow();
-      this.cameras.main.setScroll(scroll.x, scroll.y);
+      this.setCameraWorldBottom(scroll.x, scroll.worldBottom);
     }
     this.timelineOverlay?.setCurrentFrame(this.scrubFrame);
+  }
+
+  // The visible world-space bottom edge of the main camera. Phaser zooms
+  // around the view centre, so the visible half-height is (height/zoom)/2
+  // below the centre at scrollY + height/2.
+  private cameraWorldBottom(): number {
+    const camera = this.cameras.main;
+    return (
+      camera.scrollY +
+      this.scale.height / 2 +
+      this.scale.height / (2 * camera.zoom)
+    );
+  }
+
+  // Position the camera so its visible bottom edge sits at the given world y
+  // (the inverse of cameraWorldBottom); Phaser clamps to the level bounds on
+  // the next prerender. With an unchanged viewport this reproduces the
+  // original scroll exactly.
+  private setCameraWorldBottom(scrollX: number, worldBottom: number): void {
+    const camera = this.cameras.main;
+    const scrollY =
+      worldBottom -
+      this.scale.height / (2 * camera.zoom) -
+      this.scale.height / 2;
+    camera.setScroll(scrollX, scrollY);
   }
 
   // Any death opens the replay menu (timeline): a contact death after its
@@ -5697,6 +5889,45 @@ export class BootScene extends Phaser.Scene {
 
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
+      teleportPlayer: (xPixels: number, yPixels: number) => {
+        // Fail loudly on states a teleport cannot meaningfully change, instead
+        // of silently moving a sprite the frozen simulation will never step —
+        // the calling test would otherwise hang to its timeout.
+        if (this.paused) {
+          throw new Error("teleportPlayer: the game is paused.");
+        }
+        if (
+          this.simulationState.players[0].outcome.kind !==
+          PlayerOutcomeKind.Active
+        ) {
+          throw new Error("teleportPlayer: the run has already ended.");
+        }
+        const x = makePixelPosition(xPixels, "debug.teleport.x");
+        const y = makePixelPosition(yPixels, "debug.teleport.y");
+        const zeroVelocity = makeVelocityPixelsPerSecond(
+          0,
+          "debug.teleport.velocity",
+        );
+        if (!x.ok || !y.ok || !zeroVelocity.ok) {
+          throw new Error("teleportPlayer requires valid pixel positions.");
+        }
+        const [primary, ...others] = this.simulationState.players;
+        this.simulationState = {
+          ...this.simulationState,
+          players: [
+            {
+              ...primary,
+              player: {
+                ...primary.player,
+                position: { x: x.value, y: y.value },
+                velocity: { x: zeroVelocity.value, y: zeroVelocity.value },
+              },
+            },
+            ...others,
+          ],
+        };
+        this.renderSimulationState();
+      },
       getSimulationSnapshot: () => ({
         frameIndex: this.simulationState.clock.frameIndex,
         // The whole-session score (prior-level base + this level's score), so it
@@ -5757,6 +5988,43 @@ export class BootScene extends Phaser.Scene {
           levelIndex: this.levelIndex,
           levelCount: this.levelSequence?.length ?? 1,
           theme: this.currentTheme,
+        },
+        cutscene: {
+          levelAdvanceDelayFramesRemaining:
+            this.levelAdvanceDelayFramesRemaining,
+          flagpoleSlide: {
+            active: this.flagpoleSlideActive,
+            playerSpriteY: this.playerRectangle.y,
+            targetY: this.flagpoleSlideTargetY,
+            flagY: this.flagObject?.y,
+            flagDropActive: this.flagpoleFlagDropActive,
+            ball: {
+              present: this.flagpoleBallObject !== undefined,
+              falling: this.flagpoleBallFall !== undefined,
+              visible: this.flagpoleBallObject?.visible ?? false,
+              y: this.flagpoleBallObject?.y,
+            },
+          },
+          castleClear: {
+            framesRemaining: this.castleClearFramesRemaining,
+            totalFrames: this.castleClearTotalFrames,
+            choppedBridgeColumns: [
+              ...this.castleBridgeTilesByColumn.values(),
+            ].filter((planks) =>
+              planks.some(
+                (plank) =>
+                  !(
+                    plank as Phaser.GameObjects.Components.Visible &
+                      typeof plank
+                  ).visible,
+              ),
+            ).length,
+            rescueMessageVisible: this.castleClearMessageText !== undefined,
+          },
+          fireworks: {
+            remainingBursts: this.fireworksBurstsRemaining,
+            activeSprites: this.fireworkSprites.length,
+          },
         },
         levelTimer: {
           remainingFrames: this.simulationState.levelTimer.remainingFrames,
@@ -8026,6 +8294,16 @@ function renderGoalTile(
 
 const flagpoleTileId = "flagpole";
 const flagpoleFurnitureDepth = 5;
+// The flag's height as a fraction of a tile (renderFlagpoleFurniture draws it
+// at this size; the slide caps its drop above the ground line with it).
+const flagpoleFlagHeightRatio = 0.9;
+// Knocking the top ball off: it pops up-and-away, then falls under gravity.
+const flagpoleBallKnockVelocity = { vx: 0.9, vy: -2.2 } as const;
+const flagpoleBallFallGravityPixels = 0.28;
+// Post-animation grace and the frames budgeted for a knocked ball to clear
+// even a tall level, so the finish overlay never freezes them mid-air.
+const flagpoleFinishTailFrames = 24;
+const flagpoleBallFallBudgetFrames = 90;
 const flagpolePoleColor = 0xc8d8c8;
 const flagpoleBallColor = 0x60a860;
 const flagFabricColor = 0x18c018;

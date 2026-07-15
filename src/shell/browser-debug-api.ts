@@ -200,6 +200,41 @@ type BrowserCameraSnapshot = {
   readonly worldViewY: number;
 };
 
+// Shell-side cutscene state (flag slide, castle-clear staging, fireworks) so
+// tests can assert the end-of-level presentation, which never enters the pure
+// simulation state.
+type BrowserCutsceneSnapshot = {
+  readonly levelAdvanceDelayFramesRemaining: number;
+  readonly flagpoleSlide: {
+    readonly active: boolean;
+    // The visible player sprite's world position (the slide moves the sprite,
+    // not the frozen simulation player).
+    readonly playerSpriteY: number;
+    readonly targetY: number;
+    // The dropping flag's world y, or undefined when the level has no pole.
+    readonly flagY: number | undefined;
+    // Whether the flag is still lowering toward the pole base.
+    readonly flagDropActive: boolean;
+    // The pole-top ball: knocked off (falling) by a grab at the very top.
+    readonly ball: {
+      readonly present: boolean;
+      readonly falling: boolean;
+      readonly visible: boolean;
+      readonly y: number | undefined;
+    };
+  };
+  readonly castleClear: {
+    readonly framesRemaining: number;
+    readonly totalFrames: number;
+    readonly choppedBridgeColumns: number;
+    readonly rescueMessageVisible: boolean;
+  };
+  readonly fireworks: {
+    readonly remainingBursts: number;
+    readonly activeSprites: number;
+  };
+};
+
 type BrowserLevelProgressionSnapshot = {
   readonly levelIndex: number;
   readonly levelCount: number;
@@ -262,6 +297,7 @@ export type BrowserSimulationSnapshot = {
   readonly playerCount: number;
   readonly level: BrowserLevelSnapshot;
   readonly levelProgression: BrowserLevelProgressionSnapshot;
+  readonly cutscene: BrowserCutsceneSnapshot;
   readonly levelTimer: BrowserLevelTimerSnapshot;
   readonly pathAnnotations: BrowserPathAnnotationsSnapshot;
   readonly camera: BrowserCameraSnapshot;
@@ -291,6 +327,14 @@ export type BrowserSimulationSnapshot = {
 
 export type BrowserPlatformerDebugApi = {
   readonly getSimulationSnapshot: () => BrowserSimulationSnapshot;
+  // Test/dev hook: place the primary player at a world-pixel position with
+  // velocity cleared, so browser tests can exercise late-level mechanics
+  // (flagpole, castle, boss) without scripting a full run. The recorded run is
+  // no longer input-replayable past a teleport; tests using it should only
+  // assert forward behavior, not the timeline replay (a death after a teleport
+  // still auto-opens the replay menu, whose reconstructed frames render the
+  // pre-teleport run).
+  readonly teleportPlayer: (xPixels: number, yPixels: number) => void;
 };
 
 declare global {

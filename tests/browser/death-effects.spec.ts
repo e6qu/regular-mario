@@ -26,9 +26,29 @@ async function openAndPlay(page: Page, code: string): Promise<void> {
   await expect(page.getByRole("button", { name: "Block" })).toBeVisible();
   await dismissEditorTutorial(page);
   await bootPlayTest(page);
-  // Dismiss the WORLD start prompt so the simulation begins stepping frames.
-  await page.keyboard.press("Space");
+  // Dismiss the WORLD start prompt with a key that maps to no gameplay input —
+  // Space would also buffer a jump, letting the walk-right tests bounce OVER
+  // the goomba (a stomp kill) instead of dying to it.
+  await page.keyboard.press("KeyQ");
   await waitForSimulationRunning(page);
+}
+
+// Flat ground with a goomba just right of the player and the goal far right;
+// `skyRows` pads the height (a tall level makes the paused replay viewport
+// crop meaningfully, since the replay bar shortens the canvas).
+function goombaLevelCode(skyRows: number): string {
+  return levelCode([
+    ...Array.from({ length: skyRows }, () => "...................."),
+    "..p...e...........x.",
+    "gggggggggggggggggggg",
+  ]);
+}
+
+// Hold right until the player walks into the goomba and dies.
+async function walkRightIntoDeath(page: Page): Promise<void> {
+  await page.keyboard.down("ArrowRight");
+  await waitForDefeat(page);
+  await page.keyboard.up("ArrowRight");
 }
 
 function deathEffect(page: Page) {
@@ -56,23 +76,8 @@ async function waitForDefeat(page: Page): Promise<void> {
 test("an enemy-contact death bursts the body into four sprite pieces", async ({
   page,
 }) => {
-  // Flat ground with a goomba just to the right of the player.
-  const code = levelCode([
-    "....................",
-    "....................",
-    "....................",
-    "....................",
-    "....................",
-    "....................",
-    "....................",
-    "..p...e...........x.",
-    "gggggggggggggggggggg",
-  ]);
-  await openAndPlay(page, code);
-
-  await page.keyboard.down("ArrowRight");
-  await waitForDefeat(page);
-  await page.keyboard.up("ArrowRight");
+  await openAndPlay(page, goombaLevelCode(7));
+  await walkRightIntoDeath(page);
 
   const effect = await deathEffect(page);
   expect(effect.started).toBe(true);
@@ -89,6 +94,60 @@ test("an enemy-contact death bursts the body into four sprite pieces", async ({
         .deathEffect.knockedEnemyCount > 0,
     undefined,
     { timeout: 5000 },
+  );
+});
+
+test("the timeline replay re-plays the death animation on-screen", async ({
+  page,
+}) => {
+  // The goomba layout on a TALL level (15 rows = 240 world px): the paused
+  // viewport (shortened by the replay bar) shows less world height than the
+  // level, so a top-anchored camera restore would really crop the ground.
+  await openAndPlay(page, goombaLevelCode(13));
+  await walkRightIntoDeath(page);
+
+  // The death opens the replay menu; the pause tears the live effect down so
+  // the timeline scrubs clean recorded frames.
+  await page.waitForFunction(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot().paused,
+    undefined,
+    { timeout: 10000 },
+  );
+  expect((await deathEffect(page)).started).toBe(false);
+
+  // Play the recording back; reaching the end must re-fire the death burst.
+  await page.locator('button:has-text("▶ Play")').last().click();
+  await page.waitForFunction(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+        .deathEffect.started,
+    undefined,
+    { timeout: 20000 },
+  );
+  const effect = await deathEffect(page);
+  expect(effect.style).toBe("explode");
+  expect(effect.pieceCount).toBe(6);
+
+  // And the death spot must be INSIDE the visible view: the replay bar shrinks
+  // the canvas, and a top-anchored camera restore used to crop the ground away
+  // so the whole animation played out of sight below the viewport.
+  const visibility = await page.evaluate(() => {
+    const snapshot =
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot();
+    const camera = snapshot.camera;
+    const visibleBottom =
+      camera.worldViewY + camera.viewportHeightPixels / camera.zoom;
+    return {
+      playerBottom: snapshot.player.position.y,
+      visibleBottom,
+      worldHeight: camera.worldHeightPixels,
+    };
+  });
+  expect(visibility.playerBottom).toBeLessThan(visibility.visibleBottom);
+  // The ground row itself is on screen (the view is bottom-anchored).
+  expect(visibility.visibleBottom).toBeGreaterThanOrEqual(
+    visibility.worldHeight - 1,
   );
 });
 

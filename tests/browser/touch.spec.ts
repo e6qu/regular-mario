@@ -1,25 +1,13 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-// Importing this type also brings the `declare global` for the debug API into
-// scope, so `window.__originalBrowserPlatformerDebug` is typed inside evaluate.
-import type { BrowserSimulationSnapshot } from "../../src/shell/browser-debug-api";
 import {
   bootPlayTest,
   dismissEditorTutorial,
+  readSimulationSnapshot,
   waitForGameBoot,
 } from "./support";
 
 const rotatePrompt = '[aria-label="Rotate your device to landscape"]';
-
-function readSnapshot(page: Page): Promise<BrowserSimulationSnapshot> {
-  return page.evaluate(() => {
-    const api = window.__originalBrowserPlatformerDebug;
-    if (api === undefined) {
-      throw new Error("Browser simulation debug API is unavailable.");
-    }
-    return api.getSimulationSnapshot();
-  });
-}
 
 // Gameplay is landscape-only on touch devices.
 test.describe("touch device (landscape)", () => {
@@ -92,7 +80,7 @@ test.describe("touch device (landscape)", () => {
       const api = window.__originalBrowserPlatformerDebug;
       return api !== undefined && api.getSimulationSnapshot().frameIndex > 5;
     });
-    const start = (await readSnapshot(page)).player.position.x;
+    const start = (await readSimulationSnapshot(page)).player.position.x;
     const box = await page
       .locator('button[aria-label="touch-right"]')
       .boundingBox();
@@ -110,7 +98,9 @@ test.describe("touch device (landscape)", () => {
     }, start);
     await page.mouse.up();
 
-    expect((await readSnapshot(page)).player.position.x).toBeGreaterThan(start);
+    expect(
+      (await readSimulationSnapshot(page)).player.position.x,
+    ).toBeGreaterThan(start);
   });
 
   test("a suspended game's deck never doubles up beside the next game", async ({
@@ -297,7 +287,7 @@ test.describe("touch device (landscape)", () => {
       rightBox.y + rightBox.height / 2,
       { steps: 6 },
     );
-    const afterRoll = (await readSnapshot(page)).player.position.x;
+    const afterRoll = (await readSimulationSnapshot(page)).player.position.x;
     await page.waitForFunction((startX) => {
       const api = window.__originalBrowserPlatformerDebug;
       return (
@@ -307,9 +297,9 @@ test.describe("touch device (landscape)", () => {
     }, afterRoll);
     await page.mouse.up();
 
-    expect((await readSnapshot(page)).player.position.x).toBeGreaterThan(
-      afterRoll,
-    );
+    expect(
+      (await readSimulationSnapshot(page)).player.position.x,
+    ).toBeGreaterThan(afterRoll);
   });
 });
 

@@ -5,11 +5,13 @@
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **846 unit tests + browser journeys
-pass; all gates green.** Latest fix (2026-07-15): suspended sessions no longer
-double the mobile NES touch deck, and closed session tabs actually destroy
-their games; a same-day follow-up moved all per-session DOM (canvas, touch
-deck, replay overlay) into one per-session root the session manager toggles
-atomically, deleting that leak class structurally (see BUGS.md).
+pass; all gates green.** Latest fixes (2026-07-15): suspended sessions no
+longer double the mobile NES touch deck (per-session DOM roots, see BUGS.md);
+the timeline replay shows the death animation on screen (bottom-anchored
+camera restore); and the flagpole slide cutscene works on the real SMB maps —
+full flag drop, dismount at the base, and a very-top grab knocks the pole's
+ball off — with cutscene + Bowser coverage in tests/browser/cutscenes.spec.ts
+and new engine tests (five-fireball soak, spiky stomp, point-blank flames).
 
 What exists now:
 

@@ -236,6 +236,19 @@ describe("timed-hazard-projectile-state", () => {
     expect(nearResult.projectiles).toHaveLength(0);
   });
 
+  it("fires a flame (non-stompable) even point-blank at the player", () => {
+    // Bowser's flames follow the ROM: only cannon Bullet Bills hold fire when
+    // the player is nearly on top of the spawner — flames always fire.
+    const levelSpec = stompCannonLevelSpec(false);
+    const nearResult = resolveHazard(
+      makeEmptyTimedHazardProjectilesState(),
+      levelSpec,
+      testPlayerAt(20, 0),
+      1,
+    );
+    expect(nearResult.projectiles).toHaveLength(1);
+  });
+
   it("leaves a non-stompable projectile as a hazard when landed on", () => {
     const levelSpec = stompCannonLevelSpec(false);
     const spawned = resolveHazard(

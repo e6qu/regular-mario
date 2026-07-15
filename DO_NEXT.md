@@ -1,5 +1,15 @@
 # DO_NEXT.md
 
+## Landed: replay death visibility, flagpole cutscene, cutscene/Bowser coverage (2026-07-15)
+
+- Timeline replay re-anchors recorded camera views by their bottom edge so the
+  death animation (and all ground action) is visible above the replay bar.
+- Flagpole finish fixed on real maps: dismount base from adjacent-column
+  ground, full flag drop at any grab height, top-grab knocks the ball off.
+- New browser suite tests/browser/cutscenes.spec.ts (flag slide ×2, castle
+  clear fixture + real castle with Bowser, fireworks) plus engine tests for
+  Bowser mechanics; debug hooks: teleportPlayer + cutscene snapshot.
+
 ## Landed: mobile touch-deck session fix (2026-07-15)
 
 - Suspended sessions no longer leave their NES touch panels visible beside the

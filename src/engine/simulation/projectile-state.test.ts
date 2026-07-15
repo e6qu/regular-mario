@@ -110,6 +110,41 @@ function makeFireproofEnemyLevelSpec(): LevelSpec {
   return result.value;
 }
 
+// A Bowser-shaped multi-hit boss: five fireball hit points on the ROM's 28×28
+// collider, standing in fireball range of the player.
+function makeMultiHitBossLevelSpec(): LevelSpec {
+  const result = makeLevelSpec({
+    widthTiles: 10,
+    heightTiles: 6,
+    tileSizePixels: 16,
+    tileDefinitions: makeSkyGrassTileDefinitions(),
+    actorDefinitions: [
+      { actorId: "runner-start", role: ActorRole.PlayerStart },
+      {
+        actorId: "keep-boss",
+        role: ActorRole.Enemy,
+        spiky: true,
+        projectileHitPoints: 5,
+        colliderWidthPixels: 28,
+        colliderHeightPixels: 28,
+      },
+      { actorId: "open-gate", role: ActorRole.Exit },
+    ],
+    tiles: makeSkyGroundTiles(10),
+    actors: [
+      { entityId: "runner-1", actorId: "runner-start", x: 1, y: 4 },
+      { entityId: "boss-1", actorId: "keep-boss", x: 5, y: 4 },
+      { entityId: "gate-1", actorId: "open-gate", x: 9, y: 4 },
+    ],
+  });
+
+  if (!result.ok) {
+    throw new Error("Expected multi-hit boss test level to validate.");
+  }
+
+  return result.value;
+}
+
 function tilePoint(x: number, y: number): TilePoint {
   return {
     x: x as unknown as TilePoint["x"],
@@ -465,6 +500,84 @@ describe("projectile-state", () => {
       }
     }
     expect(projectileConsumed).toBe(true);
+  });
+
+  it("defeats a multi-hit boss (Bowser) on the fifth fireball, not before", () => {
+    const levelSpec = makeMultiHitBossLevelSpec();
+    const initialState = makeInitialTestState(levelSpec);
+    const player = playerAt({ x: 32, y: 56 });
+    let projectiles: ProjectilesState = makeEmptyProjectilesState();
+    let defeatedSoFar: EntityId[] = [];
+    let frame = 1;
+
+    // Land five separate fireballs; the boss soaks the first four.
+    for (let hit = 1; hit <= 5; hit += 1) {
+      // Keep pressing fire until the shot cooldown allows the next fireball.
+      let result = resolveProjectilesState(
+        { firePressed: true },
+        player,
+        makeFirePlayerVitalityState(),
+        initialState.enemyMotion,
+        { defeatedEnemyEntityIds: defeatedSoFar },
+        projectiles,
+        makeEmptyBreakableBlockState(),
+        initialMovementConstants,
+        levelSpec,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        frameIndex(frame),
+      );
+      frame += 1;
+      for (
+        let attempt = 0;
+        attempt < 60 && activeProjectiles(result).length === 0;
+        attempt += 1
+      ) {
+        result = resolveProjectilesState(
+          { firePressed: true },
+          player,
+          makeFirePlayerVitalityState(),
+          initialState.enemyMotion,
+          { defeatedEnemyEntityIds: defeatedSoFar },
+          result.state,
+          makeEmptyBreakableBlockState(),
+          initialMovementConstants,
+          levelSpec,
+          nominalSixtyHertzFrameDurationMilliseconds,
+          frameIndex(frame),
+        );
+        frame += 1;
+      }
+      // Fly the fireball until it lands on the boss (it is consumed).
+      for (
+        let step = 0;
+        step < 60 && activeProjectiles(result).length > 0;
+        step += 1
+      ) {
+        result = resolveProjectilesState(
+          { firePressed: false },
+          player,
+          makeFirePlayerVitalityState(),
+          initialState.enemyMotion,
+          { defeatedEnemyEntityIds: defeatedSoFar },
+          result.state,
+          makeEmptyBreakableBlockState(),
+          initialMovementConstants,
+          levelSpec,
+          nominalSixtyHertzFrameDurationMilliseconds,
+          frameIndex(frame),
+        );
+        frame += 1;
+        defeatedSoFar = [
+          ...defeatedSoFar,
+          ...result.newlyDefeatedEnemyEntityIds,
+        ];
+      }
+      projectiles = result.state;
+      if (hit < 5) {
+        expect(defeatedSoFar).toEqual([]);
+      }
+    }
+    expect(defeatedSoFar).toEqual(["boss-1"]);
   });
 
   it("expires a projectile that hits a solid tile", () => {

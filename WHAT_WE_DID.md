@@ -5,13 +5,55 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-15 (third pass) — replay shows the death; the flagpole cutscene fixed for real maps; cutscene + Bowser coverage
+
+- **The timeline replay now shows the death on screen.** The replay bar
+  reserves bottom space (shorter canvas), and the recorded camera scroll was
+  restored top-anchored — the ground, where the death animation replays, was
+  cropped out below the viewport, so the whole animation played out of sight.
+  Camera snapshots now record the view's world-space BOTTOM edge, and
+  scrubbing/replay re-anchor it (`cameraWorldBottom`/`setCameraWorldBottom`);
+  `resizeToDisplay` keeps the bottom edge stable across the pause-time shrink
+  too. Regression test: death-effects.spec "the timeline replay re-plays the
+  death animation on-screen".
+- **The flagpole slide cutscene was completely broken on the real SMB maps —
+  fixed.** The imported pole column is goal tiles all the way down (the maps
+  replace even the ground rows with pole), and `beginFlagpoleSlide` scanned
+  only that column for a solid dismount base — never found one, and bailed.
+  Any grab froze the player at the contact point: most visibly, jumping onto
+  the pole's very top left him perched on the ball with no slide, no flag
+  drop. Now: the pole column is the actually-contacted goal tile, the base
+  falls back to the adjacent columns' ground, the flag lowers fully to the
+  base regardless of grab height (and rests above the ground line), and **a
+  grab at the very top knocks the ball off the pole** — it pops and tumbles
+  away under gravity while the player slides. The finish overlay still
+  arrives after (cutscene completes).
+- Review-pass hardening: castle finishes (the axe imports as a goal column
+  too) skip the pole furniture and slide entirely — the castle-clear cinematic
+  owns that ending; the ball knock and flag drop fire even when the pole has
+  no reachable dismount base; the level stays open long enough for the flag
+  and knocked ball to land before the finish overlay freezes the scene; and
+  `teleportPlayer` fails loudly when the game is paused or the run has ended.
+- **Debug/test hooks**: `teleportPlayer(x, y)` on the browser debug API (jump
+  straight to a level's end), and a `cutscene` snapshot section (flag slide +
+  ball, castle-clear staging, fireworks) — both shell-only test surfaces.
+- **Cutscene + Bowser coverage** (new `tests/browser/cutscenes.spec.ts` + unit
+  tests): top-grab ball knock + full slide; low grab keeps the ball and still
+  lowers the flag; castle-clear fixture (bridge chop → rescue message →
+  overlay); the real castle labelled 1-4 (file `smb-1-5` — see
+  docs/terminology.md on the intro-vestibule name shift) with Bowser rendered,
+  axe finish, bridge chop and rescue; victory fireworks on a lucky timer
+  digit. Engine: Bowser soaks four fireballs and falls to the fifth
+  (projectileHitPoints), landing on a spiky boss is harmful contact rather
+  than a stomp, and flame spawners fire point-blank where cannons hold fire.
+
 ## 2026-07-15 (second pass) — per-session DOM roots: the leak class deleted structurally
 
 - Follow-up to the touch-deck fix below: instead of the scene hiding/showing
   its own panels on suspend/resume (bookkeeping every future per-session
   element would have to repeat), **each session now owns one root element**
   (`makeSessionRoot` in `main.ts`: an absolute full-window row `[left panel |
-  viewport | right panel]`) inside the persistent game layer. Phaser mounts
+viewport | right panel]`) inside the persistent game layer. Phaser mounts
   the canvas into the session's own viewport, the touch panels flank it inside
   the same root, and the replay overlay mounts inside the viewport — so
   `suspendSession`/`resumeSession` toggle ONE element and `destroySessionGame`
