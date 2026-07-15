@@ -6,10 +6,10 @@
   next game's canvas (double decks, squeezed play area), and closing a session
   tab now really destroys the game (destroy-then-wake for a synchronous
   teardown; teardown on `DESTROY` too). See WHAT_WE_DID / BUGS.
-- Candidate follow-up: per-session DOM (canvas, touch deck, replay overlay)
-  could live in one per-session wrapper element that the session manager
-  hides/shows atomically — deleting this bug class instead of per-element
-  suspend/resume bookkeeping in the scene.
+- Follow-up landed the same day: all per-session DOM (canvas, touch deck,
+  replay overlay) now lives in one per-session root element that the session
+  manager hides/shows/removes atomically — the scene does no per-element
+  suspend/resume bookkeeping at all, deleting the bug class structurally.
 
 ## Landed: session state, mobile UX, WebGL renderer (2026-07-12, ninth pass)
 

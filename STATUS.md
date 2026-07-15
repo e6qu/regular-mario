@@ -7,7 +7,9 @@ built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **846 unit tests + browser journeys
 pass; all gates green.** Latest fix (2026-07-15): suspended sessions no longer
 double the mobile NES touch deck, and closed session tabs actually destroy
-their games (see BUGS.md).
+their games; a same-day follow-up moved all per-session DOM (canvas, touch
+deck, replay overlay) into one per-session root the session manager toggles
+atomically, deleting that leak class structurally (see BUGS.md).
 
 What exists now:
 

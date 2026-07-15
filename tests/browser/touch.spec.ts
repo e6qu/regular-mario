@@ -136,17 +136,20 @@ test.describe("touch device (landscape)", () => {
       page.locator('[data-role="touch-control-right"]:visible'),
     ).toHaveCount(1);
     const geometry = await page.evaluate(() => {
-      const canvas = [...document.querySelectorAll("canvas")].find(
-        (element) => getComputedStyle(element).display !== "none",
-      );
+      // A suspended session hides its whole root, so its descendants keep
+      // their own computed display — "is rendered" (has client rects) is the
+      // check that finds the ACTIVE session's elements.
+      const rendered = (element: Element): boolean =>
+        element.getClientRects().length > 0;
+      const canvas = [...document.querySelectorAll("canvas")].find(rendered);
       const left = [
         ...document.querySelectorAll('[data-role="touch-control-left"]'),
-      ].find((element) => getComputedStyle(element).display !== "none");
+      ].find(rendered);
       const right = [
         ...document.querySelectorAll('[data-role="touch-control-right"]'),
-      ].find((element) => getComputedStyle(element).display !== "none");
+      ].find(rendered);
       if (canvas === undefined || left === undefined || right === undefined) {
-        throw new Error("missing canvas or control panels");
+        throw new Error("missing rendered canvas or control panels");
       }
       return {
         canvasLeft: canvas.getBoundingClientRect().left,

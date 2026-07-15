@@ -5,6 +5,40 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-15 (second pass) — per-session DOM roots: the leak class deleted structurally
+
+- Follow-up to the touch-deck fix below: instead of the scene hiding/showing
+  its own panels on suspend/resume (bookkeeping every future per-session
+  element would have to repeat), **each session now owns one root element**
+  (`makeSessionRoot` in `main.ts`: an absolute full-window row `[left panel |
+  viewport | right panel]`) inside the persistent game layer. Phaser mounts
+  the canvas into the session's own viewport, the touch panels flank it inside
+  the same root, and the replay overlay mounts inside the viewport — so
+  `suspendSession`/`resumeSession` toggle ONE element and `destroySessionGame`
+  removes it wholesale. A background session structurally cannot leak DOM into
+  the active session's screen, whatever the scene mounts next.
+- The scene's suspend/resume hooks shrank accordingly: `onSessionSuspend` only
+  silences music and flags `suspended`; `onSessionResume` re-measures the
+  canvas (`resizeToDisplay`) because window resizes are ignored while the root
+  is hidden (`handleWindowResize` now returns early when suspended — a hidden
+  root measures 0×0 and would size the canvas to 1px). The explicit overlay
+  hide/re-present and panel hide/show on suspend/resume are gone; pause-time
+  panel hiding (under the replay overlay) is unchanged.
+- Review-pass hardening: held touch buttons are dropped on suspend (a button
+  hidden mid-press never gets its pointerup, so the flag would stay latched
+  into the resume); a paused game re-presents its replay bar on resume so a
+  resize that happened while hidden re-measures the bar's height/filmstrip;
+  the suspended guard lives inside `resizeToDisplay` itself (covers the
+  overlay's reserved-space path, not just window resizes); a game-construction
+  failure removes its orphaned session root; and `createTouchControls` fails
+  loudly on an unmounted canvas instead of falling back to `document.body`
+  (a body-mounted deck would escape the session-root lifecycle entirely).
+- Verified with the same three touch-emulated flows (suspend→new game,
+  finish→replay overlay→new game, resume + close-tabs) plus the full browser
+  suite; the `touch.spec.ts` regression test's geometry check now selects the
+  active session's elements by "has client rects" (computed `display` no
+  longer discriminates — only the suspended root is hidden).
+
 ## 2026-07-15 — mobile: suspended sessions no longer double the NES touch deck
 
 - **Bug (reported on mobile): after leaving a game and starting another, the

@@ -1147,6 +1147,12 @@ export class BootScene extends Phaser.Scene {
   }
 
   private resizeToDisplay(): void {
+    // While suspended the session root is display:none, so any measurement
+    // (window resize, overlay reserved-space report) would size the canvas
+    // against a 0×0 parent; onSessionResume re-measures once visible again.
+    if (this.suspended) {
+      return;
+    }
     this.sizeCanvasToDisplay();
     this.applyCameraZoom();
   }
@@ -1441,19 +1447,15 @@ export class BootScene extends Phaser.Scene {
 
   // Called by the session manager when this game is suspended into a tab: go
   // silent so no two sessions' music overlap, and stop reacting to window input
-  // meant for whichever session is now active.
+  // meant for whichever session is now active. All of this game's DOM (canvas,
+  // touch panels, replay overlay) lives in its session root, which the session
+  // manager hides as one element — no per-element hiding here.
   public onSessionSuspend(): void {
     this.suspended = true;
     this.gameAudio.stopBackgroundMusic();
-    // The timeline/replay bar is a DOM overlay in the shared game layer, not a
-    // child of this game's canvas — hiding the canvas doesn't hide it. Hide it
-    // explicitly so a paused game's replay bar doesn't linger over the next one
-    // (e.g. after "Next level"). It's restored on resume if still paused.
-    this.timelineOverlay?.hide();
-    // The touch control panels live in the shared game layer too: hide them so
-    // a suspended game's deck doesn't flank the next game's canvas as a second
-    // pair of controls (shrinking its viewport). Restored on resume.
-    this.setTouchControlsVisible(false);
+    // The root just went display:none with fingers possibly still on buttons —
+    // their pointerup will land elsewhere, so drop any held touch input now.
+    this.clearHeldTouchState();
   }
 
   // Called when this game is brought back to the foreground: resume its music if
@@ -1478,18 +1480,15 @@ export class BootScene extends Phaser.Scene {
     ) {
       this.gameAudio.startBackgroundMusic(this.currentTheme);
     }
-    // If this game was still paused when it was backgrounded, bring its replay
-    // bar back (onSessionSuspend hid it) so it isn't frozen with no controls.
-    // Otherwise bring the touch deck back (onSessionSuspend hid it; while
-    // paused it stays hidden until exitPause restores it) and re-measure the
-    // canvas — the reappearing deck narrows the viewport, and the session
-    // manager's scale.refresh() ran before the deck was shown.
+    // The session root just became visible again with panels/overlay exactly
+    // as they were left, but window resizes that arrived while the root was
+    // hidden were ignored (a hidden root measures 0×0) — so re-present a
+    // paused game's replay bar (its height and filmstrip layout are
+    // width-dependent) and re-measure the canvas.
     if (this.paused) {
       this.presentTimelineOverlay();
-    } else if (this.touchControlPanels.length > 0) {
-      this.setTouchControlsVisible(true);
-      this.resizeToDisplay();
     }
+    this.resizeToDisplay();
   }
 
   // On a coarse-pointer device (phone/tablet, landscape), mount an NES-style
@@ -1507,11 +1506,19 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
-    // The panels are siblings of the game viewport (canvas parent) inside the
-    // row layout, one before it and one after, so they claim width beside the
-    // canvas instead of overlapping it.
+    // The panels are siblings of the game viewport (canvas parent) inside this
+    // session's root row, one before it and one after, so they claim width
+    // beside the canvas instead of overlapping it — and they hide/go away with
+    // the root when the session is suspended or destroyed. Mounting anywhere
+    // else (e.g. document.body) would escape that lifecycle and leak a deck
+    // over every later screen, so an unmounted canvas is a hard error.
     const viewport = this.game.canvas.parentElement;
-    const host = viewport?.parentElement ?? document.body;
+    const host = viewport?.parentElement;
+    if (viewport === null || host === null || host === undefined) {
+      throw new Error(
+        "Touch controls require the canvas mounted inside a session viewport.",
+      );
+    }
 
     // On touch, the browser applies *implicit pointer capture* on pointerdown,
     // which suppresses pointerenter/leave and would stop the thumb rolling from
@@ -1653,12 +1660,8 @@ export class BootScene extends Phaser.Scene {
     leftPanel.append(sizeToggle, deck.dpad);
     rightPanel.append(deck.actions);
 
-    if (viewport !== null && viewport.parentElement === host) {
-      host.insertBefore(leftPanel, viewport);
-      host.append(rightPanel);
-    } else {
-      host.append(leftPanel, rightPanel);
-    }
+    host.insertBefore(leftPanel, viewport);
+    host.append(rightPanel);
     this.touchControlPanels = [leftPanel, rightPanel];
   }
 
@@ -3835,24 +3838,29 @@ export class BootScene extends Phaser.Scene {
   }
 
   // Hide the on-screen touch controls (and drop any held button) while paused,
-  // so they don't sit under the timeline overlay; restore them on resume. A
-  // suspended (backgrounded) game's panels never show regardless of the caller —
-  // they'd flank the active game's canvas as a second deck — so the invariant
-  // lives here rather than in every pause/resume path.
+  // so they don't sit under the timeline overlay; restore them on resume.
+  // (Suspend needs no handling: a background session's whole root is hidden by
+  // the session manager, panels included.)
   private setTouchControlsVisible(visible: boolean): void {
-    const show = visible && !this.suspended;
     for (const panel of this.touchControlPanels) {
-      panel.style.display = show ? "flex" : "none";
+      panel.style.display = visible ? "flex" : "none";
     }
-    if (!show) {
-      this.touchState.left = false;
-      this.touchState.right = false;
-      this.touchState.up = false;
-      this.touchState.down = false;
-      this.touchState.jump = false;
-      this.touchState.run = false;
-      this.touchState.fire = false;
+    if (!visible) {
+      this.clearHeldTouchState();
     }
+  }
+
+  // Drop every held on-screen button. Needed whenever the panels vanish while
+  // a finger is still down (pause hide, session suspend): the hidden button
+  // never receives its pointerup, so the flag would stay latched.
+  private clearHeldTouchState(): void {
+    this.touchState.left = false;
+    this.touchState.right = false;
+    this.touchState.up = false;
+    this.touchState.down = false;
+    this.touchState.jump = false;
+    this.touchState.run = false;
+    this.touchState.fire = false;
   }
 
   private enterPause(byDeath: boolean): void {

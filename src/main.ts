@@ -53,26 +53,42 @@ if (appElement === null) {
   throw new Error("Missing required #app element.");
 }
 
-// Game canvases live in this persistent layer so a game survives (suspended)
-// while the menu/editor render into #app; `clearApp` preserves it and the tab
-// bar. When a game is active the layer covers the window; otherwise it's hidden.
+// Games live in this persistent layer so a game survives (suspended) while the
+// menu/editor render into #app; `clearApp` preserves it and the tab bar. When a
+// game is active the layer covers the window; otherwise it's hidden. Each
+// session owns ONE root element inside it (see makeSessionRoot) holding all of
+// that session's DOM — canvas, touch control panels, replay overlay — so
+// suspending a session hides everything it mounted atomically, and nothing of
+// a background session can leak into the active one's screen.
 const gameLayer = document.createElement("div");
 gameLayer.setAttribute("role", "application");
 gameLayer.setAttribute("aria-label", "Original platformer game");
-// A row: the (mobile-only) touch control panels flank the game viewport left and
-// right, so the controls sit OUTSIDE the drawing surface rather than over it —
-// trading horizontal space, which keeps a landscape screen's precious height.
-gameLayer.style.cssText =
-  "position:fixed;inset:0;display:none;flex-direction:row;";
-// Phaser mounts the canvas into this viewport (not gameLayer directly) so that
-// the canvas sizes to the viewport's box — which narrows when the touch control
-// panels claim width beside it, shrinking the view's width instead of overlapping
-// it.
-const gameViewport = document.createElement("div");
-gameViewport.setAttribute("data-role", "game-viewport");
-gameViewport.style.cssText =
-  "position:relative;flex:1 1 auto;min-height:0;min-width:0;height:100%;";
-gameLayer.append(gameViewport);
+gameLayer.style.cssText = "position:fixed;inset:0;display:none;";
+
+// A session root is a full-window row: the (mobile-only) touch control panels
+// flank the game viewport left and right, so the controls sit OUTSIDE the
+// drawing surface rather than over it — trading horizontal space, which keeps
+// a landscape screen's precious height. Phaser mounts the canvas into the
+// inner viewport (not the row directly) so the canvas sizes to the viewport's
+// box — which narrows when the panels claim width beside it, shrinking the
+// view's width instead of overlapping it.
+type SessionRoot = {
+  readonly root: HTMLElement;
+  readonly viewport: HTMLElement;
+};
+function makeSessionRoot(): SessionRoot {
+  const root = document.createElement("div");
+  root.setAttribute("data-role", "game-session");
+  root.style.cssText =
+    "position:absolute;inset:0;display:flex;flex-direction:row;";
+  const viewport = document.createElement("div");
+  viewport.setAttribute("data-role", "game-viewport");
+  viewport.style.cssText =
+    "position:relative;flex:1 1 auto;min-height:0;min-width:0;height:100%;";
+  root.append(viewport);
+  gameLayer.append(root);
+  return { root, viewport };
+}
 const sessionBar = document.createElement("div");
 sessionBar.setAttribute("role", "tablist");
 sessionBar.setAttribute("aria-label", "In-progress games");
@@ -460,6 +476,10 @@ type GameSession = {
   readonly label: string;
   readonly mode: SessionMode;
   readonly game: Phaser.Game;
+  // The session's one root element in the game layer, holding ALL its DOM
+  // (canvas, touch panels, replay overlay). Hidden while suspended; removed on
+  // destroy.
+  readonly root: HTMLElement;
   // What to render when this session is suspended (start menu or the editor).
   readonly onReturn: () => void;
 };
@@ -480,6 +500,9 @@ let sessionCounter = 0;
 function destroySessionGame(session: GameSession): void {
   session.game.destroy(true);
   session.game.loop.wake();
+  // The root carries everything the session mounted (panels, overlay); remove
+  // it as a whole rather than trusting per-element teardown.
+  session.root.remove();
 }
 
 window.addEventListener("beforeunload", () => {
@@ -507,17 +530,19 @@ function bootSceneOf(game: Phaser.Game): BootScene | undefined {
 // (see docs/decisions/0020 and tests/browser/renderer.spec.ts).
 function suspendSession(session: GameSession): void {
   session.game.loop.sleep();
-  session.game.canvas.style.display = "none";
+  // One toggle hides the session's whole root — canvas, touch panels, replay
+  // overlay — so no per-element bookkeeping can drift out of sync.
+  session.root.style.display = "none";
   bootSceneOf(session.game)?.onSessionSuspend();
 }
 function resumeSession(session: GameSession): void {
-  session.game.canvas.style.display = "";
+  session.root.style.display = "flex";
   session.game.loop.wake();
   session.game.scale.refresh();
   bootSceneOf(session.game)?.onSessionResume();
 }
 function showGameLayer(): void {
-  gameLayer.style.display = "flex";
+  gameLayer.style.display = "block";
   // Hide the help hint during play (it would cover the touch A button); the "?"
   // key still opens the overlay.
   keymapHint.style.display = "none";
@@ -604,17 +629,27 @@ function startSession(
   }
   sessionCounter += 1;
   const id = `session-${String(sessionCounter)}`;
-  // Show the (full-window) game layer BEFORE creating the game so Phaser's
-  // RESIZE scale mode measures a visible parent — otherwise the canvas boots at
-  // 0×0 and never draws.
+  // Show the (full-window) game layer and this session's root BEFORE creating
+  // the game so the canvas sizing measures a visible parent — otherwise the
+  // canvas boots at 0×0 and never draws.
   clearApp();
   showGameLayer();
-  const game = new Phaser.Game(
-    createGameConfig(gameViewport, {
-      ...bootstrap,
-      onExitToMenu: () => suspendActiveSession(),
-    }),
-  );
+  const { root, viewport } = makeSessionRoot();
+  let game: Phaser.Game;
+  try {
+    game = new Phaser.Game(
+      createGameConfig(viewport, {
+        ...bootstrap,
+        onExitToMenu: () => suspendActiveSession(),
+      }),
+    );
+  } catch (error) {
+    // No session will ever own this root — remove it, or the transparent
+    // full-window row would sit over (and swallow pointer events of) every
+    // later session.
+    root.remove();
+    throw error;
+  }
   game.events.once(Phaser.Core.Events.READY, () => {
     game.scale.refresh();
     // Focus the canvas so keyboard input has a live target — after an async boot
@@ -622,7 +657,7 @@ function startSession(
     // otherwise leave key events (including the start key) with nowhere to land.
     game.canvas.focus();
   });
-  const session: GameSession = { id, label, mode, game, onReturn };
+  const session: GameSession = { id, label, mode, game, root, onReturn };
   sessions.push(session);
   activeSessionId = id;
   configureGameCanvasForAccessibility(game.canvas);
