@@ -3,7 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 // Importing this type also brings the `declare global` for the debug API into
 // scope, so `window.__originalBrowserPlatformerDebug` is typed inside evaluate.
 import type { BrowserSimulationSnapshot } from "../../src/shell/browser-debug-api";
-import { dismissEditorTutorial } from "./support";
+import {
+  bootPlayTest,
+  dismissEditorTutorial,
+  waitForGameBoot,
+} from "./support";
 
 const rotatePrompt = '[aria-label="Rotate your device to landscape"]';
 
@@ -107,6 +111,72 @@ test.describe("touch device (landscape)", () => {
     await page.mouse.up();
 
     expect((await readSnapshot(page)).player.position.x).toBeGreaterThan(start);
+  });
+
+  test("a suspended game's deck never doubles up beside the next game", async ({
+    page,
+  }) => {
+    // Start a game from the menu, suspend it (ESC → paused tab), start another.
+    // The suspended game's control panels live in the same shared layer as the
+    // new game's; they must stay hidden or the new game boots flanked by TWO
+    // decks per side with its viewport squeezed between them.
+    await page.goto("/");
+    await bootPlayTest(page);
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "▶ Play" }).click();
+    await waitForGameBoot(page, 2);
+
+    // Exactly one deck (one left + one right panel) is visible, and the active
+    // canvas spans the full space between it — a phantom second deck from the
+    // suspended game would claim that width.
+    await expect(
+      page.locator('[data-role="touch-control-left"]:visible'),
+    ).toHaveCount(1);
+    await expect(
+      page.locator('[data-role="touch-control-right"]:visible'),
+    ).toHaveCount(1);
+    const geometry = await page.evaluate(() => {
+      const canvas = [...document.querySelectorAll("canvas")].find(
+        (element) => getComputedStyle(element).display !== "none",
+      );
+      const left = [
+        ...document.querySelectorAll('[data-role="touch-control-left"]'),
+      ].find((element) => getComputedStyle(element).display !== "none");
+      const right = [
+        ...document.querySelectorAll('[data-role="touch-control-right"]'),
+      ].find((element) => getComputedStyle(element).display !== "none");
+      if (canvas === undefined || left === undefined || right === undefined) {
+        throw new Error("missing canvas or control panels");
+      }
+      return {
+        canvasLeft: canvas.getBoundingClientRect().left,
+        canvasRight: canvas.getBoundingClientRect().right,
+        leftPanelRight: left.getBoundingClientRect().right,
+        rightPanelLeft: right.getBoundingClientRect().left,
+      };
+    });
+    expect(geometry.canvasLeft).toBeLessThanOrEqual(
+      geometry.leftPanelRight + 1,
+    );
+    expect(geometry.canvasRight).toBeGreaterThanOrEqual(
+      geometry.rightPanelLeft - 1,
+    );
+
+    // Closing the paused tabs must actually destroy their games — panels and
+    // canvases removed from the DOM (a sleeping game loop defers destroy).
+    await page.keyboard.press("Escape");
+    const closeTab = page.locator(
+      '[role="tablist"] button[aria-label^="Close"]',
+    );
+    await expect(closeTab).toHaveCount(2);
+    await closeTab.first().click();
+    await expect(closeTab).toHaveCount(1);
+    await closeTab.first().click();
+    await expect(closeTab).toHaveCount(0);
+    await expect(page.locator('[data-role="touch-control-left"]')).toHaveCount(
+      0,
+    );
+    await expect(page.locator('canvas[aria-label*="game"]')).toHaveCount(0);
   });
 
   test("the size toggle resizes the control panels and persists", async ({

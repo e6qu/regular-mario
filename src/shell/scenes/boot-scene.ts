@@ -1185,7 +1185,7 @@ export class BootScene extends Phaser.Scene {
     window.addEventListener("keydown", this.handleWindowKeyDown);
     window.addEventListener("keyup", this.handleWindowKeyUp);
     this.createTouchControls();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    this.registerSceneTeardown(() => {
       window.removeEventListener("keydown", this.handleWindowKeyDown);
       window.removeEventListener("keydown", this.handleEarlyStartKey);
       window.removeEventListener("keyup", this.handleWindowKeyUp);
@@ -1424,6 +1424,21 @@ export class BootScene extends Phaser.Scene {
     this.hideFlowCard();
   }
 
+  // Run a teardown when this scene ends, whichever way it ends: a scene stop
+  // fires SHUTDOWN, while game.destroy() (closing a session tab, page unload)
+  // fires DESTROY with no SHUTDOWN first. Whichever fires first runs the
+  // teardown exactly once and unhooks its sibling.
+  private registerSceneTeardown(teardown: () => void): void {
+    const events = this.events;
+    const runOnce = (): void => {
+      events.off(Phaser.Scenes.Events.SHUTDOWN, runOnce);
+      events.off(Phaser.Scenes.Events.DESTROY, runOnce);
+      teardown();
+    };
+    events.once(Phaser.Scenes.Events.SHUTDOWN, runOnce);
+    events.once(Phaser.Scenes.Events.DESTROY, runOnce);
+  }
+
   // Called by the session manager when this game is suspended into a tab: go
   // silent so no two sessions' music overlap, and stop reacting to window input
   // meant for whichever session is now active.
@@ -1435,6 +1450,10 @@ export class BootScene extends Phaser.Scene {
     // explicitly so a paused game's replay bar doesn't linger over the next one
     // (e.g. after "Next level"). It's restored on resume if still paused.
     this.timelineOverlay?.hide();
+    // The touch control panels live in the shared game layer too: hide them so
+    // a suspended game's deck doesn't flank the next game's canvas as a second
+    // pair of controls (shrinking its viewport). Restored on resume.
+    this.setTouchControlsVisible(false);
   }
 
   // Called when this game is brought back to the foreground: resume its music if
@@ -1461,8 +1480,15 @@ export class BootScene extends Phaser.Scene {
     }
     // If this game was still paused when it was backgrounded, bring its replay
     // bar back (onSessionSuspend hid it) so it isn't frozen with no controls.
+    // Otherwise bring the touch deck back (onSessionSuspend hid it; while
+    // paused it stays hidden until exitPause restores it) and re-measure the
+    // canvas — the reappearing deck narrows the viewport, and the session
+    // manager's scale.refresh() ran before the deck was shown.
     if (this.paused) {
       this.presentTimelineOverlay();
+    } else if (this.touchControlPanels.length > 0) {
+      this.setTouchControlsVisible(true);
+      this.resizeToDisplay();
     }
   }
 
@@ -3809,12 +3835,16 @@ export class BootScene extends Phaser.Scene {
   }
 
   // Hide the on-screen touch controls (and drop any held button) while paused,
-  // so they don't sit under the timeline overlay; restore them on resume.
+  // so they don't sit under the timeline overlay; restore them on resume. A
+  // suspended (backgrounded) game's panels never show regardless of the caller —
+  // they'd flank the active game's canvas as a second deck — so the invariant
+  // lives here rather than in every pause/resume path.
   private setTouchControlsVisible(visible: boolean): void {
+    const show = visible && !this.suspended;
     for (const panel of this.touchControlPanels) {
-      panel.style.display = visible ? "flex" : "none";
+      panel.style.display = show ? "flex" : "none";
     }
-    if (!visible) {
+    if (!show) {
       this.touchState.left = false;
       this.touchState.right = false;
       this.touchState.up = false;
@@ -4143,7 +4173,7 @@ export class BootScene extends Phaser.Scene {
             }
           : {}),
       });
-      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.registerSceneTeardown(() => {
         this.timelineOverlay?.destroy();
         this.timelineOverlay = undefined;
       });

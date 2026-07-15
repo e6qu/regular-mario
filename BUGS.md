@@ -23,6 +23,20 @@ player-favouring collision deltas remain, documented and not blocking: player
 fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, podoboo
 12×12 vs 10×6.
 
+- **Fixed (2026-07-15): mobile session switches doubled the NES touch deck.**
+  Each game session mounts its own touch control panels in the shared game
+  layer, but suspending a session (ESC/START to menu, "Next level", switching
+  tabs) left them attached and visible, so the next game booted flanked by two
+  decks per side with its viewport squeezed between them. Panels now hide on
+  session suspend and restore on resume. Two adjacent leaks fixed with it: the
+  scene's DOM teardown (panels, window key listeners, replay overlay) only ran
+  on Phaser's `SHUTDOWN`, which `game.destroy()` never fires (it fires `DESTROY`)—
+  now registered for both; and closing a suspended session's tab never actually
+  destroyed the game because `Game.destroy()` defers to the next loop step and a
+  suspended loop is asleep — the destroy is now flagged first and the loop then
+  woken, whose synchronous tick runs the full teardown immediately. Regression
+  test: `touch.spec.ts` "a suspended game's deck never doubles up".
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

@@ -5,6 +5,33 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-15 — mobile: suspended sessions no longer double the NES touch deck
+
+- **Bug (reported on mobile): after leaving a game and starting another, the
+  play area appeared re-embedded between a second pair of NES control panels,
+  shrinking the canvas** (reproduced at 96px wide vs 448px on an 800px screen).
+  Root cause: each session's touch panels are DOM siblings of the shared game
+  viewport, and suspending a session (ESC/START to menu, "Next level" boot,
+  session-tab switch) left the old session's panels attached and visible, so
+  every live session contributed a deck. Fixed by hiding the deck in
+  `onSessionSuspend` and restoring it in `onSessionResume` (kept hidden while
+  paused, where the replay overlay owns the screen).
+- **Closing a session tab now actually destroys the game.** Two stacked leaks:
+  the scene's DOM teardown (panels, window key listeners, replay overlay) was
+  registered only on Phaser's `SHUTDOWN`, but `game.destroy()` emits `DESTROY`
+  without a `SHUTDOWN` — teardown is now registered for both via a
+  `registerSceneTeardown` helper (runs once, unhooks its sibling). And
+  `Game.destroy()` defers work to the next loop step while a suspended
+  session's loop is asleep, so the destroy never ran — `destroySessionGame`
+  now flags the destroy first and then wakes the loop, whose synchronous tick
+  sees `pendingDestroy` and runs the whole teardown immediately (also making
+  the unload/HMR paths effective, and avoiding a stray live frame of the dying
+  game that wake-before-destroy would step).
+- Regression test: `touch.spec.ts` › "a suspended game's deck never doubles up
+  beside the next game" — boots a second game over a suspended one, asserts a
+  single visible deck hugging the canvas, then closes both tabs and asserts the
+  panels and canvases are gone from the DOM.
+
 ## 2026-07-12 — session-persistent state, mobile UX, WebGL renderer, end-of-level polish
 
 - **Session-persistent lives, coins, score, and power tier (SMB-faithful).** The

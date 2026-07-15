@@ -4,8 +4,10 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **794 unit tests + browser journeys
-pass; all gates green.**
+Preparing for a public beta/demo release. **846 unit tests + browser journeys
+pass; all gates green.** Latest fix (2026-07-15): suspended sessions no longer
+double the mobile NES touch deck, and closed session tabs actually destroy
+their games (see BUGS.md).
 
 What exists now:
 

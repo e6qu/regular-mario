@@ -1,5 +1,16 @@
 # DO_NEXT.md
 
+## Landed: mobile touch-deck session fix (2026-07-15)
+
+- Suspended sessions no longer leave their NES touch panels visible beside the
+  next game's canvas (double decks, squeezed play area), and closing a session
+  tab now really destroys the game (destroy-then-wake for a synchronous
+  teardown; teardown on `DESTROY` too). See WHAT_WE_DID / BUGS.
+- Candidate follow-up: per-session DOM (canvas, touch deck, replay overlay)
+  could live in one per-session wrapper element that the session manager
+  hides/shows atomically — deleting this bug class instead of per-element
+  suspend/resume bookkeeping in the scene.
+
 ## Landed: session state, mobile UX, WebGL renderer (2026-07-12, ninth pass)
 
 - **Session-persistent lives, coins, score, and power tier** — all persist

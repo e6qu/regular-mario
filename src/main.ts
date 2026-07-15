@@ -470,15 +470,27 @@ let activeSessionId: string | undefined;
 let recentlySuspendedSessionId: string | undefined;
 let sessionCounter = 0;
 
+// Phaser's Game.destroy() only flags pendingDestroy; the actual teardown runs
+// on the loop's next step — which never comes for a suspended session (loop
+// asleep) or during unload (no further animation frame). Flag the destroy
+// FIRST, then wake: TimeStep.wake() ends with a synchronous tick, whose step
+// sees pendingDestroy and runs the whole teardown (canvas removal, scene
+// DESTROY) immediately — no stray live frame of the dying game either, which
+// waking before the flag would step.
+function destroySessionGame(session: GameSession): void {
+  session.game.destroy(true);
+  session.game.loop.wake();
+}
+
 window.addEventListener("beforeunload", () => {
   for (const session of sessions) {
-    session.game.destroy(true);
+    destroySessionGame(session);
   }
 });
 if (import.meta.hot !== undefined) {
   import.meta.hot.dispose(() => {
     for (const session of sessions) {
-      session.game.destroy(true);
+      destroySessionGame(session);
     }
   });
 }
@@ -567,7 +579,7 @@ function closeSession(id: string): void {
   if (session === undefined) {
     return;
   }
-  session.game.destroy(true);
+  destroySessionGame(session);
   sessions = sessions.filter((entry) => entry.id !== id);
   if (recentlySuspendedSessionId === id) {
     recentlySuspendedSessionId = undefined;
