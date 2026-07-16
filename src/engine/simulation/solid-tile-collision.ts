@@ -475,6 +475,45 @@ function resolveUpwardSolidTileCollision(
   return movedPlayer;
 }
 
+// True when a taller standing box would fit at the player's current feet
+// position — the rows the expansion would newly cover hold no solids. Used to
+// decide whether a ducked player may stand back up (he stays crouched while
+// covered, like the original's low crawls).
+export function playerHasStandingHeadroom(
+  player: PlayerSimulationState,
+  standingHeightPixels: number,
+  levelSpec: LevelSpec,
+  breakableBlocks: BreakableBlockState,
+): boolean {
+  const solidTileIds = makeSolidTileIds(levelSpec);
+  const breakableTileIds = makeBreakableTileIds(levelSpec);
+  const bottom = player.position.y + player.collider.height;
+  const standingTop = bottom - standingHeightPixels;
+  const columnRange = makePlayerTileColumnSpan(
+    player,
+    levelSpec.tileSizePixels,
+  );
+  const firstRow = Math.floor(standingTop / levelSpec.tileSizePixels);
+  const lastRow = Math.ceil(player.position.y / levelSpec.tileSizePixels) - 1;
+
+  for (let row = firstRow; row <= lastRow; row += 1) {
+    if (
+      tileRowHasSolidInColumns(
+        levelSpec,
+        solidTileIds,
+        breakableTileIds,
+        breakableBlocks,
+        row,
+        columnRange,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function resolveSolidTileCollision(
   previousPlayer: PlayerSimulationState,
   movedPlayer: PlayerSimulationState,

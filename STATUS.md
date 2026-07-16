@@ -5,7 +5,9 @@
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **849 unit tests + browser journeys
-pass; all gates green.** 2026-07-16 (later): sideways pipes render whole (the
+pass; all gates green.** 2026-07-17: big Mario ducks through one-tile crawls
+(the crouch shrinks the terrain collider like the ROM's duck probes, with
+headroom-gated stand-up). 2026-07-16 (later): sideways pipes render whole (the
 ROM's four-column mouth/joint/shaft layout, capped intro pipes, faithful
 water-pipe tiles); the 1-2/4-2 underground bonus
 room's sealed exit is fixed (two ROM-verified decoder bugs: exit-pipe mouth

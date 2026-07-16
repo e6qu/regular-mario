@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-17 — big Mario ducks through one-tile crawls (ROM duck probes)
+
+- **Crouching now shrinks the terrain collider** to the small one-tile box
+  (feet-anchored), like the ROM's lowered duck probes — a running duck slides
+  through 1-2/4-2's canonical one-tile crawls as big Mario (he was hard-stuck
+  before; the map itself is VGLC-verified correct). Standing back up is gated
+  on headroom (`playerHasStandingHeadroom`), so a ducked player under a low
+  ceiling stays ducked; crouch resizes happen only on transitions
+  (`applyCrouchResize`).
+- Deliberate anti-soft-lock deviation: horizontal input stays live while
+  covered by a low ceiling (a crawl); the original lets you stall mid-slide
+  and soft-lock. Open-ground crouch still suppresses the walk exactly like
+  the ROM.
+- New browser debug hook `setPlayerVitality(kind)` for big-Mario-only test
+  journeys; four new engine tests (shrink, pass-through, covered no-stand,
+  stand-up).
+
 ## 2026-07-16 — sideways pipes render whole (the ROM's four-column layout)
 
 - **Exit/intro pipes no longer render as "half a pipe."** RenderSidewaysPipe

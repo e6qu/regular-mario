@@ -90,6 +90,21 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   from the ceiling; and water pipes reuse the sideways end tiles (their exact
   ROM CHR tiles).
 
+- **Fixed (2026-07-16): big Mario was hard-stuck at 1-2's one-tile crawl**
+  (columns 52-55; the map is VGLC-verified correct — the brick stack really
+  leaves only a one-tile gap at the floor). In the ROM, ducking lowers the
+  player's terrain probes, so a running duck slides through; our crouch only
+  shrank the enemy hurtbox and left the 32px terrain collider, making the
+  canonical route impassable for big Mario. Crouching now shrinks the terrain
+  collider to the small one-tile box (feet-anchored) and standing back up is
+  gated on headroom, so a ducked player under a low ceiling stays ducked.
+  One deliberate deviation: while covered by a low ceiling, horizontal input
+  keeps working (a crawl) — the original lets you soft-lock by stalling
+  mid-slide inside the gap, which we do not reproduce. Engine tests cover the
+  shrink, the pass-through, the covered no-stand, and the open-ground
+  stand-up; browser-verified end to end on the real 1-2 (new debug hook
+  `setPlayerVitality`).
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

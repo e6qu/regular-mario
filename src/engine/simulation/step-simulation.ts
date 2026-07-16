@@ -59,6 +59,8 @@ import {
   resolvePowerUpInteractionState,
 } from "./power-up-interaction";
 import {
+  applyCrouchResize,
+  poweredPlayerColliderDimensions,
   resizePlayerForVitality,
   type PlayerSimulationState,
 } from "./player-state";
@@ -135,7 +137,10 @@ import {
 } from "./game-score";
 import type { LevelSpec } from "../domain/level-spec";
 import { ActorRole } from "../domain/level-spec";
-import { resolveSolidTileCollisionWithBlockBumps } from "./solid-tile-collision";
+import {
+  playerHasStandingHeadroom,
+  resolveSolidTileCollisionWithBlockBumps,
+} from "./solid-tile-collision";
 import { hiddenBlockPositionKey } from "./tile-collision-support";
 import { applyVerticalMovement } from "./vertical-movement";
 import {
@@ -405,12 +410,33 @@ function stepActiveSimulation(
   const isBigVitality =
     playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Powered ||
     playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Fire;
-  const crouching =
+  const wantsCrouch =
     isBigVitality &&
     state.players[0].player.movement.vertical ===
       VerticalMovementState.Grounded &&
     inputCommand.downHeld &&
     !isPlayerFrozenByPipeEntry(pipeState.pipeEntry);
+  // A ducked player under a low ceiling stays ducked (no standing up inside a
+  // one-tile crawl) until the standing box has headroom again.
+  const mustStayCrouched =
+    state.players[0].player.crouching === true &&
+    isBigVitality &&
+    !playerHasStandingHeadroom(
+      state.players[0].player,
+      Number(poweredPlayerColliderDimensions.height),
+      levelSpec,
+      state.breakableBlocks,
+    );
+  const crouching = wantsCrouch || mustStayCrouched;
+  // Ducking shrinks the terrain collider to the small one-tile box
+  // (feet-anchored) like the ROM's lowered duck probes; standing back up
+  // restores the big box. This is what lets a running duck slide through the
+  // canonical 1-2/4-2 one-tile crawls as big Mario.
+  const crouchSizedPlayer = applyCrouchResize(
+    state.players[0].player,
+    crouching,
+    playerVitalityAfterRecoveryTick,
+  );
 
   const baseInputCommand = isPlayerFrozenByPipeEntry(pipeState.pipeEntry)
     ? freezePlayerInputCommand(inputCommand)
@@ -418,12 +444,17 @@ function stepActiveSimulation(
         inputCommand,
         playerVitalityAfterRecoveryTick,
       );
-  const effectiveInputCommand = crouching
-    ? { ...baseInputCommand, horizontal: HorizontalInput.Neutral }
-    : baseInputCommand;
+  // Ducking suppresses the walk like the ROM — except while covered by a low
+  // ceiling, where horizontal input still works (a crawl): the original lets
+  // you soft-lock by stalling mid-slide inside a one-tile gap, which we
+  // deliberately do not reproduce.
+  const effectiveInputCommand =
+    crouching && !mustStayCrouched
+      ? { ...baseInputCommand, horizontal: HorizontalInput.Neutral }
+      : baseInputCommand;
 
   const horizontallyMovedPlayer = applyHorizontalMovement(
-    state.players[0].player,
+    crouchSizedPlayer,
     effectiveInputCommand,
     state.clock.frameDurationMilliseconds,
     movementConstants,
@@ -458,7 +489,7 @@ function stepActiveSimulation(
     ),
   );
   const resolvedPlayerWithBumps = resolveSolidTileCollisionWithBlockBumps(
-    state.players[0].player,
+    crouchSizedPlayer,
     movedPlayer,
     levelSpec,
     state.breakableBlocks,
@@ -595,6 +626,7 @@ function stepActiveSimulation(
   const playerAfterPowerUpResize = resizePlayerForVitality(
     teleportedPlayer,
     playerVitalityAfterPowerUp,
+    crouching,
   );
   const playerInvincibility = resolvePlayerInvincibilityState(
     playerAfterPowerUpResize,
@@ -745,6 +777,7 @@ function stepActiveSimulation(
   const playerAfterContactResize = resizePlayerForVitality(
     playerAfterEnemyResponse,
     playerVitalityAfterEnemyContact,
+    crouching,
   );
   const playerAfterContactResponse = applyEnemySideContactResponse(
     playerAfterContactResize,
@@ -862,6 +895,7 @@ function stepActiveSimulation(
   const playerAfterHazardResize = resizePlayerForVitality(
     playerAfterAerialStomp,
     playerVitalityAfterHazard,
+    crouching,
   );
   const outcomeLevelContacts = {
     ...levelContacts,
@@ -948,13 +982,12 @@ function stepActiveSimulation(
       (justDefeated ? 1 : 0),
   );
 
-  // Persist the crouch flag onto the returned player (only while still grounded)
-  // so the renderer can show a ducking pose; it is re-derived fresh each frame.
-  const finalPlayer =
-    crouching &&
-    playerAfterHazardResize.movement.vertical === VerticalMovementState.Grounded
-      ? { ...playerAfterHazardResize, crouching: true }
-      : playerAfterHazardResize;
+  // Persist the crouch flag onto the returned player so the renderer shows a
+  // ducking pose and the next frame's covered check can keep him ducked; it is
+  // re-derived fresh each frame (grounded+Down, or held while under a ceiling).
+  const finalPlayer = crouching
+    ? { ...playerAfterHazardResize, crouching: true }
+    : playerAfterHazardResize;
 
   return {
     clock: nextClock,

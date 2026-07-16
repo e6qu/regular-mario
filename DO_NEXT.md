@@ -1,5 +1,11 @@
 # DO_NEXT.md
 
+## Landed: duck-through crawls (2026-07-17)
+
+- Big Mario's crouch shrinks the terrain collider (feet-anchored, ROM duck
+  probes) with headroom-gated stand-up and covered-crawl input, unsticking
+  the 1-2/4-2 one-tile crawl routes.
+
 ## Landed: whole sideways pipes (2026-07-16)
 
 - Exit/intro/water pipes now render the ROM's four-column sideways layout

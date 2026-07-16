@@ -47,6 +47,10 @@ import {
 import { PlayerReactionKind } from "./player-reaction";
 import { expectedInitialPlayerSimulationState } from "./player-state-test-support";
 import {
+  poweredPlayerColliderDimensions,
+  smallPlayerColliderDimensions,
+} from "./player-state";
+import {
   initialLivesCount,
   makeInitialSimulationState,
   type SimulationState,
@@ -2730,5 +2734,141 @@ describe("crouch (big Mario duck)", () => {
     expect(stepped.players[0].player.crouching ?? false).toBe(false);
     // Small Mario still walks with Down held.
     expect(stepped.players[0].player.velocity.x).toBeGreaterThan(0);
+  });
+
+  // A one-tile crawl like 1-2's: ceiling blocks at row 3 over columns 4-5,
+  // an open one-tile passage at row 4, grass floor at row 5.
+  function duckTunnelLevelSpec(): LevelSpec {
+    const width = 12;
+    const skyRow = Array.from({ length: width }, () => "sky");
+    const ceilingRow = skyRow.map((tile, column) =>
+      column >= 4 && column <= 5 ? "grass" : tile,
+    );
+    const result = makeLevelSpec({
+      widthTiles: width,
+      heightTiles: 6,
+      tileSizePixels: 16,
+      tileDefinitions: testSkyGroundTileDefinitions(),
+      actorDefinitions: [
+        { actorId: "runner-start", role: ActorRole.PlayerStart },
+        { actorId: "open-gate", role: ActorRole.Exit },
+      ],
+      tiles: [
+        skyRow,
+        skyRow,
+        skyRow,
+        ceilingRow,
+        skyRow,
+        Array.from({ length: width }, () => "grass"),
+      ],
+      actors: [
+        { entityId: "runner-1", actorId: "runner-start", x: 1, y: 4 },
+        { entityId: "gate-1", actorId: "open-gate", x: 11, y: 1 },
+      ],
+    });
+    if (!result.ok) {
+      throw new Error("Expected duck tunnel level to validate.");
+    }
+    return result.value;
+  }
+
+  function bigPlayerAt(
+    x: number,
+    y: number,
+    velocityX: number,
+    crouchingFlag = false,
+  ) {
+    const base = playerWithTestState({
+      position: { x, y },
+      velocity: { x: velocityX, y: 0 },
+      movement: {
+        horizontal:
+          velocityX === 0
+            ? HorizontalMovementState.Idle
+            : HorizontalMovementState.Running,
+        vertical: VerticalMovementState.Grounded,
+      },
+    });
+    return {
+      ...base,
+      collider: crouchingFlag
+        ? smallPlayerColliderDimensions
+        : poweredPlayerColliderDimensions,
+      ...(crouchingFlag ? { crouching: true } : {}),
+    };
+  }
+
+  function duckTunnelState(player: ReturnType<typeof bigPlayerAt>) {
+    return withPlayerOverrides(
+      initialStateForLevel(
+        duckTunnelLevelSpec(),
+        "Expected duck tunnel initial state.",
+      ),
+      {
+        player,
+        playerVitality: { kind: PlayerVitalityKind.Powered },
+      },
+    );
+  }
+
+  it("shrinks a crouching big player's terrain collider to one tile, feet anchored", () => {
+    // Standing big at x=32 (open ground): feet at 80, top at 48.
+    const stepped = stepSimulation(
+      duckTunnelState(bigPlayerAt(32, 48, 0)),
+      inputCommand(HorizontalInput.Neutral, true),
+      initialMovementConstants,
+      duckTunnelLevelSpec(),
+    );
+
+    expect(stepped.players[0].player.crouching).toBe(true);
+    expect(stepped.players[0].player.collider.height).toBe(16);
+    // Feet unchanged: bottom stays at 80.
+    expect(stepped.players[0].player.position.y).toBe(64);
+  });
+
+  it("lets a ducked big player pass through a one-tile crawl", () => {
+    // Ducked at the tunnel entrance with run momentum; hold Right+Down. The
+    // covered crawl keeps horizontal input live, so he cannot stall inside.
+    let state = duckTunnelState(bigPlayerAt(32, 64, 150, true));
+    const levelSpec = duckTunnelLevelSpec();
+    for (let frame = 0; frame < 60; frame += 1) {
+      state = stepSimulation(
+        state,
+        inputCommand(HorizontalInput.Right, true),
+        initialMovementConstants,
+        levelSpec,
+      );
+    }
+
+    // Through the tunnel (past column 5's right edge at x=96).
+    expect(state.players[0].outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(state.players[0].player.position.x).toBeGreaterThan(96);
+  });
+
+  it("keeps a covered big player ducked when Down is released", () => {
+    // Mid-tunnel (columns 4-5) with no Down held: no headroom to stand.
+    const stepped = stepSimulation(
+      duckTunnelState(bigPlayerAt(70, 64, 0, true)),
+      inputCommand(HorizontalInput.Neutral, false),
+      initialMovementConstants,
+      duckTunnelLevelSpec(),
+    );
+
+    expect(stepped.players[0].player.crouching).toBe(true);
+    expect(stepped.players[0].player.collider.height).toBe(16);
+  });
+
+  it("stands a ducked big player back up in the open when Down is released", () => {
+    const stepped = stepSimulation(
+      duckTunnelState(bigPlayerAt(130, 64, 0, true)),
+      inputCommand(HorizontalInput.Neutral, false),
+      initialMovementConstants,
+      duckTunnelLevelSpec(),
+    );
+
+    expect(stepped.players[0].player.crouching ?? false).toBe(false);
+    expect(stepped.players[0].player.collider.height).toBe(32);
+    // Feet-anchored expansion: bottom stays at 80, top returns to 48.
+    expect(stepped.players[0].player.position.y).toBe(48);
   });
 });

@@ -6010,6 +6010,36 @@ export class BootScene extends Phaser.Scene {
         };
         this.renderSimulationState();
       },
+      setPlayerVitality: (kind: "small" | "powered" | "fire") => {
+        if (this.paused) {
+          throw new Error("setPlayerVitality: the game is paused.");
+        }
+        if (
+          this.simulationState.players[0].outcome.kind !==
+          PlayerOutcomeKind.Active
+        ) {
+          throw new Error("setPlayerVitality: the run has already ended.");
+        }
+        const vitality: PlayerVitalityState =
+          kind === "small"
+            ? { kind: PlayerVitalityKind.Small }
+            : kind === "powered"
+              ? { kind: PlayerVitalityKind.Powered }
+              : { kind: PlayerVitalityKind.Fire };
+        const [primary, ...others] = this.simulationState.players;
+        this.simulationState = {
+          ...this.simulationState,
+          players: [
+            {
+              ...primary,
+              vitality,
+              player: resizePlayerForVitality(primary.player, vitality),
+            },
+            ...others,
+          ],
+        };
+        this.renderSimulationState();
+      },
       getSimulationSnapshot: () => ({
         frameIndex: this.simulationState.clock.frameIndex,
         // The whole-session score (prior-level base + this level's score), so it

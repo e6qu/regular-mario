@@ -341,6 +341,10 @@ export type BrowserPlatformerDebugApi = {
   // still auto-opens the replay menu, whose reconstructed frames render the
   // pre-teleport run).
   readonly teleportPlayer: (xPixels: number, yPixels: number) => void;
+  // Test/dev hook: set the primary player's power tier directly (feet-anchored
+  // collider resize included), so browser tests can exercise big-Mario-only
+  // mechanics (duck-slides, brick breaking) without scripting a power-up grab.
+  readonly setPlayerVitality: (kind: "small" | "powered" | "fire") => void;
 };
 
 declare global {

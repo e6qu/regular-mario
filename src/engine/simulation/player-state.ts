@@ -142,13 +142,41 @@ export function makeCoopPlayerSimulationState(
   };
 }
 
+// Crouch transitions resize the terrain collider like the ROM's lowered duck
+// probes: entering a crouch shrinks a big player to the small one-tile box
+// (feet-anchored) — which is what lets a running duck slide through the
+// 1-2/4-2 one-tile crawls — and leaving it restores the vitality's box. On
+// non-transition frames the collider is left untouched.
+export function applyCrouchResize(
+  player: PlayerSimulationState,
+  crouching: boolean,
+  vitality: PlayerVitalityState,
+): PlayerSimulationState {
+  const wasCrouching = player.crouching === true;
+
+  if (crouching === wasCrouching) {
+    return player;
+  }
+
+  if (crouching) {
+    return resizePlayerForVitality(player, vitality, true);
+  }
+
+  return resizePlayerForVitality(player, vitality);
+}
+
 export function resizePlayerForVitality(
   player: PlayerSimulationState,
   vitality: PlayerVitalityState,
+  // ROM ducking lowers the terrain probes to small height: a crouched big
+  // player uses the small (one-tile) collider, feet-anchored, which is what
+  // lets a running duck slide through the 1-2/4-2 one-tile crawls.
+  crouching = false,
 ): PlayerSimulationState {
-  const nextCollider = isEnlargedPlayerVitalityKind(vitality.kind)
-    ? poweredPlayerColliderDimensions
-    : smallPlayerColliderDimensions;
+  const nextCollider =
+    isEnlargedPlayerVitalityKind(vitality.kind) && !crouching
+      ? poweredPlayerColliderDimensions
+      : smallPlayerColliderDimensions;
 
   if (
     player.collider.width === nextCollider.width &&
