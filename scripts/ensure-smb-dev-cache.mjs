@@ -9,6 +9,11 @@
 
 import { runNodeScriptInherit } from "./run-node-script.mjs";
 import {
+  computePipelineStamp,
+  readPipelineStamp,
+  writePipelineStamp,
+} from "./content-pipeline-stamp.mjs";
+import {
   defaultSmbCacheRoot,
   readSmbCacheStatus,
 } from "./smb-cache-status.mjs";
@@ -55,7 +60,38 @@ async function main() {
   const status = await readSmbCacheStatus(cacheRoot);
 
   if (status.browserDemoManifest) {
-    console.log("SMB dev cache is ready.");
+    // Complete — but is it FRESH? A pulled change to the content pipeline
+    // (level decoder, asset/map builders) leaves previously-built maps and
+    // bundles stale; rebuild the content steps when the stamp mismatches.
+    const expectedStamp = await computePipelineStamp();
+    if ((await readPipelineStamp()) === expectedStamp) {
+      console.log("SMB dev cache is ready.");
+      return;
+    }
+    if (dryRun) {
+      console.log(
+        "SMB dev cache content is stale (pipeline scripts changed); the content steps would rebuild now.",
+      );
+      return;
+    }
+    console.log(
+      "SMB dev cache content is stale (pipeline scripts changed); rebuilding content sets ...",
+    );
+    for (const [script, args] of [
+      ["scripts/build-rom-asset-set.mjs", []],
+      ["scripts/build-parody-asset-set.mjs", []],
+      ["scripts/build-official-map-set.mjs", []],
+      ["scripts/build-sound-packs.mjs", []],
+      ["scripts/content-sets.mjs", ["index"]],
+      ["scripts/content-sets.mjs", ["bundle-all"]],
+    ]) {
+      await runNodeScriptInherit(
+        script,
+        args,
+        (code) => `${script} failed with exit code ${code}.`,
+      );
+    }
+    await writePipelineStamp(expectedStamp);
     return;
   }
 

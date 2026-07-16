@@ -8,6 +8,10 @@ import { resolve } from "node:path";
 
 import { runNodeScriptInherit } from "./run-node-script.mjs";
 import {
+  computePipelineStamp,
+  writePipelineStamp,
+} from "./content-pipeline-stamp.mjs";
+import {
   defaultSmbCacheRoot,
   readSmbCacheStatus,
   resolveSmbCachePaths,
@@ -207,6 +211,10 @@ async function main() {
   for (const step of steps) {
     await runStep(step);
   }
+
+  // Stamp the content pipeline that produced this cache, so the dev-cache
+  // gate can detect stale content after the pipeline scripts change.
+  await writePipelineStamp(await computePipelineStamp());
 
   const finalStatus = await readSmbCacheStatus(cacheRoot);
 
