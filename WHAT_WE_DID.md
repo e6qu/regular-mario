@@ -7,6 +7,12 @@ committed — only numeric metadata, code, docs, and scripts.
 
 ## 2026-07-16 — the full flagpole finale, honest pole/pipe rendering, ROM-height pipes
 
+- **Dev-cache freshness gate**: prepare:smb stamps the cache with a
+  fingerprint of the content-pipeline scripts, and `pnpm dev` rebuilds the
+  content sets automatically when the stamp mismatches — pulling a decoder
+  fix no longer leaves a machine playing stale maps (which is how the flag
+  fixes looked absent before this landed).
+
 - **The complete end-of-level cutscene now plays**: any flag grab knocks the
   crowning ball off (it pops and tumbles out of the level), the flag lowers
   fully to the pole bottom, the player slides to the base, then **marches
