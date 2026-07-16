@@ -24,6 +24,9 @@ const emptyActorCharacter = " ";
 const playerStartCharacter = "P";
 const exitCharacter = "G";
 const finishGoalTileCharacter = "|";
+// Internal-only paint character (never valid in authored files): the invisible
+// goal-contact extension above a flagpole's authored art.
+const goalReachTileCharacter = "_";
 const questionCoinTileCharacter = "c";
 const questionPowerUpTileCharacter = "u";
 const annotatedPathCharacter = "x";
@@ -77,6 +80,13 @@ const directTerrainCharacters: ReadonlyMap<string, VglcSmbTileLegendEntry> =
     [
       finishGoalTileCharacter,
       { tileId: "flagpole", collision: TileCollisionKind.Goal },
+    ],
+    [
+      goalReachTileCharacter,
+      // The invisible extension of a flagpole's finish trigger: goal contact
+      // above the authored pole art (painted internally by
+      // applyMetadataGoalColumns, never authored in map files).
+      { tileId: "goal-reach", collision: TileCollisionKind.Goal },
     ],
   ]);
 
@@ -261,6 +271,12 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
   ["-", { tileId: "empty", collision: TileCollisionKind.Empty }],
   ["#", { tileId: "ground", collision: TileCollisionKind.Solid }],
   ["|", { tileId: "flagpole", collision: TileCollisionKind.Goal }],
+  [
+    goalReachTileCharacter,
+    // Internal paint only (applyMetadataGoalColumns): the invisible goal
+    // contact above the authored pole art.
+    { tileId: "goal-reach", collision: TileCollisionKind.Goal },
+  ],
   ["[", { tileId: "pipe-top-left", collision: TileCollisionKind.Solid }],
   ["]", { tileId: "pipe-top-right", collision: TileCollisionKind.Solid }],
   ["p", { tileId: "pipe-left", collision: TileCollisionKind.Solid }],
@@ -2694,13 +2710,34 @@ function applyMetadataGoalColumns(
       continue;
     }
 
+    // A column with authored flagpole art keeps that art exactly: only its
+    // EMPTY cells become invisible goal-reach tiles, so the finish still
+    // triggers at any height but the pole no longer paints to the sky or
+    // through the ground rows (which also un-digs the trench the goal column
+    // used to cut through the terrain). A column with no authored pole (a
+    // castle axe) keeps the full goal-column paint as before.
+    const columnHasAuthoredPole = tileRows.some(
+      (row) => row[exitPoint.x] === finishGoalTileCharacter,
+    );
     for (let rowIndex = 0; rowIndex < tileRows.length; rowIndex += 1) {
-      setCharacterInRow(
-        tileRows,
-        rowIndex,
-        exitPoint.x,
-        finishGoalTileCharacter,
-      );
+      if (columnHasAuthoredPole) {
+        const current = tileRows[rowIndex]?.[exitPoint.x];
+        if (current === "-" || current === ".") {
+          setCharacterInRow(
+            tileRows,
+            rowIndex,
+            exitPoint.x,
+            goalReachTileCharacter,
+          );
+        }
+      } else {
+        setCharacterInRow(
+          tileRows,
+          rowIndex,
+          exitPoint.x,
+          finishGoalTileCharacter,
+        );
+      }
     }
   }
 }
@@ -2822,6 +2859,22 @@ function splitVglcRows(text: string): readonly string[] {
 
 function collectVglcSmbRowErrors(rows: readonly string[]): ValidationError[] {
   const errors: ValidationError[] = [];
+
+  // The goal-reach character is painted internally (applyMetadataGoalColumns)
+  // and must never appear in authored files — an invisible finish trigger in
+  // hand-written data would be a silent level-design landmine.
+  for (const [rowIndex, row] of rows.entries()) {
+    const columnIndex = row.indexOf(goalReachTileCharacter);
+    if (columnIndex >= 0) {
+      errors.push(
+        makeValidationError(
+          ValidationErrorCode.VglcTileCharacterUnknown,
+          `VGLC SMB text must not author the internal goal-reach character "${goalReachTileCharacter}".`,
+          `rows[${String(rowIndex)}][${String(columnIndex)}]`,
+        ),
+      );
+    }
+  }
 
   if (rows.length === 0 || (rows.length === 1 && rows[0]?.length === 0)) {
     errors.push(

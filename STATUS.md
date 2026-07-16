@@ -4,8 +4,11 @@
 
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
-Preparing for a public beta/demo release. **846 unit tests + browser journeys
-pass; all gates green.** Latest fixes (2026-07-15): suspended sessions no
+Preparing for a public beta/demo release. **849 unit tests + browser journeys
+pass; all gates green.** 2026-07-16: the flagpole finale plays in full (ball
+knock, full flag drop, slide, exit march into the castle), poles/pipes render
+honestly (invisible goal-reach trigger; ROM-height pipes with real pipe art),
+and the regenerated pack keeps every enemy and all completability proofs. Latest fixes (2026-07-15): suspended sessions no
 longer double the mobile NES touch deck (per-session DOM roots, see BUGS.md);
 the timeline replay shows the death animation on screen (bottom-anchored
 camera restore); and the flagpole slide cutscene works on the real SMB maps —

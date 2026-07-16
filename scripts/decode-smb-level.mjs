@@ -535,6 +535,23 @@ function makeGrid(widthCols) {
   );
 }
 
+// Grid symbols that form walls, floors, pipes, blocks, hazards and goals — the
+// cells an enemy glyph must never replace (everything else is passable
+// decoration the enemy simply stands in front of).
+const structuralSymbols = new Set([
+  ...["#", "[", "]", "p", "P", "d", "D", "{", "}", "="],
+  ...["B", "?", "O", "+", "*", "H", "M", "I", "C", "c"],
+  ...["V", "X", "Y", "y", "^", ":", "|"],
+]);
+// Already-painted enemy glyphs also block placement, so a pair displaced by
+// the same structure never merges into a single cell (losing one enemy).
+// Derived from the kind table plus the two Bowser symbols.
+const enemyGlyphSymbols = new Set([
+  ...Object.values(enemyKindSymbol),
+  "w",
+  "W",
+]);
+
 function set(grid, col, row, symbol) {
   if (row < 0 || row >= gridHeight || col < 0 || col >= grid[0].length) return;
   grid[row][col] = symbol;
@@ -734,7 +751,10 @@ function renderArea(header, objects, enemies, options = {}) {
         break;
       case "pipe":
       case "pipe-warp": {
-        const height = Math.max(o.low & 0x7, 1);
+        // The object's 3-bit size is height MINUS ONE (a size of 1 is the
+        // classic two-tile pipe): mouth row + size body rows, so the pipe
+        // stands on the ground instead of floating one row above it.
+        const height = (o.low & 0x7) + 1;
         set(grid, o.col, gr, "[");
         set(grid, o.col + 1, gr, "]");
         for (let r = gr + 1; r < gr + height; r += 1) {
@@ -816,10 +836,42 @@ function renderArea(header, objects, enemies, options = {}) {
   // Enemies onto the grid using each kind's legend symbol. Enemy Y-pixels omit
   // the 32px status-bar offset that objects carry, so a data-row-R enemy stands
   // one grid row above a data-row-R object — i.e. on top of it / on the floor.
+  // STRUCTURE wins a shared cell: an enemy whose data cell lands inside a
+  // solid/interactive tile (e.g. the goomba spawned at a pipe's base column)
+  // shifts to the nearest non-structural column instead of punching a hole in
+  // it. Decorative scenery is still overwritten, as before — an enemy standing
+  // in front of castle-wall dressing is normal.
   for (const e of enemies) {
     const symbol = e.kind === "bowser" ? bowserSymbol : enemyKindSymbol[e.kind];
     if (symbol !== undefined) {
-      set(grid, e.col, e.row + rowOffset - 1, symbol);
+      const baseRow = e.row + rowOffset - 1;
+      const candidates = [e.col, e.col + 1, e.col - 1, e.col + 2, e.col - 2];
+      const isOpen = (candidate, row) => {
+        const cell = grid[row]?.[candidate];
+        return (
+          cell !== undefined &&
+          !structuralSymbols.has(cell) &&
+          !enemyGlyphSymbols.has(cell)
+        );
+      };
+      // When the whole neighborhood is taken (a pack straddling raised
+      // terrain, or a patroller authored inside a slab it walks on top of),
+      // spawn on the nearest open row above — the runtime drops enemies onto
+      // the ground, which is where the ROM stands them anyway.
+      let placed = false;
+      for (const row of [baseRow, baseRow - 1, baseRow - 2, baseRow - 3]) {
+        const column = candidates.find((candidate) => isOpen(candidate, row));
+        if (column !== undefined) {
+          set(grid, column, row, symbol);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        console.warn(
+          `enemy ${e.kind} at (${String(e.col)},${String(baseRow)}) dropped: no open cell`,
+        );
+      }
     }
   }
 

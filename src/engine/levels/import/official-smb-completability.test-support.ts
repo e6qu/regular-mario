@@ -170,7 +170,13 @@ function buildModel(level: OfficialPackLevel): LevelModel {
     breakable: (col, row) =>
       collisionAt(col, row) === TileCollisionKind.Breakable,
     platformTop: (col, row) =>
-      platformCells.has(`${String(col)},${String(row)}`),
+      platformCells.has(`${String(col)},${String(row)}`) ||
+      // A hidden block becomes solid once bumped, so the player can stand on
+      // it — 8-4's route to the water-maze pipe requires exactly that step.
+      // (Caveat: the model does not require the underside to be reachable
+      // first; every hidden block in this fixed pack is bumpable, so the
+      // liberty is safe here, but it would over-approve arbitrary levels.)
+      collisionAt(col, row) === TileCollisionKind.Hidden,
     springTop: (col, row) => collisionAt(col, row) === TileCollisionKind.Spring,
     goalCols,
     water: level.metadata.theme === "water",

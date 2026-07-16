@@ -94,9 +94,10 @@ export function validateDefaultVglcSmbSpriteCoverage(
   return messages;
 }
 
-// The "empty" tile is the transparent sky sentinel; it renders as nothing via
-// the authored fallback, so an asset set need not provide a sprite for it.
-const nonRenderedTileIds = new Set(["empty"]);
+// The "empty" tile is the transparent sky sentinel and "goal-reach" is the
+// invisible finish trigger above a flagpole's authored art; both render as
+// nothing via the authored fallback, so an asset set need not provide sprites.
+const nonRenderedTileIds = new Set(["empty", "goal-reach"]);
 // Hidden blocks are invisible until bumped (the reveal shows the shared used-
 // block art), and Empty-collision tiles are decorative scenery drawn by the
 // authored fallback shapes — neither needs a skin sprite.

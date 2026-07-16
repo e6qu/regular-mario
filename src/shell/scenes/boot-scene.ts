@@ -623,6 +623,14 @@ const pipeLipHeightPixels = 4;
 const pipeHighlightWidthPixels = 2;
 const pipeHighlightOffsetX = 3;
 const pipeHighlightOffsetY = 5;
+// The enterable-pipe cue: a dark opening inside the two-tile mouth ring.
+const pipeMouthWidthTiles = 2;
+const pipeMouthOpeningColor = 0x233a20;
+const pipeMouthOpeningDepthColor = 0x111d10;
+const pipeMouthOpeningInsetPixels = 3;
+const pipeMouthOpeningTopPixels = 2;
+const pipeMouthOpeningHeightPixels = 3;
+const pipeMouthOpeningDepthHeightPixels = 1;
 const parallaxDistantHillColor = 0x9ed69e;
 const parallaxHillColor = 0x00a800; // the original's overworld hill/bush green
 const parallaxBushColor = 0x00a800;
@@ -821,8 +829,16 @@ export class BootScene extends Phaser.Scene {
   // off (flagpoleBallFall holds its tumble velocity while falling).
   private flagpoleBallObject: Phaser.GameObjects.Arc | undefined = undefined;
   private flagpoleBallFall: { vx: number; vy: number } | undefined = undefined;
-  private flagpoleTopY = 0;
   private flagpoleFlagDropActive = false;
+  // Rest positions of the furniture, so a same-level retry (which does not
+  // rebuild the level objects) can put the flag and ball back.
+  private flagpoleFlagHomeY = 0;
+  private flagpoleBallHome = { x: 0, y: 0 };
+  // The end-of-level exit march: after the slide the player walks right into
+  // the castle doorway and disappears.
+  private flagpoleWalkOffActive = false;
+  private flagpoleWalkOffTargetX = 0;
+  private flagpoleWalkOffY = 0;
   private deathArcActive = false;
   private deathArcStarted = false;
   private deathArcVelocityY = 0;
@@ -2083,13 +2099,10 @@ export class BootScene extends Phaser.Scene {
       Math.floor(this.playerRectangle.y / tileSizePixels),
     );
 
-    // A grab at the very top of the pole (on the ball / above the resting
-    // flag) knocks the ball off — it pops and tumbles down while the player
-    // slides. Set before any dismount bail so even a pole with no reachable
-    // base still reacts.
-    const ballKnocked =
-      this.flagpoleBallObject !== undefined &&
-      this.playerRectangle.y <= this.flagpoleTopY + tileSizePixels;
+    // Grabbing the pole knocks the crowning ball off — it pops and tumbles
+    // down while the player slides. Set before any dismount bail so even a
+    // pole with no reachable base still reacts.
+    const ballKnocked = this.flagpoleBallObject !== undefined;
     if (ballKnocked) {
       this.flagpoleBallFall = { ...flagpoleBallKnockVelocity };
     }
@@ -2135,14 +2148,19 @@ export class BootScene extends Phaser.Scene {
     }
     const baseY = groundRow * tileSizePixels - colliderHeight;
     if (this.playerRectangle.y >= baseY - 1) {
-      return; // Already at the base — no slide needed.
+      // Already at the base — no slide needed; walk straight off to the
+      // castle.
+      this.beginFlagpoleWalkOff(this.playerRectangle.x, this.playerRectangle.y);
+      return;
     }
 
     this.flagpoleSlideActive = true;
     this.flagpoleSlideTargetY = baseY;
     this.flagpoleSlideColumnX = column * tileSizePixels;
+    // Keep the level open for the slide AND the walk-off that follows it.
     const slideFrames =
       Math.ceil((baseY - this.playerRectangle.y) / flagpoleSlideSpeedPixels) +
+      Math.ceil(flagpoleWalkOffDistancePixels / flagpoleWalkOffSpeedPixels) +
       flagpoleFinishTailFrames;
     this.levelAdvanceDelayFramesRemaining = Math.max(
       this.levelAdvanceDelayFramesRemaining,
@@ -2152,6 +2170,37 @@ export class BootScene extends Phaser.Scene {
       this.flagpoleSlideColumnX,
       this.playerRectangle.y,
     );
+  }
+
+  // After the slide (or a base-height grab), the player hops off and walks
+  // right to the castle, disappearing through its doorway — the original's
+  // end-of-level exit march.
+  private beginFlagpoleWalkOff(fromX: number, groundY: number): void {
+    this.flagpoleWalkOffActive = true;
+    this.flagpoleWalkOffTargetX = fromX + flagpoleWalkOffDistancePixels;
+    this.flagpoleWalkOffY = groundY;
+    this.levelAdvanceDelayFramesRemaining = Math.max(
+      this.levelAdvanceDelayFramesRemaining,
+      Math.ceil(flagpoleWalkOffDistancePixels / flagpoleWalkOffSpeedPixels) +
+        flagpoleFinishTailFrames,
+    );
+  }
+
+  private stepFlagpoleWalkOff(): void {
+    if (!this.flagpoleWalkOffActive) {
+      return;
+    }
+    const nextX = Math.min(
+      this.playerRectangle.x + flagpoleWalkOffSpeedPixels,
+      this.flagpoleWalkOffTargetX,
+    );
+    this.positionPlayerSpriteAt(nextX, this.flagpoleWalkOffY);
+    this.playerImageObject?.setFlipX(false); // marching right, into the castle
+    if (nextX >= this.flagpoleWalkOffTargetX) {
+      this.flagpoleWalkOffActive = false;
+      // Through the doorway and out of sight; a rebuild restores the sprite.
+      this.playerImageObject?.setVisible(false);
+    }
   }
 
   // The column of a goal tile inside the player's current tile span (the tile
@@ -2243,6 +2292,7 @@ export class BootScene extends Phaser.Scene {
   private stepFlagpoleSlide(): void {
     this.stepFlagpoleBallFall();
     this.stepFlagpoleFlagDrop();
+    this.stepFlagpoleWalkOff();
     if (!this.flagpoleSlideActive) {
       return;
     }
@@ -2253,6 +2303,8 @@ export class BootScene extends Phaser.Scene {
     this.positionPlayerSpriteAt(this.flagpoleSlideColumnX, nextY);
     if (nextY >= this.flagpoleSlideTargetY) {
       this.flagpoleSlideActive = false;
+      // Dismount at the base and march off to the castle.
+      this.beginFlagpoleWalkOff(this.flagpoleSlideColumnX, nextY);
     }
   }
 
@@ -2456,6 +2508,10 @@ export class BootScene extends Phaser.Scene {
     this.flagpoleBallFall = undefined;
     this.flagpoleFlagDropActive = false;
     this.flagpoleSlideActive = false;
+    this.flagpoleWalkOffActive = false;
+    // A finished walk-off hid the sprite at the castle doorway; the rebuild
+    // (next level / retry) brings the player back.
+    this.playerImageObject?.setVisible(true);
     // A castle's axe imports as a goal column too — it gets no pole furniture
     // (the castle-clear cinematic owns that ending).
     if (this.castleBridgeTilesByColumn.size > 0) {
@@ -2488,7 +2544,7 @@ export class BootScene extends Phaser.Scene {
 
     const centerX = column * size + size / 2;
     const topY = topRow * size;
-    this.flagpoleTopY = topY;
+    this.flagpoleBallHome = { x: centerX, y: topY };
     this.flagpoleBallObject = this.add
       .circle(centerX, topY, size * 0.34, flagpoleBallColor)
       .setDepth(flagpoleFurnitureDepth);
@@ -2519,6 +2575,24 @@ export class BootScene extends Phaser.Scene {
             .setOrigin(0, 0)
             .setDepth(flagpoleFurnitureDepth);
     this.flagpoleFlagBaseY = bottomRow * size - flagHeight;
+    this.flagpoleFlagHomeY = flagStartY;
+  }
+
+  // Undo a finished flag cutscene without rebuilding: the flag returns to the
+  // pole top, the knocked ball back onto its tip, and the player sprite (hidden
+  // inside the castle after the walk-off) becomes visible again.
+  private resetFlagpoleFinishState(): void {
+    this.flagpoleSlideActive = false;
+    this.flagpoleFlagDropActive = false;
+    this.flagpoleWalkOffActive = false;
+    this.flagpoleBallFall = undefined;
+    if (this.flagObject !== undefined) {
+      this.flagObject.y = this.flagpoleFlagHomeY;
+    }
+    this.flagpoleBallObject
+      ?.setPosition(this.flagpoleBallHome.x, this.flagpoleBallHome.y)
+      .setVisible(true);
+    this.playerImageObject?.setVisible(true);
   }
 
   private positionPlayerSpriteAt(x: number, y: number): void {
@@ -3860,6 +3934,10 @@ export class BootScene extends Phaser.Scene {
   private resetSimulation(): void {
     this.pendingLevelWarp = undefined;
     this.cancelCameraShake();
+    // A finished flag cutscene may have hidden the player inside the castle,
+    // dropped the ball off the level and left the flag at the pole base; a
+    // same-level retry does not rebuild the level objects, so restore them.
+    this.resetFlagpoleFinishState();
     // A retry after running out of lives starts a fresh game: the full life
     // count restored and the session coin total and score cleared. A normal
     // retry keeps the carried (post-death) totals and banks the failed attempt's
@@ -4182,6 +4260,10 @@ export class BootScene extends Phaser.Scene {
     }
     this.scrubFrame = Math.max(0, Math.min(Math.round(frame), this.pauseFrame));
     this.simulationState = this.runRecorder.stateAt(this.scrubFrame);
+    // Scrubbing shows the recorded run, where the player is always on screen —
+    // even when the live tableau ended with the sprite hidden in the castle
+    // doorway after the flagpole walk-off.
+    this.playerImageObject?.setVisible(true);
     this.renderSimulationState();
     // Show the camera where it sat at that frame, rather than letting it chase
     // the scrubbed player. The recorded view is re-anchored by its world-space
@@ -6004,6 +6086,10 @@ export class BootScene extends Phaser.Scene {
               visible: this.flagpoleBallObject?.visible ?? false,
               y: this.flagpoleBallObject?.y,
             },
+            walkOff: {
+              active: this.flagpoleWalkOffActive,
+              playerSpriteVisible: this.playerImageObject?.visible ?? false,
+            },
           },
           castleClear: {
             framesRemaining: this.castleClearFramesRemaining,
@@ -7506,35 +7592,42 @@ function setGameObjectVisible(
   throw new Error("Rendered breakable tile object cannot be made visible.");
 }
 
+// Mark each enterable pipe with a dark opening spanning the full two-tile
+// mouth — the pipe reads as hollow where you can drop in. (The old marker was
+// a single teal one-tile box that looked like an unrelated block.) Only pipes
+// anchored on a top-mouth tile get the cue: side-entry warp shafts (anchored
+// on body tiles, entered walking left/right) have no top opening to mark.
 function renderPipeMouths(scene: Phaser.Scene, levelSpec: LevelSpec): void {
   for (const pipe of levelSpec.pipes) {
-    const x = pipe.position.x * levelSpec.tileSizePixels;
+    const anchorTileId = levelSpec.tiles[pipe.position.y]?.[pipe.position.x];
+    let mouthColumn: number;
+    if (anchorTileId === "pipe-top-left") {
+      mouthColumn = pipe.position.x;
+    } else if (anchorTileId === "pipe-top-right") {
+      mouthColumn = pipe.position.x - 1;
+    } else {
+      continue;
+    }
+    const x = mouthColumn * levelSpec.tileSizePixels;
     const y = pipe.position.y * levelSpec.tileSizePixels;
     const size = levelSpec.tileSizePixels;
 
     scene.add
-      .rectangle(x, y, size, size, pipeColor)
-      .setOrigin(0)
-      .setStrokeStyle(2, pipeLipColor);
-    scene.add
-      .rectangle(x, y, size, pipeLipHeightPixels, pipeLipColor)
-      .setOrigin(0);
-    scene.add
       .rectangle(
-        x + size - pipeHighlightWidthPixels,
-        y + pipeLipHeightPixels,
-        pipeHighlightWidthPixels,
-        size - pipeLipHeightPixels,
-        pipeShadowColor,
+        x + pipeMouthOpeningInsetPixels,
+        y + pipeMouthOpeningTopPixels,
+        size * pipeMouthWidthTiles - pipeMouthOpeningInsetPixels * 2,
+        pipeMouthOpeningHeightPixels,
+        pipeMouthOpeningColor,
       )
       .setOrigin(0);
     scene.add
       .rectangle(
-        x + pipeHighlightOffsetX,
-        y + pipeHighlightOffsetY,
-        pipeHighlightWidthPixels,
-        size - pipeHighlightOffsetY,
-        pipeHighlightColor,
+        x + pipeMouthOpeningInsetPixels * 2,
+        y + pipeMouthOpeningTopPixels + 1,
+        size * pipeMouthWidthTiles - pipeMouthOpeningInsetPixels * 4,
+        pipeMouthOpeningDepthHeightPixels,
+        pipeMouthOpeningDepthColor,
       )
       .setOrigin(0);
   }
@@ -7644,6 +7737,11 @@ function renderAuthoredTile(
       // Empty cells paint nothing; the full-world backdrop + parallax layers
       // behind the tiles supply the themed sky.
       requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
+      return;
+    case "goal-reach":
+      // The invisible finish trigger above a flagpole's authored art: goal
+      // contact with no visual, so the pole renders only where authored.
+      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
       return;
     case "ground":
       requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
@@ -8304,6 +8402,9 @@ const flagpoleBallFallGravityPixels = 0.28;
 // even a tall level, so the finish overlay never freezes them mid-air.
 const flagpoleFinishTailFrames = 24;
 const flagpoleBallFallBudgetFrames = 90;
+// The exit march to the castle doorway: distance walked and walking speed.
+const flagpoleWalkOffDistancePixels = 96;
+const flagpoleWalkOffSpeedPixels = 1.25;
 const flagpolePoleColor = 0xc8d8c8;
 const flagpoleBallColor = 0x60a860;
 const flagFabricColor = 0x18c018;

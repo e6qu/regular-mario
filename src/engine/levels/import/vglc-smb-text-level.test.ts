@@ -82,6 +82,11 @@ describe("parseVglcSmbTextLevel", () => {
         collision: TileCollisionKind.Goal,
       },
       {
+        // The invisible goal-contact extension above a pole's authored art.
+        tileId: "goal-reach",
+        collision: TileCollisionKind.Goal,
+      },
+      {
         tileId: "full-question-block-power-up",
         collision: TileCollisionKind.Interactive,
         contentsActorId: "vglc-smb-power-up",
@@ -814,7 +819,9 @@ describe("parseVglcSmbMultiLayerLevel", () => {
         "pipe-left",
         "cannon-bottom",
         "pipe-top-left",
-        "flagpole",
+        // The goal column keeps its authored solid tile: the metadata repaint
+        // only extends goal contact over EMPTY cells.
+        "pipe-top-right",
       ],
     ]);
     expect(value.tileDefinitions).toContainEqual({
@@ -975,7 +982,8 @@ describe("parseVglcSmbMultiLayerLevel", () => {
       "empty",
       "spring-bottom",
       "empty",
-      "flagpole",
+      // The authored ground under the pole survives the goal-column repaint.
+      "ground",
     ]);
     expect(() => stepImportedLevelOnce(value)).not.toThrow();
   });

@@ -1,5 +1,12 @@
 # DO_NEXT.md
 
+## Landed: flagpole finale + honest pipes (2026-07-16)
+
+- Full flag cutscene (ball knock on any grab, full flag drop, slide, walk into
+  the castle), goal-reach import fix, ROM-height pipes with real pipe art and
+  a two-tile enterable-mouth cue, structure-preserving enemy placement, and
+  hidden-blocks-standable in the completability model (8-4's ROM route).
+
 ## Landed: replay death visibility, flagpole cutscene, cutscene/Bowser coverage (2026-07-15)
 
 - Timeline replay re-anchors recorded camera views by their bottom edge so the

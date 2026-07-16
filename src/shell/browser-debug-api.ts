@@ -215,12 +215,18 @@ type BrowserCutsceneSnapshot = {
     readonly flagY: number | undefined;
     // Whether the flag is still lowering toward the pole base.
     readonly flagDropActive: boolean;
-    // The pole-top ball: knocked off (falling) by a grab at the very top.
+    // The pole-top ball, knocked off (falling) by the grab.
     readonly ball: {
       readonly present: boolean;
       readonly falling: boolean;
       readonly visible: boolean;
       readonly y: number | undefined;
+    };
+    // The exit march to the castle after the slide, ending with the player
+    // sprite disappearing through the doorway.
+    readonly walkOff: {
+      readonly active: boolean;
+      readonly playerSpriteVisible: boolean;
     };
   };
   readonly castleClear: {

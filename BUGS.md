@@ -53,6 +53,16 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   ground; the flag always lowers fully; a very-top grab knocks the pole's
   ball off. Covered by tests/browser/cutscenes.spec.ts.
 
+- **Fixed (2026-07-16): the flag stopped mid-pole, the ball never dropped, no
+  exit march, pipes floated and read as crates.** The goal column painted pole
+  art sky-to-ground (fixed with the invisible goal-reach trigger); the ball
+  knock was gated to top grabs (now any grab); there was no walk-into-the-
+  castle cutscene (added); the decoder drew every vertical pipe one row short
+  (ROM-verified size+1 fix) and the skin rendered all pipe tiles as the same
+  bamboo square (proper mouth/body sprites + a real enterable-mouth cue).
+  Cutscene/pipe regressions covered in tests/browser/cutscenes.spec.ts and
+  the regenerated census/completability proofs.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

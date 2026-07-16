@@ -5,6 +5,41 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-16 — the full flagpole finale, honest pole/pipe rendering, ROM-height pipes
+
+- **The complete end-of-level cutscene now plays**: any flag grab knocks the
+  crowning ball off (it pops and tumbles out of the level), the flag lowers
+  fully to the pole bottom, the player slides to the base, then **marches
+  right and disappears into the castle doorway** — the original's exit walk —
+  before the finish overlay arrives. A same-level Retry restores the hidden
+  sprite, the ball and the flag (`resetFlagpoleFinishState`), and scrubbing
+  the finish replay always shows the player.
+- **The pole renders honestly.** The imported goal column no longer paints
+  flagpole art from the sky through the ground: the importer extends the
+  finish trigger over empty cells with an invisible `goal-reach` tile
+  (internal `_` paint character — rejected loudly if authored by hand), so the
+  visible pole is exactly the authored rows, the ball sits on its real tip,
+  and the ground no longer shows a pole trench. Castle axe columns keep the
+  old full-column paint.
+- **Pipes finally look like pipes** (the previous castaway skin mapped all
+  four pipe tiles to the same bamboo-lattice square): new mouth-ring +
+  shaded-body bamboo sprites, and the enterable-pipe cue is a dark opening
+  across the whole two-tile mouth instead of a lone teal box (side-entry warp
+  shafts get no top cue). And **pipes stand on the ground now**: the decoder
+  rendered every vertical pipe one row short (ROM-verified against SMBDIS:
+  DrawPipe + RenderUnderPart draw size+1 rows), leaving them floating a tile
+  above the floor.
+- **Enemy placement survives the taller pipes**: the decoder no longer lets an
+  enemy glyph punch a hole in structure (pipes/floors/blocks/hazards) — it
+  shifts to the nearest open column, never merges onto another enemy, and
+  falls back to the nearest open row above for patrollers authored inside
+  raised slabs. Zero enemies lost across the whole pack (glyph-count checked
+  against the previous committed maps).
+- **Completability stays machine-proven**: 8-4's ROM route (bump the hidden
+  block, hop onto the warp-pipe mouth) needed hidden blocks modelled as
+  standable in the search; all 54 levels + sub-areas still pass. Committed
+  maps, bundles and the census were regenerated in lockstep.
+
 ## 2026-07-15 (third pass) — replay shows the death; the flagpole cutscene fixed for real maps; cutscene + Bowser coverage
 
 - **The timeline replay now shows the death on screen.** The replay bar
