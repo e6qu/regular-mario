@@ -344,6 +344,10 @@ function playLevel(
   let progressHighWater = 0;
   let stallX = 0;
   let stallSteps = 0;
+  // Pocket escape: when progress stalls, briefly walk BACK, then commit a
+  // running jump — the way a player leaves a dead-end underpass (e.g. 1-2's
+  // wall pockets) that pure forward bouncing can't escape.
+  let backoffFramesLeft = 0;
   let swimTargetY = 6 * 16;
   let loopBacks = 0;
   let previousX = 0;
@@ -364,8 +368,13 @@ function playLevel(
     rng = makeRng(seed * 2654435761);
     jumpFramesLeft = 0;
     downFramesLeft = 0;
+    backoffFramesLeft = 0;
     idleFramesLeft = Math.floor(rng() * 100);
     groundModeFramesLeft = rng() < 0.5 ? 240 : 0;
+    // Re-roll the route bias too: some sections (1-2's brick staircases over
+    // walled underpass pockets) are only passable via the high route, and a
+    // persistent ground bias would retry the same dead end forever.
+    skyMode = rng() < 0.5;
     pendingWarp = undefined;
   };
 
@@ -638,6 +647,15 @@ function playLevel(
       idleFramesLeft > 0 || pressingDown
         ? HorizontalInput.Neutral
         : HorizontalInput.Right;
+    if (backoffFramesLeft > 0) {
+      backoffFramesLeft -= 1;
+      horizontal = HorizontalInput.Left;
+      jumpFramesLeft = 0;
+      if (backoffFramesLeft === 0) {
+        // Turn around with a committed running jump over whatever wedged us.
+        jumpFramesLeft = 22 + Math.floor(rng() * 14);
+      }
+    }
     let jumpHeld = jumpFramesLeft > 0;
     if (mountFramesLeft > 0) {
       horizontal =
@@ -691,6 +709,14 @@ function playLevel(
       stallSteps = 0;
     } else {
       stallSteps += 1;
+      // Halfway through a stall, try backing out and leaping before giving
+      // up and rolling back to a checkpoint.
+      if (
+        (stallSteps === 150 || stallSteps === 300) &&
+        backoffFramesLeft === 0
+      ) {
+        backoffFramesLeft = 30 + Math.floor(rng() * 30);
+      }
       if (stallSteps > 420) {
         stallSteps = 0;
         stallX = 0;

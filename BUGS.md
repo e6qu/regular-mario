@@ -63,6 +63,20 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   Cutscene/pipe regressions covered in tests/browser/cutscenes.spec.ts and
   the regenerated census/completability proofs.
 
+- **Fixed (2026-07-16): the 1-2/4-2 shared underground bonus room sealed the
+  player in** ("Mario is stuck here"). Two decoder bugs, both verified against
+  the disassembly: the sideways exit pipe's mouth rendered one row too high
+  (ExitPipe places the mouth at playfield rows length−1/length, we used
+  length−2), and alter-attributes background switches applied one column early
+  (AreaParserCore renders a column's terrain _before_ processing that column's
+  objects, so the switch takes effect the _next_ column) — together they
+  buried the exit pipe's opening inside the wall. With the corrected maps the
+  canonical exit route is the ROM's one-tile crawl, which exposed that our
+  small player was 24px tall: **small Mario's terrain collider is now the
+  ROM's one tile (14×16, feet unchanged)**, so 1-2/4-2's crawl gaps work
+  everywhere. Verified by the regenerated census, the completability proofs,
+  and the stochastic playthrough driver clearing 1-2/1-3.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

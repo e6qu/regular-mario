@@ -626,9 +626,14 @@ function renderArea(header, objects, enemies, options = {}) {
     .sort((a, b) => a.col - b.col);
   let alterIndex = 0;
   for (let x = 0; x < widthCols; x += 1) {
+    // The NES parser renders a column's terrain BEFORE processing that
+    // column's objects (AreaParserCore: RenderSceneryTerrain, then
+    // ProcessAreaData), so an alter-attributes object takes effect from the
+    // NEXT column — its own column still uses the old pattern. Getting this
+    // wrong walled off the shared bonus room's exit-pipe approach.
     while (
       alterIndex < alterObjects.length &&
-      alterObjects[alterIndex].col <= x
+      alterObjects[alterIndex].col < x
     ) {
       terrainControl = alterObjects[alterIndex].b1 & 0xf;
       backgroundScenery = (alterObjects[alterIndex].b1 >> 4) & 0x3;
@@ -779,12 +784,16 @@ function renderArea(header, objects, enemies, options = {}) {
         break;
       case "exit-pipe": {
         // Side pipe out of a bonus room: vertical shaft from the top of the
-        // screen with a left-facing mouth. Mouth rows are (length-2, length-1)
-        // in playfield coordinates.
+        // screen with a left-facing mouth. Per the disassembly's
+        // RenderSidewaysPipe, the shaft covers playfield rows 0..length-2 and
+        // the mouth occupies rows (length-1, length) — one lower than the
+        // previous (length-2, length-1), which left the mouth floating a row
+        // above the floor and, in the shared bonus room, sealed behind the
+        // wall beside it.
         paintSidePipeMouth(
           grid,
           o.col,
-          Math.max((o.low & 0xf) - 2, 0) + rowOffset,
+          Math.max((o.low & 0xf) - 1, 0) + rowOffset,
         );
         break;
       }
@@ -1381,7 +1390,9 @@ export async function decodeAllLevels(romPath) {
         ? introPipeMouthRow + rowOffset
         : isWaterPipe
           ? o.row + rowOffset
-          : Math.max((o.low & 0xf) - 2, 0) + rowOffset;
+          : // Matches paintSidePipeMouth: the mouth's top row is length-1
+            // (RenderSidewaysPipe draws the mouth at rows length-1, length).
+            Math.max((o.low & 0xf) - 1, 0) + rowOffset;
       const connection = connectionForCol(o.col);
       if (connection !== undefined) {
         pushTransition(

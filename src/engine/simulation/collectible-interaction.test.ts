@@ -102,7 +102,7 @@ describe("collectible interactions", () => {
       resolveCollectibleInteractionState(
         playerAt({
           x: 32,
-          y: 48,
+          y: 56,
         }),
         levelSpec,
         spawnedActors.spawnedActors,

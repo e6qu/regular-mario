@@ -5,6 +5,26 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-16 — bonus-room exit unsealed, ROM-size small player
+
+- **The 1-2/4-2 shared bonus room no longer seals the player in.** Two
+  ROM-verified decoder fixes: the sideways exit pipe's mouth sits at playfield
+  rows length−1/length (was one row too high), and alter-attributes background
+  switches take effect the column _after_ their position (AreaParserCore
+  renders a column's terrain before its objects). The regenerated pack keeps
+  every enemy and all completability proofs.
+- **Small Mario now occupies one tile for terrain collision** (14×16,
+  feet-anchored; powered stays 14×32). The corrected maps route 1-2/4-2's
+  exits through the original's one-tile crawl, which a 24px box can't enter.
+  The small sprite renders near its authored 16×16 instead of stretched. The
+  unit suite (~60 placements/goldens) was migrated by preserving each
+  scenario's feet position (+8 on player y); replay goldens were re-adopted
+  only where the delta is exactly the collider change (the flying-route pit
+  defeat now trips two frames earlier off the lower top edge).
+- The stochastic playthrough driver got a stall-backoff (walk left, then
+  re-jump) and per-reset sky-mode reroll, and clears 1-2/1-3 including the
+  crawl.
+
 ## 2026-07-16 — the full flagpole finale, honest pole/pipe rendering, ROM-height pipes
 
 - **Dev-cache freshness gate**: prepare:smb stamps the cache with a

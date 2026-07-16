@@ -321,13 +321,13 @@ describe("enemy interactions", () => {
 
   it("records a downward stomp as defeated enemy contact", () => {
     expect(
-      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 32 }, { x: 96, y: 45 }),
+      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 40 }, { x: 96, y: 53 }),
     ).toEqual(expectedEnemyDefeatedState("beetle-1" as EntityId));
   });
 
   it("treats a shallow previous-frame top overlap as a stomp", () => {
     expect(
-      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 37 }, { x: 96, y: 45 }),
+      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 45 }, { x: 96, y: 53 }),
     ).toEqual(expectedEnemyDefeatedState("beetle-1" as EntityId));
   });
 
@@ -335,15 +335,15 @@ describe("enemy interactions", () => {
     // The ROM keys the stomp on downward motion alone: descending onto the
     // enemy defeats it at any overlap depth, not only on a shallow top touch.
     expect(
-      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 45 }, { x: 96, y: 46 }),
+      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 53 }, { x: 96, y: 54 }),
     ).toEqual(expectedEnemyDefeatedState("beetle-1" as EntityId));
   });
 
   it("makes landing on a spiky boss (Bowser) harmful, not a stomp", () => {
     const levelSpec = spikyBossLevelSpec();
     const result = resolveEnemyInteractionState(
-      playerAt({ x: 64, y: 20 }),
-      fallingPlayerAt({ x: 64, y: 48 }),
+      playerAt({ x: 64, y: 28 }),
+      fallingPlayerAt({ x: 64, y: 56 }),
       levelSpec,
       initialEnemyMotion(levelSpec),
       initialMovementConstants,
@@ -358,7 +358,7 @@ describe("enemy interactions", () => {
   it("keeps a grounded side contact (no descent) harmful", () => {
     // Feet stay level (no downward motion) — a walk-in, which must still hurt.
     expect(
-      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 46 }, { x: 96, y: 46 }),
+      resolveFirstAuthoredEnemyInteraction({ x: 96, y: 54 }, { x: 96, y: 54 }),
     ).toEqual(expectedEnemyContactedState("beetle-1" as EntityId));
   });
 
@@ -370,8 +370,8 @@ describe("enemy interactions", () => {
       priorExtraLives = 0,
     ): EnemyInteractionState =>
       resolveEnemyInteractionState(
-        playerAt({ x: 96, y: 32 }),
-        fallingPlayerAt({ x: 96, y: 45 }),
+        playerAt({ x: 96, y: 40 }),
+        fallingPlayerAt({ x: 96, y: 53 }),
         levelSpec,
         initialEnemyMotion(levelSpec),
         initialMovementConstants,
@@ -439,11 +439,11 @@ describe("enemy interactions", () => {
       resolveEnemyInteractionState(
         playerAt({
           x: 96,
-          y: 32,
+          y: 40,
         }),
         fallingPlayerAt({
           x: 96,
-          y: 45,
+          y: 53,
         }),
         levelSpec,
         initialEnemyMotion(levelSpec),
@@ -650,7 +650,7 @@ describe("enemy interactions", () => {
       const levelSpec = armoredEnemyLevelSpec();
 
       return resolveEnemyInteractionState(
-        playerAt({ x: 48, y: 32 }),
+        playerAt({ x: 48, y: 40 }),
         previousPlayer,
         levelSpec,
         armoredEnemyMotion(levelSpec),
@@ -704,7 +704,7 @@ describe("enemy interactions", () => {
 
       expect(
         resolveEnemyInteractionState(
-          playerAt({ x: 48, y: 32 }),
+          playerAt({ x: 48, y: 40 }),
           makeFallingPlayerAt({ x: 48, y: 50 }),
           levelSpec,
           armoredEnemyMotion(levelSpec),
@@ -718,7 +718,7 @@ describe("enemy interactions", () => {
       // A fast drop onto an enemy standing on the ground lands on the floor the
       // same frame, so velocity.y is already zeroed — but the descent onto the
       // enemy's top must still read as a stomp, not a harmful side contact.
-      expect(resolveArmoredStomp(playerAt({ x: 48, y: 50 }))).toEqual(
+      expect(resolveArmoredStomp(playerAt({ x: 48, y: 58 }))).toEqual(
         expectedArmoredShellState(),
       );
     });
@@ -728,7 +728,7 @@ describe("enemy interactions", () => {
       const shelledMotion = makeShelledArmoredEnemyMotion(levelSpec);
 
       const result = resolveEnemyInteractionState(
-        playerAt({ x: 40, y: 32 }),
+        playerAt({ x: 40, y: 40 }),
         makeFallingPlayerAt({ x: 46, y: 50 }),
         levelSpec,
         shelledMotion,
@@ -755,7 +755,7 @@ describe("enemy interactions", () => {
       };
 
       const result = resolveEnemyInteractionState(
-        playerAt({ x: 48, y: 32 }),
+        playerAt({ x: 48, y: 40 }),
         makeFallingPlayerAt({ x: 48, y: 50 }),
         levelSpec,
         slidingShellMotion,
@@ -867,8 +867,8 @@ describe("stomp chain scoring", () => {
         100 as EnemyInteractionState["cumulativeStompScore"],
     };
     const result = resolveEnemyInteractionState(
-      fallingPlayerAt({ x: 48, y: 32 }),
-      fallingPlayerAt({ x: 48, y: 50 }),
+      fallingPlayerAt({ x: 48, y: 40 }),
+      fallingPlayerAt({ x: 48, y: 58 }),
       levelSpec,
       initialEnemyMotion(levelSpec),
       initialMovementConstants,
@@ -888,8 +888,8 @@ describe("stomp chain scoring", () => {
         700 as EnemyInteractionState["cumulativeStompScore"],
     };
     const result = resolveEnemyInteractionState(
-      fallingPlayerAt({ x: 64, y: 16 }),
-      playerAt({ x: 64, y: 16 }),
+      fallingPlayerAt({ x: 64, y: 24 }),
+      playerAt({ x: 64, y: 24 }),
       levelSpec,
       initialEnemyMotion(levelSpec),
       initialMovementConstants,
@@ -907,8 +907,8 @@ describe("stomp chain scoring", () => {
       currentStompChainCount: 0,
     };
     const result = resolveEnemyInteractionState(
-      playerAt({ x: 96, y: 32 }),
-      fallingPlayerAt({ x: 96, y: 45 }),
+      playerAt({ x: 96, y: 40 }),
+      fallingPlayerAt({ x: 96, y: 53 }),
       levelSpec,
       initialEnemyMotion(levelSpec),
       initialMovementConstants,

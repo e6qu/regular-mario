@@ -21,7 +21,7 @@
     {
       "id": "warp-0",
       "x": 13,
-      "y": 11,
+      "y": 12,
       "targetLevelName": "smb-8-1",
       "targetTileX": 114,
       "targetTileY": 12,
@@ -30,7 +30,7 @@
     {
       "id": "warp-1",
       "x": 45,
-      "y": 11,
+      "y": 12,
       "targetLevelName": "smb-8-1",
       "targetTileX": 114,
       "targetTileY": 12,
@@ -39,7 +39,7 @@
     {
       "id": "warp-2",
       "x": 77,
-      "y": 11,
+      "y": 12,
       "targetLevelName": "smb-8-1",
       "targetTileX": 114,
       "targetTileY": 12,
@@ -48,7 +48,7 @@
     {
       "id": "warp-3",
       "x": 109,
-      "y": 11,
+      "y": 12,
       "targetLevelName": "smb-8-1",
       "targetTileX": 114,
       "targetTileY": 12,
@@ -57,7 +57,7 @@
     {
       "id": "warp-4",
       "x": 141,
-      "y": 11,
+      "y": 12,
       "targetLevelName": "smb-8-2",
       "targetTileX": 162,
       "targetTileY": 12,

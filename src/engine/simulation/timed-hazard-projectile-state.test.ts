@@ -214,9 +214,9 @@ describe("timed-hazard-projectile-state", () => {
     const stomped = resolveHazard(
       spawned,
       levelSpec,
-      fallingPlayerAt(16, 26),
+      fallingPlayerAt(16, 34),
       2,
-      fallingPlayerAt(16, 20),
+      fallingPlayerAt(16, 28),
     );
     // Defeated: removed, counted, and no longer a hazard.
     expect(stomped.stompedProjectileCount).toBe(1);
@@ -261,9 +261,9 @@ describe("timed-hazard-projectile-state", () => {
     const landed = resolveHazard(
       spawned,
       levelSpec,
-      fallingPlayerAt(16, 26),
+      fallingPlayerAt(16, 34),
       2,
-      fallingPlayerAt(16, 20),
+      fallingPlayerAt(16, 28),
     );
     // Not stompable: it survives and still harms the player.
     expect(landed.stompedProjectileCount).toBe(0);

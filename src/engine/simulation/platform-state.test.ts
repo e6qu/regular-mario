@@ -71,7 +71,7 @@ describe("platform state", () => {
     );
     const state = makeEmptyPlatformsState(levelSpec);
     // Platform top at frame 0 is y=96 at x=128..176; drop the player onto it.
-    const falling = playerAt(140, 96 - 22);
+    const falling = playerAt(140, 96 - 14);
     const resolution = resolvePlatformsState(
       state,
       levelSpec,
@@ -105,7 +105,7 @@ describe("platform state", () => {
     ).state;
     expect(state.platforms[0]?.fallOffsetY).toBe(0);
 
-    const rider = playerAt(140, 96 - 22);
+    const rider = playerAt(140, 96 - 14);
     for (let i = 0; i < 30; i += 1) {
       state = resolvePlatformsState(
         state,
@@ -150,7 +150,7 @@ describe("platform state", () => {
           frame(i),
         );
         const leftTop = placements[0]?.y ?? 0;
-        const rider = playerAt(100, leftTop - 22);
+        const rider = playerAt(100, leftTop - 14);
         state = resolvePlatformsState(
           state,
           levelSpec,

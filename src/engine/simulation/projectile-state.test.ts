@@ -260,7 +260,8 @@ describe("projectile-state", () => {
       initialMovementConstants.projectileSpeed,
     );
     expect(projectile?.position.x).toBe(16 + 7);
-    expect(projectile?.position.y).toBe(56 + 12);
+    // Fireballs launch from mid-body: half the (now 16px) small collider.
+    expect(projectile?.position.y).toBe(56 + 8);
   });
 
   it("spawns a projectile to the left when the player is moving left", () => {

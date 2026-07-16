@@ -6,7 +6,7 @@ import {
 export const expectedInitialPlayerSimulationState = {
   position: {
     x: 16,
-    y: 56,
+    y: 64,
   },
   velocity: {
     x: 0,
@@ -14,7 +14,7 @@ export const expectedInitialPlayerSimulationState = {
   },
   collider: {
     width: 14,
-    height: 24,
+    height: 16,
   },
   movement: {
     horizontal: HorizontalMovementState.Idle,

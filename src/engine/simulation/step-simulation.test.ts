@@ -228,7 +228,7 @@ function stompPlayerSimulationState(
     player: playerWithTestState({
       position: {
         x: 96,
-        y: 40,
+        y: 48,
       },
       velocity: {
         x: 0,
@@ -872,7 +872,7 @@ describe("simulation primitives", () => {
       frameDurationMilliseconds: nominalSixtyHertzFrameDurationMilliseconds,
     });
     expect(nextState.players[0].player.position.x).toBe(16);
-    expect(nextState.players[0].player.position.y).toBe(56);
+    expect(nextState.players[0].player.position.y).toBe(64);
     expect(nextState.players[0].player.velocity).toEqual({
       ...validInitialState().players[0].player.velocity,
       y: 0,
@@ -936,7 +936,7 @@ describe("simulation primitives", () => {
   it("decrements lives when the player is defeated", () => {
     const levelSpec = firstAuthoredLevelSpec();
     const nextState = stepSimulation(
-      stateWithPlayerAt({ x: 96, y: 56 }),
+      stateWithPlayerAt({ x: 96, y: 64 }),
       validInputCommand(),
       initialMovementConstants,
       levelSpec,
@@ -950,7 +950,7 @@ describe("simulation primitives", () => {
     const levelSpec = firstAuthoredLevelSpec();
     const nextState = stepSimulation(
       {
-        ...stateWithPlayerAt({ x: 96, y: 56 }),
+        ...stateWithPlayerAt({ x: 96, y: 64 }),
         livesRemaining: 0,
       },
       validInputCommand(),
@@ -1193,7 +1193,7 @@ describe("simulation primitives", () => {
       0 - initialMovementConstants.jumpLaunchSpeed,
     );
     expect(nextState.players[0].player.position.y).toBeCloseTo(
-      56 -
+      64 -
         initialMovementConstants.jumpLaunchSpeed *
           (nominalSixtyHertzFrameDurationMilliseconds / 1000),
       9,
@@ -1246,7 +1246,7 @@ describe("simulation primitives", () => {
         player: playerWithTestState({
           position: {
             x: 16,
-            y: 54,
+            y: 62,
           },
           velocity: {
             x: 0,
@@ -1265,7 +1265,7 @@ describe("simulation primitives", () => {
       validInputCommand(),
     );
 
-    expect(nextState.players[0].player.position.y).toBe(56);
+    expect(nextState.players[0].player.position.y).toBe(64);
     expect(nextState.players[0].player.velocity.y).toBe(0);
     expect(nextState.players[0].player.movement.vertical).toBe(
       VerticalMovementState.Grounded,
@@ -1422,7 +1422,7 @@ describe("simulation primitives", () => {
     expect(state.players[0].player.position.x).toBeGreaterThan(
       12 * levelSpec.tileSizePixels,
     );
-    expect(state.players[0].player.position.y).toBeLessThanOrEqual(56);
+    expect(state.players[0].player.position.y).toBeLessThanOrEqual(64);
   });
 
   it("can survive a running jump into a basic enemy cluster after a flat runup", () => {
@@ -1588,7 +1588,7 @@ describe("simulation primitives", () => {
     const hazardState: SimulationState = {
       ...stateWithPlayerAt({
         x: 90,
-        y: 56,
+        y: 64,
       }),
     };
 
@@ -1641,7 +1641,7 @@ describe("simulation primitives", () => {
     const enemyState: SimulationState = {
       ...stateWithPlayerAt({
         x: 96,
-        y: 56,
+        y: 64,
       }),
     };
 
@@ -1657,7 +1657,7 @@ describe("simulation primitives", () => {
     const enemyState: SimulationState = withPlayerOverrides(
       stateWithPlayerAt({
         x: 96,
-        y: 56,
+        y: 64,
       }),
       {
         playerInvincibility: {
@@ -1730,7 +1730,7 @@ describe("simulation primitives", () => {
         ),
         {
           player: playerWithTestState({
-            position: { x: 16, y: 48 },
+            position: { x: 16, y: 56 },
             velocity: { x: 0, y: 0 },
             movement: {
               horizontal: HorizontalMovementState.Idle,
@@ -1758,7 +1758,7 @@ describe("simulation primitives", () => {
     const firstEnemyPlayer = playerWithTestState({
       position: {
         x: 0,
-        y: 56,
+        y: 64,
       },
       velocity: {
         x: 0,
@@ -1780,7 +1780,7 @@ describe("simulation primitives", () => {
     const enemyState: SimulationState = {
       ...stateWithPlayerAt({
         x: 96,
-        y: 56,
+        y: 64,
       }),
       enemies: priorEnemyState,
     };
@@ -1817,7 +1817,7 @@ describe("simulation primitives", () => {
     const enemyState: SimulationState = {
       ...stateWithPlayerAt({
         x: 96,
-        y: 56,
+        y: 64,
       }),
     };
 
@@ -1834,7 +1834,7 @@ describe("simulation primitives", () => {
     const enemyState: SimulationState = withPlayerOverrides(
       stateWithPlayerAt({
         x: 96,
-        y: 56,
+        y: 64,
       }),
       {
         playerVitality: {
@@ -1910,7 +1910,7 @@ describe("simulation primitives", () => {
     const recoveringState: SimulationState = withPlayerOverrides(
       stateWithPlayerAt({
         x: 96,
-        y: 56,
+        y: 64,
       }),
       {
         playerVitality: recoveringVitalityState(
@@ -1946,7 +1946,7 @@ describe("simulation primitives", () => {
   });
 
   it("defeats a recovering player on the frame invulnerability expires while still touching an enemy", () => {
-    const nextState = stepRecoveringVitalityToSmall({ x: 96, y: 56 }, 0, 1);
+    const nextState = stepRecoveringVitalityToSmall({ x: 96, y: 64 }, 0, 1);
 
     expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",
@@ -2075,7 +2075,7 @@ describe("simulation primitives", () => {
     const nextState = stepSimulation(
       withPlayerOverrides(initialState, {
         player: playerWithTestState({
-          position: { x: 32, y: 40 },
+          position: { x: 32, y: 48 },
           velocity: {
             x: 0,
             y: 600,
@@ -2257,7 +2257,7 @@ describe("simulation primitives", () => {
     const finishEnemyState: SimulationState = {
       ...stateWithPlayerAt({
         x: 32,
-        y: 56,
+        y: 64,
       }),
       enemyMotion: makeInitialEnemyMotionState(
         levelSpec,
@@ -2302,7 +2302,7 @@ describe("simulation primitives", () => {
         player: playerWithTestState({
           position: {
             x: 32,
-            y: 56,
+            y: 64,
           },
           velocity: {
             x: 0,

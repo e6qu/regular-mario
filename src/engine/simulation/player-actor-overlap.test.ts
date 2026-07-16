@@ -42,14 +42,14 @@ describe("player hurtbox", () => {
   });
 
   it("misses a head-height threat that the full collider would have hit", () => {
-    // A 6px hazard at the very top of the small player's collider: inside the
-    // terrain collider [y, y+24] but above the feet-anchored hurtbox [y+12,y+24].
+    // A 3px hazard at the very top of the small player's collider: inside the
+    // terrain collider [y, y+16] but above the feet-anchored hurtbox [y+4,y+16].
     const y = smallPlayer.position.y;
     const headThreat = { x: smallPlayer.position.x + 4, y };
     expect(
       playerOverlapsActorPixel(smallPlayer, headThreat, {
         width: 6,
-        height: 6,
+        height: 3,
       }),
     ).toBe(false);
   });

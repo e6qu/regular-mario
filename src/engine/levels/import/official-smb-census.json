@@ -145,9 +145,9 @@
       "flagpole": 15,
       "full-question-block-coin": 4,
       "full-question-block-power-up": 1,
-      "ground": 1114,
+      "ground": 1119,
       "multi-coin-brick": 2,
-      "pipe-left": 18,
+      "pipe-left": 19,
       "pipe-right": 13,
       "pipe-top-left": 7,
       "pipe-top-right": 7,
@@ -201,9 +201,9 @@
         "vglc-smb-enemy@29,12",
         "vglc-smb-enemy@46,12",
         "vglc-smb-enemy@48,12",
-        "vglc-smb-enemy@56,4",
-        "vglc-smb-enemy@63,8",
+        "vglc-smb-enemy@57,4",
         "vglc-smb-enemy@64,8",
+        "vglc-smb-enemy@65,8",
         "vglc-smb-koopa-red@162,9",
         "vglc-smb-koopa@32,12",
         "vglc-smb-koopa@34,12",
@@ -215,14 +215,14 @@
         "vglc-smb-piranha@182,10",
         "vglc-smb-piranha@186,10",
         "vglc-smb-transition-pipe@103,10",
-        "vglc-smb-transition-pipe@166,8",
+        "vglc-smb-transition-pipe@166,9",
         "vglc-smb-transition-pipe@178,10",
         "vglc-smb-transition-pipe@182,10",
         "vglc-smb-transition-pipe@186,10"
       ],
       "pipes": [
         "vglc-smb-transition-pipe@103,10:down>smb-warp-2-2-w1@34,4",
-        "vglc-smb-transition-pipe@166,8:right>smb-1-1@178,12",
+        "vglc-smb-transition-pipe@166,9:right>smb-1-1@178,12",
         "vglc-smb-transition-pipe@178,10:down>smb-4-1@2,12",
         "vglc-smb-transition-pipe@182,10:down>smb-3-1@2,12",
         "vglc-smb-transition-pipe@186,10:down>smb-2-1@2,12"
@@ -237,7 +237,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "6d6f0e0d"
+      "tileGridDigest": "d4fa0a84"
     }
   },
   "smb-1-4": {
@@ -326,7 +326,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "dce83cab"
+      "tileGridDigest": "4a865085"
     }
   },
   "smb-1-5": {
@@ -340,7 +340,7 @@
       "castle-bridge": 13,
       "flagpole": 15,
       "full-question-block-power-up": 1,
-      "ground": 1039,
+      "ground": 1051,
       "hidden-coin-block": 6,
       "lava-body": 23,
       "lava-surface": 21
@@ -376,7 +376,7 @@
       "platforms": ["horizontal@138,7w3"],
       "loopZones": [],
       "spawners": ["104,9:left@240"],
-      "tileGridDigest": "7a8cb027"
+      "tileGridDigest": "8a6470c7"
     }
   },
   "smb-2-1": {
@@ -534,7 +534,7 @@
     },
     "tiles": {
       "breakable-block": 34,
-      "coral": 383,
+      "coral": 375,
       "flagpole": 15,
       "ground": 515,
       "pipe-left": 1,
@@ -599,7 +599,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "208524c9"
+      "tileGridDigest": "fba65dd5"
     }
   },
   "smb-2-4": {
@@ -682,7 +682,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "e24eb795"
+      "tileGridDigest": "90c1f437"
     }
   },
   "smb-2-5": {
@@ -698,9 +698,9 @@
       "castle-bridge": 13,
       "flagpole": 15,
       "full-question-block-power-up": 1,
-      "ground": 795,
-      "lava-body": 43,
-      "lava-surface": 43
+      "ground": 811,
+      "lava-body": 41,
+      "lava-surface": 41
     },
     "piranhaPlants": 0,
     "firebars": 6,
@@ -747,7 +747,7 @@
       ],
       "loopZones": [],
       "spawners": ["98,1:left@240"],
-      "tileGridDigest": "553589c3"
+      "tileGridDigest": "dbbdd0e5"
     }
   },
   "smb-3-1": {
@@ -1046,7 +1046,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "dd07ce41"
+      "tileGridDigest": "28b73015"
     }
   },
   "smb-3-4": {
@@ -1063,7 +1063,7 @@
       "flagpole": 15,
       "full-question-block-coin": 2,
       "full-question-block-power-up": 1,
-      "ground": 769,
+      "ground": 778,
       "lava-body": 26,
       "lava-surface": 26
     },
@@ -1106,7 +1106,7 @@
       "platforms": ["horizontal@138,7w3"],
       "loopZones": [],
       "spawners": ["103,1:left@240"],
-      "tileGridDigest": "3f7a008c"
+      "tileGridDigest": "9bfb6744"
     }
   },
   "smb-4-1": {
@@ -1254,10 +1254,10 @@
       "flagpole": 15,
       "full-question-block-coin": 6,
       "full-question-block-power-up": 1,
-      "ground": 1411,
+      "ground": 1418,
       "hidden-coin-block": 4,
       "multi-coin-brick": 2,
-      "pipe-left": 35,
+      "pipe-left": 36,
       "pipe-right": 30,
       "pipe-top-left": 11,
       "pipe-top-right": 11,
@@ -1315,7 +1315,7 @@
         "vglc-smb-piranha@78,6",
         "vglc-smb-piranha@84,10",
         "vglc-smb-piranha@89,10",
-        "vglc-smb-transition-pipe@187,8",
+        "vglc-smb-transition-pipe@187,9",
         "vglc-smb-transition-pipe@84,10",
         "vglc-smb-turtle@154,9",
         "vglc-smb-turtle@179,12",
@@ -1323,7 +1323,7 @@
         "vglc-smb-turtle@88,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@187,8:right>smb-warp-1-5-w4@178,12",
+        "vglc-smb-transition-pipe@187,9:right>smb-warp-1-5-w4@178,12",
         "vglc-smb-transition-pipe@84,10:down>smb-warp-1-15-w4@2,12"
       ],
       "firebars": [],
@@ -1339,7 +1339,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "60368772"
+      "tileGridDigest": "084d4d1f"
     }
   },
   "smb-4-4": {
@@ -1435,7 +1435,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "cdc20d52"
+      "tileGridDigest": "4d344426"
     }
   },
   "smb-4-5": {
@@ -1449,7 +1449,7 @@
     "tiles": {
       "castle-bridge": 13,
       "flagpole": 15,
-      "ground": 975,
+      "ground": 985,
       "lava-body": 23,
       "lava-surface": 23,
       "pipe-left": 2,
@@ -1488,7 +1488,7 @@
       "platforms": [],
       "loopZones": ["128[10-12]loop-group-1/1", "64[3-5]loop-group-0/1"],
       "spawners": ["132,9:left@240"],
-      "tileGridDigest": "72b6c8a1"
+      "tileGridDigest": "dbde343f"
     }
   },
   "smb-5-1": {
@@ -1781,7 +1781,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "dce83cab"
+      "tileGridDigest": "4a865085"
     }
   },
   "smb-5-4": {
@@ -1797,9 +1797,9 @@
       "castle-bridge": 13,
       "flagpole": 15,
       "full-question-block-power-up": 1,
-      "ground": 795,
-      "lava-body": 43,
-      "lava-surface": 43
+      "ground": 811,
+      "lava-body": 41,
+      "lava-surface": 41
     },
     "piranhaPlants": 0,
     "firebars": 11,
@@ -1858,7 +1858,7 @@
       ],
       "loopZones": [],
       "spawners": ["98,1:left@240"],
-      "tileGridDigest": "553589c3"
+      "tileGridDigest": "dbbdd0e5"
     }
   },
   "smb-6-1": {
@@ -1927,7 +1927,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "07fec1d6"
+      "tileGridDigest": "e2644c76"
     }
   },
   "smb-6-2": {
@@ -2136,7 +2136,7 @@
       ],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "596fb3d5"
+      "tileGridDigest": "ae28444d"
     }
   },
   "smb-6-4": {
@@ -2150,7 +2150,7 @@
       "castle-bridge": 13,
       "flagpole": 15,
       "full-question-block-power-up": 1,
-      "ground": 1039,
+      "ground": 1051,
       "hidden-coin-block": 6,
       "lava-body": 23,
       "lava-surface": 21
@@ -2190,7 +2190,7 @@
       "platforms": ["horizontal@138,7w3"],
       "loopZones": [],
       "spawners": ["104,9:left@240"],
-      "tileGridDigest": "7a8cb027"
+      "tileGridDigest": "8a6470c7"
     }
   },
   "smb-7-1": {
@@ -2343,7 +2343,7 @@
     },
     "tiles": {
       "breakable-block": 34,
-      "coral": 383,
+      "coral": 375,
       "flagpole": 15,
       "ground": 515,
       "pipe-left": 1,
@@ -2415,7 +2415,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "208524c9"
+      "tileGridDigest": "fba65dd5"
     }
   },
   "smb-7-4": {
@@ -2509,7 +2509,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "219a4c08"
+      "tileGridDigest": "5457b08a"
     }
   },
   "smb-7-5": {
@@ -2522,7 +2522,7 @@
     "tiles": {
       "castle-bridge": 13,
       "flagpole": 15,
-      "ground": 1140,
+      "ground": 1155,
       "lava-body": 30,
       "lava-surface": 30
     },
@@ -2556,7 +2556,7 @@
         "80[3-5]loop-group-0/3"
       ],
       "spawners": ["182,1:left@240"],
-      "tileGridDigest": "93f0821d"
+      "tileGridDigest": "905f5eab"
     }
   },
   "smb-8-1": {
@@ -2829,7 +2829,7 @@
       "scenery-cloud-left": 49,
       "scenery-cloud-middle": 66,
       "scenery-cloud-right": 48,
-      "scenery-fence": 28,
+      "scenery-fence": 27,
       "scenery-tree-top": 24,
       "scenery-tree-top-small": 16,
       "scenery-trunk": 27
@@ -2871,7 +2871,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": ["18,11:left@288", "34,10:left@288", "86,11:left@288"],
-      "tileGridDigest": "dc534994"
+      "tileGridDigest": "5e520964"
     }
   },
   "smb-8-4": {
@@ -2890,10 +2890,10 @@
     "tiles": {
       "castle-bridge": 13,
       "flagpole": 15,
-      "ground": 1153,
+      "ground": 1158,
       "hidden-coin-block": 1,
-      "lava-body": 38,
-      "lava-surface": 38,
+      "lava-body": 39,
+      "lava-surface": 39,
       "pipe-left": 63,
       "pipe-right": 63,
       "pipe-top-left": 15,
@@ -2919,8 +2919,8 @@
         "open-gate@301,11",
         "vglc-smb-bowser-hammers@295,9",
         "vglc-smb-enemy@59,12",
-        "vglc-smb-enemy@60,11",
         "vglc-smb-enemy@60,12",
+        "vglc-smb-enemy@61,12",
         "vglc-smb-parakoopa-hopper@139,12",
         "vglc-smb-parakoopa-hopper@141,12",
         "vglc-smb-parakoopa-hopper@155,12",
@@ -2969,7 +2969,7 @@
         "96[15-15]loop-group-0/1"
       ],
       "spawners": ["293,12:left@240"],
-      "tileGridDigest": "016efb54"
+      "tileGridDigest": "1b1437f7"
     }
   },
   "smb-warp-0-0-w5": {
@@ -2983,9 +2983,9 @@
     },
     "tiles": {
       "breakable-block": 19,
-      "coral": 309,
+      "coral": 301,
       "flagpole": 15,
-      "ground": 275,
+      "ground": 280,
       "pipe-left": 1,
       "pipe-right": 1
     },
@@ -3038,7 +3038,7 @@
       "platforms": ["lift-down@22,7w3", "lift-down@28,13w3"],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "71949a27"
+      "tileGridDigest": "11379181"
     }
   },
   "smb-warp-0-2-w8": {
@@ -3093,7 +3093,7 @@
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "b19a5123"
+      "tileGridDigest": "bb77f57b"
     }
   },
   "smb-warp-1-11-w2": {
@@ -3105,7 +3105,7 @@
     },
     "tiles": {
       "flagpole": 15,
-      "ground": 60
+      "ground": 61
     },
     "piranhaPlants": 0,
     "firebars": 0,
@@ -3173,7 +3173,7 @@
       "platforms": ["horizontal@16,11w3"],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "8da5674e"
+      "tileGridDigest": "f1d1ff76"
     }
   },
   "smb-warp-1-11-w5": {
@@ -3185,7 +3185,7 @@
     },
     "tiles": {
       "flagpole": 15,
-      "ground": 60
+      "ground": 61
     },
     "piranhaPlants": 0,
     "firebars": 0,
@@ -3253,7 +3253,7 @@
       "platforms": ["horizontal@16,11w3"],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "8da5674e"
+      "tileGridDigest": "f1d1ff76"
     }
   },
   "smb-warp-1-15-w4": {
@@ -3342,7 +3342,7 @@
     "tiles": {
       "breakable-block": 12,
       "flagpole": 15,
-      "ground": 81
+      "ground": 82
     },
     "piranhaPlants": 0,
     "firebars": 0,
@@ -3421,7 +3421,7 @@
       "platforms": ["horizontal@16,11w3"],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "dada64aa"
+      "tileGridDigest": "7d09801c"
     }
   },
   "smb-warp-1-20-w6": {
@@ -3434,7 +3434,7 @@
     "tiles": {
       "breakable-block": 12,
       "flagpole": 15,
-      "ground": 81
+      "ground": 82
     },
     "piranhaPlants": 0,
     "firebars": 0,
@@ -3513,7 +3513,7 @@
       "platforms": ["horizontal@16,11w3"],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "dada64aa"
+      "tileGridDigest": "7d09801c"
     }
   },
   "smb-warp-1-5-w2": {
@@ -3788,9 +3788,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -3888,25 +3888,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-1-3@114,4",
-        "vglc-smb-transition-pipe@13,11:right>smb-1-1@162,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-1-3@114,4",
-        "vglc-smb-transition-pipe@45,11:right>smb-1-3@114,4",
-        "vglc-smb-transition-pipe@77,11:right>smb-1-3@114,4"
+        "vglc-smb-transition-pipe@109,12:right>smb-1-3@114,4",
+        "vglc-smb-transition-pipe@13,12:right>smb-1-1@162,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-1-3@114,4",
+        "vglc-smb-transition-pipe@45,12:right>smb-1-3@114,4",
+        "vglc-smb-transition-pipe@77,12:right>smb-1-3@114,4"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w2": {
@@ -3920,9 +3920,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4020,25 +4020,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-2-1@114,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-2-1@114,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-2-1@114,12",
-        "vglc-smb-transition-pipe@45,11:right>smb-2-1@114,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-2-1@114,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-2-1@114,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-2-1@114,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-2-1@114,12",
+        "vglc-smb-transition-pipe@45,12:right>smb-2-1@114,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-2-1@114,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w3": {
@@ -4052,9 +4052,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4152,25 +4152,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-3-1@66,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-3-1@66,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-3-1@66,12",
-        "vglc-smb-transition-pipe@45,11:right>smb-3-1@66,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-3-1@66,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-3-1@66,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-3-1@66,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-3-1@66,12",
+        "vglc-smb-transition-pipe@45,12:right>smb-3-1@66,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-3-1@66,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w4": {
@@ -4184,9 +4184,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4284,25 +4284,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-4-1@162,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-4-1@162,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-4-3@130,4",
-        "vglc-smb-transition-pipe@45,11:right>smb-4-1@162,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-4-1@162,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-4-1@162,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-4-1@162,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-4-3@130,4",
+        "vglc-smb-transition-pipe@45,12:right>smb-4-1@162,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-4-1@162,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w5": {
@@ -4316,9 +4316,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4416,25 +4416,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-5-1@162,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-5-1@162,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-5-1@162,12",
-        "vglc-smb-transition-pipe@45,11:right>smb-5-1@162,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-5-1@162,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-5-1@162,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-5-1@162,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-5-1@162,12",
+        "vglc-smb-transition-pipe@45,12:right>smb-5-1@162,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-5-1@162,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w6": {
@@ -4448,9 +4448,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4548,25 +4548,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-6-2@178,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-6-2@178,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-6-2@34,12",
-        "vglc-smb-transition-pipe@45,11:right>smb-6-2@178,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-6-2@178,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-6-2@178,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-6-2@178,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-6-2@34,12",
+        "vglc-smb-transition-pipe@45,12:right>smb-6-2@178,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-6-2@178,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w7": {
@@ -4580,9 +4580,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4680,25 +4680,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-7-1@114,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-7-1@114,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-7-1@114,12",
-        "vglc-smb-transition-pipe@45,11:right>smb-7-1@114,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-7-1@114,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-7-1@114,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-7-1@114,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-7-1@114,12",
+        "vglc-smb-transition-pipe@45,12:right>smb-7-1@114,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-7-1@114,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   },
   "smb-warp-2-2-w8": {
@@ -4712,9 +4712,9 @@
     "tiles": {
       "breakable-block": 113,
       "flagpole": 15,
-      "ground": 629,
+      "ground": 617,
       "multi-coin-brick": 2,
-      "pipe-left": 44,
+      "pipe-left": 49,
       "pipe-right": 5,
       "pipe-top-left": 5,
       "pipe-top-right": 5,
@@ -4812,25 +4812,25 @@
         "vglc-smb-coin@9,9",
         "vglc-smb-coin@99,12",
         "vglc-smb-coin@99,8",
-        "vglc-smb-transition-pipe@109,11",
-        "vglc-smb-transition-pipe@13,11",
-        "vglc-smb-transition-pipe@141,11",
-        "vglc-smb-transition-pipe@45,11",
-        "vglc-smb-transition-pipe@77,11"
+        "vglc-smb-transition-pipe@109,12",
+        "vglc-smb-transition-pipe@13,12",
+        "vglc-smb-transition-pipe@141,12",
+        "vglc-smb-transition-pipe@45,12",
+        "vglc-smb-transition-pipe@77,12"
       ],
       "pipes": [
-        "vglc-smb-transition-pipe@109,11:right>smb-8-1@114,12",
-        "vglc-smb-transition-pipe@13,11:right>smb-8-1@114,12",
-        "vglc-smb-transition-pipe@141,11:right>smb-8-2@162,12",
-        "vglc-smb-transition-pipe@45,11:right>smb-8-1@114,12",
-        "vglc-smb-transition-pipe@77,11:right>smb-8-1@114,12"
+        "vglc-smb-transition-pipe@109,12:right>smb-8-1@114,12",
+        "vglc-smb-transition-pipe@13,12:right>smb-8-1@114,12",
+        "vglc-smb-transition-pipe@141,12:right>smb-8-2@162,12",
+        "vglc-smb-transition-pipe@45,12:right>smb-8-1@114,12",
+        "vglc-smb-transition-pipe@77,12:right>smb-8-1@114,12"
       ],
       "firebars": [],
       "podoboos": [],
       "platforms": [],
       "loopZones": [],
       "spawners": [],
-      "tileGridDigest": "54fc83cb"
+      "tileGridDigest": "876b0fb8"
     }
   }
 }

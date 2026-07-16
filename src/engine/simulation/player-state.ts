@@ -77,12 +77,16 @@ function requireVelocity(value: number, path: string): VelocityPixelsPerSecond {
 export const initialPlayerSimulationStateConfig: InitialPlayerSimulationStateConfig =
   {
     spawnPositionX: requirePixelPosition(16, "player.position.x"),
-    spawnPositionY: requirePixelPosition(56, "player.position.y"),
+    // Feet at y=80 (row 5 of the default fixtures), like the previous 24px
+    // collider's y=56 spawn.
+    spawnPositionY: requirePixelPosition(64, "player.position.y"),
     velocityX: requireVelocity(0, "player.velocity.x"),
     velocityY: requireVelocity(0, "player.velocity.y"),
     colliderWidth: requireColliderDimensionPixels(14, "player.collider.width"),
+    // ROM small Mario occupies ONE tile for terrain collision — the canonical
+    // 1-2/4-2 routes crawl through 1-tile gaps that a taller box can't enter.
     colliderHeight: requireColliderDimensionPixels(
-      24,
+      16,
       "player.collider.height",
     ),
   };

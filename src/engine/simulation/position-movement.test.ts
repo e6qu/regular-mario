@@ -29,7 +29,7 @@ describe("position movement", () => {
 
     expect(nextPlayer.position).toEqual({
       x: 25,
-      y: 68,
+      y: 76,
     });
   });
 
@@ -50,7 +50,7 @@ describe("position movement", () => {
 
     expect(nextPlayer.position).toEqual({
       x: 13,
-      y: 52,
+      y: 60,
     });
   });
 
@@ -61,7 +61,7 @@ describe("position movement", () => {
 
     expect(previousPlayer.position).toEqual({
       x: 16,
-      y: 56,
+      y: 64,
     });
   });
 });

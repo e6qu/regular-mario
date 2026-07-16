@@ -60,6 +60,12 @@ async function main() {
   const status = await readSmbCacheStatus(cacheRoot);
 
   if (status.browserDemoManifest) {
+    // An overridden cache root is a test fixture: the pipeline stamp lives in
+    // the real cache, so freshness only applies to the default root.
+    if (cacheRootOption !== undefined) {
+      console.log("SMB dev cache is ready.");
+      return;
+    }
     // Complete — but is it FRESH? A pulled change to the content pipeline
     // (level decoder, asset/map builders) leaves previously-built maps and
     // bundles stale; rebuild the content steps when the stamp mismatches.

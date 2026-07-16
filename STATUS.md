@@ -5,7 +5,11 @@
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **849 unit tests + browser journeys
-pass; all gates green.** 2026-07-16: the flagpole finale plays in full (ball
+pass; all gates green.** 2026-07-16 (later): the 1-2/4-2 underground bonus
+room's sealed exit is fixed (two ROM-verified decoder bugs: exit-pipe mouth
+row, alter-attributes column) and **small Mario's terrain collider is now the
+ROM's single tile (14×16)** so the original one-tile crawl routes are
+passable. Earlier 2026-07-16: the flagpole finale plays in full (ball
 knock, full flag drop, slide, exit march into the castle), poles/pipes render
 honestly (invisible goal-reach trigger; ROM-height pipes with real pipe art),
 and the regenerated pack keeps every enemy and all completability proofs. Latest fixes (2026-07-15): suspended sessions no

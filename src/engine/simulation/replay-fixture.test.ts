@@ -213,7 +213,7 @@ function expectRightwardHazardReplayState(
     frameIndex: 58,
     playerPosition: {
       x: playerPositionX,
-      y: 56,
+      y: 64,
     },
     playerVelocity: {
       x: expectedPlayerVelocityX,
@@ -326,7 +326,7 @@ describe("replay fixture", () => {
       frameIndex: 32,
       playerPosition: {
         x: 10.934_333_333_130_706,
-        y: 56,
+        y: 64,
       },
       playerVelocity: {
         x: initialMovementConstants.enemySideContactKnockbackSpeed,
@@ -386,7 +386,7 @@ describe("replay fixture", () => {
       frameIndex: 58,
       playerPosition: {
         x: 61.646_666_668_492_536,
-        y: 56,
+        y: 64,
       },
       playerVelocity: {
         x: -150,
@@ -422,7 +422,7 @@ describe("replay fixture", () => {
       frameIndex: 48,
       playerPosition: {
         x: 81.110_000_002_404_38,
-        y: -19.656_250_000_506_244,
+        y: -11.656_250_000_506_244,
       },
       playerVelocity: {
         x: 150,
@@ -479,7 +479,7 @@ describe("replay fixture", () => {
       frameIndex: 200,
       playerPosition: {
         x: 146.110_000_003_704_22,
-        y: 56,
+        y: 64,
       },
       playerVelocity: {
         x: 150,
@@ -522,8 +522,8 @@ describe("replay fixture", () => {
     expectGoldenReplayState(finalState, {
       frameIndex: 120,
       playerPosition: {
-        x: 226.110_000_005_304_02,
-        y: 98.062_500_001_322_5,
+        x: 221.110_000_005_204_03,
+        y: 97.062_500_001_142_5,
       },
       playerVelocity: {
         x: 150,
@@ -567,7 +567,7 @@ describe("replay fixture", () => {
       frameIndex: 60,
       playerPosition: {
         x: 47.931_111_112_358_33,
-        y: 56,
+        y: 64,
       },
       playerVelocity: {
         x: -150,
@@ -613,7 +613,7 @@ describe("replay fixture", () => {
       frameIndex: 80,
       playerPosition: {
         x: 61.646_666_668_492_536,
-        y: 56,
+        y: 64,
       },
       playerVelocity: {
         x: -150,

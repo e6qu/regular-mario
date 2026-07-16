@@ -83,7 +83,7 @@ type BrowserTestSpriteEntry = {
 
 const expectedInitialPlayerPosition = {
   x: 16,
-  y: 56,
+  y: 64,
 } as const;
 const firstAuthoredBrowserUrl = "/?browserLevel=first-authored";
 const localVglcSmbManifestRoute =
@@ -2393,7 +2393,7 @@ test("enters a pipe and warps the player to the target tile", async ({
   await expect(page.locator("canvas")).toBeVisible();
 
   const initialSnapshot = await readSimulationSnapshot(page);
-  expect(initialSnapshot.player.position).toEqual({ x: 16, y: 56 });
+  expect(initialSnapshot.player.position).toEqual({ x: 16, y: 64 });
 
   await page.keyboard.down("ArrowRight");
   await waitForPlayerPositionXGreaterThan(page, 58);
@@ -2493,7 +2493,7 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   expect(advancedSnapshot.levelProgression.levelIndex).toBe(1);
   expect(advancedSnapshot.playerOutcome.kind).toBe("active");
   expect(advancedSnapshot.player.position.x).toBe(16);
-  expect(advancedSnapshot.player.position.y).toBe(56);
+  expect(advancedSnapshot.player.position.y).toBe(64);
   // The score is a whole-session total: the finished level's score carries into
   // the next level rather than resetting to zero.
   expect(advancedSnapshot.score).toBeGreaterThanOrEqual(finishedSnapshot.score);

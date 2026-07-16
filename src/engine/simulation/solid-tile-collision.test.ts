@@ -202,8 +202,8 @@ describe("hidden block collision", () => {
   it("falls straight through an unrevealed hidden block", () => {
     // Falling down through the secret tile's cell (column 3, row 3).
     const { previous, moved } = fallingPlayerPair({
-      previousPosition: { x: 48, y: 20 },
-      movedPosition: { x: 48, y: 28 },
+      previousPosition: { x: 48, y: 28 },
+      movedPosition: { x: 48, y: 36 },
     });
     const levelSpec = hiddenBlockLevelSpec();
     expect(levelSpec.tiles[3]?.[3]).toBe("secret");
@@ -217,7 +217,7 @@ describe("hidden block collision", () => {
       noneRevealed,
     );
     // Intangible: the player keeps falling and nothing is bumped.
-    expect(result.player.position.y).toBe(28);
+    expect(result.player.position.y).toBe(36);
     expect(result.bumpedInteractiveBlocks).toEqual([]);
   });
 
@@ -244,8 +244,8 @@ describe("hidden block collision", () => {
 
   it("is solid to land on once revealed", () => {
     const { previous, moved } = fallingPlayerPair({
-      previousPosition: { x: 48, y: 20 },
-      movedPosition: { x: 48, y: 28 },
+      previousPosition: { x: 48, y: 28 },
+      movedPosition: { x: 48, y: 36 },
     });
     const levelSpec = hiddenBlockLevelSpec();
     const revealed = new Set<string>([hiddenBlockPositionKey(3, 3)]);
@@ -268,8 +268,8 @@ describe("hidden block collision", () => {
 describe("solid tile collision", () => {
   it("lands on a crossed solid tile from above", () => {
     const { previous: previousPlayer, moved: movedPlayer } = fallingPlayerPair({
-      previousPosition: { x: 16, y: 53 },
-      movedPosition: { x: 16, y: 57 },
+      previousPosition: { x: 16, y: 61 },
+      movedPosition: { x: 16, y: 65 },
     });
 
     expect(
@@ -282,7 +282,7 @@ describe("solid tile collision", () => {
       ...movedPlayer,
       position: {
         x: 16,
-        y: 56,
+        y: 64,
       },
       velocity: {
         x: movedPlayer.velocity.x,
@@ -297,8 +297,8 @@ describe("solid tile collision", () => {
 
   it("launches upward from a crossed spring tile top", () => {
     const { previous: previousPlayer, moved: movedPlayer } = fallingPlayerPair({
-      previousPosition: { x: 32, y: 37 },
-      movedPosition: { x: 32, y: 41 },
+      previousPosition: { x: 32, y: 45 },
+      movedPosition: { x: 32, y: 49 },
     });
 
     expect(
@@ -311,7 +311,7 @@ describe("solid tile collision", () => {
       ...movedPlayer,
       position: {
         x: 32,
-        y: 40,
+        y: 48,
       },
       velocity: {
         x: movedPlayer.velocity.x,
@@ -487,7 +487,7 @@ describe("solid tile collision", () => {
     const previousPlayer = playerWithTestState({
       position: {
         x: 16,
-        y: 56,
+        y: 64,
       },
       velocity: {
         x: 120,
@@ -501,7 +501,7 @@ describe("solid tile collision", () => {
     const movedPlayer = playerWithTestState({
       position: {
         x: 18,
-        y: 56.2,
+        y: 64.2,
       },
       velocity: {
         x: 120,
@@ -523,7 +523,7 @@ describe("solid tile collision", () => {
       ...movedPlayer,
       position: {
         x: 18,
-        y: 56,
+        y: 64,
       },
       velocity: {
         x: 120,

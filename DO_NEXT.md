@@ -1,5 +1,15 @@
 # DO_NEXT.md
 
+## Landed: bonus-room exit unsealed + ROM-size small player (2026-07-16)
+
+- Decoder fixes (both SMBDIS-verified): sideways exit-pipe mouth one row
+  lower, alter-attributes applied from the _next_ column — the 1-2/4-2 bonus
+  room's exit pipe now has an opening.
+- Small Mario's terrain collider is the ROM's single tile (14×16,
+  feet-anchored), so the canonical one-tile crawl routes (1-2, 4-2) are
+  passable; ~60 unit tests migrated to the new geometry, replay goldens
+  re-derived, playthrough driver clears 1-2/1-3.
+
 ## Landed: flagpole finale + honest pipes (2026-07-16)
 
 - Full flag cutscene (ball knock on any grab, full flag drop, slide, walk into

@@ -14,11 +14,11 @@ describe("player simulation state", () => {
   it("exposes explicit authored initial player state config", () => {
     expect(initialPlayerSimulationStateConfig).toEqual({
       spawnPositionX: 16,
-      spawnPositionY: 56,
+      spawnPositionY: 64,
       velocityX: 0,
       velocityY: 0,
       colliderWidth: 14,
-      colliderHeight: 24,
+      colliderHeight: 16,
     });
   });
 
@@ -31,7 +31,7 @@ describe("player simulation state", () => {
   it("uses explicit small and powered collider dimensions", () => {
     expect(smallPlayerColliderDimensions).toEqual({
       width: 14,
-      height: 24,
+      height: 16,
     });
     expect(poweredPlayerColliderDimensions).toEqual({
       width: 14,
@@ -67,11 +67,11 @@ describe("player simulation state", () => {
 
     expect(smallPlayer.collider).toEqual({
       width: 14,
-      height: 24,
+      height: 16,
     });
     expect(smallPlayer.position).toEqual({
       x: 16,
-      y: 56,
+      y: 64,
     });
   });
 
