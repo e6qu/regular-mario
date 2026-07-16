@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-16 — sideways pipes render whole (the ROM's four-column layout)
+
+- **Exit/intro pipes no longer render as "half a pipe."** RenderSidewaysPipe
+  (disassembly) draws four columns — a two-column left-facing mouth (end
+  tiles $1c/$1f + horizontal shaft $1d/$20), joint tiles ($1e/$21), and the
+  vertical shaft's right half ($15) full height — where we drew a one-column
+  shaft plus the mouth. The decoder now paints all four columns (`{}`/`dD`
+  mouth, new `(`/`)` joint glyphs, `pP` shaft), so bonus-room exits read as a
+  real pipe with a walk-in side opening.
+- **Intro pipes cap at playfield row 7** (IntroPipe blanks the shaft above
+  and writes a pipe end), standing on the floor instead of hanging from the
+  ceiling.
+- **Water pipes use the sideways end tiles** — the ROM's water pipe reuses
+  those exact CHR tiles.
+- Six new side-pipe tile ids in both skins: ROM CHR compositions in the
+  extraction map, rotated-culm art in the parody skin.
+
 ## 2026-07-16 — bonus-room exit unsealed, ROM-size small player
 
 - **The 1-2/4-2 shared bonus room no longer seals the player in.** Two

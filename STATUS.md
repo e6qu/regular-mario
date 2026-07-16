@@ -5,7 +5,9 @@
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **849 unit tests + browser journeys
-pass; all gates green.** 2026-07-16 (later): the 1-2/4-2 underground bonus
+pass; all gates green.** 2026-07-16 (later): sideways pipes render whole (the
+ROM's four-column mouth/joint/shaft layout, capped intro pipes, faithful
+water-pipe tiles); the 1-2/4-2 underground bonus
 room's sealed exit is fixed (two ROM-verified decoder bugs: exit-pipe mouth
 row, alter-attributes column) and **small Mario's terrain collider is now the
 ROM's single tile (14×16)** so the original one-tile crawl routes are
@@ -92,10 +94,10 @@ What exists now:
   level's running game holds its full decoded content, and headless engine
   playthroughs that drive every main level to a finish.
 - **ROM-extracted dev skin (local-only)** covers the entire cast, mechanisms
-  and scenery from 86 numeric CHR compositions; all 32 menu levels boot
+  and scenery from 92 numeric CHR compositions; all 32 menu levels boot
   under its strict coverage validation.
 - **Authored "Shabby Castaway" skin is complete** — art for every visual
-  element (86 sprites): the full enemy cast (including the hurler, cloud
+  element (92 sprites): the full enemy cast (including the hurler, cloud
   tosser, kelp traps, charcoal buzzies), all 24 scenery tiles, mechanisms
   (firebar orbs, podoboos, lift rafts, the goal pennant), every projectile
   kind (fireballs, bullets, hammers, eggs, flame jets), palette-swapped

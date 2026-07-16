@@ -1,5 +1,12 @@
 # DO_NEXT.md
 
+## Landed: whole sideways pipes (2026-07-16)
+
+- Exit/intro/water pipes now render the ROM's four-column sideways layout
+  (mouth + horizontal shaft + joint + full-height vertical shaft; intro caps
+  at row 7) with six new side-pipe tiles in both skins — no more "half a
+  pipe" over the bonus-room exits.
+
 ## Landed: bonus-room exit unsealed + ROM-size small player (2026-07-16)
 
 - Decoder fixes (both SMBDIS-verified): sideways exit-pipe mouth one row

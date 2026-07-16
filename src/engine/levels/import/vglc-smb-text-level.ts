@@ -281,10 +281,24 @@ const multiLayerStructuralTerrainCharacters: ReadonlyMap<
   ["]", { tileId: "pipe-top-right", collision: TileCollisionKind.Solid }],
   ["p", { tileId: "pipe-left", collision: TileCollisionKind.Solid }],
   ["P", { tileId: "pipe-right", collision: TileCollisionKind.Solid }],
-  ["d", { tileId: "pipe-left", collision: TileCollisionKind.Solid }],
-  ["D", { tileId: "pipe-right", collision: TileCollisionKind.Solid }],
-  ["{", { tileId: "pipe-top-left", collision: TileCollisionKind.Solid }],
-  ["}", { tileId: "pipe-top-right", collision: TileCollisionKind.Solid }],
+  // Sideways (left-facing) pipe tiles, matching the ROM's four-column
+  // RenderSidewaysPipe layout: end (rim + opening), horizontal shaft, and the
+  // joint where the horizontal part merges into the vertical shaft.
+  ["{", { tileId: "pipe-side-mouth-top", collision: TileCollisionKind.Solid }],
+  [
+    "d",
+    { tileId: "pipe-side-mouth-bottom", collision: TileCollisionKind.Solid },
+  ],
+  ["}", { tileId: "pipe-side-shaft-top", collision: TileCollisionKind.Solid }],
+  [
+    "D",
+    { tileId: "pipe-side-shaft-bottom", collision: TileCollisionKind.Solid },
+  ],
+  ["(", { tileId: "pipe-side-joint-top", collision: TileCollisionKind.Solid }],
+  [
+    ")",
+    { tileId: "pipe-side-joint-bottom", collision: TileCollisionKind.Solid },
+  ],
   [
     "?",
     {

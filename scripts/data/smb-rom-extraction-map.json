@@ -823,6 +823,180 @@
       ]
     },
     {
+      "id": "tile-pipe-side-mouth-top",
+      "patternTable": 1,
+      "palette": "overworld-pipe",
+      "widthTiles": 2,
+      "heightTiles": 2,
+      "tiles": [
+        {
+          "index": 134,
+          "column": 0,
+          "row": 0
+        },
+        {
+          "index": 138,
+          "column": 0,
+          "row": 1
+        },
+        {
+          "index": 135,
+          "column": 1,
+          "row": 0
+        },
+        {
+          "index": 139,
+          "column": 1,
+          "row": 1
+        }
+      ]
+    },
+    {
+      "id": "tile-pipe-side-shaft-top",
+      "patternTable": 1,
+      "palette": "overworld-pipe",
+      "widthTiles": 2,
+      "heightTiles": 2,
+      "tiles": [
+        {
+          "index": 136,
+          "column": 0,
+          "row": 0
+        },
+        {
+          "index": 140,
+          "column": 0,
+          "row": 1
+        },
+        {
+          "index": 136,
+          "column": 1,
+          "row": 0
+        },
+        {
+          "index": 140,
+          "column": 1,
+          "row": 1
+        }
+      ]
+    },
+    {
+      "id": "tile-pipe-side-joint-top",
+      "patternTable": 1,
+      "palette": "overworld-pipe",
+      "widthTiles": 2,
+      "heightTiles": 2,
+      "tiles": [
+        {
+          "index": 137,
+          "column": 0,
+          "row": 0
+        },
+        {
+          "index": 141,
+          "column": 0,
+          "row": 1
+        },
+        {
+          "index": 105,
+          "column": 1,
+          "row": 0
+        },
+        {
+          "index": 105,
+          "column": 1,
+          "row": 1
+        }
+      ]
+    },
+    {
+      "id": "tile-pipe-side-mouth-bottom",
+      "patternTable": 1,
+      "palette": "overworld-pipe",
+      "widthTiles": 2,
+      "heightTiles": 2,
+      "tiles": [
+        {
+          "index": 142,
+          "column": 0,
+          "row": 0
+        },
+        {
+          "index": 145,
+          "column": 0,
+          "row": 1
+        },
+        {
+          "index": 143,
+          "column": 1,
+          "row": 0
+        },
+        {
+          "index": 146,
+          "column": 1,
+          "row": 1
+        }
+      ]
+    },
+    {
+      "id": "tile-pipe-side-shaft-bottom",
+      "patternTable": 1,
+      "palette": "overworld-pipe",
+      "widthTiles": 2,
+      "heightTiles": 2,
+      "tiles": [
+        {
+          "index": 38,
+          "column": 0,
+          "row": 0
+        },
+        {
+          "index": 147,
+          "column": 0,
+          "row": 1
+        },
+        {
+          "index": 38,
+          "column": 1,
+          "row": 0
+        },
+        {
+          "index": 147,
+          "column": 1,
+          "row": 1
+        }
+      ]
+    },
+    {
+      "id": "tile-pipe-side-joint-bottom",
+      "patternTable": 1,
+      "palette": "overworld-pipe",
+      "widthTiles": 2,
+      "heightTiles": 2,
+      "tiles": [
+        {
+          "index": 144,
+          "column": 0,
+          "row": 0
+        },
+        {
+          "index": 148,
+          "column": 0,
+          "row": 1
+        },
+        {
+          "index": 105,
+          "column": 1,
+          "row": 0
+        },
+        {
+          "index": 105,
+          "column": 1,
+          "row": 1
+        }
+      ]
+    },
+    {
       "id": "tile-flagpole-shaft",
       "patternTable": 1,
       "palette": "overworld-pipe",

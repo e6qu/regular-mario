@@ -39,6 +39,12 @@ const composedSpriteFiles = [
   "tile-pipe-top-right.png",
   "tile-pipe-body-left.png",
   "tile-pipe-body-right.png",
+  "tile-pipe-side-mouth-top.png",
+  "tile-pipe-side-mouth-bottom.png",
+  "tile-pipe-side-shaft-top.png",
+  "tile-pipe-side-shaft-bottom.png",
+  "tile-pipe-side-joint-top.png",
+  "tile-pipe-side-joint-bottom.png",
   "tile-flagpole-shaft.png",
   "tile-coin.png",
   // The full cast, mechanisms, scenery and fire-tier player frames.

@@ -181,6 +181,12 @@ const tileSpriteSources = {
   "pipe-top-right": "tile-pipe-top-right.png",
   "pipe-left": "tile-pipe-body-left.png",
   "pipe-right": "tile-pipe-body-right.png",
+  "pipe-side-mouth-top": "tile-pipe-side-mouth-top.png",
+  "pipe-side-mouth-bottom": "tile-pipe-side-mouth-bottom.png",
+  "pipe-side-shaft-top": "tile-pipe-side-shaft-top.png",
+  "pipe-side-shaft-bottom": "tile-pipe-side-shaft-bottom.png",
+  "pipe-side-joint-top": "tile-pipe-side-joint-top.png",
+  "pipe-side-joint-bottom": "tile-pipe-side-joint-bottom.png",
   flagpole: "tile-flagpole-shaft.png",
   coin: "tile-coin.png",
 };

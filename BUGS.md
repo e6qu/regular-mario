@@ -77,6 +77,19 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   everywhere. Verified by the regenerated census, the completability proofs,
   and the stochastic playthrough driver clearing 1-2/1-3.
 
+- **Fixed (2026-07-16): bonus-room exit pipes rendered as "half a pipe"** — a
+  one-tile-wide shaft hanging from the ceiling over a disconnected up-capped
+  stub, which didn't read as an enterable side mouth at all (the walk-in exit
+  worked mechanically, but nothing about the picture said "walk in here").
+  Per the disassembly's RenderSidewaysPipe the sideways pipe is FOUR columns:
+  a two-column left-facing mouth (end + horizontal shaft tiles), joint tiles,
+  and the vertical shaft's right half running the full height. The decoder
+  now paints all four columns; six new side-pipe tile ids ship in both skins
+  (ROM CHR metatiles $1c/$1d/$1e/$1f/$20/$21; rotated-culm art in the parody
+  skin); intro pipes cap at playfield row 7 like the ROM instead of hanging
+  from the ceiling; and water pipes reuse the sideways end tiles (their exact
+  ROM CHR tiles).
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

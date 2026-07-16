@@ -517,16 +517,42 @@ const enemyKindSymbol = {
 };
 
 // ---- Render objects into a symbol grid ------------------------------------
-// Sideways pipe mouths (intro and bonus-exit pipes): a two-column left-facing
-// mouth with the vertical shaft above its right column.
-function paintSidePipeMouth(grid, col, mouthTop) {
+// Sideways pipes (intro and bonus-exit pipes) are FOUR columns wide per the
+// disassembly's RenderSidewaysPipe + SidePipeTopPart/SidePipeBottomPart: a
+// two-column left-facing mouth (end $1c/$1f, horizontal shaft $1d/$20) at
+// playfield rows (length-1, length), joint tiles ($1e/$21) where it meets the
+// vertical shaft's left half, and the shaft's right half ($15) running the
+// full height. Previously we drew a one-column shaft and no joint — half a
+// pipe.
+function paintSidewaysPipe(grid, col, mouthTop) {
   set(grid, col, mouthTop, "{");
   set(grid, col, mouthTop + 1, "d");
   set(grid, col + 1, mouthTop, "}");
   set(grid, col + 1, mouthTop + 1, "D");
+  set(grid, col + 2, mouthTop, "(");
+  set(grid, col + 2, mouthTop + 1, ")");
+  set(grid, col + 3, mouthTop, "P");
+  set(grid, col + 3, mouthTop + 1, "P");
   for (let r = rowOffset; r < mouthTop; r += 1) {
-    set(grid, col + 1, r, "p");
+    set(grid, col + 2, r, "p");
+    set(grid, col + 3, r, "P");
   }
+}
+
+// The intro pipe (walk-out cutscene pipe) blanks its vertical shaft above
+// playfield row 7 and caps it there (IntroPipe's VPipeSectLoop +
+// VerticalPipeData write), so it stands on the floor instead of hanging from
+// the ceiling like an exit pipe.
+const introPipeCapPlayfieldRow = 7;
+function paintIntroPipe(grid, col, mouthTop) {
+  paintSidewaysPipe(grid, col, mouthTop);
+  const capRow = introPipeCapPlayfieldRow + rowOffset;
+  for (let r = rowOffset; r < capRow; r += 1) {
+    set(grid, col + 2, r, emptySymbol);
+    set(grid, col + 3, r, emptySymbol);
+  }
+  set(grid, col + 2, capRow, "[");
+  set(grid, col + 3, capRow, "]");
 }
 
 function makeGrid(widthCols) {
@@ -539,7 +565,7 @@ function makeGrid(widthCols) {
 // cells an enemy glyph must never replace (everything else is passable
 // decoration the enemy simply stands in front of).
 const structuralSymbols = new Set([
-  ...["#", "[", "]", "p", "P", "d", "D", "{", "}", "="],
+  ...["#", "[", "]", "p", "P", "d", "D", "{", "}", "(", ")", "="],
   ...["B", "?", "O", "+", "*", "H", "M", "I", "C", "c"],
   ...["V", "X", "Y", "y", "^", ":", "|"],
 ]);
@@ -790,7 +816,7 @@ function renderArea(header, objects, enemies, options = {}) {
         // previous (length-2, length-1), which left the mouth floating a row
         // above the floor and, in the shared bonus room, sealed behind the
         // wall beside it.
-        paintSidePipeMouth(
+        paintSidewaysPipe(
           grid,
           o.col,
           Math.max((o.low & 0xf) - 1, 0) + rowOffset,
@@ -814,8 +840,11 @@ function renderArea(header, objects, enemies, options = {}) {
           const sub = Number(o.kind.slice(6));
           const sym = smallObjectSymbols[sub];
           if (sym === "water-pipe") {
-            set(grid, o.col, gr, "d");
-            set(grid, o.col, gr + 1, "D");
+            // The ROM's water pipe reuses the sideways-pipe END tiles
+            // ($86/$8a/$87/$8b over $8e/$91/$8f/$92): a one-column
+            // left-facing mouth.
+            set(grid, o.col, gr, "{");
+            set(grid, o.col, gr + 1, "d");
           } else if (sym === "jumpspring") {
             set(grid, o.col, gr, "Y");
             set(grid, o.col, gr + 1, "y");
@@ -833,7 +862,7 @@ function renderArea(header, objects, enemies, options = {}) {
         if (special === "flagpole") {
           for (let r = 2; r <= floorRow - 1; r += 1) set(grid, o.col, r, "|");
         } else if (special === "intro-pipe") {
-          paintSidePipeMouth(grid, o.col, introPipeMouthRow + rowOffset);
+          paintIntroPipe(grid, o.col, introPipeMouthRow + rowOffset);
         }
         // axe/chain/castle-bridge/scroll-locks/frenzies/loop commands carry
         // no terrain; they become mechanics metadata in later passes.
@@ -1390,7 +1419,7 @@ export async function decodeAllLevels(romPath) {
         ? introPipeMouthRow + rowOffset
         : isWaterPipe
           ? o.row + rowOffset
-          : // Matches paintSidePipeMouth: the mouth's top row is length-1
+          : // Matches paintSidewaysPipe: the mouth's top row is length-1
             // (RenderSidewaysPipe draws the mouth at rows length-1, length).
             Math.max((o.low & 0xf) - 1, 0) + rowOffset;
       const connection = connectionForCol(o.col);

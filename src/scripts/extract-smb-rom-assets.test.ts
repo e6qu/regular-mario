@@ -343,7 +343,7 @@ describe("extract-smb-rom-assets", () => {
       "bg-water",
       "bg-orange",
     ]);
-    expect(report.spriteCompositionCount).toBe(86);
+    expect(report.spriteCompositionCount).toBe(92);
     expect(report.outputs).toContain("sprites/mario-small-idle.png");
     expect(report.outputs).toContain("sprites/goomba-walk.png");
     expect(report.outputs).toContain("sprites/tile-brick.png");
