@@ -594,40 +594,41 @@ const tilePipeRight = [
 ];
 
 // Sideways (left-facing) bamboo pipe, the vertical culm design rotated 90°:
-// a full-bleed rim ring on the left with a dark throat behind it, a
-// horizontal tube inset 2px top/bottom with a node column, and joint tiles
-// where the tube merges into a vertical culm (whose seam stays in front).
+// a full-bleed rim ring on the left with the whole mouth interior dark (an
+// unmistakably open end), a horizontal tube inset 2px top/bottom with a node
+// column, and joint tiles where the tube merges into a vertical culm (whose
+// seam stays in front).
 const tilePipeSideMouthTop = [
   "kyggGk..........",
   "kyggGk..........",
   "kyggGkkkkkkkkkkk",
-  "kyggGkkkkyyyyyyy",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
 ];
 const tilePipeSideMouthBottom = [
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkgggggggg",
-  "kyggGkkkGGGGGGGG",
-  "kyggGkkkGGGGGGGG",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
+  "kyggGkkkkkkkkkkk",
   "kyggGkkkkkkkkkkk",
   "kyggGk..........",
   "kyggGk..........",

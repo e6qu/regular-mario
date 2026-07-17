@@ -118,6 +118,18 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   and an enemy glyph can no longer erase a coin when displaced. Verified in
   the browser: the 1-2 exit now lands in an enemy-free tail.
 
+- **Fixed (2026-07-17): big Mario exited pipes half-buried in the ground.**
+  `teleportPlayerToTilePosition` put the collider's TOP at the target tile —
+  exact for the one-tile small player, one tile too deep for the 32px big
+  player. Arrivals are now feet-anchored on the target tile's bottom edge
+  (identical for small, standing for big). Unit test pins both sizes;
+  browser-verified on the 1-2 → 1-1 exit.
+
+- **Fixed (2026-07-17): sideways pipe mouths read as blocked hatches.** The
+  parody skin's side-mouth tiles drew green tube panels behind a narrow
+  throat, which framed like a closed door. The mouth interior is now fully
+  dark behind the rim ring — an unmistakably open end.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

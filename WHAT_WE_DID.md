@@ -5,6 +5,13 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-17 — pipe-exit polish: feet-anchored arrivals, open mouths
+
+- Warp/pipe arrivals are feet-anchored on the target tile (big Mario no
+  longer exits half-buried; small players land identically to before).
+- The parody skin's sideways mouths now draw a fully dark interior behind
+  the rim ring instead of tube panels that read as a closed hatch.
+
 ## 2026-07-17 — spawn-faithful enemies: dead records, entry-page culling
 
 - **1-2's exit no longer drops the player onto goombas.** The ROM never

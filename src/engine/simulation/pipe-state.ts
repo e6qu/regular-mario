@@ -359,7 +359,13 @@ export function teleportPlayerToTilePosition(
   levelSpec: LevelSpec,
 ): PlayerSimulationState {
   const pixelX = targetTilePosition.x * levelSpec.tileSizePixels;
-  const pixelY = targetTilePosition.y * levelSpec.tileSizePixels;
+  // Feet-anchored: the collider's bottom sits on the target tile's bottom
+  // edge. For the small (one-tile) player this is exactly the target tile;
+  // a taller player stands with his head above it instead of poking one
+  // tile down into the floor (big Mario used to exit pipes half-buried).
+  const pixelY =
+    (targetTilePosition.y + 1) * levelSpec.tileSizePixels -
+    player.collider.height;
 
   return {
     ...player,

@@ -20,7 +20,9 @@ import {
   makeInitialPipeEntryState,
   PipeEntryPhase,
   resolvePipeState,
+  teleportPlayerToTilePosition,
 } from "./pipe-state";
+import { poweredPlayerColliderDimensions } from "./player-state";
 
 // An 8x6 level whose warp pipe sits on tile (4, 4) and enters as `direction`.
 function pipeLevelSpec(direction: string): LevelSpec {
@@ -145,6 +147,31 @@ describe("pipe entry direction", () => {
     ).toBe(PipeEntryPhase.Entering);
     expect(resolveAt(level, false, HorizontalInput.Right).pipeEntry.phase).toBe(
       PipeEntryPhase.None,
+    );
+  });
+});
+
+describe("teleportPlayerToTilePosition", () => {
+  it("anchors the player's feet on the target tile's bottom edge", () => {
+    const level = pipeLevelSpec("down");
+    const small = playerAgainstPipe(0, 65);
+    const big = {
+      ...small,
+      collider: poweredPlayerColliderDimensions,
+    };
+    const target = { x: 2, y: 3 } as unknown as Parameters<
+      typeof teleportPlayerToTilePosition
+    >[1];
+
+    // Small (one-tile) player fills exactly the target tile.
+    const smallMoved = teleportPlayerToTilePosition(small, target, level);
+    expect(smallMoved.position).toEqual({ x: 32, y: 48 });
+    // A big player stands with his head above the tile instead of poking one
+    // tile down into the floor (big Mario used to exit pipes half-buried).
+    const bigMoved = teleportPlayerToTilePosition(big, target, level);
+    expect(bigMoved.position).toEqual({ x: 32, y: 32 });
+    expect(bigMoved.position.y + bigMoved.collider.height).toBe(
+      smallMoved.position.y + smallMoved.collider.height,
     );
   });
 });
