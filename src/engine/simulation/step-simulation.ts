@@ -163,6 +163,24 @@ import {
 // begins at grid row 2.
 const hudReservedRowCount = 2;
 
+// Ducked movement is a slow crawl at 40% of the walk speed; a duck-slide
+// entered above this speed keeps its momentum and decays by friction.
+const crawlSpeedPixels = 36;
+
+function makeCrawlMovementConstants(
+  movementConstants: MovementConstants,
+): MovementConstants {
+  const crawlSpeed = requireSimulationVelocity(
+    crawlSpeedPixels,
+    "movement.crawlSpeed",
+  );
+  return {
+    ...movementConstants,
+    maxWalkSpeed: crawlSpeed,
+    maxRunSpeed: crawlSpeed,
+  };
+}
+
 export function stepSimulation(
   state: SimulationState,
   inputCommand: SimulationInputCommand,
@@ -417,10 +435,15 @@ function stepActiveSimulation(
     inputCommand.downHeld &&
     !isPlayerFrozenByPipeEntry(pipeState.pipeEntry);
   // A ducked player under a low ceiling stays ducked (no standing up inside a
-  // one-tile crawl) until the standing box has headroom again.
+  // one-tile crawl) until the standing box has headroom again. Only a player
+  // whose collider is actually the ducked size can be held crouched — the
+  // headroom probe assumes the small box, and a standing player near a low
+  // ceiling must never be pulled back into a crouch.
   const mustStayCrouched =
     state.players[0].player.crouching === true &&
     isBigVitality &&
+    state.players[0].player.collider.height <
+      Number(poweredPlayerColliderDimensions.height) &&
     !playerHasStandingHeadroom(
       state.players[0].player,
       Number(poweredPlayerColliderDimensions.height),
@@ -444,20 +467,27 @@ function stepActiveSimulation(
         inputCommand,
         playerVitalityAfterRecoveryTick,
       );
-  // Ducking suppresses the walk like the ROM — except while covered by a low
-  // ceiling, where horizontal input still works (a crawl): the original lets
-  // you soft-lock by stalling mid-slide inside a one-tile gap, which we
-  // deliberately do not reproduce.
-  const effectiveInputCommand =
-    crouching && !mustStayCrouched
-      ? { ...baseInputCommand, horizontal: HorizontalInput.Neutral }
-      : baseInputCommand;
+  // Ducked movement is a slow crawl (the ROM forbids walking while ducked
+  // entirely, but that makes the 1-2/4-2 one-tile crawls unusable from a
+  // standstill and lets you soft-lock mid-slide — deliberate deviation).
+  // A duck-slide above crawl speed keeps its momentum: input is neutralized
+  // so friction plays out exactly like the original's slide.
+  const crouchSliding =
+    crouching &&
+    Math.abs(Number(state.players[0].player.velocity.x)) > crawlSpeedPixels;
+  const effectiveInputCommand = crouchSliding
+    ? { ...baseInputCommand, horizontal: HorizontalInput.Neutral }
+    : baseInputCommand;
+  const effectiveMovementConstants =
+    crouching && !crouchSliding
+      ? makeCrawlMovementConstants(movementConstants)
+      : movementConstants;
 
   const horizontallyMovedPlayer = applyHorizontalMovement(
     crouchSizedPlayer,
     effectiveInputCommand,
     state.clock.frameDurationMilliseconds,
-    movementConstants,
+    effectiveMovementConstants,
     state.bloodiness,
   );
   const climbableMovement = applyClimbableMovement(
@@ -987,7 +1017,9 @@ function stepActiveSimulation(
   // re-derived fresh each frame (grounded+Down, or held while under a ceiling).
   const finalPlayer = crouching
     ? { ...playerAfterHazardResize, crouching: true }
-    : playerAfterHazardResize;
+    : playerAfterHazardResize.crouching === true
+      ? { ...playerAfterHazardResize, crouching: false }
+      : playerAfterHazardResize;
 
   return {
     clock: nextClock,

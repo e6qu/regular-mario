@@ -2700,29 +2700,36 @@ describe("crouch (big Mario duck)", () => {
     return result.value;
   }
 
+  // Open floor at x=200: clear of the level's beetles (x 0/96), thorn (x 80)
+  // and gate (x 480), so multi-frame movement runs unobstructed.
   const bigGroundedState: SimulationState = withPlayerOverrides(
-    stateWithPlayerAt({ x: 100, y: 48 }),
+    stateWithPlayerAt({ x: 200, y: 48 }),
     {
       playerVitality: { kind: PlayerVitalityKind.Powered },
     },
   );
 
-  it("stops big Mario walking while Down is held on the ground", () => {
-    // Crouch suppresses the walk: pressing Right + Down produces no rightward
-    // acceleration, while Right alone accelerates. (The crouch flag itself is
-    // re-derived each frame and read by the collision phase; the shrunk duck
-    // hurtbox is covered by the player-hurtbox unit tests.)
-    const crouched = stepWithInitialMovementConstants(
-      bigGroundedState,
-      inputCommand(HorizontalInput.Right, true),
-    );
-    const walking = stepWithInitialMovementConstants(
-      bigGroundedState,
-      inputCommand(HorizontalInput.Right, false),
-    );
+  it("crawls slowly while Down is held on the ground", () => {
+    // Ducked movement is a crawl capped well below the walk speed (the ROM
+    // forbids ducked walking entirely, but that made the 1-2/4-2 one-tile
+    // crawls unusable from a standstill — deliberate deviation).
+    let crouched = bigGroundedState;
+    let walking = bigGroundedState;
+    for (let frame = 0; frame < 40; frame += 1) {
+      crouched = stepWithInitialMovementConstants(
+        crouched,
+        inputCommand(HorizontalInput.Right, true),
+      );
+      walking = stepWithInitialMovementConstants(
+        walking,
+        inputCommand(HorizontalInput.Right, false),
+      );
+    }
 
-    expect(crouched.players[0].player.velocity.x).toBe(0);
-    expect(walking.players[0].player.velocity.x).toBeGreaterThan(0);
+    const crawlSpeed = crouched.players[0].player.velocity.x;
+    expect(crawlSpeed).toBeGreaterThan(0);
+    expect(crawlSpeed).toBeLessThanOrEqual(36);
+    expect(walking.players[0].player.velocity.x).toBeGreaterThan(crawlSpeed);
   });
 
   it("does not crouch a small player (already short)", () => {
@@ -2859,6 +2866,21 @@ describe("crouch (big Mario duck)", () => {
 
     expect(stepped.players[0].player.crouching).toBe(true);
     expect(stepped.players[0].player.collider.height).toBe(16);
+  });
+
+  it("clears a stale crouch flag on a standing-size player instead of re-crouching", () => {
+    // Regression: the flag used to survive through the frame pipeline's object
+    // spreads, and the headroom probe (which assumes the ducked box) could
+    // then re-shrink a standing player jumping near a low ceiling — leaving
+    // him stuck crouching forever with Down released.
+    const standingWithStaleFlag = {
+      ...bigPlayerAt(32, 48, 0),
+      crouching: true,
+    };
+    const stepped = stepDuckTunnel(standingWithStaleFlag, false);
+
+    expect(stepped.players[0].player.crouching ?? false).toBe(false);
+    expect(stepped.players[0].player.collider.height).toBe(32);
   });
 
   it("stands a ducked big player back up in the open when Down is released", () => {

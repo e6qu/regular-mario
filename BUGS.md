@@ -98,12 +98,20 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   canonical route impassable for big Mario. Crouching now shrinks the terrain
   collider to the small one-tile box (feet-anchored) and standing back up is
   gated on headroom, so a ducked player under a low ceiling stays ducked.
-  One deliberate deviation: while covered by a low ceiling, horizontal input
-  keeps working (a crawl) — the original lets you soft-lock by stalling
-  mid-slide inside the gap, which we do not reproduce. Engine tests cover the
-  shrink, the pass-through, the covered no-stand, and the open-ground
-  stand-up; browser-verified end to end on the real 1-2 (new debug hook
-  `setPlayerVitality`).
+  One deliberate deviation: ducked movement is a slow crawl (40% walk speed)
+  everywhere, and a duck-slide above crawl speed keeps its momentum — the
+  original forbids ducked walking entirely, which made the crawl unusable
+  from a standstill and let you soft-lock by stalling mid-slide. Engine tests
+  cover the shrink, the pass-through, the crawl speed, the covered no-stand,
+  and the open-ground stand-up; browser-verified end to end on the real 1-2
+  (new debug hook `setPlayerVitality`).
+
+  Follow-up fix (same day): the crouch flag survived the frame pipeline's
+  object spreads and never cleared, and the headroom probe (which assumes
+  the ducked box) could re-shrink a standing player jumping near a low
+  ceiling — big Mario got stuck crouching forever, re-crouching after every
+  jump. The returned player now explicitly clears the flag, and only a
+  genuinely ducked collider can be held crouched (regression tests).
 
 - **Fixed (2026-07-17): walking out of 1-2's exit pipe into 1-1's tail was
   instant death, and a phantom goomba sat near 1-1's start.** Three decoder /
