@@ -688,12 +688,14 @@ function renderArea(header, objects, enemies, options = {}) {
 
   for (let x = 0; x < widthCols; x += 1) {
     for (const r of terrainSolidRows(terrainByCol[x], header.cloudOverride)) {
-      // In water areas the ROM's player-solidity bound ($61) puts the water
-      // terrain metatile ($69) above it: pattern rows over the floor are
-      // swim-through coral, not walls. The floor rows stay solid as the
-      // engine's bottom bound.
-      const glyph = areaTypeName === "water" && r < 8 ? "~" : "#";
-      set(grid, x, r + rowOffset, glyph);
+      // Water terrain ($69) IS solid: SolidMTileUpperExt is a LOWER bound
+      // per palette group (CheckForSolidMTiles branches solid on >=), so the
+      // sea floor, the coral pillars, and the end-of-level funnel walls all
+      // block the swimmer — the exit pipe is the only way through, like the
+      // original. (An earlier read of the table as an upper bound made all
+      // water terrain swim-through, letting players swim past 2-2/7-2's
+      // exit pipes into the dead end behind them.)
+      set(grid, x, r + rowOffset, "#");
     }
   }
 
@@ -726,10 +728,9 @@ function renderArea(header, objects, enemies, options = {}) {
         for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "B");
         break;
       case "row-solid":
-        // Solid-block rows ($61) sit exactly at the water solidity bound —
-        // swim-through coral in water areas, real blocks elsewhere.
-        for (let i = 0; i < len; i += 1)
-          set(grid, o.col + i, gr, areaTypeName === "water" ? "~" : "#");
+        // Solid-block rows are solid in every area type (water uses $69,
+        // which sits at/above its group's solidity lower bound).
+        for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "#");
         break;
       case "row-coins":
         for (let i = 0; i < len; i += 1) set(grid, o.col + i, gr, "o");
@@ -738,8 +739,7 @@ function renderArea(header, objects, enemies, options = {}) {
         for (let i = 0; i < len; i += 1) set(grid, o.col, gr + i, "B");
         break;
       case "col-solid":
-        for (let i = 0; i < len; i += 1)
-          set(grid, o.col, gr + i, areaTypeName === "water" ? "~" : "#");
+        for (let i = 0; i < len; i += 1) set(grid, o.col, gr + i, "#");
         break;
       case "areastyle": {
         if (header.areaStyle === 2) {
@@ -1397,7 +1397,16 @@ export async function decodeAllLevels(romPath) {
     for (const pipe of warpPipes) {
       const zoneIndex = zonePipes.indexOf(pipe);
       if (zoneIndex >= 0 && zoneRow !== undefined) {
-        const destWorld = zoneRow[Math.min(zoneIndex, zoneRow.length - 1)];
+        // The ROM maps a warp pipe to its zone slot by screen position, so a
+        // single-pipe zone (4-2's {-,5,-}) uses the MIDDLE slot — indexing
+        // by pipe order alone landed it on the blank left slot and left the
+        // pipe dead.
+        const slotForIndex =
+          zonePipes.length === 1 ? [1] : [0, 1, 2];
+        const destWorld =
+          zoneRow[
+            slotForIndex[Math.min(zoneIndex, slotForIndex.length - 1)]
+          ];
         if (destWorld !== undefined) {
           pushTransition(pipe.col, pipe.row + rowOffset, {
             targetLevelName: `smb-${destWorld}-1`,
@@ -1466,12 +1475,33 @@ export async function decodeAllLevels(romPath) {
 
     // The game auto-spawns a Piranha Plant in every vertical pipe outside
     // world 1-1 (the VerticalPipe handler); the plant shares the pipe-top
-    // cell, so it travels as metadata rather than a grid symbol.
+    // cell, so it travels as metadata rather than a grid symbol. Warp-zone
+    // pipes are the exception: the ROM's warp-zone scroll-lock object kills
+    // every piranha (ScrollLockObject_Warp: KillEnemies with PiranhaPlant),
+    // which is why the original's warp zones are safe to stand in.
+    // A warp room's own world comes from its -wN suffix (the world whose
+    // stream materialized it); mains carry it in their name directly.
+    const ownWorld =
+      /^smb-(\d+)-/.exec(name)?.[1] ?? /-w(\d+)$/.exec(name)?.[1];
+    const warpZonePipeColumns = new Set(
+      transitions
+        .filter((t) => {
+          const targetWorld = /^smb-(\d+)-/.exec(t.targetLevelName)?.[1];
+          return (
+            t.targetTileX <= 4 &&
+            targetWorld !== undefined &&
+            ownWorld !== undefined &&
+            targetWorld !== ownWorld
+          );
+        })
+        .map((t) => t.x),
+    );
     const piranhaPlants =
       name === "smb-1-1"
         ? []
         : objects
             .filter((o) => o.kind === "pipe" || o.kind === "pipe-warp")
+            .filter((o) => !warpZonePipeColumns.has(o.col))
             .map((o) => ({ x: o.col, y: o.row + rowOffset }));
 
     // Flame hazards from the enemy stream: firebars anchor to the block at

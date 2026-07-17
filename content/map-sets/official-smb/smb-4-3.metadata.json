@@ -28,6 +28,14 @@
     },
     {
       "id": "warp-1",
+      "x": 214,
+      "y": 10,
+      "targetLevelName": "smb-5-1",
+      "targetTileX": 2,
+      "targetTileY": 12
+    },
+    {
+      "id": "warp-2",
       "x": 187,
       "y": 9,
       "targetLevelName": "smb-warp-1-5-w4",
@@ -77,10 +85,6 @@
     {
       "x": 180,
       "y": 6
-    },
-    {
-      "x": 214,
-      "y": 10
     }
   ],
   "platforms": [

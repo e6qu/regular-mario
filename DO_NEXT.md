@@ -1,5 +1,13 @@
 # DO_NEXT.md
 
+## Landed: playability audit (2026-07-17)
+
+- Water solidity per the ROM's lower-bound rule (exits enforced by the end
+  funnels again); warp zones: {5} restored, piranhas culled, banner+numbers;
+  cheep bridge levels verified finishable by the driver. Water mains are
+  BFS-proven but excluded from stochastic-driver expectations (its swimmer
+  can't thread solid coral).
+
 ## Landed: spawn-faithful enemies (2026-07-17)
 
 - Dead enemy records culled at decode; warp arrivals cull everything behind

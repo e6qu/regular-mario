@@ -2345,17 +2345,32 @@ export class BootScene extends Phaser.Scene {
   // starts. The label is world-space, so it scrolls into view with the pipes.
   private renderWarpZoneBanner(): void {
     this.warpZoneBannerShown = false;
-    const warpPipes = this.levelSpec.actors.filter(
-      (actor) =>
-        actor.targetLevelName !== undefined &&
-        actor.targetTilePosition !== undefined &&
-        /^smb-\d+-\d+$/.test(actor.targetLevelName) &&
-        actor.targetTilePosition.x <= mainLevelStartTileX,
-    );
-    const distinctTargets = new Set(
-      warpPipes.map((pipe) => pipe.targetLevelName),
-    );
-    if (distinctTargets.size < 2) {
+    // A warp zone is a pipe (or pipes) jumping to ANOTHER world's start —
+    // the ROM shows the banner for 4-2's single {5} pipe too, so a distinct-
+    // target count would miss it. Same-world level starts (vestibule pipes)
+    // are ordinary progression, not warp zones.
+    const currentName = this.currentMainLevelName ?? "";
+    // Warp rooms booted directly (dev deep links) carry their world in the
+    // -wN suffix instead of the main-level prefix.
+    const ownWorld =
+      /^smb-(\d+)-/.exec(currentName)?.[1] ??
+      /-w(\d+)$/.exec(currentName)?.[1];
+    const warpPipes = this.levelSpec.actors.filter((actor) => {
+      if (
+        actor.targetLevelName === undefined ||
+        actor.targetTilePosition === undefined ||
+        actor.targetTilePosition.x > mainLevelStartTileX
+      ) {
+        return false;
+      }
+      const targetWorld = /^smb-(\d+)-\d+$/.exec(actor.targetLevelName)?.[1];
+      return (
+        targetWorld !== undefined &&
+        ownWorld !== undefined &&
+        targetWorld !== ownWorld
+      );
+    });
+    if (warpPipes.length === 0) {
       return;
     }
 
@@ -2380,6 +2395,28 @@ export class BootScene extends Phaser.Scene {
       )
       .setOrigin(0.5)
       .setDepth(warpBannerDepth);
+    // The original also numbers each pipe with its destination world
+    // ("4 3 2", "5", "8 7 6") — drawn a row above the pipe mouth.
+    for (const pipe of warpPipes) {
+      const world = /^smb-(\d+)-\d+$/.exec(pipe.targetLevelName ?? "")?.[1];
+      if (world === undefined) {
+        continue;
+      }
+      this.add
+        .text(
+          (pipe.position.x + 1) * size,
+          (pipe.position.y - 1) * size + size / 2,
+          world,
+          {
+            color: "#ffffff",
+            fontFamily: "monospace",
+            fontSize: "8px",
+            align: "center",
+          },
+        )
+        .setOrigin(0.5)
+        .setDepth(warpBannerDepth);
+    }
     this.warpZoneBannerShown = true;
   }
 

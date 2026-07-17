@@ -5,7 +5,10 @@
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **849 unit tests + browser journeys
-pass; all gates green.** 2026-07-17: enemy spawning is entry-faithful (dead
+pass; all gates green.** 2026-07-17 (audit): water terrain solid per the
+ROM's real bound (2-2/7-2 exits can no longer be swum past), warp zones
+faithful (4-2's {5} restored, piranha-free pipes, banner + world numbers),
+cheep bridge levels driver-verified finishable. Also: enemy spawning is entry-faithful (dead
 records culled, warp arrivals cull enemies behind the entry page like the
 ROM — no more insta-death walking out of 1-2's exit) and big Mario ducks through one-tile crawls
 (the crouch shrinks the terrain collider like the ROM's duck probes, with

@@ -151,6 +151,28 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   ~6-tile bounce (how 1-3's gaps are crossed off koopas), release it for the
   small ~1.5-tile hop. Now pinned by an engine test.
 
+- **Fixed (2026-07-17): water levels could be swum straight past their exit
+  pipes** — 2-2/7-2 dead-ended behind the funnel because ALL water terrain
+  had been made swim-through by a misreading of the ROM's solidity table
+  (SolidMTileUpperExt is a LOWER bound per palette group: metatile >= bound
+  is solid; an earlier fix read it as an upper bound). Water terrain, coral
+  pillars and the end funnels are solid again; the exit swim-in is verified
+  live and all completability proofs pass. The known limitation moves to the
+  stochastic driver: its swimmer cannot reliably thread solid coral mazes,
+  so water mains are excluded from driver expectations (they remain
+  BFS-proven and hand-verified).
+
+- **Fixed (2026-07-17): warp-zone fidelity — dead {5} warp, piranhas, missing
+  banner/numbers.** (a) 4-2's single-pipe {-,5,-} zone mapped the lone pipe
+  to the blank LEFT slot (the ROM picks the slot by screen position — a lone
+  pipe is the middle), leaving the warp dead; it now targets world 5.
+  (b) The ROM's warp-zone object kills every piranha (ScrollLockObject_Warp
+  → KillEnemies), so warp pipes are now piranha-free (1-2's zone, 4-2's
+  both zones). (c) The "WELCOME TO WARP ZONE!" banner now shows for ANY
+  cross-world warp pipe (it required two distinct targets, hiding it in
+  4-2's {5} zone) and each pipe draws its destination world number above
+  it, like the original. Screenshot-verified in all three zones.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-17 — playability audit: water solidity, warp zones, cheep levels
+
+- **Water terrain is solid again** (2-2/7-2 and the water rooms): the ROM's
+  SolidMTileUpperExt is a lower bound (>= is solid) — an earlier reading
+  made all water terrain swim-through, letting players swim past the exit
+  pipes into a dead end. End funnels, coral pillars and sea floors block
+  like the original; exits verified by live swim-in; BFS proofs green.
+- **Warp zones made faithful**: 4-2's {-,5,-} zone warp restored (lone pipe
+  = middle slot), piranhas culled from all warp pipes (the ROM's warp
+  object kills them), banner shown for single-pipe zones, and destination
+  world numbers drawn over each pipe.
+- **Cheep-cheep bridge levels verified finishable** — the stochastic driver
+  plays both 2-3 and 7-3 (files smb-2-4/smb-7-4) to a finish; the flying
+  frenzy is authentically hard, not broken.
+- Castle-clear messages confirmed ("another keep" tease vs the 8-4 finale),
+  cutscene/Bowser coverage re-run green.
+
 ## 2026-07-17 — pipe-exit polish: feet-anchored arrivals, open mouths
 
 - Warp/pipe arrivals are feet-anchored on the target tile (big Mario no
