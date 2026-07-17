@@ -35,7 +35,7 @@ describe("decode-smb-level", () => {
     // Object row 7 -> grid row 9; enemy row 11 -> grid row 12 (stands on floor).
     expect(grid[9]?.[5]).toBe("M"); // power-up ? block
     expect(grid[9]?.[8]).toBe("?"); // coin ? block
-    expect(grid[12]?.[6]).toBe("g"); // Goomba on the floor
+    expect(grid[12]?.[22]).toBe("g"); // Goomba on the floor (page 1)
     expect(grid[13]?.[0]).toBe("#"); // ground surface row
     expect(grid[14]?.[0]).toBe("#"); // sub-surface ground row (2-row ground)
     expect(grid.length).toBe(15); // 2 HUD rows + 13-row playfield

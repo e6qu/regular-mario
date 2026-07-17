@@ -59,7 +59,9 @@ export function makeSyntheticSmbLevelRom(): Buffer {
   });
 
   // Enemy stream: one Goomba at col 6 row 11, terminator.
-  const enemies = [0x6b, 0x06, 0xff];
+  // Page-1 goomba (column 22): records in the first 16 columns of page 0 are
+  // never-spawnable dead data the decoder now skips, like the real ROM.
+  const enemies = [0x6b, 0x86, 0xff];
   enemies.forEach((b, i) => {
     rom[prg(ENEMY_STREAM_ADDR) + i] = b;
   });

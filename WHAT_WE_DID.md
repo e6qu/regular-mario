@@ -5,6 +5,22 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-17 — spawn-faithful enemies: dead records, entry-page culling
+
+- **1-2's exit no longer drops the player onto goombas.** The ROM never
+  spawns enemy records already behind the screen: on mid-level entry at page
+  P, everything before column (P+1)\*16 is consumed unspawned. Warp arrivals
+  now apply that rule when building the target level (entering 1-1's tail at
+  page 11 spawns zero enemies, exactly like the original).
+- **Never-spawnable records are dropped at decode time** — 1-1's famous dead
+  goomba at column 6 (behind the starting screen), a dead koopa in 6-2, and
+  one per coin heaven.
+- Group enemy records keep the ROM's 24px spacing (HandleGroupEnemies steps
+  1.5 columns per enemy), anchored at the trigger column; a displaced enemy
+  glyph can no longer overwrite a coin.
+- Verified the 1-2 ledge red koopa and the rest of 1-2's roster against the
+  raw enemy stream (E_UndergroundArea1) — authentic, unchanged.
+
 ## 2026-07-17 — big Mario ducks through one-tile crawls (ROM duck probes)
 
 - **Crouching now shrinks the terrain collider** to the small one-tile box

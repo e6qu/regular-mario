@@ -5,7 +5,9 @@
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **849 unit tests + browser journeys
-pass; all gates green.** 2026-07-17: big Mario ducks through one-tile crawls
+pass; all gates green.** 2026-07-17: enemy spawning is entry-faithful (dead
+records culled, warp arrivals cull enemies behind the entry page like the
+ROM — no more insta-death walking out of 1-2's exit) and big Mario ducks through one-tile crawls
 (the crouch shrinks the terrain collider like the ROM's duck probes, with
 headroom-gated stand-up). 2026-07-16 (later): sideways pipes render whole (the
 ROM's four-column mouth/joint/shaft layout, capped intro pipes, faithful

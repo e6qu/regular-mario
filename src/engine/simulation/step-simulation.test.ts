@@ -2811,14 +2811,22 @@ describe("crouch (big Mario duck)", () => {
     );
   }
 
-  it("shrinks a crouching big player's terrain collider to one tile, feet anchored", () => {
-    // Standing big at x=32 (open ground): feet at 80, top at 48.
-    const stepped = stepSimulation(
-      duckTunnelState(bigPlayerAt(32, 48, 0)),
-      inputCommand(HorizontalInput.Neutral, true),
+  // One neutral-horizontal frame from a standing/ducked placement.
+  function stepDuckTunnel(
+    player: ReturnType<typeof bigPlayerAt>,
+    downHeld: boolean,
+  ) {
+    return stepSimulation(
+      duckTunnelState(player),
+      inputCommand(HorizontalInput.Neutral, downHeld),
       initialMovementConstants,
       duckTunnelLevelSpec(),
     );
+  }
+
+  it("shrinks a crouching big player's terrain collider to one tile, feet anchored", () => {
+    // Standing big at x=32 (open ground): feet at 80, top at 48.
+    const stepped = stepDuckTunnel(bigPlayerAt(32, 48, 0), true);
 
     expect(stepped.players[0].player.crouching).toBe(true);
     expect(stepped.players[0].player.collider.height).toBe(16);
@@ -2847,24 +2855,14 @@ describe("crouch (big Mario duck)", () => {
 
   it("keeps a covered big player ducked when Down is released", () => {
     // Mid-tunnel (columns 4-5) with no Down held: no headroom to stand.
-    const stepped = stepSimulation(
-      duckTunnelState(bigPlayerAt(70, 64, 0, true)),
-      inputCommand(HorizontalInput.Neutral, false),
-      initialMovementConstants,
-      duckTunnelLevelSpec(),
-    );
+    const stepped = stepDuckTunnel(bigPlayerAt(70, 64, 0, true), false);
 
     expect(stepped.players[0].player.crouching).toBe(true);
     expect(stepped.players[0].player.collider.height).toBe(16);
   });
 
   it("stands a ducked big player back up in the open when Down is released", () => {
-    const stepped = stepSimulation(
-      duckTunnelState(bigPlayerAt(130, 64, 0, true)),
-      inputCommand(HorizontalInput.Neutral, false),
-      initialMovementConstants,
-      duckTunnelLevelSpec(),
-    );
+    const stepped = stepDuckTunnel(bigPlayerAt(130, 64, 0, true), false);
 
     expect(stepped.players[0].player.crouching ?? false).toBe(false);
     expect(stepped.players[0].player.collider.height).toBe(32);

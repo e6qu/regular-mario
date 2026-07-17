@@ -105,6 +105,19 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   stand-up; browser-verified end to end on the real 1-2 (new debug hook
   `setPlayerVitality`).
 
+- **Fixed (2026-07-17): walking out of 1-2's exit pipe into 1-1's tail was
+  instant death, and a phantom goomba sat near 1-1's start.** Three decoder /
+  engine fixes, all disassembly-verified: (a) enemy records already behind
+  the screen can never spawn (ProcessEnemyData consumes them) — the famous
+  dead goomba in 1-1's data at column 6 (and dead records in 6-2 and the coin
+  heavens) are no longer spawned; (b) warp arrivals now apply the same rule
+  the ROM applies on mid-level entry — at entry page P everything before
+  column (P+1)\*16 never spawns — so the tail's goombas cannot be waiting on
+  the arrival tile (in the original, entering 1-1 at page 11 spawns zero
+  enemies); (c) group enemy records use the ROM's 24px (1.5-column) spacing,
+  and an enemy glyph can no longer erase a coin when displaced. Verified in
+  the browser: the 1-2 exit now lands in an enemy-free tail.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

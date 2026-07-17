@@ -3735,7 +3735,10 @@ export class BootScene extends Phaser.Scene {
     // rebuilds the level.
     this.bankCurrentLevelScore();
     this.carriedPlayerVitality = this.tierToCarryForward();
-    this.warpedLevelInput = targetInput;
+    this.warpedLevelInput = cullEnemiesBehindWarpEntry(
+      targetInput,
+      targetTilePosition.x,
+    );
     // A warp landing at another MAIN level's start is a world jump (the warp
     // zones): the run now belongs to that level — retitle the HUD and advance
     // from there. Mid-page landings (flag tails, bonus-room returns) and
@@ -9474,6 +9477,41 @@ function isGameplayKeyboardEvent(event: KeyboardEvent): boolean {
     event.code === "KeyR" ||
     event.code === "KeyX"
   );
+}
+
+// The ROM never spawns enemy records already behind the screen when an area
+// is entered mid-level: at entry page P the initial right edge sits at column
+// (P+1)*16, and ProcessEnemyData consumes everything before it without
+// spawning. Mirror that on warp arrivals so a pipe exit cannot drop the
+// player into enemies the original would never have spawned (e.g. 1-1's tail
+// goombas when walking out of 1-2's exit pipe).
+const warpCullEnemyRoles: ReadonlySet<string> = new Set([
+  ActorRole.Enemy,
+  ActorRole.FlyingEnemy,
+  ActorRole.ChasingEnemy,
+  ActorRole.ArmoredEnemy,
+  ActorRole.ThrowingEnemy,
+  ActorRole.AerialThrowingEnemy,
+  ActorRole.PiranhaPlant,
+]);
+
+function cullEnemiesBehindWarpEntry(
+  input: LevelSpecInput,
+  entryTileX: number,
+): LevelSpecInput {
+  const cullBeforeColumn = (Math.floor(entryTileX / 16) + 1) * 16;
+  const enemyActorIds = new Set(
+    input.actorDefinitions
+      .filter((definition) => warpCullEnemyRoles.has(definition.role))
+      .map((definition) => definition.actorId),
+  );
+  return {
+    ...input,
+    actors: input.actors.filter(
+      (actor) =>
+        !enemyActorIds.has(actor.actorId) || actor.x >= cullBeforeColumn,
+    ),
+  };
 }
 
 function makeRequiredLevelSpec(levelInput: LevelSpecInput): LevelSpec {

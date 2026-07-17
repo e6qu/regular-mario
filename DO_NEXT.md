@@ -1,5 +1,11 @@
 # DO_NEXT.md
 
+## Landed: spawn-faithful enemies (2026-07-17)
+
+- Dead enemy records culled at decode; warp arrivals cull everything behind
+  the entry page like the ROM (fixes the 1-2 exit insta-death); ROM group
+  spacing; coins protected from displaced enemy glyphs.
+
 ## Landed: duck-through crawls (2026-07-17)
 
 - Big Mario's crouch shrinks the terrain collider (feet-anchored, ROM duck

@@ -409,9 +409,19 @@ function decodeEnemies(prg, enemyAddr, secondaryHard = false) {
     // Bullet Bill generators over 1-3's layout).
     const hardOnly = (b1 & 0x40) !== 0 && !secondaryHard;
     const id = b1 & 0x3f;
+    // A record only spawns when its column crosses the screen's right edge
+    // (ProcessEnemyData skips records already behind it), and at area start
+    // the screen covers all of page 0 — so page-0 records in the first 16
+    // columns are dead data the original can never spawn (1-1 famously
+    // carries such a goomba at column 6).
+    const neverSpawns = col < 16;
     if (id >= 0x37 && id <= 0x3e) {
-      if (hardOnly) continue;
-      // group enemies: n = id - 0x37
+      if (hardOnly || neverSpawns) continue;
+      // Group enemies (2 or 3 goombas/koopas): HandleGroupEnemies spawns them
+      // at the screen's right edge as the trigger column scrolls in, stepped
+      // 24px (1.5 columns) apart. Statically we anchor the first at the
+      // trigger column and keep the ROM's spacing — our enemies patrol from
+      // load, which reproduces the original's observed walk-in drift.
       const n = id - 0x37;
       const koopa = n >= 4;
       const count = n & 1 ? 3 : 2;
@@ -419,14 +429,14 @@ function decodeEnemies(prg, enemyAddr, secondaryHard = false) {
       for (let i = 0; i < count; i += 1) {
         enemies.push({
           kind: koopa ? "koopa" : "goomba",
-          col: col + i,
+          col: Math.floor(col + 1.5 * i),
           row: raised ? 7 : 11,
           group: true,
         });
       }
       continue;
     }
-    if (hardOnly) continue;
+    if (hardOnly || neverSpawns) continue;
     enemies.push({ kind: enemyIdName(id), id, col, row: y });
   }
   return enemies;
@@ -889,7 +899,10 @@ function renderArea(header, objects, enemies, options = {}) {
         return (
           cell !== undefined &&
           !structuralSymbols.has(cell) &&
-          !enemyGlyphSymbols.has(cell)
+          !enemyGlyphSymbols.has(cell) &&
+          // Collectibles are content, not dressing — an enemy glyph must not
+          // erase a coin.
+          cell !== "o"
         );
       };
       // When the whole neighborhood is taken (a pack straddling raised

@@ -185,7 +185,7 @@ describe("official-smb content census", () => {
   it("pins well-known original facts on famous levels", () => {
     const level11 = census["smb-1-1"];
     // 1-1: goombas and a single green koopa, no piranha plants (first level).
-    expect(level11?.actors["vglc-smb-enemy"]).toBe(16);
+    expect(level11?.actors["vglc-smb-enemy"]).toBe(15);
     expect(level11?.actors["vglc-smb-koopa"]).toBe(1);
     expect(level11?.piranhaPlants).toBe(0);
     expect(level11?.halfwayTileX).toBe(82);
