@@ -1958,6 +1958,59 @@ describe("simulation primitives", () => {
     });
   });
 
+  it("gives a full-jump bounce off a stomp while jump is held, a small hop otherwise", () => {
+    // SMB parity: holding A through the stomp rises with the held-jump
+    // gravity (a full ~6-tile bounce — how 1-3's gaps are crossed off
+    // koopas); releasing it gives the original's small ~1.5-tile hop.
+    function bounceHeight(jumpHeld: boolean): number {
+      let state = withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
+          position: { x: 96, y: 40 },
+          velocity: { x: 0, y: 300 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Falling,
+          },
+        }),
+      });
+      const jumpInput = makeSimulationInputCommand(
+        HorizontalInput.Neutral,
+        jumpHeld,
+        false,
+        false,
+        false,
+        false,
+      );
+      if (!jumpInput.ok) {
+        throw new Error("Expected valid bounce test input.");
+      }
+      let stompY: number | undefined;
+      let minY = Number.POSITIVE_INFINITY;
+      for (let frame = 0; frame < 90; frame += 1) {
+        state = stepSimulation(
+          state,
+          jumpInput.value,
+          initialMovementConstants,
+          firstAuthoredLevelWithoutHazardSpec(),
+        );
+        if (
+          stompY === undefined &&
+          state.enemies.defeatedEnemyEntityIds.length > 0
+        ) {
+          stompY = Number(state.players[0].player.position.y);
+        }
+        minY = Math.min(minY, Number(state.players[0].player.position.y));
+      }
+      if (stompY === undefined) {
+        throw new Error("Expected the falling player to stomp the beetle.");
+      }
+      return stompY - minY;
+    }
+
+    expect(bounceHeight(true)).toBeGreaterThan(80);
+    expect(bounceHeight(false)).toBeLessThan(40);
+  });
+
   it("defeats an enemy after downward stomp contact without defeating the player", () => {
     const nextState = stepSimulation(
       stompPlayerSimulationState(),

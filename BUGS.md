@@ -138,6 +138,19 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   throat, which framed like a closed door. The mouth interior is now fully
   dark behind the rim ring — an unmistakably open end.
 
+- **Fixed (2026-07-17): ghost lift planks floated in the next level after a
+  pipe warp** ("mario can jump through the platform"). `destroyLevelObjects`
+  cleared the runtime render collections (lift planks/ropes, spawned actors,
+  projectiles, frenzy fish, flame jets…) without destroying the Phaser
+  objects — anything alive at warp time survived the rebuild as an intangible
+  sprite (1-2's end-of-level lift showed up hovering in 1-1's tail). Every
+  runtime render object is now destroyed at level teardown.
+
+- **Not a bug — stomp bounce parity (2026-07-17):** bouncing off an enemy
+  gives the original's two heights: hold jump through the stomp for the full
+  ~6-tile bounce (how 1-3's gaps are crossed off koopas), release it for the
+  small ~1.5-tile hop. Now pinned by an engine test.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

@@ -1891,14 +1891,46 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.levelRenderedObjects = [];
+    // Runtime render objects (spawned actors, projectiles, lift planks…) are
+    // created during play, outside the levelRenderedObjects window — each
+    // must be destroyed, not just dropped, or the sprites survive the level
+    // rebuild as ghost objects (a lift plank from 1-2's end used to float,
+    // intangible, in the next level after a pipe warp).
+    for (const obj of this.spawnedActorRenderObjects.values()) {
+      obj.destroy();
+    }
     this.spawnedActorRenderObjects.clear();
+    for (const obj of this.projectileRenderObjects.values()) {
+      obj.destroy();
+    }
     this.projectileRenderObjects.clear();
+    for (const obj of this.timedHazardProjectileRenderObjects.values()) {
+      obj.destroy();
+    }
     this.timedHazardProjectileRenderObjects.clear();
+    for (const obj of this.frenzyCheepRenderObjects.values()) {
+      obj.destroy();
+    }
     this.frenzyCheepRenderObjects.clear();
+    for (const obj of this.flameHazardRenderObjects) {
+      obj.destroy();
+    }
     this.flameHazardRenderObjects.length = 0;
+    for (const obj of this.platformRenderObjects) {
+      obj.destroy();
+    }
     this.platformRenderObjects.length = 0;
+    for (const obj of this.platformRopeRenderObjects) {
+      obj?.destroy();
+    }
     this.platformRopeRenderObjects.length = 0;
+    for (const obj of this.aerialFrenzyRenderObjects.values()) {
+      obj.destroy();
+    }
     this.aerialFrenzyRenderObjects.clear();
+    for (const obj of this.hatchedSpinyRenderObjects.values()) {
+      obj.destroy();
+    }
     this.hatchedSpinyRenderObjects.clear();
   }
 
