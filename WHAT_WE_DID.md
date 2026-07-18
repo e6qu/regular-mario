@@ -5,6 +5,19 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — one-request content loading + fetch resilience
+
+- The 503 "Could not start" class fixed structurally: a boot used to fire
+  ~380 individual content fetches (sprites, level texts, metadata) — any
+  transient Pages/CDN hiccup on any one failed the whole start. The bundler
+  now writes a single `bundle-blob.json` per content set (all referenced
+  files, base64); the runtime prefers it (a boot is now 3 requests) by
+  rewriting the manifest's relative URL sources into in-memory file sources,
+  with graceful per-file fallback when the blob is absent. All content
+  fetches also retry transient 5xx/429/network failures with backoff.
+  (The app code itself was already Vite-bundled — the fragility was request
+  count, not bundle size: the whole content set is ~1.6MB.)
+
 ## 2026-07-18 — lift rows, 8-4 route verification, screenshot tooling
 
 - All lifts were one row too low (walker "settle" correction misapplied to

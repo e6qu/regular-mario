@@ -1126,6 +1126,37 @@ type ResolvedBlob = {
   readonly blob: Blob;
 };
 
+// Content hosts (GitHub Pages, CDNs) throw transient 5xx/429s under load; a
+// cold boot fires many requests, so a single hiccup used to fail the whole
+// start. Retry transient statuses and network errors with a short backoff.
+export async function fetchWithRetry(
+  url: string,
+  attempts = 3,
+): Promise<Response> {
+  let lastResponse: Response | undefined;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolveDelay) =>
+        setTimeout(resolveDelay, 400 * 2 ** (attempt - 1)),
+      );
+    }
+    try {
+      const response = await fetch(url);
+      const transient = response.status >= 500 || response.status === 429;
+      if (!transient) {
+        return response;
+      }
+      lastResponse = response;
+    } catch {
+      // Network-level failure: retry.
+    }
+  }
+  if (lastResponse !== undefined) {
+    return lastResponse;
+  }
+  return fetch(url);
+}
+
 async function resolveSourceBlob(
   source: UserAssetSource,
   resolveFile: FileResolver,
@@ -1157,7 +1188,7 @@ async function resolveSourceBlob(
   }
 
   try {
-    const response = await fetch(source.url);
+    const response = await fetchWithRetry(source.url);
 
     if (!response.ok) {
       errors.push({

@@ -39,6 +39,7 @@ import {
 } from "./shell/select-renderer";
 import { BootScene } from "./shell/scenes/boot-scene";
 import {
+  fetchWithRetry,
   loadUserAssetBundle,
   defaultMaxFileBytes,
   defaultMaxTotalBytes,
@@ -2699,16 +2700,108 @@ function classicLevelMap(
   return result;
 }
 
+// Rewrite every relative URL source whose target ships in the prefetched
+// bundle pack into a file source, so the loader reads it from memory.
+function rewritePackedSources(
+  value: unknown,
+  packedNames: Set<string>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => rewritePackedSources(entry, packedNames));
+  }
+  if (value === null || typeof value !== "object") {
+    return value;
+  }
+  const record = value as Record<string, unknown>;
+  if (
+    record["kind"] === "url" &&
+    typeof record["url"] === "string" &&
+    packedNames.has(record["url"])
+  ) {
+    return { kind: "file", fileName: record["url"] };
+  }
+  const rewritten: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    rewritten[key] = rewritePackedSources(entry, packedNames);
+  }
+  return rewritten;
+}
+
+// The single-request pack next to a remote manifest: every bundled file as
+// base64. One fetch replaces hundreds of small ones — a transient CDN 5xx on
+// any of those used to fail the whole boot.
+async function tryFetchBundleBlob(
+  manifestUrl: string,
+): Promise<readonly File[] | undefined> {
+  try {
+    const blobUrl = new URL(
+      "bundle-blob.json",
+      new URL(manifestUrl, window.location.href),
+    ).toString();
+    const response = await fetchWithRetry(blobUrl);
+    if (!response.ok) {
+      return undefined;
+    }
+    const pack = (await response.json()) as {
+      readonly files?: Record<
+        string,
+        { readonly type?: string; readonly base64?: string }
+      >;
+    };
+    if (pack.files === undefined) {
+      return undefined;
+    }
+    const files: File[] = [];
+    for (const [name, entry] of Object.entries(pack.files)) {
+      if (typeof entry.base64 !== "string") {
+        return undefined;
+      }
+      const binary = atob(entry.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let index = 0; index < binary.length; index += 1) {
+        bytes[index] = binary.charCodeAt(index);
+      }
+      files.push(new File([bytes], name, { type: entry.type ?? "" }));
+    }
+    return files;
+  } catch {
+    return undefined;
+  }
+}
+
 async function fetchAndLoadManifest(
   manifestUrl: string,
 ): Promise<UserAssetBundle> {
-  const response = await fetch(manifestUrl);
+  const response = await fetchWithRetry(manifestUrl);
   if (!response.ok) {
     throw new Error(`not found (HTTP ${response.status})`);
   }
-  const parsed = parseUserAssetManifest(
-    (await response.json()) as UserAssetManifestInput,
-  );
+  const rawManifest = (await response.json()) as UserAssetManifestInput;
+
+  // Preferred path: the whole content set in one request.
+  const packedFiles = await tryFetchBundleBlob(manifestUrl);
+  if (packedFiles !== undefined) {
+    const packedNames = new Set(packedFiles.map((file) => file.name));
+    const rewritten = parseUserAssetManifest(
+      rewritePackedSources(rawManifest, packedNames) as UserAssetManifestInput,
+    );
+    if (rewritten.ok) {
+      const packedResult = await loadUserAssetBundle(
+        rewritten.value,
+        packedFiles,
+        {
+          maxFileBytes: defaultMaxFileBytes,
+          maxTotalBytes: defaultMaxTotalBytes,
+        },
+      );
+      if (packedResult.ok) {
+        return packedResult.bundle;
+      }
+    }
+    // Any pack inconsistency falls back to per-file loading below.
+  }
+
+  const parsed = parseUserAssetManifest(rawManifest);
   if (!parsed.ok) {
     throw new Error("manifest invalid");
   }

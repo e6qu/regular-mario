@@ -402,8 +402,38 @@ async function bundleOne(assetSetId, mapSetId, outDirOverride) {
     resolve(outDir, "remote-manifest.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
   );
+  // A single-request pack of every bundled file: the runtime prefers this
+  // blob (one fetch instead of hundreds of small ones, which turns any
+  // transient CDN hiccup into a failed boot) and falls back to per-file
+  // fetches when it is absent.
+  await writeBundleBlob(outDir, [...assetFiles, ...levelFiles]);
 
   return { assetSet: assetSetId, mapSet: mapSetId, outDir };
+}
+
+const blobContentTypes = new Map([
+  ["png", "image/png"],
+  ["json", "application/json"],
+  ["txt", "text/plain"],
+  ["wav", "audio/wav"],
+  ["mp3", "audio/mpeg"],
+  ["ogg", "audio/ogg"],
+]);
+
+async function writeBundleBlob(outDir, fileNames) {
+  const files = {};
+  for (const fileName of [...new Set(fileNames)].sort()) {
+    const bytes = await readFile(resolve(outDir, fileName));
+    const extension = fileName.split(".").pop() ?? "";
+    files[fileName] = {
+      type: blobContentTypes.get(extension) ?? "application/octet-stream",
+      base64: bytes.toString("base64"),
+    };
+  }
+  await writeFile(
+    resolve(outDir, "bundle-blob.json"),
+    JSON.stringify({ files }),
+  );
 }
 
 async function commandBundle() {
