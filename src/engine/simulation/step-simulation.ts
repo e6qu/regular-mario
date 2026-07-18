@@ -567,7 +567,20 @@ function stepActiveSimulation(
     Number(state.clock.frameDurationMilliseconds),
     state.clock.frameIndex,
   );
-  const platformAdjustedPlayer = platformsResolution.player;
+  // A platform carry is a positional shove outside the movement integration —
+  // re-resolve it against solids so a plank sweeping toward a wall can never
+  // embed its rider inside the tiles (8-4's lava shuttle did exactly that).
+  const platformAdjustedPlayer =
+    platformsResolution.player === resolvedPlayer
+      ? resolvedPlayer
+      : resolveSolidTileCollisionWithBlockBumps(
+          resolvedPlayer,
+          platformsResolution.player,
+          levelSpec,
+          state.breakableBlocks,
+          movementConstants.springLaunchSpeed,
+          revealedHiddenPositionKeys,
+        ).player;
 
   // Castle maze checkpoints: crossing on the wrong row loops the player back
   // four pages.

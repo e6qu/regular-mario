@@ -224,6 +224,14 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   beyond its checkpoint, so the run progresses only via them — exactly the
   original's maze.
 
+- **Fixed (2026-07-18): 8-4's lava shuttle swept into the pit wall and shoved
+  its rider inside the tiles** ("I got stuck in the wall"). Two layers:
+  a horizontal lift's ±48px sweep is now clamped to the free span on its row
+  (an off-centre base could carry the plank into a side wall), and the
+  platform carry is re-resolved against solid tiles, so no plank can ever
+  embed its rider (the carry used to apply after collision resolution,
+  unchecked). Engine regression test sweeps a walled lift a full period.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

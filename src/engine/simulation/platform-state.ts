@@ -4,6 +4,7 @@
 // platform by landing on its top edge and is carried with its motion.
 
 import type { LevelSpec, PlatformDefinition } from "../domain/level-spec";
+import { TileCollisionKind } from "../domain/level-spec";
 import type { FrameIndex } from "../domain/units";
 import { VerticalMovementState } from "./movement-model";
 import type { PlayerSimulationState } from "./player-state";
@@ -109,6 +110,42 @@ function requireDefinition(
   return definition;
 }
 
+// The horizontal pixel range the plank's left edge can occupy without any of
+// its tiles overlapping a solid on its row.
+function horizontalFreeSpan(
+  definition: PlatformDefinition,
+  levelSpec: LevelSpec,
+): { readonly minX: number; readonly maxX: number } {
+  const tileSize = levelSpec.tileSizePixels;
+  const row = levelSpec.tiles[definition.tileY];
+  const solidAt = (column: number): boolean => {
+    const tileId = row?.[column];
+    if (tileId === undefined) {
+      return true;
+    }
+    const collision = levelSpec.tileDefinitions.find(
+      (definitionEntry) => definitionEntry.tileId === tileId,
+    )?.collision;
+    return (
+      collision === TileCollisionKind.Solid ||
+      collision === TileCollisionKind.Breakable ||
+      collision === TileCollisionKind.Interactive
+    );
+  };
+  let leftColumn = definition.tileX;
+  while (leftColumn > 0 && !solidAt(leftColumn - 1)) {
+    leftColumn -= 1;
+  }
+  let rightColumn = definition.tileX + definition.widthTiles - 1;
+  while (rightColumn < levelSpec.widthTiles - 1 && !solidAt(rightColumn + 1)) {
+    rightColumn += 1;
+  }
+  return {
+    minX: leftColumn * tileSize,
+    maxX: (rightColumn - definition.widthTiles + 1) * tileSize,
+  };
+}
+
 // The base (frame-driven) position of a platform before runtime offsets.
 function basePlatformPosition(
   definition: PlatformDefinition,
@@ -129,8 +166,14 @@ function basePlatformPosition(
     }
     case "horizontal": {
       const phase = (2 * Math.PI * frame) / oscillationPeriodFrames;
+      // Clamp the sweep to the free span on the plank's row: an off-centre
+      // base with the full amplitude could carry the plank into a side wall
+      // (8-4's lava shuttle penetrated the pit's right wall and shoved its
+      // rider inside it).
+      const span = horizontalFreeSpan(definition, levelSpec);
+      const swept = baseX + oscillationAmplitudePixels * Math.sin(phase);
       return {
-        x: baseX + oscillationAmplitudePixels * Math.sin(phase),
+        x: Math.max(span.minX, Math.min(swept, span.maxX)),
         y: baseY,
       };
     }

@@ -27,6 +27,39 @@ const requireLevelSpec = requireMechanicsLevelSpec;
 const playerAt = makePlayerAt;
 
 describe("platform state", () => {
+  it("clamps a horizontal lift's sweep so the plank never enters a wall", () => {
+    // A wall column at x=12 on the plank's row: the base at x=6 plus the
+    // full 48px amplitude would carry the 2-tile plank into it (8-4's lava
+    // shuttle did exactly this and shoved its rider inside the wall).
+    const input = makePlatformLevelInput([
+      { platformId: "lift-0", kind: "horizontal", x: 6, y: 6, widthTiles: 2 },
+    ]);
+    const walled = {
+      ...input,
+      tiles: input.tiles.map((row, rowIndex) =>
+        rowIndex === 6
+          ? row.map((tile, columnIndex) =>
+              columnIndex === 12 ? "ground" : tile,
+            )
+          : row,
+      ),
+    };
+    const levelSpec = requireLevelSpec(walled);
+    const state = makeEmptyPlatformsState(levelSpec);
+    // The wall at column 12: the 2-tile plank's left edge may reach at most
+    // column 10 (x=160). Sample a full period.
+    for (let step = 0; step < 330; step += 10) {
+      const placement = computePlatformPlacements(
+        state,
+        levelSpec,
+        frame(step),
+      )[0];
+      expect(
+        (placement?.x ?? 0) + (placement?.widthPixels ?? 0),
+      ).toBeLessThanOrEqual(192);
+    }
+  });
+
   it("oscillates a vertical lift around its start and returns after a period", () => {
     const levelSpec = requireLevelSpec(
       makePlatformLevelInput([
