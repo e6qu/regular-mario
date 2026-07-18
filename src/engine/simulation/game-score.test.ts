@@ -75,6 +75,10 @@ describe("game score", () => {
       computeCollectibleScore(collectiblesWith({ itemCount: 0, coinCount: 3 })),
     ).toBe(scorePerCoin * 3);
   });
+
+  it("awards 200 points per coin, as in the original", () => {
+    expect(scorePerCoin).toBe(200);
+  });
 });
 
 function enemiesWith(cumulativeStompScore: number): EnemyInteractionState {

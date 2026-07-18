@@ -191,6 +191,8 @@ const deathTimelineFrameCount = 180;
 // before play begins. (The starting life count is the engine's
 // initialLivesCount.)
 const worldCardFrames = 120;
+// The "TIME UP" beat shown before the world card when the clock ran out.
+const timeUpCardFrames = 90;
 const flowCardDepth = 200;
 const scoreBadgeX = 4;
 const scoreBadgeY = 3;
@@ -725,6 +727,9 @@ export class BootScene extends Phaser.Scene {
   private castleClearTotalFrames = 0;
   private castleClearMessageText: Phaser.GameObjects.Text | undefined =
     undefined;
+  private castleClearWalkStartX: number | undefined;
+  private castleFlagObjects: readonly Phaser.GameObjects.GameObject[] = [];
+  private castleFlagRiseFramesRemaining = 0;
   private readonly revealedHiddenTiles = new Set<string>();
   private renderedActors!: readonly RuntimeRenderedActor[];
   private renderedActorRoleCounts!: BrowserRenderedActorRoleCounts;
@@ -1852,6 +1857,9 @@ export class BootScene extends Phaser.Scene {
     this.castleClearFramesRemaining = 0;
     this.castleClearMessageText?.destroy();
     this.castleClearMessageText = undefined;
+    this.castleClearWalkStartX = undefined;
+    this.castleFlagObjects = [];
+    this.castleFlagRiseFramesRemaining = 0;
     this.revealedHiddenTiles.clear();
     this.renderFlagpoleFurniture();
     const renderedActorSummary = renderNonPlayerActors(
@@ -2028,22 +2036,49 @@ export class BootScene extends Phaser.Scene {
           actor.pixelPosition.y + fallElapsed * castleClearFallSpeedPerFrame,
         );
       }
+      // After the fall, the hero walks right through the opened gate into the
+      // inner chamber (the ROM's walk to the toad/princess room) — sliding
+      // the camera anchor pans the view with him.
+      const walkElapsed = fallElapsed - castleClearFallFrames;
+      if (walkElapsed >= 0 && walkElapsed <= castleClearWalkFrames) {
+        const walkStep = Math.min(walkElapsed, castleClearWalkFrames);
+        if (this.castleClearWalkStartX === undefined) {
+          this.castleClearWalkStartX = this.playerRectangle.x;
+        }
+        const walkX =
+          this.castleClearWalkStartX + walkStep * castleClearWalkSpeedPerFrame;
+        // The axe grab can leave the hero mid-air over the chopped bridge:
+        // settle his feet onto the chamber floor as he strides in.
+        const floorY = this.floorPixelYAt(
+          walkX,
+          this.playerRectangle.y + this.playerRectangle.height,
+        );
+        const walkY = Math.min(
+          floorY - this.playerRectangle.height,
+          this.playerRectangle.y + castleClearFallSpeedPerFrame,
+        );
+        this.playerRectangle.setPosition(walkX, walkY);
+        this.playerImageObject?.setPosition(walkX, walkY);
+        this.playerImageObject?.setFlipX(false);
+      }
       if (
-        fallElapsed >= castleClearMessageDelayFrames &&
+        walkElapsed >= castleClearWalkFrames &&
         this.castleClearMessageText === undefined
       ) {
         const finalCastle = this.currentMainLevelName === "smb-8-4";
         const message = finalCastle
           ? "THE KEEP HAS FALLEN!\nYOUR FRIEND IS FREE — THE ISLAND IS AT PEACE."
           : "THE KEEPER PLUNGED INTO THE MOAT!\nBUT YOUR FRIEND IS IN ANOTHER KEEP...";
-        const camera = this.cameras.main;
-        // Position in world space at the centre of the actually-visible world
-        // rectangle. With a zoomed camera `scrollX/scrollY` are NOT the visible
-        // top-left, so `worldView` (the real visible rect) is what keeps the
-        // message on screen.
-        const view = camera.worldView;
+        // The friend waits a few tiles ahead of where the walk ended,
+        // standing on the chamber floor; the message hangs above them.
+        const friendX = this.playerRectangle.x + castleClearFriendLeadPixels;
+        const friendFeetY = this.floorPixelYAt(
+          friendX,
+          this.playerRectangle.y + this.playerRectangle.height,
+        );
+        this.renderRescuedFriend(friendX, friendFeetY);
         this.castleClearMessageText = this.add
-          .text(view.centerX, view.y + view.height / 3, message, {
+          .text(friendX, friendFeetY - 64, message, {
             fontFamily: "monospace",
             fontSize: "10px",
             color: "#fef3c7",
@@ -2058,26 +2093,54 @@ export class BootScene extends Phaser.Scene {
           ...this.levelRenderedObjects,
           this.castleClearMessageText,
         ];
-        this.renderRescuedFriend(camera);
       }
     }
   }
 
-  // Show the rescued friend (a princess, in the ROM skin) above the castle-clear
-  // message — the payoff of the boss falling, as authored art rather than only
-  // the "YOUR FRIEND" text.
-  private renderRescuedFriend(camera: Phaser.Cameras.Scene2D.Camera): void {
+  // The top pixel of the first solid tile at world x, scanning down from the
+  // given start (fallback: the start itself, e.g. past the level's edge).
+  private floorPixelYAt(worldX: number, fromPixelY: number): number {
+    const size = this.levelSpec.tileSizePixels;
+    const column = Math.floor(worldX / size);
+    const collisionByTileId = new Map(
+      this.levelSpec.tileDefinitions.map((definition) => [
+        definition.tileId,
+        definition.collision,
+      ]),
+    );
+    for (
+      let row = Math.max(0, Math.floor(fromPixelY / size) - 1);
+      row < this.levelSpec.heightTiles;
+      row += 1
+    ) {
+      const tileId = this.levelSpec.tiles[row]?.[column];
+      const collision =
+        tileId === undefined ? undefined : collisionByTileId.get(tileId);
+      if (
+        collision === TileCollisionKind.Solid ||
+        collision === TileCollisionKind.Breakable ||
+        collision === TileCollisionKind.Interactive
+      ) {
+        return row * size;
+      }
+    }
+    return fromPixelY;
+  }
+
+  // Show the rescued friend (a princess, in the ROM skin) standing on the
+  // chamber floor — the payoff of the boss falling, as authored art rather
+  // than only the "YOUR FRIEND" text.
+  private renderRescuedFriend(worldX: number, feetPixelY: number): void {
     const friendAsset =
       this.userAssetBundle?.reactionImages.get("rescued-friend");
     if (friendAsset === undefined) {
       return;
     }
-    const view = camera.worldView;
     const image = addUserFrameImage(this, 0, 0, friendAsset);
     image
-      .setOrigin(0.5)
+      .setOrigin(0.5, 1)
       .setDisplaySize(24, 24)
-      .setPosition(view.centerX, view.y + view.height / 3 - 26)
+      .setPosition(worldX, feetPixelY)
       .setDepth(120);
     this.levelRenderedObjects = [...this.levelRenderedObjects, image];
   }
@@ -2231,13 +2294,89 @@ export class BootScene extends Phaser.Scene {
   // end-of-level exit march.
   private beginFlagpoleWalkOff(fromX: number, groundY: number): void {
     this.flagpoleWalkOffActive = true;
-    this.flagpoleWalkOffTargetX = fromX + flagpoleWalkOffDistancePixels;
+    // March to the little castle's actual doorway when the map has one;
+    // otherwise fall back to the fixed distance.
+    const doorX = this.castleDoorPixelXAfter(fromX);
+    this.flagpoleWalkOffTargetX =
+      doorX ?? fromX + flagpoleWalkOffDistancePixels;
     this.flagpoleWalkOffY = groundY;
     this.levelAdvanceDelayFramesRemaining = Math.max(
       this.levelAdvanceDelayFramesRemaining,
-      Math.ceil(flagpoleWalkOffDistancePixels / flagpoleWalkOffSpeedPixels) +
+      Math.ceil(
+        (this.flagpoleWalkOffTargetX - fromX) / flagpoleWalkOffSpeedPixels,
+      ) +
+        castleFlagRiseFrames +
         flagpoleFinishTailFrames,
     );
+  }
+
+  // The centre pixel of the first castle-door tile column right of x, if any.
+  private castleDoorPixelXAfter(fromX: number): number | undefined {
+    const size = this.levelSpec.tileSizePixels;
+    const fromColumn = Math.floor(fromX / size);
+    for (let row = 0; row < this.levelSpec.heightTiles; row += 1) {
+      const columns = this.levelSpec.tiles[row];
+      if (columns === undefined) {
+        continue;
+      }
+      for (
+        let column = fromColumn;
+        column < Math.min(columns.length, fromColumn + 24);
+        column += 1
+      ) {
+        if (columns[column] === "castle-door") {
+          return column * size + size / 2;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  // The ROM raises a small white flag from the castle after the hero enters:
+  // find the castle's top row over the door column and slide a pennant up.
+  private beginCastleFlagRise(doorPixelX: number): void {
+    const size = this.levelSpec.tileSizePixels;
+    const column = Math.floor(doorPixelX / size);
+    let topRow: number | undefined;
+    for (let row = 0; row < this.levelSpec.heightTiles; row += 1) {
+      const tileId = this.levelSpec.tiles[row]?.[column];
+      if (
+        tileId === "castle-wall" ||
+        tileId === "castle-battlement" ||
+        tileId === "castle-window" ||
+        tileId === "castle-door"
+      ) {
+        topRow = row;
+        break;
+      }
+    }
+    if (topRow === undefined) {
+      return;
+    }
+    const baseY = topRow * size;
+    const pole = this.add
+      .rectangle(doorPixelX, baseY, 1.5, size, 0xdad7cc)
+      .setOrigin(0.5, 0)
+      .setDepth(6);
+    const flag = this.add
+      .triangle(doorPixelX, baseY + 2, 0, 0, 10, 3, 0, 6, 0xf5f5f0)
+      .setOrigin(0, 0)
+      .setDepth(6);
+    this.castleFlagObjects = [pole, flag];
+    this.castleFlagRiseFramesRemaining = castleFlagRiseFrames;
+    this.levelRenderedObjects = [...this.levelRenderedObjects, pole, flag];
+  }
+
+  private stepCastleFlagRise(): void {
+    if (this.castleFlagRiseFramesRemaining <= 0) {
+      return;
+    }
+    this.castleFlagRiseFramesRemaining -= 1;
+    for (const object of this.castleFlagObjects) {
+      (object as Phaser.GameObjects.Shape).setY(
+        (object as Phaser.GameObjects.Shape).y - castleFlagRisePixelsPerFrame,
+      );
+    }
   }
 
   private stepFlagpoleWalkOff(): void {
@@ -2254,6 +2393,10 @@ export class BootScene extends Phaser.Scene {
       this.flagpoleWalkOffActive = false;
       // Through the doorway and out of sight; a rebuild restores the sprite.
       this.playerImageObject?.setVisible(false);
+      // The ROM's payoff order: enter the castle, its flag rises, THEN the
+      // timer-digit fireworks launch.
+      this.beginCastleFlagRise(this.flagpoleWalkOffTargetX);
+      this.beginVictoryFireworks();
     }
   }
 
@@ -2347,6 +2490,7 @@ export class BootScene extends Phaser.Scene {
     this.stepFlagpoleBallFall();
     this.stepFlagpoleFlagDrop();
     this.stepFlagpoleWalkOff();
+    this.stepCastleFlagRise();
     if (!this.flagpoleSlideActive) {
       return;
     }
@@ -3631,10 +3775,15 @@ export class BootScene extends Phaser.Scene {
     // A "WORLD w-l" intro card freezes each level briefly before play (the
     // first level's hold is the press-any-key gate above, so it starts spent).
     if (this.levelIntroFramesRemaining > 0) {
-      this.showFlowCard(
-        `WORLD ${this.currentWorldLabel()}`,
-        `MARIO \xD7 ${String(this.simulationState.livesRemaining)}`,
-      );
+      if (this.levelIntroFramesRemaining > worldCardFrames) {
+        // The clock ran out: the ROM's TIME UP card precedes the world card.
+        this.showFlowCard("TIME UP", "");
+      } else {
+        this.showFlowCard(
+          `WORLD ${this.currentWorldLabel()}`,
+          `MARIO \xD7 ${String(this.simulationState.livesRemaining)}`,
+        );
+      }
       this.levelIntroFramesRemaining -= 1;
       if (this.levelIntroFramesRemaining === 0) {
         this.hideFlowCard();
@@ -3745,7 +3894,6 @@ export class BootScene extends Phaser.Scene {
       this.levelCompleteSoundPlayed = true;
       this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
       this.beginFlagpoleSlide();
-      this.beginVictoryFireworks();
       this.beginTimeBonusCountdown();
       // The flagpole grab takes over the music with the fanfare; a castle end
       // (an axe, not a pole) plays the grander world-clear victory theme.
@@ -3756,7 +3904,9 @@ export class BootScene extends Phaser.Scene {
       if (isCastleClear) {
         this.castleClearTotalFrames =
           this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
-          castleClearFallFrames;
+          castleClearFallFrames +
+          castleClearWalkFrames +
+          castleClearMessageHoldFrames;
         this.castleClearFramesRemaining = this.castleClearTotalFrames;
         this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
       }
@@ -3947,6 +4097,11 @@ export class BootScene extends Phaser.Scene {
         this.simulationState.breakableBlockScore,
         this.simulationState.bulletBillStompScore,
         this.simulationState.goalHeightScore,
+        // Mushroom/flower/star pickups are worth 1000 each in the ROM (the
+        // 1-up grants a life, not points).
+        this.simulationState.powerUps.collectedPowerUpEntityIds.length +
+          this.simulationState.players[0].invincibility
+            .collectedInvincibilityEntityIds.length,
       ) + this.fireworksBonusScore
     );
   }
@@ -4060,8 +4215,20 @@ export class BootScene extends Phaser.Scene {
         PlayerOutcomeKind.Defeated ||
       this.simulationState.players[0].outcome.kind ===
         PlayerOutcomeKind.DefeatedAndFinished;
+    const retriedFromTimeUp =
+      this.simulationState.players[0].outcome.kind ===
+        PlayerOutcomeKind.Defeated &&
+      this.simulationState.players[0].outcome.reason ===
+        PlayerDefeatReason.TimeUp;
     if (!this.pendingGameOver && retriedFromDeath) {
       this.carriedPlayerVitality = makeInitialPlayerVitalityState();
+    }
+    // The ROM shows the WORLD card (with the decremented life count) on every
+    // respawn — and a TIME UP card first when the clock ran out.
+    if (retriedFromDeath) {
+      this.levelIntroFramesRemaining = retriedFromTimeUp
+        ? worldCardFrames + timeUpCardFrames
+        : worldCardFrames;
     }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint
@@ -4902,7 +5069,11 @@ export class BootScene extends Phaser.Scene {
         this.facingRight = false;
       }
       const swimming = this.currentTheme === "water";
-      this.playerImageObject.setFlipX(swimming && !this.facingRight);
+      // The burning art's flames lean behind a rightward runner; flip it so
+      // the trail always blows against the direction of movement.
+      this.playerImageObject.setFlipX(
+        (swimming || burningOnLava) && !this.facingRight,
+      );
 
       // The merman is a horizontal fish, so give the swim sprite a squarer,
       // wider display box (centred on the collider) instead of the tall player
@@ -4938,9 +5109,14 @@ export class BootScene extends Phaser.Scene {
     const feedbackText = makeOutcomeFeedbackText(
       this.simulationState.players[0].outcome,
     );
+    // The castle-clear cinematic owns the screen: no "Gate reached — press…"
+    // prompt bleeding through the chop/fall/walk-in staging.
     this.outcomeFeedbackText
       .setText(feedbackText)
-      .setVisible(feedbackText !== activeOutcomeFeedbackText);
+      .setVisible(
+        feedbackText !== activeOutcomeFeedbackText &&
+          this.castleClearFramesRemaining <= 0,
+      );
 
     const headBonking =
       this.exaggeratedReactions &&
@@ -7636,14 +7812,21 @@ function resolvePlayerSpriteImage(
             "idle",
           ]
         : action === "burning"
-          ? [
-              // On-fire art (god mode on lava); sets without it show the
-              // idle frame — the sizzle still tells the story.
-              ...prefixes.map((prefix) => `${prefix}-burning`),
-              "burning",
-              ...prefixes.map((prefix) => `${prefix}-idle`),
-              "idle",
-            ]
+          ? (() => {
+              // On-fire art (god mode on lava): two flame phases flicker
+              // (~10Hz); sets without the art show the idle frame — the
+              // sizzle still tells the story.
+              const phase =
+                Math.floor(simulationState.clock.frameIndex / 6) % 2 === 0
+                  ? "burning-1"
+                  : "burning-2";
+              return [
+                ...prefixes.map((prefix) => `${prefix}-${phase}`),
+                phase,
+                ...prefixes.map((prefix) => `${prefix}-idle`),
+                "idle",
+              ];
+            })()
           : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
   return resolveFirstStatefulImage(
@@ -7889,10 +8072,16 @@ function renderNonPlayerActors(
       y: actor.position.y * levelSpec.tileSizePixels + actorRenderOffsetPixels,
     };
     const userImage = userAssetBundle?.actorImages.get(actor.actorId);
+    // The 32x32 boss walks with his simulated 16px body at the sprite's lower
+    // half: drop the baseline a tile so his feet stand on the bridge planks
+    // rather than hovering a tile above them.
+    const baselinePixels = actor.actorId.startsWith("vglc-smb-bowser")
+      ? groundedActorSpriteHeightPixels * 2
+      : groundedActorSpriteHeightPixels;
     const renderedUserActor =
       userImage === undefined
         ? undefined
-        : renderUserActorImage(scene, pixelPosition, userImage);
+        : renderUserActorImage(scene, pixelPosition, userImage, baselinePixels);
     const renderObject =
       renderedUserActor?.container ??
       renderAuthoredActor(scene, pixelPosition, role);
@@ -8639,6 +8828,9 @@ const flagpoleFinishTailFrames = 24;
 const flagpoleBallFallBudgetFrames = 90;
 // The exit march to the castle doorway: distance walked and walking speed.
 const flagpoleWalkOffDistancePixels = 96;
+// The castle flag's rise after the hero enters the doorway.
+const castleFlagRiseFrames = 40;
+const castleFlagRisePixelsPerFrame = 0.5;
 const flagpoleWalkOffSpeedPixels = 1.25;
 const flagpolePoleColor = 0xc8d8c8;
 const flagpoleBallColor = 0x60a860;
@@ -8795,15 +8987,15 @@ function renderUserActorImage(
   scene: Phaser.Scene,
   pixelPosition: { readonly x: number; readonly y: number },
   imageAsset: LoadedImageAsset,
+  baselinePixels = groundedActorSpriteHeightPixels,
 ): {
   readonly container: Phaser.GameObjects.Container;
   readonly image: Phaser.GameObjects.Image;
 } {
-  // Bottom-align the sprite to the standard 16px actor baseline, so a taller
-  // sprite (e.g. the 16x24 Koopa) rests its feet on the ground and extends
-  // upward instead of sinking its extra height into the terrain.
-  const verticalOffset =
-    groundedActorSpriteHeightPixels - imageAsset.frame.height;
+  // Bottom-align the sprite to the actor baseline (16px for standard actors),
+  // so a taller sprite (e.g. the 16x24 Koopa) rests its feet on the ground
+  // and extends upward instead of sinking its extra height into the terrain.
+  const verticalOffset = baselinePixels - imageAsset.frame.height;
   const image = addUserFrameImage(scene, 0, verticalOffset, imageAsset);
 
   return {
@@ -9248,7 +9440,13 @@ const castleBridgeTileId = "castle-bridge";
 const castleBridgeChopFrames = 5;
 const castleClearFallFrames = 120;
 const castleClearFallSpeedPerFrame = 3;
-const castleClearMessageDelayFrames = 45;
+// The hero's walk into the inner chamber after the fall, and where the freed
+// friend stands relative to where the walk ends.
+const castleClearWalkFrames = 110;
+const castleClearWalkSpeedPerFrame = 1.5;
+const castleClearFriendLeadPixels = 56;
+// A beat on the friend + message before the finish overlay may appear.
+const castleClearMessageHoldFrames = 90;
 
 const flameHazardCoreColor = 0xf97316;
 const platformFillColor = 0xd9a066;

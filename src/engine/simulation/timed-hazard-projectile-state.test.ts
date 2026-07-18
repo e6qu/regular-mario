@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { makeLevelSpec, TileCollisionKind } from "../domain/level-spec";
+import type { EntityId } from "../domain/identifiers";
 import { makeFrameIndex } from "../domain/units";
+import { makeInitialEnemyMotionState } from "./enemy-motion";
 import { playerWithTestState } from "./movement-test-support";
 import {
   HorizontalMovementState,
@@ -14,6 +16,14 @@ import {
   makeEmptyTimedHazardProjectilesState,
   resolveTimedHazardProjectilesState,
 } from "./timed-hazard-projectile-state";
+
+// The two-tile sky/ground palette every fixture level here uses.
+function skyGroundTileDefinitions() {
+  return [
+    { tileId: "sky", collision: TileCollisionKind.Empty },
+    { tileId: "ground", collision: TileCollisionKind.Solid },
+  ];
+}
 
 function testFrameIndex(value: number) {
   const result = makeFrameIndex(value, "test.frameIndex");
@@ -30,6 +40,7 @@ function hazardLevelSpec(options: {
   readonly heightTiles: number;
   readonly actorY: number;
   readonly spawnerY: number;
+  readonly spawnerX?: number;
   readonly stompable?: boolean;
 }) {
   const groundRowIndex = options.heightTiles - 1;
@@ -42,10 +53,7 @@ function hazardLevelSpec(options: {
     widthTiles: 6,
     heightTiles: options.heightTiles,
     tileSizePixels: 16,
-    tileDefinitions: [
-      { tileId: "sky", collision: TileCollisionKind.Empty },
-      { tileId: "ground", collision: TileCollisionKind.Solid },
-    ],
+    tileDefinitions: skyGroundTileDefinitions(),
     actorDefinitions: [
       { actorId: "player", role: "player-start" },
       { actorId: "exit", role: "exit" },
@@ -58,7 +66,7 @@ function hazardLevelSpec(options: {
     timedHazardProjectileSpawners: [
       {
         spawnerId: "cannon-1",
-        x: 1,
+        x: options.spawnerX ?? 1,
         y: options.spawnerY,
         direction: "right",
         intervalFrames: 2,
@@ -83,6 +91,39 @@ function hazardLevelSpec(options: {
 
 function timedHazardLevelSpec() {
   return hazardLevelSpec({ heightTiles: 3, actorY: 1, spawnerY: 1 });
+}
+
+// A 6-wide level with an aerial throwing enemy (Lakitu) hovering at tile
+// (3, 1) and no cannon spawners, for pinning dropped-egg behavior.
+function aerialThrowerLevelSpec() {
+  const tiles = Array.from({ length: 5 }, (_row, y) =>
+    y === 4
+      ? ["ground", "ground", "ground", "ground", "ground", "ground"]
+      : ["sky", "sky", "sky", "sky", "sky", "sky"],
+  );
+  const result = makeLevelSpec({
+    widthTiles: 6,
+    heightTiles: 5,
+    tileSizePixels: 16,
+    tileDefinitions: skyGroundTileDefinitions(),
+    actorDefinitions: [
+      { actorId: "player", role: "player-start" },
+      { actorId: "exit", role: "exit" },
+      { actorId: "aerial-thrower", role: "aerial-throwing-enemy" },
+    ],
+    tiles,
+    actors: [
+      { entityId: "player-1", actorId: "player", x: 1, y: 3 },
+      { entityId: "exit-1", actorId: "exit", x: 5, y: 3 },
+      { entityId: "aerial-thrower-1", actorId: "aerial-thrower", x: 3, y: 1 },
+    ],
+  });
+
+  if (!result.ok) {
+    throw new Error("Expected aerial thrower test level to validate.");
+  }
+
+  return result.value;
 }
 
 function testPlayerAt(x: number, y: number) {
@@ -173,6 +214,8 @@ describe("timed-hazard-projectile-state", () => {
     expect(result.projectiles).toHaveLength(1);
     expect(result.projectiles[0]).toMatchObject({
       id: "timed-hazard-cannon-1-1",
+      // A flame's flight row tracks the player's row (clamped to the 3-11
+      // band), not the authored spawner row.
       position: { x: 16, y: 16 },
       velocity: { x: 96, y: 0 },
       width: 8,
@@ -184,8 +227,8 @@ describe("timed-hazard-projectile-state", () => {
 
   it("moves spawned hazard projectiles and reports player contact", () => {
     const levelSpec = timedHazardLevelSpec();
-    // The projectile spawns at row 1 (y=16); place the player so its
-    // feet-anchored hurtbox (the lower 12px of its collider) overlaps that row.
+    // The flame spawns on the player-tracked row (the 3-row fixture clamps
+    // it to row 1, y=16); place the player so its hurtbox overlaps that row.
     const first = resolveHazard(
       makeEmptyTimedHazardProjectilesState(),
       levelSpec,
@@ -247,6 +290,92 @@ describe("timed-hazard-projectile-state", () => {
       1,
     );
     expect(nearResult.projectiles).toHaveLength(1);
+  });
+
+  it("fires a cannon Bullet Bill toward the player's side of the cannon", () => {
+    // The cannon is authored facing right, but the ROM's BulletBillHandler
+    // aims at the player: a player left of the cannon gets a leftward bill.
+    const leftLevelSpec = hazardLevelSpec({
+      heightTiles: 5,
+      actorY: 3,
+      spawnerY: 3,
+      spawnerX: 4,
+      stompable: true,
+    });
+    const leftResult = resolveHazard(
+      makeEmptyTimedHazardProjectilesState(),
+      leftLevelSpec,
+      testPlayerAt(0, 0),
+      1,
+    );
+    expect(leftResult.projectiles).toHaveLength(1);
+    expect(leftResult.projectiles[0]?.velocity.x).toBe(-96);
+
+    // A player right of the cannon gets a rightward bill.
+    const rightResult = resolveHazard(
+      makeEmptyTimedHazardProjectilesState(),
+      stompCannonLevelSpec(true),
+      testPlayerAt(200, 0),
+      1,
+    );
+    expect(rightResult.projectiles).toHaveLength(1);
+    expect(rightResult.projectiles[0]?.velocity.x).toBe(96);
+  });
+
+  it("keeps a flame's authored direction regardless of the player's side", () => {
+    // Flames are not aimed: an authored rightward flame fires right even with
+    // the player on its left.
+    const levelSpec = hazardLevelSpec({
+      heightTiles: 5,
+      actorY: 3,
+      spawnerY: 3,
+      spawnerX: 4,
+      stompable: false,
+    });
+    const result = resolveHazard(
+      makeEmptyTimedHazardProjectilesState(),
+      levelSpec,
+      testPlayerAt(0, 0),
+      1,
+    );
+    expect(result.projectiles).toHaveLength(1);
+    expect(result.projectiles[0]?.velocity.x).toBe(96);
+  });
+
+  it("lobs a dropped egg toward the player's side", () => {
+    const levelSpec = aerialThrowerLevelSpec();
+    const enemyMotion = {
+      ...makeInitialEnemyMotionState(levelSpec, initialMovementConstants),
+      activeEnemyEntityIds: ["aerial-thrower-1" as EntityId],
+    };
+    const resolveEggs = (player: ReturnType<typeof testPlayerAt>) =>
+      resolveTimedHazardProjectilesState(
+        makeEmptyTimedHazardProjectilesState(),
+        levelSpec,
+        { brokenBlockTilePositions: [] },
+        player,
+        enemyMotion,
+        emptyEnemyInteractionState(),
+        initialMovementConstants,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        // The aerial thrower releases on its 120-frame interval.
+        testFrameIndex(120),
+      );
+
+    // The thrower hovers at x=48; a player on its left gets a leftward push...
+    const leftResult = resolveEggs(testPlayerAt(16, 48));
+    expect(leftResult.projectiles).toHaveLength(1);
+    expect(leftResult.projectiles[0]?.velocity).toEqual({
+      x: -40,
+      y: initialMovementConstants.aerialThrowingEnemyProjectileSpeed,
+    });
+
+    // ...and a player on its right gets a rightward push.
+    const rightResult = resolveEggs(testPlayerAt(200, 48));
+    expect(rightResult.projectiles[0]?.velocity).toEqual({
+      x: 40,
+      y: initialMovementConstants.aerialThrowingEnemyProjectileSpeed,
+    });
   });
 
   it("leaves a non-stompable projectile as a hazard when landed on", () => {

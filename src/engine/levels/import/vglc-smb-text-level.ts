@@ -2729,13 +2729,15 @@ function applyMetadataGoalColumns(
     // triggers at any height but the pole no longer paints to the sky or
     // through the ground rows (which also un-digs the trench the goal column
     // used to cut through the terrain). A column with no authored pole (a
-    // castle axe) keeps the full goal-column paint as before.
+    // castle axe) gets the same INVISIBLE goal-reach column — the axe actor
+    // is its one visible marker (painting pole tiles there drew a pale
+    // full-height strip through the castle wall).
     const columnHasAuthoredPole = tileRows.some(
       (row) => row[exitPoint.x] === finishGoalTileCharacter,
     );
     for (let rowIndex = 0; rowIndex < tileRows.length; rowIndex += 1) {
+      const current = tileRows[rowIndex]?.[exitPoint.x];
       if (columnHasAuthoredPole) {
-        const current = tileRows[rowIndex]?.[exitPoint.x];
         if (current === "-" || current === ".") {
           setCharacterInRow(
             tileRows,
@@ -2745,11 +2747,13 @@ function applyMetadataGoalColumns(
           );
         }
       } else {
+        // Full-column replacement like the old paint (the goal column cuts
+        // through the castle wall so the axe touch triggers), just invisible.
         setCharacterInRow(
           tileRows,
           rowIndex,
           exitPoint.x,
-          finishGoalTileCharacter,
+          goalReachTileCharacter,
         );
       }
     }

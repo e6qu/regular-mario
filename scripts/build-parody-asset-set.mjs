@@ -916,6 +916,120 @@ const wardenPalette = {
   m: [120, 34, 26, 255],
 };
 
+// The keep's boss ("the warden", our Bowser): a hulking horned keeper, drawn
+// 16x16 and doubled to the ROM boss's 32x32 footprint. Facing left (toward
+// the approaching player). Two leg frames; the hammer variant holds a maul
+// over the shell.
+const bossPalette = {
+  ".": [0, 0, 0, 0],
+  S: [44, 104, 46, 255],
+  s: [96, 158, 66, 255],
+  k: [236, 224, 176, 255],
+  b: [224, 180, 110, 255],
+  o: [186, 108, 44, 255],
+  e: [24, 20, 18, 255],
+  w: [245, 240, 220, 255],
+  r: [198, 44, 34, 255],
+  m: [120, 34, 26, 255],
+  h: [138, 138, 146, 255],
+  t: [124, 84, 48, 255],
+};
+const bossBodyRows = [
+  "...k......k.....",
+  "..ekk....kke....",
+  "..krrekkrrke....",
+  ".ereewereewe....",
+  ".esssssssse.SSe.",
+  "esssmmmssseSSSSe",
+  "emmmmmmsssSSSSSe",
+  ".emmemssbSSkSSSe",
+  "..eesssbbSSSSkSe",
+  ".essbbbbbSSSSSSe",
+  "esbbbbbbSSkSSSe.",
+  "esbbbbbSSSSSSe..",
+  "essbbbbeSSSSe...",
+];
+const bossLegsA = [".eossooeoosoe...", ".ekkokkekkokke..", "..ee..ee..ee...."];
+const bossLegsB = ["..eossoeoosoe...", "..ekkokekkoke...", "...ee..ee.ee...."];
+const bossWalk1 = [...bossBodyRows, ...bossLegsA];
+const bossWalk2 = [...bossBodyRows, ...bossLegsB];
+// Hammer variant: a maul brandished over the shell (top-right).
+function withBossHammer(grid) {
+  const rows = grid.map((row) => row.split(""));
+  const overlay = [
+    [0, 13, "h"],
+    [0, 14, "h"],
+    [1, 13, "h"],
+    [1, 14, "h"],
+    [2, 14, "t"],
+    [3, 14, "t"],
+  ];
+  return applyPixelOverlay(rows, overlay);
+}
+// Stamp [row, column, letter] pixels onto a split-row grid, then rejoin.
+function applyPixelOverlay(rows, overlay) {
+  for (const [row, column, letter] of overlay) {
+    if (rows[row] !== undefined && rows[row][column] !== undefined) {
+      rows[row][column] = letter;
+    }
+  }
+  return rows.map((row) => row.join(""));
+}
+
+// Double a 16x16 grid to 32x32 (scaleGridDouble only handles 8x8 bodies).
+function scaleGrid16Double(grid) {
+  const scaled = [];
+  for (const row of grid.slice(0, 16)) {
+    const wide = [...row.slice(0, 16)].map((cell) => cell + cell).join("");
+    scaled.push(wide, wide);
+  }
+  return scaled;
+}
+// The boss's manifest entry: true 32x32 frames, legs alternating with his
+// patrol direction flips as he paces the bridge.
+function bossEnemySprite(leftFileName, rightFileName) {
+  return {
+    ...spriteEntry(leftFileName, 32, 32),
+    stateSprites: {
+      "walk-left": spriteEntry(leftFileName, 32, 32),
+      "walk-right": spriteEntry(rightFileName, 32, 32),
+    },
+  };
+}
+
+// The gate axe: the castle's end-of-bridge axe (chopping it drops the
+// bridge in the ROM); doubles as the generic exit-gate marker.
+// A fully transparent tile: the goal "gate" column is an invisible trigger
+// (the axe actor is its one visible marker, as in the ROM).
+const tileNone = Array.from({ length: 16 }, () => "................");
+
+const gateAxePalette = {
+  ".": [0, 0, 0, 0],
+  e: [24, 20, 18, 255],
+  h: [168, 168, 178, 255],
+  w: [235, 235, 242, 255],
+  t: [136, 92, 50, 255],
+  d: [96, 62, 32, 255],
+};
+const gateAxe = [
+  "....ehhe........",
+  "...ehwwhe.......",
+  "..ehwwhhhe......",
+  "..ehwhhhhe......",
+  "..ehhhhhhee.....",
+  "...ehhhheete....",
+  "....eheeetde....",
+  ".....eetdee.....",
+  ".....etdee......",
+  "....etdee.......",
+  "...etdee........",
+  "..etdee.........",
+  ".etdee..........",
+  ".edee...........",
+  ".ee.............",
+  "................",
+];
+
 // A dark finned slug for the bullet volleys.
 const bulletPalette = {
   ".": [0, 0, 0, 0],
@@ -1108,41 +1222,56 @@ const fullActionPoses = {
   climb: "climb",
   swim: "swim",
   "swim-2": "swim-2",
-  burning: "burning",
+  "burning-1": "burning-1",
+  "burning-2": "burning-2",
 };
 
 // The on-fire pose (god mode standing on lava): the costume's idle frame
-// engulfed in flames. Deterministic per-column flame heights (no RNG) with
-// yellow tips over orange tongues; drawn over whatever body pixel is there.
-const burningFlameHeights = [3, 5, 4, 6, 3, 7, 4, 5, 6, 4, 7, 3, 5, 4, 6, 3];
-function burningGrid(grid) {
+// engulfed in flames. Two deterministic flame phases (no RNG) with yellow
+// tips over orange tongues, drawn over whatever body pixel is there. The
+// flames LEAN LEFT — the trail behind a rightward runner; the shell flips
+// the sprite when the player faces the other way.
+const burningFlameHeightsA = [3, 5, 4, 6, 3, 7, 4, 5, 6, 4, 7, 3, 5, 4, 6, 3];
+const burningFlameHeightsB = [5, 3, 6, 4, 7, 4, 6, 3, 4, 7, 4, 6, 3, 6, 4, 5];
+function burningGrid(grid, phase = 1) {
+  const heights = phase === 1 ? burningFlameHeightsA : burningFlameHeightsB;
   const height = grid.length;
   const rows = grid.map((row) => row.split(""));
   for (let column = 0; column < 16; column += 1) {
-    const flameHeight = burningFlameHeights[column];
+    const flameHeight = heights[column];
     for (let step = 0; step < flameHeight; step += 1) {
       const row = height - 1 - step;
-      if (rows[row] === undefined || rows[row][column] === undefined) {
+      if (rows[row] === undefined) {
         continue;
       }
-      rows[row][column] = step === flameHeight - 1 ? "2" : "1";
+      // The tongue leans one pixel left near its tip (the wind-blown trail).
+      const lean = step >= flameHeight - 2 ? 1 : 0;
+      const leanedColumn = column - lean;
+      if (rows[row][leanedColumn] === undefined) {
+        continue;
+      }
+      rows[row][leanedColumn] = step === flameHeight - 1 ? "2" : "1";
     }
   }
-  // A few tongues licking over the head/shoulders so tall frames read as
-  // fully ablaze, not just standing in a campfire.
-  for (const [row, column, letter] of [
+  // Tongues licking over the head/shoulders so tall frames read as fully
+  // ablaze; the two phases flicker between spots.
+  const tonguesA = [
     [1, 4, "2"],
     [2, 4, "1"],
     [1, 11, "2"],
     [2, 11, "1"],
     [0, 8, "2"],
     [1, 8, "1"],
-  ]) {
-    if (rows[row] !== undefined && rows[row][column] !== undefined) {
-      rows[row][column] = letter;
-    }
-  }
-  return rows.map((row) => row.join(""));
+  ];
+  const tonguesB = [
+    [0, 5, "2"],
+    [1, 5, "1"],
+    [2, 12, "2"],
+    [3, 12, "1"],
+    [1, 9, "2"],
+    [2, 9, "1"],
+  ];
+  return applyPixelOverlay(rows, phase === 1 ? tonguesA : tonguesB);
 }
 function burningPalette(basePalette) {
   return {
@@ -1167,7 +1296,8 @@ const robotActionPoses = {
   climb: "idle",
   swim: "jump",
   "swim-2": "jump",
-  burning: "burning",
+  "burning-1": "burning-1",
+  "burning-2": "burning-2",
 };
 
 // Emit the four vitality-tier keys for every action of one costume. `keyPrefix`
@@ -1924,6 +2054,25 @@ async function main() {
     ["cloud-tosser.png", cloudTosser, cloudTosserPalette],
     ["buzzy-shell.png", snapperShell, buzzyPalette],
     ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
+    // The keep's boss at true 32x32 (fire and hammer-throwing variants).
+    ["gate-axe.png", gateAxe, gateAxePalette],
+    ["tile-none.png", tileNone, gateAxePalette],
+    ["warden-boss-1.png", scaleGrid16Double(bossWalk1), bossPalette, 32, 32],
+    ["warden-boss-2.png", scaleGrid16Double(bossWalk2), bossPalette, 32, 32],
+    [
+      "warden-boss-hammer-1.png",
+      scaleGrid16Double(withBossHammer(bossWalk1)),
+      bossPalette,
+      32,
+      32,
+    ],
+    [
+      "warden-boss-hammer-2.png",
+      scaleGrid16Double(withBossHammer(bossWalk2)),
+      bossPalette,
+      32,
+      32,
+    ],
     ["bullet-slug.png", bulletSlug, bulletPalette],
     ["castaway-fish.png", castawayFish, waterEnemyPalette],
     ["castaway-squid.png", castawaySquid, waterEnemyPalette],
@@ -1946,54 +2095,59 @@ async function main() {
     ["castaway-swim-2-fire.png", castawaySwimB, firePlayerPalette],
     // On-fire frames (god mode on lava), every costume and tier: the idle
     // frame under the shared flame overlay.
-    [
-      "castaway-burning.png",
-      burningGrid(castawayIdle),
-      burningPalette(palette),
-    ],
-    [
-      "castaway-burning-powered.png",
-      burningGrid(castawayIdle),
-      burningPalette(poweredPlayerPalette),
-    ],
-    [
-      "castaway-burning-fire.png",
-      burningGrid(castawayIdle),
-      burningPalette(firePlayerPalette),
-    ],
-    ...[luigiCostume, ...robotCostumes].flatMap((costume) => [
+    // On-fire frames (god mode on lava): two flame phases per costume/tier,
+    // flames leaning behind a rightward runner (the shell flips the sprite
+    // to face the other way).
+    ...[1, 2].flatMap((phase) => [
       [
-        `${costume.key}-burning.png`,
-        burningGrid(costume.poses.idle),
-        burningPalette(costume.palettes.base),
+        `castaway-burning-${phase}.png`,
+        burningGrid(castawayIdle, phase),
+        burningPalette(palette),
       ],
       [
-        `${costume.key}-burning-powered.png`,
-        burningGrid(costume.poses.idle),
-        burningPalette(costume.palettes.powered),
+        `castaway-burning-${phase}-powered.png`,
+        burningGrid(castawayIdle, phase),
+        burningPalette(poweredPlayerPalette),
       ],
       [
-        `${costume.key}-burning-fire.png`,
-        burningGrid(costume.poses.idle),
-        burningPalette(costume.palettes.fire),
+        `castaway-burning-${phase}-fire.png`,
+        burningGrid(castawayIdle, phase),
+        burningPalette(firePlayerPalette),
       ],
-    ]),
-    ...[goombaCostume, princessCostume].flatMap((costume) => [
-      [
-        `${costume.key}-burning.png`,
-        burningGrid(costume.poses.idle),
-        burningPalette(costume.palette),
-      ],
-      [
-        `${costume.key}-burning-powered.png`,
-        burningGrid(costume.poses.idle),
-        burningPalette(costume.palette),
-      ],
-      [
-        `${costume.key}-burning-fire.png`,
-        burningGrid(costume.poses.idle),
-        burningPalette(costume.palette),
-      ],
+      ...[luigiCostume, ...robotCostumes].flatMap((costume) => [
+        [
+          `${costume.key}-burning-${phase}.png`,
+          burningGrid(costume.poses.idle, phase),
+          burningPalette(costume.palettes.base),
+        ],
+        [
+          `${costume.key}-burning-${phase}-powered.png`,
+          burningGrid(costume.poses.idle, phase),
+          burningPalette(costume.palettes.powered),
+        ],
+        [
+          `${costume.key}-burning-${phase}-fire.png`,
+          burningGrid(costume.poses.idle, phase),
+          burningPalette(costume.palettes.fire),
+        ],
+      ]),
+      ...[goombaCostume, princessCostume].flatMap((costume) => [
+        [
+          `${costume.key}-burning-${phase}.png`,
+          burningGrid(costume.poses.idle, phase),
+          burningPalette(costume.palette),
+        ],
+        [
+          `${costume.key}-burning-${phase}-powered.png`,
+          burningGrid(costume.poses.idle, phase),
+          burningPalette(costume.palette),
+        ],
+        [
+          `${costume.key}-burning-${phase}-fire.png`,
+          burningGrid(costume.poses.idle, phase),
+          burningPalette(costume.palette),
+        ],
+      ]),
     ]),
     // Full green companion costume — distinct art (base/powered/fire per pose).
     ...costumeSpriteFiles(luigiCostume),
@@ -2087,7 +2241,7 @@ async function main() {
     grass: spriteEntry("tile-sand.png"),
     stone: spriteEntry("tile-crate.png"),
     thorn: spriteEntry("tile-spikes.png"),
-    gate: spriteEntry("tile-pole.png"),
+    gate: spriteEntry("tile-none.png"),
     // Decoded background scenery (empty-collision decorative tiles).
     "scenery-cloud-left": spriteEntry("scenery-cloud-left.png"),
     "scenery-cloud-middle": spriteEntry("scenery-cloud-middle.png"),
@@ -2212,8 +2366,14 @@ async function main() {
       "projectile-hammer": spriteEntry("projectile-hammer.png", 8, 8),
       "projectile-flame": spriteEntry("flame-jet.png", 16, 8),
       "projectile-egg": spriteEntry("projectile-egg.png", 8, 8),
-      "vglc-smb-bowser": walkingEnemySprite("warden.png"),
-      "vglc-smb-bowser-hammers": walkingEnemySprite("warden.png"),
+      "vglc-smb-bowser": bossEnemySprite(
+        "warden-boss-1.png",
+        "warden-boss-2.png",
+      ),
+      "vglc-smb-bowser-hammers": bossEnemySprite(
+        "warden-boss-hammer-1.png",
+        "warden-boss-hammer-2.png",
+      ),
       "vglc-smb-bullet": walkingEnemySprite("bullet-slug.png"),
       "vglc-smb-coin": spriteEntry("tile-shell.png"),
       "vglc-smb-question-block-contents": spriteEntry("tile-shell.png"),
@@ -2224,7 +2384,7 @@ async function main() {
       "vglc-smb-transition-pipe": spriteEntry("tile-bamboo.png"),
       "vglc-smb-transition-pipe-a": spriteEntry("tile-bamboo.png"),
       "vglc-smb-transition-pipe-b": spriteEntry("tile-bamboo.png"),
-      "open-gate": spriteEntry("tile-pole.png"),
+      "open-gate": spriteEntry("gate-axe.png"),
       // Level-editor actor ids — the editor's whole cast renders with this
       // skin's art (no fallback capsules).
       beetle: walkingEnemySprite("grumbler-idle.png"),

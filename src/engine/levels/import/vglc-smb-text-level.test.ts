@@ -663,8 +663,10 @@ describe("parseVglcSmbTextLevel", () => {
       { entityId: "open-gate-1", actorId: "open-gate", x: 3, y: 0 },
     ]);
     expect(value.tiles).toEqual([
-      ["empty", "empty", "empty", "flagpole"],
-      ["ground", "ground", "ground", "flagpole"],
+      // The exit column is an invisible goal-reach trigger (the gate/axe
+      // actor is its visible marker).
+      ["empty", "empty", "empty", "goal-reach"],
+      ["ground", "ground", "ground", "goal-reach"],
     ]);
   });
 

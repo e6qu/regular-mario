@@ -1,6 +1,7 @@
 import type { TilePoint } from "../domain/units";
 import { ActorRole, type SpawnedPowerUpMovement } from "../domain/level-spec";
 import { describe, expect, it } from "vitest";
+import type { LevelSpec } from "../domain/level-spec";
 
 import {
   assertValidInteractiveBlockInteractionState,
@@ -37,13 +38,17 @@ function tilePoint(x: number, y: number): TilePoint {
   };
 }
 
-function spawnedPowerUpAt(position: {
-  readonly x: number;
-  readonly y: number;
-}): SpawnedActorsState {
+function spawnedEmergedActorAt(
+  levelSpec: ReturnType<typeof interactivePowerUpBlockLevelSpec>,
+  position: {
+    readonly x: number;
+    readonly y: number;
+  },
+  velocityY?: number,
+): SpawnedActorsState {
   const spawned = resolveSpawnedActorsState(
     makeEmptySpawnedActorsState(),
-    interactivePowerUpBlockLevelSpec(),
+    levelSpec,
     [tilePoint(2, 4)],
   );
 
@@ -54,11 +59,24 @@ function spawnedPowerUpAt(position: {
         // Past the emerge phase, so movement-phase behaviour is under test.
         remainingPopupFrames:
           0 as (typeof spawned.spawnedActors)[0]["remainingPopupFrames"],
+        ...(velocityY === undefined
+          ? {}
+          : {
+              velocityY:
+                velocityY as (typeof spawned.spawnedActors)[0]["velocityY"],
+            }),
         position,
       },
     ],
     lastSpawnFrameIndexByBlockKey: spawned.lastSpawnFrameIndexByBlockKey,
   };
+}
+
+function spawnedPowerUpAt(position: {
+  readonly x: number;
+  readonly y: number;
+}): SpawnedActorsState {
+  return spawnedEmergedActorAt(interactivePowerUpBlockLevelSpec(), position);
 }
 
 function expectedSpawnedActor(params: {
@@ -207,21 +225,21 @@ describe("spawned actors state", () => {
     );
   });
 
-  it("spawns an extra-life actor emerging from a bumped block", () => {
+  it("spawns an extra-life actor walking like the super mushroom", () => {
     expectEmergerSpawn(
       interactiveExtraLifeBlockLevelSpec(),
       "extra-life",
       ActorRole.ExtraLife,
-      0,
+      40,
     );
   });
 
-  it("spawns an invincibility power-up actor emerging from a bumped block", () => {
+  it("spawns an invincibility power-up actor moving away from the bump", () => {
     expectEmergerSpawn(
       interactiveInvincibilityBlockLevelSpec(),
       "invincibility",
       ActorRole.InvincibilityPowerUp,
-      0,
+      60,
     );
   });
 
@@ -309,7 +327,7 @@ describe("spawned actors state", () => {
     expect(stepped.spawnedActors[0]?.position.x).toBeCloseTo(32 + 48 / 60);
   });
 
-  it("spawns a stationary coin actor above a bumped interactive block", () => {
+  it("spawns a rising coin popup actor above a bumped interactive block", () => {
     const levelSpec = interactiveCoinBlockLevelSpec();
 
     expect(
@@ -322,7 +340,7 @@ describe("spawned actors state", () => {
           actorId: "coin",
           role: ActorRole.Coin,
           velocityX: 0,
-          velocityY: -48,
+          velocityY: -240,
           collectionMode: SpawnedActorCollectionMode.OnSpawn,
           remainingPopupFrames: 24,
         }),
@@ -392,6 +410,72 @@ describe("spawned actors state", () => {
     expect(stepped.spawnedActors[0]?.velocityY).toBe(0);
   });
 
+  it("walks the spawned extra-life with super-mushroom physics", () => {
+    const levelSpec = interactiveExtraLifeBlockLevelSpec();
+    const stepped = stepSpawnedActorsState(
+      spawnedEmergedActorAt(levelSpec, { x: 48, y: 48 }),
+      nominalSixtyHertzFrameDurationMilliseconds,
+      levelSpec,
+      makeEmptyBreakableBlockState(),
+    );
+
+    // Same walking speed and gravity as the super mushroom.
+    expect(stepped.spawnedActors[0]?.position.x).toBeCloseTo(48 + 40 / 60);
+    expect(stepped.spawnedActors[0]?.velocityY).toBeCloseTo(15);
+  });
+
+  // One landing step for a spawned actor dropped just above the floor.
+  function landingStepFor(levelSpec: LevelSpec) {
+    return stepSpawnedActorsState(
+      spawnedEmergedActorAt(levelSpec, { x: 40, y: 63.9 }, 240),
+      nominalSixtyHertzFrameDurationMilliseconds,
+      levelSpec,
+      makeEmptyBreakableBlockState(),
+    );
+  }
+
+  it("lands the spawned extra-life without bouncing", () => {
+    const stepped = landingStepFor(interactiveExtraLifeBlockLevelSpec());
+
+    expect(stepped.spawnedActors[0]?.position.y).toBe(64);
+    expect(stepped.spawnedActors[0]?.velocityY).toBe(0);
+  });
+
+  it("bounces the invincibility star back up whenever it lands", () => {
+    const stepped = landingStepFor(interactiveInvincibilityBlockLevelSpec());
+
+    // The star lands on the floor and relaunches upward while still moving
+    // horizontally away from the bumped block.
+    expect(stepped.spawnedActors[0]?.position.y).toBe(64);
+    expect(stepped.spawnedActors[0]?.velocityY).toBe(-240);
+    expect(stepped.spawnedActors[0]?.position.x).toBeCloseTo(40 + 60 / 60);
+  });
+
+  it("keeps the invincibility star bouncing across repeated landings", () => {
+    const levelSpec = interactiveInvincibilityBlockLevelSpec();
+    let state = spawnedEmergedActorAt(levelSpec, { x: 48, y: 48 });
+    let bounceCount = 0;
+
+    for (let frame = 0; frame < 240; frame += 1) {
+      const previousVelocityY = state.spawnedActors[0]!.velocityY;
+      state = stepSpawnedActorsState(
+        state,
+        nominalSixtyHertzFrameDurationMilliseconds,
+        levelSpec,
+        makeEmptyBreakableBlockState(),
+      );
+
+      if (previousVelocityY > 0 && state.spawnedActors[0]!.velocityY < 0) {
+        bounceCount += 1;
+      }
+    }
+
+    // The star must never come to rest: repeated ground contacts each launch
+    // it upward again.
+    expect(bounceCount).toBeGreaterThanOrEqual(2);
+    expect(state.spawnedActors[0]!.velocityY).not.toBe(0);
+  });
+
   it("reverses spawned power-up actors at solid walls", () => {
     const levelSpec = solidHazardBlockLevelSpec();
     const source = spawnedPowerUpAt({ x: 48, y: 48 });
@@ -418,34 +502,43 @@ describe("spawned actors state", () => {
     expect(stepped.spawnedActors[0]?.velocityX).toBe(-40);
   });
 
-  it("moves spawned block coins upward for a finite popup lifetime", () => {
+  it("moves spawned block coins through a full up-and-down arc before vanishing", () => {
     const levelSpec = interactiveCoinBlockLevelSpec();
     const spawned = resolveSpawnedActorsState(
       makeEmptySpawnedActorsState(),
       levelSpec,
       [tilePoint(2, 4)],
     );
-    const firstFrame = stepSpawnedActorsState(
-      spawned,
-      nominalSixtyHertzFrameDurationMilliseconds,
-      levelSpec,
-      makeEmptyBreakableBlockState(),
-    );
-
-    expect(firstFrame.spawnedActors[0]?.position.y).toBeCloseTo(48 - 48 / 60);
-    expect(firstFrame.spawnedActors[0]?.remainingPopupFrames).toBe(23);
-    expect(firstFrame.spawnedActors[0]?.active).toBe(true);
-
-    let finalFrame = firstFrame;
-    for (let frame = 0; frame < 23; frame += 1) {
-      finalFrame = stepSpawnedActorsState(
-        finalFrame,
+    const step = (state: SpawnedActorsState): SpawnedActorsState =>
+      stepSpawnedActorsState(
+        state,
         nominalSixtyHertzFrameDurationMilliseconds,
         levelSpec,
         makeEmptyBreakableBlockState(),
       );
+    const firstFrame = step(spawned);
+
+    expect(firstFrame.spawnedActors[0]?.position.y).toBeCloseTo(48 - 240 / 60);
+    expect(firstFrame.spawnedActors[0]?.remainingPopupFrames).toBe(23);
+    expect(firstFrame.spawnedActors[0]?.active).toBe(true);
+
+    let apexFrame = firstFrame;
+    for (let frame = 0; frame < 11; frame += 1) {
+      apexFrame = step(apexFrame);
     }
 
+    // Apex after half the popup lifetime: 48 pixels above the block top.
+    expect(apexFrame.spawnedActors[0]?.position.y).toBeCloseTo(48 - 48);
+    expect(apexFrame.spawnedActors[0]?.active).toBe(true);
+
+    let finalFrame = apexFrame;
+    for (let frame = 0; frame < 12; frame += 1) {
+      finalFrame = step(finalFrame);
+    }
+
+    // The descent retraces the rise back to the block top, then the coin
+    // vanishes.
+    expect(finalFrame.spawnedActors[0]?.position.y).toBeCloseTo(48);
     expect(finalFrame.spawnedActors[0]?.remainingPopupFrames).toBe(0);
     expect(finalFrame.spawnedActors[0]?.active).toBe(false);
   });

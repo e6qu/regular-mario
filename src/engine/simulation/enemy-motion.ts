@@ -78,6 +78,9 @@ export type ChasingEnemyActorState = {
   };
   readonly direction: EnemyPatrolDirection;
   readonly behavior: ChasingEnemyBehavior;
+  // Frames spent in the swimming pulse cycle (Blooper): absent on legacy and
+  // land states, initialized lazily on the first swimming step.
+  readonly swimPhase?: number;
 };
 
 export type ArmoredEnemyActorState = {
@@ -126,6 +129,10 @@ export type ThrowingEnemyActorState = {
   readonly hopTransitionFrames?: number;
   readonly hopSettleFrames?: number;
   readonly hopSeed?: number;
+  // Frames the player has spent within advance range (sticky once accrued).
+  // After enough of them — or point-blank proximity — a Hammer Bro stops
+  // shimmying and marches at the player. Absent on legacy states.
+  readonly playerNearbyFrames?: number;
 };
 
 export type AerialThrowingEnemyActorState = {
@@ -592,6 +599,7 @@ export function stepEnemyMotionState(
           patrolActor.entityId,
           movementConstants.enemyPatrolSpeed,
         ),
+        frameIndex,
       );
     }),
     flyingActors: previousState.flyingActors.map((flyingActor) => {
@@ -663,6 +671,7 @@ export function stepEnemyMotionState(
         throwingActor,
         levelSpec,
         frameDurationSeconds,
+        player,
       );
     }),
     aerialThrowingActors: previousState.aerialThrowingActors.map(
@@ -1525,11 +1534,24 @@ function resolveEnemyMotionFields(
   };
 }
 
+// Bowser (both the pacing 'w' and hammer-throwing 'W' castle variants, matched
+// by entity id prefix) occasionally makes a low hop like the ROM's MakeBJump,
+// on a deterministic per-actor cycle. The pacing variant hops straight up so a
+// mid-air stretch can never carry him past a ledge check and off his bridge.
+const bowserEntityIdPrefix = "vglc-smb-bowser";
+const bowserHopIntervalFrames = 144;
+const bowserHopTakeoffSpeedPixelsPerSecond = 120;
+
+function isBowserEnemyEntityId(entityId: EntityId): boolean {
+  return (entityId as string).startsWith(bowserEntityIdPrefix);
+}
+
 function stepEnemyPatrolActor(
   patrolActor: EnemyPatrolActorState,
   levelSpec: LevelSpec,
   frameDurationSeconds: number,
   enemyPatrolSpeed: VelocityPixelsPerSecond,
+  frameIndex: FrameIndex,
 ): EnemyPatrolActorState {
   const attemptedPositionX =
     patrolActor.position.x +
@@ -1537,17 +1559,28 @@ function stepEnemyPatrolActor(
       enemyPatrolSpeed *
       frameDurationSeconds;
 
-  // Horizontal: reverse only at solid walls (checkFloorSupport = false) so the
-  // enemy walks off ledges like the original instead of turning around.
+  // Horizontal: reverse at solid walls; ledge-staying walkers (Bowser on his
+  // bridge) also turn at ledges while grounded, everyone else walks off them
+  // like the original.
+  const definition = findActorDefinitionByEntityId(
+    levelSpec,
+    patrolActor.entityId,
+  );
+  const turnsAtLedges = definition?.turnsAtLedges === true;
+  const isBowser = isBowserEnemyEntityId(patrolActor.entityId);
+  const airborne = patrolActor.velocity.y !== 0;
   let direction = patrolActor.direction;
   let nextX: number = patrolActor.position.x;
   let velocityX = 0;
-  if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
+  if (
+    !(isBowser && airborne) &&
+    !enemyWouldLeaveWorld(attemptedPositionX, levelSpec)
+  ) {
     const obstacleCheck = checkEnemyMotionObstacle(
       patrolActor,
       attemptedPositionX,
       levelSpec,
-      false,
+      turnsAtLedges && !airborne,
     );
     if (obstacleCheck.blocked) {
       direction = obstacleCheck.nextDirection;
@@ -1557,11 +1590,29 @@ function stepEnemyPatrolActor(
     velocityX = makeEnemyPatrolVelocity(enemyPatrolSpeed, direction);
   }
 
+  // Bowser's occasional low hop: launch upward from the ground on his cycle;
+  // the shared gravity/landing resolution brings him back down.
+  const grounded =
+    !airborne &&
+    enemyHasFloorBelow(
+      patrolActor.position.x,
+      patrolActor.position.y,
+      levelSpec,
+    );
+  const hopsNow =
+    isBowser &&
+    grounded &&
+    ((frameIndex as number) + hashEntityIdToHopSeed(patrolActor.entityId)) %
+      bowserHopIntervalFrames ===
+      0;
+
   return {
     ...patrolActor,
     ...resolveEnemyMotionFields(
       patrolActor.position.y,
-      patrolActor.velocity.y,
+      hopsNow
+        ? 0 - bowserHopTakeoffSpeedPixelsPerSecond
+        : patrolActor.velocity.y,
       nextX,
       velocityX,
       frameDurationSeconds,
@@ -1762,21 +1813,26 @@ function stopPiranhaPlantActor(
   return piranhaPlantActor;
 }
 
-// Move an enemy's vertical position toward the player's depth by up to `step`,
-// clamped to stay within the playfield (so a swimming chaser never drifts off
-// the top or bottom of the water).
-function approachEnemyDepth(
-  currentY: number,
-  targetY: number,
-  step: number,
-  levelSpec: LevelSpec,
-): number {
+// Keep a swimming enemy inside the playfield's water column (so it never
+// pulses off the top or drift-settles below the floor of the level).
+function clampEnemyDepth(positionY: number, levelSpec: LevelSpec): number {
   const worldHeight = levelSpec.heightTiles * levelSpec.tileSizePixels;
-  const delta = targetY - currentY;
-  const next =
-    Math.abs(delta) <= step ? targetY : currentY + Math.sign(delta) * step;
-  return Math.max(8, Math.min(worldHeight - 20, next));
+  return Math.max(8, Math.min(worldHeight - 20, positionY));
 }
+
+// A Blooper engages any player within about a screen and a half horizontally
+// (screens of 16 tiles), at any depth — the ROM drives it by proximity, not a
+// detection box.
+const swimmingChaserActivationRangeTiles = 24;
+// One swim cycle, mirroring the ROM's ProcSwimmingB: a burst of upward,
+// player-angled thrust, then a slow limp drift-settle back down until the next
+// pulse.
+const swimmingChaserPulseFrames = 24;
+const swimmingChaserSettleFrames = 64;
+const swimmingChaserCycleFrames =
+  swimmingChaserPulseFrames + swimmingChaserSettleFrames;
+const swimmingChaserPulseRiseSpeedPixelsPerSecond = 90;
+const swimmingChaserSettleSinkSpeedPixelsPerSecond = 30;
 
 function stepChasingEnemyActor(
   chasingActor: ChasingEnemyActorState,
@@ -1785,6 +1841,16 @@ function stepChasingEnemyActor(
   movementConstants: MovementConstants,
   player: PlayerSimulationState,
 ): ChasingEnemyActorState {
+  if (movementConstants.swimming) {
+    return stepSwimmingChasingEnemyActor(
+      chasingActor,
+      levelSpec,
+      frameDurationSeconds,
+      movementConstants,
+      player,
+    );
+  }
+
   const playerDetected = isPlayerInChaseDetectionWindow(
     chasingActor,
     player,
@@ -1817,17 +1883,11 @@ function stepChasingEnemyActor(
       };
     }
 
-    const chasingActorAsPatrol: EnemyPatrolActorState = {
-      entityId: chasingActor.entityId,
-      position: chasingActor.position,
-      velocity: { x: chasingActor.velocity.x, y: zeroEnemyVerticalVelocity },
+    const obstacleCheck = checkChasingActorObstacle(
+      chasingActor,
       direction,
-    };
-    const obstacleCheck = checkEnemyMotionObstacle(
-      chasingActorAsPatrol,
       attemptedPositionX,
       levelSpec,
-      false,
     );
 
     if (obstacleCheck.blocked) {
@@ -1844,19 +1904,6 @@ function stepChasingEnemyActor(
       };
     }
 
-    // A swimming chaser (Blooper) also drifts toward the player's depth, so it
-    // pursues in 2D instead of sliding past at a fixed height — but gently (a
-    // fraction of its horizontal speed) so it stays avoidable. On land the
-    // chaser stays on its row.
-    const attemptedPositionY = movementConstants.swimming
-      ? approachEnemyDepth(
-          chasingActor.position.y,
-          player.position.y,
-          movementConstants.chasingEnemySpeed * frameDurationSeconds * 0.35,
-          levelSpec,
-        )
-      : chasingActor.position.y;
-
     return {
       ...chasingActor,
       behavior: ChasingEnemyBehavior.Chase,
@@ -1866,10 +1913,8 @@ function stepChasingEnemyActor(
           attemptedPositionX,
           "enemyMotion.chasingActors[].position.x",
         ),
-        y: requireEnemyPixelPosition(
-          attemptedPositionY,
-          "enemyMotion.chasingActors[].position.y",
-        ),
+        // On land the chaser stays on its row.
+        y: chasingActor.position.y,
       },
       velocity: {
         x: makeEnemyPatrolVelocity(
@@ -1880,6 +1925,132 @@ function stepChasingEnemyActor(
     };
   }
 
+  return stepChasingEnemyPatrol(
+    chasingActor,
+    levelSpec,
+    frameDurationSeconds,
+    movementConstants,
+  );
+}
+
+// ROM-style Blooper motion: while a player is within activation range it swims
+// in pulses — an upward burst angled toward the player, then a slow limp
+// drift-settle downward — instead of gliding at constant velocity. Fully
+// deterministic: the cycle is a fixed frame count per actor.
+function stepSwimmingChasingEnemyActor(
+  chasingActor: ChasingEnemyActorState,
+  levelSpec: LevelSpec,
+  frameDurationSeconds: number,
+  movementConstants: MovementConstants,
+  player: PlayerSimulationState,
+): ChasingEnemyActorState {
+  const activationRangePixels =
+    swimmingChaserActivationRangeTiles * levelSpec.tileSizePixels;
+  const horizontalDistance = Math.abs(
+    player.position.x - chasingActor.position.x,
+  );
+
+  if (horizontalDistance > activationRangePixels) {
+    return stepChasingEnemyPatrol(
+      chasingActor,
+      levelSpec,
+      frameDurationSeconds,
+      movementConstants,
+    );
+  }
+
+  const swimPhase = chasingActor.swimPhase ?? 0;
+  const cyclePosition = swimPhase % swimmingChaserCycleFrames;
+  const pulsing = cyclePosition < swimmingChaserPulseFrames;
+
+  if (!pulsing) {
+    // Between pulses the Blooper goes limp and settles slowly downward.
+    const settledY = clampEnemyDepth(
+      chasingActor.position.y +
+        swimmingChaserSettleSinkSpeedPixelsPerSecond * frameDurationSeconds,
+      levelSpec,
+    );
+    return {
+      ...chasingActor,
+      behavior: ChasingEnemyBehavior.Chase,
+      position: {
+        x: chasingActor.position.x,
+        y: requireEnemyPixelPosition(
+          settledY,
+          "enemyMotion.chasingActors[].position.y",
+        ),
+      },
+      velocity: {
+        x: requireEnemyVelocity(0, "enemyMotion.chasingActors[].velocity.x"),
+      },
+      swimPhase: swimPhase + 1,
+    };
+  }
+
+  // Pulse: thrust upward, angled toward the player's side.
+  const direction =
+    player.position.x < chasingActor.position.x
+      ? EnemyPatrolDirection.Left
+      : EnemyPatrolDirection.Right;
+  const attemptedPositionX =
+    chasingActor.position.x +
+    makeEnemyPatrolDirectionSign(direction) *
+      movementConstants.chasingEnemySpeed *
+      frameDurationSeconds;
+  const risenY = clampEnemyDepth(
+    chasingActor.position.y -
+      swimmingChaserPulseRiseSpeedPixelsPerSecond * frameDurationSeconds,
+    levelSpec,
+  );
+
+  let nextX: number = chasingActor.position.x;
+  let velocityX = requireEnemyVelocity(
+    0,
+    "enemyMotion.chasingActors[].velocity.x",
+  );
+  if (!enemyWouldLeaveWorld(attemptedPositionX, levelSpec)) {
+    const obstacleCheck = checkChasingActorObstacle(
+      chasingActor,
+      direction,
+      attemptedPositionX,
+      levelSpec,
+    );
+    if (!obstacleCheck.blocked) {
+      nextX = attemptedPositionX;
+      velocityX = makeEnemyPatrolVelocity(
+        movementConstants.chasingEnemySpeed,
+        direction,
+      );
+    }
+  }
+
+  return {
+    ...chasingActor,
+    behavior: ChasingEnemyBehavior.Chase,
+    direction,
+    position: {
+      x: requireEnemyPixelPosition(
+        nextX,
+        "enemyMotion.chasingActors[].position.x",
+      ),
+      y: requireEnemyPixelPosition(
+        risenY,
+        "enemyMotion.chasingActors[].position.y",
+      ),
+    },
+    velocity: {
+      x: velocityX,
+    },
+    swimPhase: swimPhase + 1,
+  };
+}
+
+function stepChasingEnemyPatrol(
+  chasingActor: ChasingEnemyActorState,
+  levelSpec: LevelSpec,
+  frameDurationSeconds: number,
+  movementConstants: MovementConstants,
+): ChasingEnemyActorState {
   const patrolSpeed = resolveEnemyPatrolSpeed(
     levelSpec,
     chasingActor.entityId,
@@ -2417,30 +2588,72 @@ function hammerBroRaisedRowClear(
   );
 }
 
+// A Hammer Bro stops shimmying and marches at the player — as in the ROM's
+// MoveHammerBroXDir walk once EnemyIntervalTimer runs out — after the player
+// has spent ~10s within advance range, or immediately when the player closes
+// to within three tiles. Bowser's hammer-throwing variant is exempt: he stays
+// on his bridge.
+const hammerBroAdvanceDelayFrames = 600;
+const hammerBroNearbyRangePixels = 192;
+const hammerBroAdvanceTriggerTiles = 3;
+const hammerBroAdvanceSpeedPixelsPerSecond = 40;
+
+// Bowser's throwing variant swaps the Hammer Bro's sustained row-hop for the
+// ROM's occasional low hop: a short symmetric up-and-down arc.
+const bowserThrowingHopArcFrames = 24;
+const bowserThrowingHopRisePixels = 12;
+
 function stepThrowingEnemyActor(
   throwingActor: ThrowingEnemyActorState,
   levelSpec: LevelSpec,
   frameDurationSeconds: number,
+  player: PlayerSimulationState,
 ): ThrowingEnemyActorState {
+  const isBowser = isBowserEnemyEntityId(throwingActor.entityId);
   const originX = throwingActor.originX ?? throwingActor.position.x;
-  // Head away from centre when at/over a bound, otherwise keep the current
-  // heading (defaulting right from a standstill).
-  const currentHeadingSign = throwingActor.velocity.x < 0 ? -1 : 1;
-  const headingSign =
-    throwingActor.position.x >= originX + hammerBroShimmyAmplitudePixels
-      ? -1
-      : throwingActor.position.x <= originX - hammerBroShimmyAmplitudePixels
-        ? 1
-        : currentHeadingSign;
-
-  const attemptedPositionX =
-    throwingActor.position.x +
-    headingSign * hammerBroShimmySpeedPixelsPerSecond * frameDurationSeconds;
-  // Never let the shimmy carry it out of the world or past its pacing window.
-  const clampedPositionX = Math.min(
-    originX + hammerBroShimmyAmplitudePixels,
-    Math.max(originX - hammerBroShimmyAmplitudePixels, attemptedPositionX),
+  const horizontalDistanceToPlayer = Math.abs(
+    player.position.x - throwingActor.position.x,
   );
+  const playerNearbyFrames =
+    (throwingActor.playerNearbyFrames ?? 0) +
+    (horizontalDistanceToPlayer <= hammerBroNearbyRangePixels ? 1 : 0);
+  const advancing =
+    !isBowser &&
+    (playerNearbyFrames >= hammerBroAdvanceDelayFrames ||
+      horizontalDistanceToPlayer <=
+        hammerBroAdvanceTriggerTiles * levelSpec.tileSizePixels);
+
+  let headingSign: -1 | 1;
+  let horizontalSpeed: number;
+  let clampedPositionX: number;
+  if (advancing) {
+    // March at the player, leaving the spawn-column pacing window behind.
+    headingSign = player.position.x < throwingActor.position.x ? -1 : 1;
+    horizontalSpeed = hammerBroAdvanceSpeedPixelsPerSecond;
+    clampedPositionX =
+      throwingActor.position.x +
+      headingSign * horizontalSpeed * frameDurationSeconds;
+  } else {
+    // Head away from centre when at/over a bound, otherwise keep the current
+    // heading (defaulting right from a standstill).
+    const currentHeadingSign = throwingActor.velocity.x < 0 ? -1 : 1;
+    headingSign =
+      throwingActor.position.x >= originX + hammerBroShimmyAmplitudePixels
+        ? -1
+        : throwingActor.position.x <= originX - hammerBroShimmyAmplitudePixels
+          ? 1
+          : currentHeadingSign;
+    horizontalSpeed = hammerBroShimmySpeedPixelsPerSecond;
+
+    const attemptedPositionX =
+      throwingActor.position.x +
+      headingSign * horizontalSpeed * frameDurationSeconds;
+    // Never let the shimmy carry it out of the world or past its pacing window.
+    clampedPositionX = Math.min(
+      originX + hammerBroShimmyAmplitudePixels,
+      Math.max(originX - hammerBroShimmyAmplitudePixels, attemptedPositionX),
+    );
+  }
   if (enemyWouldLeaveWorld(clampedPositionX, levelSpec)) {
     return stopThrowingEnemyActor(throwingActor);
   }
@@ -2464,14 +2677,20 @@ function stepThrowingEnemyActor(
   } else {
     settleFrames -= 1;
     if (settleFrames <= 0) {
-      const raiseTarget = !hopRaised;
-      // Only rise when the row above is clear; dropping back down is always fine.
-      if (
-        !raiseTarget ||
-        hammerBroRaisedRowClear(clampedPositionX, originY, levelSpec)
-      ) {
-        hopRaised = raiseTarget;
-        transitionFrames = hammerBroHopTransitionFrames;
+      if (isBowser) {
+        // Bowser: a short low-hop arc; he never holds a raised row.
+        transitionFrames = bowserThrowingHopArcFrames;
+      } else {
+        const raiseTarget = !hopRaised;
+        // Only rise when the row above is clear; dropping back down is always
+        // fine.
+        if (
+          !raiseTarget ||
+          hammerBroRaisedRowClear(clampedPositionX, originY, levelSpec)
+        ) {
+          hopRaised = raiseTarget;
+          transitionFrames = hammerBroHopTransitionFrames;
+        }
       }
       const scheduled = nextHopSchedule(seed);
       seed = scheduled.seed;
@@ -2479,16 +2698,28 @@ function stepThrowingEnemyActor(
     }
   }
 
-  // Height fraction (0 = spawn row, 1 = raised row): eased across a transition,
-  // held at the current row otherwise.
-  let heightFraction: number;
-  if (transitionFrames > 0) {
-    const progress = 1 - transitionFrames / hammerBroHopTransitionFrames;
-    heightFraction = hopRaised ? progress : 1 - progress;
+  let positionY: number;
+  if (isBowser) {
+    // Bowser's low hop: a sine arc over the transition window, back on the
+    // bridge at both ends.
+    const arcProgress =
+      transitionFrames > 0
+        ? 1 - transitionFrames / bowserThrowingHopArcFrames
+        : 0;
+    positionY =
+      originY - bowserThrowingHopRisePixels * Math.sin(Math.PI * arcProgress);
   } else {
-    heightFraction = hopRaised ? 1 : 0;
+    // Height fraction (0 = spawn row, 1 = raised row): eased across a
+    // transition, held at the current row otherwise.
+    let heightFraction: number;
+    if (transitionFrames > 0) {
+      const progress = 1 - transitionFrames / hammerBroHopTransitionFrames;
+      heightFraction = hopRaised ? progress : 1 - progress;
+    } else {
+      heightFraction = hopRaised ? 1 : 0;
+    }
+    positionY = originY - hammerBroHopRisePixels * heightFraction;
   }
-  const positionY = originY - hammerBroHopRisePixels * heightFraction;
 
   return {
     ...throwingActor,
@@ -2504,7 +2735,7 @@ function stepThrowingEnemyActor(
     },
     velocity: {
       x: requireEnemyVelocity(
-        headingSign * hammerBroShimmySpeedPixelsPerSecond,
+        headingSign * horizontalSpeed,
         "enemyMotion.throwingActors[].velocity.x",
       ),
     },
@@ -2514,6 +2745,7 @@ function stepThrowingEnemyActor(
     hopTransitionFrames: transitionFrames,
     hopSettleFrames: settleFrames,
     hopSeed: seed,
+    playerNearbyFrames,
   };
 }
 
@@ -2610,6 +2842,27 @@ function isPlayerInChaseDetectionWindow(
   return (
     horizontalDistance <= movementConstants.chasingEnemyDetectionWidthPixels &&
     verticalDistance <= movementConstants.chasingEnemyDetectionHeightPixels
+  );
+}
+
+// A chasing actor viewed as a patrol actor for the shared obstacle probe.
+function checkChasingActorObstacle(
+  chasingActor: ChasingEnemyActorState,
+  direction: EnemyPatrolDirection,
+  attemptedPositionX: number,
+  levelSpec: LevelSpec,
+): EnemyMotionObstacleCheck {
+  const chasingActorAsPatrol: EnemyPatrolActorState = {
+    entityId: chasingActor.entityId,
+    position: chasingActor.position,
+    velocity: { x: chasingActor.velocity.x, y: zeroEnemyVerticalVelocity },
+    direction,
+  };
+  return checkEnemyMotionObstacle(
+    chasingActorAsPatrol,
+    attemptedPositionX,
+    levelSpec,
+    false,
   );
 }
 

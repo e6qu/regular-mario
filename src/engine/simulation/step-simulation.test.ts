@@ -2586,10 +2586,13 @@ describe("simulation primitives", () => {
 
   it("spawns deterministic hazard projectiles from active throwing enemies", () => {
     const levelSpec = throwingEnemyLevelSpec();
+    // The thrower marches at a nearby player (the Hammer Bro advance), so keep
+    // the idle test player alive with god mode to observe the frame-90 throw.
+    const constants = { ...initialMovementConstants, godMode: true };
     const initialStateResult = makeInitialSimulationState(
       nominalSixtyHertzFrameDurationMilliseconds,
       levelSpec,
-      initialMovementConstants,
+      constants,
     );
 
     if (!initialStateResult.ok) {
@@ -2603,12 +2606,7 @@ describe("simulation primitives", () => {
       step < initialMovementConstants.throwingEnemyProjectileIntervalFrameCount;
       step += 1
     ) {
-      state = stepSimulation(
-        state,
-        validInputCommand(),
-        initialMovementConstants,
-        levelSpec,
-      );
+      state = stepSimulation(state, validInputCommand(), constants, levelSpec);
     }
 
     expect(state.enemyMotion.activeEnemyEntityIds).toContain("thrower-1");
@@ -2622,9 +2620,12 @@ describe("simulation primitives", () => {
           initialMovementConstants.throwingEnemyProjectileLifetimeFrameCount,
       }),
     ]);
-    expect(state.timedHazardProjectiles.projectiles[0]?.velocity.x).toBe(
-      0 - initialMovementConstants.throwingEnemyProjectileSpeed,
-    );
+    // By frame 90 the thrower has marched to point-blank range and shimmies
+    // across the player's column, so pin the hammer's horizontal speed rather
+    // than its side-dependent sign.
+    expect(
+      Math.abs(state.timedHazardProjectiles.projectiles[0]?.velocity.x ?? 0),
+    ).toBe(initialMovementConstants.throwingEnemyProjectileSpeed);
   });
 
   it("spawns deterministic downward hazard projectiles from active aerial throwing enemies", () => {
@@ -2672,8 +2673,10 @@ describe("simulation primitives", () => {
           initialMovementConstants.aerialThrowingEnemyProjectileLifetimeFrameCount,
       }),
     ]);
+    // Dropped eggs get a small horizontal push toward the player, who idles to
+    // the left of the hovering thrower here.
     expect(state.timedHazardProjectiles.projectiles[0]?.velocity).toEqual({
-      x: 0,
+      x: -40,
       y: initialMovementConstants.aerialThrowingEnemyProjectileSpeed,
     });
   });

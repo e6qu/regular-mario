@@ -470,10 +470,8 @@ export const swimmingMovementConstants: MovementConstants = {
   ),
   runAcceleration: requireAcceleration(182.8, "movement.swim.runAcceleration"),
   airFriction: requireAcceleration(120, "movement.swim.airFriction"),
-  // A Blooper senses the swimmer across a somewhat taller slice of water than a
-  // land chaser (so it can drift up/down to follow) but not the whole column —
-  // it should be avoidable, not clingy.
-  chasingEnemyDetectionHeightPixels: 72,
+  // A swimming chaser (Blooper) is driven by horizontal proximity alone (the
+  // pulse cycle in enemy-motion), so the land detection box is unused here.
   // Underwater fireballs travel straight and buoyant — no gravity, no bounce.
   projectileGravity: requireAcceleration(0, "movement.swim.projectileGravity"),
 };

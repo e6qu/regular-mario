@@ -50,6 +50,7 @@ function makeRouteLevelSpec(input: {
   readonly enemyY: number;
   readonly tiles?: readonly (readonly string[])[];
   readonly enemyPatrolSpeed?: number;
+  readonly turnsAtLedges?: boolean;
 }): LevelSpec {
   const tiles = input.tiles ?? makeSkyGroundTiles(6);
   const firstTileRow = tiles[0];
@@ -69,6 +70,7 @@ function makeRouteLevelSpec(input: {
       {
         actorId: input.actorId,
         role: input.role,
+        ...(input.turnsAtLedges === true ? { turnsAtLedges: true } : {}),
       },
       makeExitDefinition(),
     ],
@@ -189,13 +191,19 @@ function armoredEnemyRouteLevelSpec(
 function throwingEnemyRouteLevelSpec(
   enemyX: number,
   enemyY: number,
+  options?: {
+    readonly tiles?: readonly (readonly string[])[];
+    readonly actorId?: string;
+    readonly entityId?: string;
+  },
 ): LevelSpec {
   return makeRouteLevelSpec({
     role: ActorRole.ThrowingEnemy,
-    actorId: "thrower",
-    entityId: "thrower-1",
+    actorId: options?.actorId ?? "thrower",
+    entityId: options?.entityId ?? "thrower-1",
     enemyX,
     enemyY,
+    ...(options?.tiles === undefined ? {} : { tiles: options.tiles }),
   });
 }
 
@@ -434,6 +442,47 @@ function expectPatrolReversesOnLongStep(levelSpec: LevelSpec): void {
   });
 }
 
+// Step the motion state N frames with a fixed player position, tracking the
+// picked actor's positional extents across the run.
+function stepTrackingExtents(
+  initial: EnemyMotionState,
+  levelSpec: LevelSpec,
+  frames: number,
+  playerPosition: { readonly x: number; readonly y: number },
+  pick: (
+    state: EnemyMotionState,
+  ) => { readonly x: number; readonly y: number } | undefined,
+): {
+  state: EnemyMotionState;
+  minY: number;
+  maxY: number;
+  minX: number;
+  maxX: number;
+} {
+  let state = initial;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  for (let frame = 0; frame < frames; frame += 1) {
+    state = stepEnemyMotionState(
+      state,
+      levelSpec,
+      makeEmptyEnemyInteractionState(),
+      testFrameDurationMilliseconds(1_000 / 60),
+      initialMovementConstants,
+      playerAt(playerPosition),
+      (frame + 1) as FrameIndex,
+    );
+    const position = pick(state);
+    minY = Math.min(minY, position?.y ?? Infinity);
+    maxY = Math.max(maxY, position?.y ?? -Infinity);
+    minX = Math.min(minX, position?.x ?? Infinity);
+    maxX = Math.max(maxX, position?.x ?? -Infinity);
+  }
+  return { state, minY, maxY, minX, maxX };
+}
+
 describe("enemy motion", () => {
   it("creates explicit patrol state from enemy actors", () => {
     expect(enemyMotionFor(flatPatrolLevelSpec(2))).toEqual({
@@ -516,6 +565,57 @@ describe("enemy motion", () => {
     expect(actor.position.x).toBeCloseTo(22, 6);
     expect(actor.position.y).toBeGreaterThan(64);
     expect(actor.velocity.y).toBeGreaterThan(0);
+  });
+
+  it("turns at a ledge instead of walking off when its definition turns at ledges", () => {
+    // Same gap as the walk-off test, but the definition sets turnsAtLedges
+    // (fire Bowser on his bridge, red-Koopa style): the walker reverses at the
+    // plank edge instead of dropping into the pit.
+    const levelSpec = makeRouteLevelSpec({
+      role: ActorRole.Enemy,
+      actorId: "ridge-beetle",
+      entityId: "ridge-beetle-1",
+      enemyX: 2,
+      enemyY: 4,
+      tiles: unsupportedFloorAtColumn1Tiles(6),
+      turnsAtLedges: true,
+    });
+    const nextState = stepFreshRouteEnemy(levelSpec, {
+      frameDurationMilliseconds: 250,
+    });
+    const actor = requireEnemyPatrolActorState(nextState, "ridge-beetle-1");
+
+    expect(actor.direction).toBe(EnemyPatrolDirection.Right);
+    expect(actor.position).toEqual({ x: 32, y: 64 });
+    expect(actor.velocity.x).toBe(40);
+    expect(actor.velocity.y).toBe(0);
+  });
+
+  it("hops the pacing Bowser variant on a low deterministic cycle", () => {
+    const levelSpec = makeRouteLevelSpec({
+      role: ActorRole.Enemy,
+      actorId: "vglc-smb-bowser",
+      entityId: "vglc-smb-bowser-1",
+      enemyX: 3,
+      enemyY: 4,
+      turnsAtLedges: true,
+    });
+    // Step past at least two hop-cycle boundaries (interval 144 frames).
+    const { minY, maxY } = stepTrackingExtents(
+      enemyMotionFor(levelSpec),
+      levelSpec,
+      300,
+      { x: 16, y: 56 },
+      (tracked) => tracked.patrolActors[0]?.position,
+    );
+
+    // He left the ground at least once...
+    expect(minY).toBeLessThan(64);
+    // ...but only by a low hop (a 120 px/s takeoff under 600 px/s^2 gravity
+    // peaks at 12px)...
+    expect(minY).toBeGreaterThanOrEqual(64 - 12 - 0.001);
+    // ...and never sank below the floor he hops from.
+    expect(maxY).toBe(64);
   });
 
   it("stops defeated enemies", () => {
@@ -804,22 +904,82 @@ describe("enemy motion", () => {
       });
     });
 
-    it("a swimming chaser (Blooper) pursues the player's depth, not just its row", () => {
+    it("a swimming chaser (Blooper) pulses up toward the player, then drift-settles down", () => {
       const levelSpec = chasingEnemyRouteLevelSpec(3, 4); // enemy at (48, 64)
-      const swimming = stepEnemyMotionState(
+      const player = playerAt({ x: 300, y: 40 }); // right of the enemy
+      let state = enemyMotionFor(levelSpec);
+      const stepFrames = (frames: number) => {
+        for (let frame = 0; frame < frames; frame += 1) {
+          state = stepEnemyMotionState(
+            state,
+            levelSpec,
+            makeEmptyEnemyInteractionState(),
+            testFrameDurationMilliseconds(1_000 / 60),
+            swimmingMovementConstants,
+            player,
+            (frame + 1) as FrameIndex,
+          );
+        }
+      };
+
+      // The pulse (24 frames): it thrusts upward at 90 px/s while angling
+      // toward the player at the chase speed (60 px/s).
+      stepFrames(24);
+      const pulsed = requireChasingEnemyActorState(state, "hunter-1");
+      expect(pulsed.behavior).toBe(ChasingEnemyBehavior.Chase);
+      expect(pulsed.direction).toBe(EnemyPatrolDirection.Right);
+      expect(pulsed.position.y).toBeCloseTo(64 - 36, 6);
+      expect(pulsed.position.x).toBeCloseTo(48 + 24, 6);
+
+      // The drift-settle (64 frames): it goes limp — no horizontal motion —
+      // and sinks slowly (30 px/s) back down between pulses.
+      stepFrames(64);
+      const settled = requireChasingEnemyActorState(state, "hunter-1");
+      expect(settled.velocity.x).toBe(0);
+      expect(settled.position.x).toBeCloseTo(48 + 24, 6);
+      expect(settled.position.y).toBeCloseTo(64 - 36 + 32, 6);
+
+      // The next cycle opens with another player-angled pulse.
+      stepFrames(1);
+      const nextPulse = requireChasingEnemyActorState(state, "hunter-1");
+      expect(nextPulse.velocity.x).toBe(60);
+      expect(nextPulse.position.y).toBeLessThan(settled.position.y);
+    });
+
+    it("a swimming chaser engages by horizontal proximity alone, at any depth", () => {
+      const levelSpec = chasingEnemyRouteLevelSpec(3, 4); // enemy at (48, 64)
+      // Far outside the land detection box both ways, but within a screen and
+      // a half (24 tiles = 384px) horizontally: the Blooper still engages.
+      const engaged = stepEnemyMotionState(
         enemyMotionFor(levelSpec),
         levelSpec,
         makeEmptyEnemyInteractionState(),
-        testFrameDurationMilliseconds(250),
+        testFrameDurationMilliseconds(1_000 / 60),
         swimmingMovementConstants,
-        playerAt({ x: 72, y: 24 }), // right of + well above the enemy
+        playerAt({ x: 428, y: 300 }),
         1 as FrameIndex,
       );
-      const swimmer = requireChasingEnemyActorState(swimming, "hunter-1");
-      expect(swimmer.behavior).toBe(ChasingEnemyBehavior.Chase);
-      expect(swimmer.position.y).toBeLessThan(64); // rose toward the player
+      expect(requireChasingEnemyActorState(engaged, "hunter-1").behavior).toBe(
+        ChasingEnemyBehavior.Chase,
+      );
 
-      // On land the same chaser holds its row (no vertical pursuit).
+      // Beyond a screen and a half it patrols instead.
+      const idle = stepEnemyMotionState(
+        enemyMotionFor(levelSpec),
+        levelSpec,
+        makeEmptyEnemyInteractionState(),
+        testFrameDurationMilliseconds(1_000 / 60),
+        swimmingMovementConstants,
+        playerAt({ x: 433, y: 64 }),
+        1 as FrameIndex,
+      );
+      const patroller = requireChasingEnemyActorState(idle, "hunter-1");
+      expect(patroller.behavior).toBe(ChasingEnemyBehavior.Patrol);
+      expect(patroller.velocity.x).toBe(-40);
+    });
+
+    it("keeps a land chaser on its row while chasing", () => {
+      const levelSpec = chasingEnemyRouteLevelSpec(3, 4); // enemy at (48, 64)
       const land = stepFreshRouteEnemy(levelSpec, {
         player: playerAt({ x: 80, y: 40 }),
       });
@@ -1131,11 +1291,12 @@ describe("enemy motion", () => {
 
     it("shimmies within a window around its spawn column when active", () => {
       const levelSpec = throwingEnemyRouteLevelSpec(3, 4);
-      // Active (player nearby), the thrower paces right from its spawn (x=48)
-      // rather than sitting still.
+      // Active (player nearby, but outside the three-tile advance trigger),
+      // the thrower paces right from its spawn (x=48) rather than sitting
+      // still.
       const nextState = stepFreshRouteEnemy(levelSpec, {
         frameDurationMilliseconds: 1_000,
-        player: playerAt({ x: 40, y: 64 }),
+        player: playerAt({ x: 140, y: 64 }),
       });
 
       const actor = nextState.throwingActors[0];
@@ -1147,12 +1308,90 @@ describe("enemy motion", () => {
 
     it("hops up to the row above and back on its schedule", () => {
       const levelSpec = throwingEnemyRouteLevelSpec(3, 4);
+      // Step long enough to cover at least one full hop cycle (settle up to
+      // 220 frames + the transition).
+      const { minY, maxY } = stepTrackingExtents(
+        enemyMotionFor(levelSpec),
+        levelSpec,
+        320,
+        { x: 40, y: 64 },
+        (tracked) => tracked.throwingActors[0]?.position,
+      );
+      // It rose above its spawn row (64) at some point...
+      expect(minY).toBeLessThan(64);
+      // ...by no more than one platform-height (32px)...
+      expect(minY).toBeGreaterThanOrEqual(64 - 32 - 0.001);
+      // ...and returned to (never dropped below) the spawn row.
+      expect(maxY).toBeCloseTo(64, 5);
+    });
+
+    it("marches at a player who closes within three tiles", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4, {
+        tiles: makeSkyGroundTiles(40),
+      });
+      let state = enemyMotionFor(levelSpec);
+      // The player camps 40px away (inside the three-tile trigger): instead of
+      // shimmying forever, the thrower walks at them, ROM HammerBroCode style.
+      for (let frame = 0; frame < 90; frame += 1) {
+        state = stepEnemyMotionState(
+          state,
+          levelSpec,
+          makeEmptyEnemyInteractionState(),
+          testFrameDurationMilliseconds(1_000 / 60),
+          initialMovementConstants,
+          playerAt({ x: 88, y: 64 }),
+          (frame + 1) as FrameIndex,
+        );
+      }
+
+      const actor = state.throwingActors[0];
+      // It left the pacing window (spawn 48 +/- 12) and closed on the player.
+      expect(actor?.position.x).toBeGreaterThan(70);
+      expect(actor?.position.x).toBeLessThanOrEqual(89);
+    });
+
+    it("shimmies for ten seconds near a player, then advances", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4, {
+        tiles: makeSkyGroundTiles(40),
+      });
+      // Nearby (152px away) but outside the three-tile trigger.
+      const player = playerAt({ x: 200, y: 64 });
+      let state = enemyMotionFor(levelSpec);
+      let positionXBeforeDelay = Number.NaN;
+      for (let frame = 0; frame < 700; frame += 1) {
+        state = stepEnemyMotionState(
+          state,
+          levelSpec,
+          makeEmptyEnemyInteractionState(),
+          testFrameDurationMilliseconds(1_000 / 60),
+          initialMovementConstants,
+          player,
+          (frame + 1) as FrameIndex,
+        );
+        if (frame === 499) {
+          positionXBeforeDelay = state.throwingActors[0]?.position.x ?? NaN;
+        }
+      }
+
+      // Before the ~10s (600 frame) delay elapses it stays in its window...
+      expect(Math.abs(positionXBeforeDelay - 48)).toBeLessThanOrEqual(12.001);
+      // ...then marches toward the player once the delay has accrued.
+      expect(state.throwingActors[0]?.position.x).toBeGreaterThan(80);
+    });
+
+    it("gives Bowser's throwing variant a low hop and no advance", () => {
+      const levelSpec = throwingEnemyRouteLevelSpec(3, 4, {
+        actorId: "vglc-smb-bowser-hammers",
+        entityId: "vglc-smb-bowser-hammers-1",
+      });
       let state = enemyMotionFor(levelSpec);
       let minY = Infinity;
       let maxY = -Infinity;
-      // Step long enough to cover at least one full hop cycle (settle up to 220
-      // frames + the transition).
-      for (let frame = 0; frame < 320; frame += 1) {
+      let minX = Infinity;
+      let maxX = -Infinity;
+      // Step across at least one full hop schedule (settle up to 220 frames
+      // plus the 24-frame arc), with the player point-blank the whole time.
+      for (let frame = 0; frame < 400; frame += 1) {
         state = stepEnemyMotionState(
           state,
           levelSpec,
@@ -1162,16 +1401,23 @@ describe("enemy motion", () => {
           playerAt({ x: 40, y: 64 }),
           (frame + 1) as FrameIndex,
         );
-        const y = state.throwingActors[0]?.position.y ?? Infinity;
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
+        const actor = state.throwingActors[0];
+        minY = Math.min(minY, actor?.position.y ?? Infinity);
+        maxY = Math.max(maxY, actor?.position.y ?? -Infinity);
+        minX = Math.min(minX, actor?.position.x ?? Infinity);
+        maxX = Math.max(maxX, actor?.position.x ?? -Infinity);
       }
-      // It rose above its spawn row (64) at some point...
+
+      // An occasional low hop: he leaves the bridge row but never rises a full
+      // platform row (the Hammer Bro's 32px hop) — only the 12px arc...
       expect(minY).toBeLessThan(64);
-      // ...by no more than one platform-height (32px)...
-      expect(minY).toBeGreaterThanOrEqual(64 - 32 - 0.001);
-      // ...and returned to (never dropped below) the spawn row.
+      expect(minY).toBeGreaterThanOrEqual(64 - 12 - 0.001);
+      // ...always landing back on the bridge row.
       expect(maxY).toBeCloseTo(64, 5);
+      // And no Hammer Bro advance, even point-blank: he stays on his bridge,
+      // inside the pacing window around his spawn column.
+      expect(minX).toBeGreaterThanOrEqual(48 - 12 - 0.001);
+      expect(maxX).toBeLessThanOrEqual(48 + 12 + 0.001);
     });
   });
 

@@ -276,13 +276,18 @@ function requireAcceleration(
 
 const spawnedItemVelocityX = requireVelocity(0, "spawnedActor.item.velocityX");
 const spawnedCoinVelocityX = requireVelocity(0, "spawnedActor.coin.velocityX");
-const spawnedExtraLifeVelocityX = requireVelocity(
-  0,
-  "spawnedActor.extraLife.velocityX",
-);
+// The invincibility star bounces away from the bumped block: the original
+// gives every power-up a horizontal speed once it has emerged, and runs the
+// star through the jumping-enemy movement instead of the walking one.
 const spawnedInvincibilityVelocityX = requireVelocity(
-  0,
+  60,
   "spawnedActor.invincibility.velocityX",
+);
+// Whenever the star lands it relaunches upward, giving the original's
+// repeating bounce.
+const spawnedInvincibilityBounceVelocityY = requireVelocity(
+  -240,
+  "spawnedActor.invincibility.bounceVelocityY",
 );
 const spawnedClimbableVelocityX = requireVelocity(
   0,
@@ -292,8 +297,11 @@ const spawnedActorStillVelocityY = requireVelocity(
   0,
   "spawnedActor.still.velocityY",
 );
+// A block-dispensed coin traces the original's full arc: it rises for the
+// first half of its popup lifetime, then falls back down to the block top
+// before it vanishes (about 48 pixels up and the same back down).
 const spawnedCoinPopupVelocityY = requireVelocity(
-  -48,
+  -240,
   "spawnedActor.coinPopup.velocityY",
 );
 const spawnedPowerUpVelocityX = requireVelocity(
@@ -311,6 +319,12 @@ const spawnedPowerUpTerminalFallVelocityY = requireVelocity(
 const spawnedCoinPopupFrameCount = requirePopupFrameCount(
   24,
   "spawnedActor.coinPopup.frameCount",
+);
+// The coin descends once its remaining popup frames reach the halfway point
+// of the lifetime above, mirroring the rise exactly.
+const spawnedCoinPopupDescentStartFrames = requirePopupFrameCount(
+  12,
+  "spawnedActor.coinPopup.descentStartFrames",
 );
 // Block items (mushroom, 1-up, star) rise one tile out of the block over this
 // many frames before they start moving — the original's emerge, so they don't
@@ -517,6 +531,12 @@ export function stepSpawnedActorsState(
       }
 
       const popupMovesThisFrame = spawnedActor.remainingPopupFrames > 0;
+      // The popup coin's full arc: it rises through the first half of its
+      // lifetime and retraces the same path down through the second half.
+      const popupVelocityY =
+        spawnedActor.remainingPopupFrames > spawnedCoinPopupDescentStartFrames
+          ? spawnedActor.velocityY
+          : Math.abs(spawnedActor.velocityY);
       const remainingPopupFrames = decrementPopupFrameCount(
         spawnedActor.remainingPopupFrames,
       );
@@ -535,9 +555,7 @@ export function stepSpawnedActorsState(
             spawnedActor.velocityX * frameDurationSeconds,
           y:
             spawnedActor.position.y +
-            (popupMovesThisFrame
-              ? spawnedActor.velocityY * frameDurationSeconds
-              : 0),
+            (popupMovesThisFrame ? popupVelocityY * frameDurationSeconds : 0),
         },
       };
     }),
@@ -735,7 +753,12 @@ function resolveSpawnedActorDownwardCollision(
     ) {
       return {
         ...movedActor,
-        velocityY: spawnedActorStillVelocityY,
+        // Landing stops walking items dead, but the invincibility star
+        // relaunches upward for the original's repeating bounce.
+        velocityY:
+          movedActor.role === ActorRole.InvincibilityPowerUp
+            ? spawnedInvincibilityBounceVelocityY
+            : spawnedActorStillVelocityY,
         position: {
           x: movedActor.position.x,
           y: tileTop - tileSizePixels,
@@ -838,9 +861,10 @@ function makeSpawnedActorVelocityX(
     case ActorRole.Item:
       return spawnedItemVelocityX;
     case ActorRole.PowerUp:
-      return resolveSpawnedPowerUpMovementForLevel(levelSpec).velocityX;
+    // The 1-up mushroom walks exactly like the super mushroom in the
+    // original; both run the same walking movement with the same speed.
     case ActorRole.ExtraLife:
-      return spawnedExtraLifeVelocityX;
+      return resolveSpawnedPowerUpMovementForLevel(levelSpec).velocityX;
     case ActorRole.InvincibilityPowerUp:
       return spawnedInvincibilityVelocityX;
     case ActorRole.Climbable:

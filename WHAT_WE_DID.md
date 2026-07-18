@@ -5,6 +5,39 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — fidelity sweep: boss, cutscenes, enemies, items, effects
+
+- The keep's boss finally LOOKS like a boss: authored 32x32 warden art (two
+  walk frames + a maul-carrying hammer variant) replacing a 16px near-black
+  blob, feet planted on the bridge (dropped render baseline). Behavior
+  matched to the ROM: the fire variant turns at the bridge edge instead of
+  strolling into his own lava, both variants hop on a low deterministic
+  cycle, and his flames now pick their flight row near the player (four
+  castles' decoded row-1 spawners used to sail every flame overhead).
+
+- Castle-clear cutscene rebuilt as the ROM staged it: axe → plank-by-plank
+  chop → boss falls → the hero walks right through the opened gate into the
+  inner chamber (camera panning along, feet settled to the floor) → the
+  freed friend stands ON the chamber floor with the message above; the
+  "Gate reached" prompt no longer bleeds through, and the exit's goal
+  column is invisible (an authored axe marks the gate) instead of painting
+  a pale pole strip through the wall. Flag levels got the matching ROM
+  order: slide → march to the little castle's actual doorway → the castle
+  flag rises → THEN the timer-digit fireworks. The WORLD card (with
+  decremented lives) now shows on every death retry, preceded by a TIME UP
+  card when the clock ran out.
+
+- Enemy fidelity (engine): Bloopers swim the ROM's pulse-up/drift-settle
+  cycle and engage by horizontal proximity; Hammer Bros march at a player
+  who camps or closes in; cannons fire Bullet Bills toward the player's
+  side; Lakitu's eggs arc toward the player. Items: the star bounces away,
+  the 1-up walks, block coins pop in a full up-down arc, coins score 200
+  (ROM value) and mushroom/flower/star pickups award 1000.
+
+- God-mode burning is now a real animated effect: two flame phases
+  flickering at ~10Hz, tongues leaning behind the runner and flipping
+  against the direction of movement, for all 8 costumes x 3 tiers.
+
 ## 2026-07-18 — 8-4 actually winnable + god-mode lava walking
 
 - 8-4 was never winnable by real play: a day-one guard skipped any pipe

@@ -5,7 +5,8 @@ import type { EnemyInteractionState } from "./enemy-interaction";
 export type Score = Brand<number, "Score">;
 
 export const scorePerItem: Score = 100 as Score;
-export const scorePerCoin: Score = 100 as Score;
+// Every coin awards 200 points, as in the original.
+export const scorePerCoin: Score = 200 as Score;
 export const scorePerInvincibilityKill: Score = 100 as Score;
 export const scorePerProjectileKill: Score = 200 as Score;
 export const scorePerBreakableBlock: Score = 50 as Score;
@@ -53,6 +54,10 @@ export function computeTimeBonusScore(
     scorePerTimeBonusDisplayUnit) as Score;
 }
 
+// The ROM awards 1000 points for a mushroom, flower or star pickup (the
+// 1-up gives a life instead of points).
+const scorePerPowerUp = 1000;
+
 export function computeTotalScore(
   collectibles: CollectibleInteractionState,
   enemies: EnemyInteractionState,
@@ -60,9 +65,11 @@ export function computeTotalScore(
   breakableBlockScore: Score = 0 as Score,
   bulletBillStompScore: Score = 0 as Score,
   goalHeightScore: Score = 0 as Score,
+  powerUpCollectionCount = 0,
 ): Score {
   return (computeCollectibleScore(collectibles) +
     computeEnemyScore(enemies) +
+    powerUpCollectionCount * scorePerPowerUp +
     timeBonusScore +
     breakableBlockScore +
     bulletBillStompScore +

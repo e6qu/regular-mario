@@ -1452,13 +1452,13 @@ test("bumps a coin block and reports the spawned coin popup", async ({
     "spawned-1-2",
   ]);
   expect(spawnedSnapshot.coinCount).toBe(1);
-  expect(spawnedSnapshot.score).toBe(100);
+  expect(spawnedSnapshot.score).toBe(200);
   expect(spawnedSnapshot.spawnedActors.spawnedActors[0]).toMatchObject({
     entityId: "spawned-1-2",
     actorId: "coin",
     role: ActorRole.Coin,
     velocityX: 0,
-    velocityY: -48,
+    velocityY: -240,
     collectionMode: SpawnedActorCollectionMode.OnSpawn,
   });
 

@@ -112,7 +112,7 @@ export function resolveTimedHazardProjectilesState(
       shouldSpawnProjectile(spawner, frameIndex, player, levelSpec),
     )
     .map((spawner) =>
-      makeTimedHazardProjectile(levelSpec, spawner, frameIndex),
+      makeTimedHazardProjectile(levelSpec, spawner, frameIndex, player),
     );
   const enemyProjectiles = makeThrowingEnemyProjectiles(
     enemyMotion,
@@ -124,6 +124,7 @@ export function resolveTimedHazardProjectilesState(
   const aerialEnemyProjectiles = makeAerialThrowingEnemyProjectiles(
     enemyMotion,
     enemyInteractions,
+    player,
     movementConstants,
     frameIndex,
   );
@@ -220,6 +221,7 @@ function isProjectileStomp(
 function makeAerialThrowingEnemyProjectiles(
   enemyMotion: EnemyMotionState,
   enemyInteractions: EnemyInteractionState,
+  player: PlayerSimulationState,
   movementConstants: MovementConstants,
   frameIndex: FrameIndex,
 ): readonly Projectile[] {
@@ -245,17 +247,26 @@ function makeAerialThrowingEnemyProjectiles(
     .map((aerialThrowingActor) =>
       makeAerialThrowingEnemyProjectile(
         aerialThrowingActor,
+        player,
         movementConstants,
         frameIndex,
       ),
     );
 }
 
+// Dropped eggs get a small horizontal push toward the player's side, like the
+// ROM's thrown spiny eggs (CreateSpiny derives a player-relative X speed).
+const aerialThrowingEnemyProjectileHorizontalSpeed = 40;
+
 function makeAerialThrowingEnemyProjectile(
   aerialThrowingActor: AerialThrowingEnemyActorState,
+  player: PlayerSimulationState,
   movementConstants: MovementConstants,
   frameIndex: FrameIndex,
 ): Projectile {
+  const directionSign =
+    player.position.x < aerialThrowingActor.position.x ? -1 : 1;
+
   return {
     id: makeAerialThrowingEnemyProjectileId(aerialThrowingActor, frameIndex),
     position: {
@@ -270,7 +281,7 @@ function makeAerialThrowingEnemyProjectile(
     },
     velocity: {
       x: requireSimulationVelocity(
-        0,
+        directionSign * aerialThrowingEnemyProjectileHorizontalSpeed,
         "aerialThrowingEnemyProjectile.velocity.x",
       ),
       y: requireSimulationVelocity(
@@ -424,14 +435,41 @@ function makeTimedHazardProjectile(
   levelSpec: LevelSpec,
   spawner: LevelSpec["timedHazardProjectileSpawners"][number],
   frameIndex: FrameIndex,
+  player: PlayerSimulationState,
 ): Projectile {
-  const velocityX =
-    spawner.direction === TimedHazardProjectileDirection.Right
-      ? spawner.speedPixelsPerSecond
-      : requireSimulationVelocity(
-          0 - spawner.speedPixelsPerSecond,
-          "timedHazardProjectile.velocity.x",
-        );
+  // A cannon Bullet Bill (stompable) fires toward the player's side of the
+  // cannon at spawn time, like the ROM's BulletBillHandler; flames keep their
+  // authored direction.
+  const firesRight = spawner.stompable
+    ? player.position.x > spawner.position.x * levelSpec.tileSizePixels
+    : spawner.direction === TimedHazardProjectileDirection.Right;
+  const velocityX = firesRight
+    ? spawner.speedPixelsPerSecond
+    : requireSimulationVelocity(
+        0 - spawner.speedPixelsPerSecond,
+        "timedHazardProjectile.velocity.x",
+      );
+
+  // A Bowser flame picks its flight row near the player's current row, like
+  // the ROM's BowserFlame Y table — the authored spawner row only anchors
+  // its x (several decoded castles carry a meaningless row-1 record, which
+  // used to sail every flame harmlessly over the playfield). The spread
+  // cycles on-target / one-above / one-below deterministically.
+  const playerHurtboxRow = Math.floor(
+    (player.position.y + player.collider.height - 6) / levelSpec.tileSizePixels,
+  );
+  const flameRowOffsets = [0, 1, -1] as const;
+  const flameRowOffset =
+    flameRowOffsets[
+      Math.floor((frameIndex as number) / spawner.intervalFrames) % 3
+    ] ?? 0;
+  const flameMaxRow = Math.max(1, levelSpec.heightTiles - 2);
+  const flameMinRow = Math.min(2, flameMaxRow);
+  const flameRow = Math.max(
+    flameMinRow,
+    Math.min(flameMaxRow, playerHurtboxRow + flameRowOffset),
+  );
+  const spawnRow = spawner.stompable ? spawner.position.y : flameRow;
 
   return {
     id: makeTimedHazardProjectileId(spawner.spawnerId, frameIndex),
@@ -441,7 +479,7 @@ function makeTimedHazardProjectile(
         "timedHazardProjectile.position.x",
       ),
       y: requireSimulationPixelPosition(
-        spawner.position.y * levelSpec.tileSizePixels,
+        spawnRow * levelSpec.tileSizePixels,
         "timedHazardProjectile.position.y",
       ),
     },
