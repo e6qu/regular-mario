@@ -966,6 +966,30 @@ function withBossHammer(grid) {
   ];
   return applyPixelOverlay(rows, overlay);
 }
+// A copy of the grid with its top head rows nudged by (dx, dy) — the hat/
+// hair bob that keeps a walk cycle alive (pixels shifted off-grid clip; the
+// vacated cells go transparent).
+function headBobVariant(grid, dx, dy, headRowCount = 4) {
+  const width = grid[0]?.length ?? 16;
+  const blank = ".".repeat(width);
+  const head = grid.slice(0, headRowCount).map((row) => {
+    if (dx > 0) {
+      return blank.slice(0, dx) + row.slice(0, width - dx);
+    }
+    if (dx < 0) {
+      return row.slice(-dx) + blank.slice(0, -dx);
+    }
+    return row;
+  });
+  const body = grid.slice(headRowCount);
+  if (dy > 0) {
+    // Head dips: drop its rows down over the body's top.
+    const shifted = [blank, ...head.slice(0, head.length - dy + 1)];
+    return [...shifted, ...body].slice(0, grid.length);
+  }
+  return [...head, ...body];
+}
+
 // Stamp [row, column, letter] pixels onto a split-row grid, then rejoin.
 function applyPixelOverlay(rows, overlay) {
   for (const [row, column, letter] of overlay) {
@@ -1313,7 +1337,11 @@ const fullActionPoses = {
   walk: "walk-1",
   run: "walk-2",
   "walk-anim-1": "walk-1",
-  "walk-anim-2": "walk-2",
+  "walk-anim-2": "walk-1-bob",
+  "walk-anim-3": "walk-1-sway",
+  "walk-anim-4": "walk-2",
+  "walk-anim-5": "walk-2-bob",
+  "walk-anim-6": "walk-2-sway",
   jump: "jump",
   fall: "jump",
   crouch: "crouch",
@@ -1467,15 +1495,21 @@ function playerStateSprites() {
       "princess",
       {
         idle: "idle",
+        "idle-1": "idle-1",
+        "idle-2": "idle-2",
         walk: "walk-1",
-        run: "walk-3",
+        run: "walk-4",
         "walk-anim-1": "walk-1",
         "walk-anim-2": "walk-2",
         "walk-anim-3": "walk-3",
         "walk-anim-4": "walk-4",
+        "walk-anim-5": "walk-5",
+        "walk-anim-6": "walk-6",
         jump: "jump",
         "jump-up": "jump-up",
         fall: "fall",
+        "fall-1": "fall-1",
+        "fall-2": "fall-2",
         crouch: "idle",
         climb: "idle",
         swim: "jump",
@@ -2141,6 +2175,10 @@ async function main() {
     ["castaway-idle.png", castawayIdle, palette],
     ["castaway-walk-1.png", castawayWalk1, palette],
     ["castaway-walk-2.png", castawayWalk2, palette],
+    ["castaway-walk-1-bob.png", headBobVariant(castawayWalk1, 0, 1), palette],
+    ["castaway-walk-2-bob.png", headBobVariant(castawayWalk2, 0, 1), palette],
+    ["castaway-walk-1-sway.png", headBobVariant(castawayWalk1, 1, 0), palette],
+    ["castaway-walk-2-sway.png", headBobVariant(castawayWalk2, -1, 0), palette],
     ["castaway-jump.png", castawayJump, palette],
     ["castaway-crouch.png", castawayCrouch, palette],
     ["castaway-climb.png", castawayClimb, palette],
@@ -2240,6 +2278,26 @@ async function main() {
     ["castaway-idle-powered.png", castawayIdle, poweredPlayerPalette],
     ["castaway-walk-1-powered.png", castawayWalk1, poweredPlayerPalette],
     ["castaway-walk-2-powered.png", castawayWalk2, poweredPlayerPalette],
+    [
+      "castaway-walk-1-bob-powered.png",
+      headBobVariant(castawayWalk1, 0, 1),
+      poweredPlayerPalette,
+    ],
+    [
+      "castaway-walk-2-bob-powered.png",
+      headBobVariant(castawayWalk2, 0, 1),
+      poweredPlayerPalette,
+    ],
+    [
+      "castaway-walk-1-sway-powered.png",
+      headBobVariant(castawayWalk1, 1, 0),
+      poweredPlayerPalette,
+    ],
+    [
+      "castaway-walk-2-sway-powered.png",
+      headBobVariant(castawayWalk2, -1, 0),
+      poweredPlayerPalette,
+    ],
     ["castaway-jump-powered.png", castawayJump, poweredPlayerPalette],
     ["castaway-crouch-powered.png", castawayCrouch, poweredPlayerPalette],
     ["castaway-climb-powered.png", castawayClimb, poweredPlayerPalette],
@@ -2248,6 +2306,26 @@ async function main() {
     ["castaway-idle-fire.png", castawayIdle, firePlayerPalette],
     ["castaway-walk-1-fire.png", castawayWalk1, firePlayerPalette],
     ["castaway-walk-2-fire.png", castawayWalk2, firePlayerPalette],
+    [
+      "castaway-walk-1-bob-fire.png",
+      headBobVariant(castawayWalk1, 0, 1),
+      firePlayerPalette,
+    ],
+    [
+      "castaway-walk-2-bob-fire.png",
+      headBobVariant(castawayWalk2, 0, 1),
+      firePlayerPalette,
+    ],
+    [
+      "castaway-walk-1-sway-fire.png",
+      headBobVariant(castawayWalk1, 1, 0),
+      firePlayerPalette,
+    ],
+    [
+      "castaway-walk-2-sway-fire.png",
+      headBobVariant(castawayWalk2, -1, 0),
+      firePlayerPalette,
+    ],
     ["castaway-jump-fire.png", castawayJump, firePlayerPalette],
     ["castaway-crouch-fire.png", castawayCrouch, firePlayerPalette],
     ["castaway-climb-fire.png", castawayClimb, firePlayerPalette],
@@ -2319,7 +2397,16 @@ async function main() {
       }),
     ]),
     // Full green companion costume — distinct art (base/powered/fire per pose).
-    ...costumeSpriteFiles(luigiCostume),
+    ...costumeSpriteFiles({
+      ...luigiCostume,
+      poses: {
+        ...luigiCostume.poses,
+        "walk-1-bob": headBobVariant(luigiCostume.poses["walk-1"], 0, 1),
+        "walk-2-bob": headBobVariant(luigiCostume.poses["walk-2"], 0, 1),
+        "walk-1-sway": headBobVariant(luigiCostume.poses["walk-1"], 1, 0),
+        "walk-2-sway": headBobVariant(luigiCostume.poses["walk-2"], -1, 0),
+      },
+    }),
     // Four distinct robots (base/powered/fire per pose) plus each robot's own
     // dismemberment body parts, recoloured to that robot's palette.
     ...robotCostumes.flatMap(costumeSpriteFiles),

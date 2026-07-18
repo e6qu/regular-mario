@@ -8109,14 +8109,14 @@ function resolvePlayerSpriteImage(
         : action === "walk" || action === "run"
           ? (() => {
               // Time-phased walk animation (Prince-of-Persia fluidity): a
-              // 4-frame cycle when the skin provides it, else the 2-frame
-              // cycle, else the static per-speed pose.
-              const phase4 =
-                (Math.floor(simulationState.clock.frameIndex / 5) % 4) + 1;
+              // 6-frame cycle when the skin provides it, else 2 frames, else
+              // the static per-speed pose.
+              const phase6 =
+                (Math.floor(simulationState.clock.frameIndex / 5) % 6) + 1;
               const phase2 =
                 (Math.floor(simulationState.clock.frameIndex / 7) % 2) + 1;
               return [
-                ...prefixes.map((prefix) => `${prefix}-walk-anim-${phase4}`),
+                ...prefixes.map((prefix) => `${prefix}-walk-anim-${phase6}`),
                 ...prefixes.map((prefix) => `${prefix}-walk-anim-${phase2}`),
                 ...prefixes.map((prefix) => `${prefix}-${action}`),
                 action,
@@ -8130,9 +8130,13 @@ function resolvePlayerSpriteImage(
                 // the fall use the profile art (with a dedicated parachute
                 // fall frame when the skin has one).
                 const straightUp = Math.abs(player.velocity.x) < 20;
+                // Falling alternates two frames so the parachute skirt
+                // visibly breathes as it fills.
+                const fallPhase =
+                  (Math.floor(simulationState.clock.frameIndex / 7) % 2) + 1;
                 const poseChain =
                   action === "fall"
-                    ? ["fall", "jump"]
+                    ? [`fall-${fallPhase}`, "fall", "jump"]
                     : straightUp
                       ? ["jump-up", "jump"]
                       : ["jump", "jump-up"];
@@ -8159,7 +8163,21 @@ function resolvePlayerSpriteImage(
                     "idle",
                   ];
                 })()
-              : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
+              : action === "idle"
+                ? (() => {
+                    // A slow two-frame sway keeps even standing still alive.
+                    const swayPhase =
+                      (Math.floor(simulationState.clock.frameIndex / 24) % 2) +
+                      1;
+                    return [
+                      ...prefixes.map(
+                        (prefix) => `${prefix}-idle-${swayPhase}`,
+                      ),
+                      ...prefixes.map((prefix) => `${prefix}-idle`),
+                      "idle",
+                    ];
+                  })()
+                : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
   return resolveFirstStatefulImage(
     playerImage,
