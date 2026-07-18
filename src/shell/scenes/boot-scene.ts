@@ -745,6 +745,10 @@ export class BootScene extends Phaser.Scene {
     velocityY: number;
     framesLeft: number;
   }[] = [];
+  private springSquashes: {
+    readonly overlay: Phaser.GameObjects.Rectangle;
+    framesLeft: number;
+  }[] = [];
   // Blocks briefly nudged upward by a head-bonk, with their resting y.
   private blockNudges: {
     readonly objects: readonly Phaser.GameObjects.GameObject[];
@@ -1887,6 +1891,10 @@ export class BootScene extends Phaser.Scene {
     this.brickShards = [];
     this.previousBrokenBrickCount = 0;
     this.blockNudges = [];
+    for (const entry of this.springSquashes) {
+      entry.overlay.destroy();
+    }
+    this.springSquashes = [];
     for (const entry of this.identityReveals) {
       entry.image.destroy();
     }
@@ -2529,6 +2537,8 @@ export class BootScene extends Phaser.Scene {
     this.stepIdentityReveal();
     this.spawnHeadBonkNudge();
     this.stepBlockNudges();
+    this.spawnSpringSquash();
+    this.stepSpringSquashes();
     if (!this.flagpoleSlideActive) {
       return;
     }
@@ -5507,18 +5517,64 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
+  // The primary player's centre column and a row derived from a vertical
+  // offset off the collider top (shared by the block-reaction effects).
+  private playerTileAt(offsetY: number): { column: number; row: number } {
+    const player = this.simulationState.players[0].player;
+    const size = this.levelSpec.tileSizePixels;
+    return {
+      column: Math.floor(
+        (player.position.x + player.collider.width / 2) / size,
+      ),
+      row: Math.floor((player.position.y + offsetY) / size),
+    };
+  }
+
+  // The ROM's springboard compresses through the launch: flash a squashed
+  // coil overlay on the spring tile under the player for a few frames.
+  private spawnSpringSquash(): void {
+    if (!this.lastSoundEvents.includes(SoundEvent.SpringBounce)) {
+      return;
+    }
+    const size = this.levelSpec.tileSizePixels;
+    const { column, row } = this.playerTileAt(
+      this.simulationState.players[0].player.collider.height + 2,
+    );
+    const overlay = this.add
+      .rectangle(
+        column * size + 2,
+        row * size + size / 2,
+        size - 4,
+        size / 2,
+        springSquashColor,
+      )
+      .setOrigin(0)
+      .setDepth(20);
+    this.springSquashes.push({ overlay, framesLeft: 8 });
+  }
+
+  private stepSpringSquashes(): void {
+    if (this.springSquashes.length === 0) {
+      return;
+    }
+    this.springSquashes = this.springSquashes.filter((entry) => {
+      entry.framesLeft -= 1;
+      if (entry.framesLeft <= 0) {
+        entry.overlay.destroy();
+        return false;
+      }
+      entry.overlay.setAlpha(entry.framesLeft / 8);
+      return true;
+    });
+  }
+
   // A head-bonked block hops ~6px, like the ROM's block bounce: nudge the
   // render objects of the tile directly above the player's head.
   private spawnHeadBonkNudge(): void {
     if (!this.lastSoundEvents.includes(SoundEvent.HeadBonk)) {
       return;
     }
-    const player = this.simulationState.players[0].player;
-    const size = this.levelSpec.tileSizePixels;
-    const column = Math.floor(
-      (player.position.x + player.collider.width / 2) / size,
-    );
-    const row = Math.floor((player.position.y - 1) / size);
+    const { column, row } = this.playerTileAt(-1);
     const key = makeTileRenderKey(column, row);
     const objects: Phaser.GameObjects.GameObject[] = [];
     const swap = this.usedBlockSwaps.get(key);
@@ -9072,6 +9128,7 @@ const bowserDisguiseActorIdByWorld: readonly (string | undefined)[] = [
   undefined,
 ];
 const blockNudgeFrames = 10;
+const springSquashColor = 0x2dd4bf;
 const castleFlagRisePixelsPerFrame = 0.5;
 const flagpoleWalkOffSpeedPixels = 1.25;
 const flagpolePoleColor = 0xc8d8c8;

@@ -637,6 +637,9 @@ function stepActiveSimulation(
     levelSpec,
     resolvedPlayerWithBumps.bumpedInteractiveBlocks,
     nextClock.frameIndex,
+    // A super player's power-up block yields the fire flower (ROM
+    // size-dependent contents).
+    state.players[0].vitality.kind !== PlayerVitalityKind.Small,
   );
   const spawnedActors = stepSpawnedActorsState(
     spawnedActorsAfterBlockBumps,
@@ -728,6 +731,7 @@ function stepActiveSimulation(
     enemyMotion,
     movementConstants,
     state.enemies,
+    Number(nextClock.frameIndex),
   );
   const enemiesAfterInvincibility = applyInvincibilityEnemyDefeats(
     enemiesBeforeProjectileMerge,

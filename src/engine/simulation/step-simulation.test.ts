@@ -376,6 +376,7 @@ function expectBeetleStompDefeatedWithRebound(state: SimulationState): void {
     currentShellKillChainCount: 0,
     cumulativeShellKillExtraLives: 0,
     cumulativeProjectileKillScore: 0,
+    aerialThrowerDefeatFrameByEntityId: {},
   });
   expect(state.enemyContactResponse).toEqual({
     kind: "none",
@@ -1811,6 +1812,7 @@ describe("simulation primitives", () => {
       currentShellKillChainCount: 0,
       cumulativeShellKillExtraLives: 0,
       cumulativeProjectileKillScore: 0,
+      aerialThrowerDefeatFrameByEntityId: {},
     });
     expect(nextState.players[0].outcome).toEqual({
       kind: "defeated",

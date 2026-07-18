@@ -436,11 +436,16 @@ function countSpawnedActorsForBlock(
   ).length;
 }
 
+// The spawned actor id for a power-up block bumped by an already-super
+// player: the ROM swaps the mushroom for a stationary fire flower.
+export const fireFlowerActorId = "vglc-smb-fire-flower";
+
 export function resolveSpawnedActorsState(
   previousState: SpawnedActorsState,
   levelSpec: LevelSpec,
   bumpedInteractiveBlocks: readonly TilePoint[],
   currentFrameIndex: number = 0,
+  playerIsSuper = false,
 ): SpawnedActorsState {
   assertValidSpawnedActorsState(previousState);
 
@@ -496,12 +501,19 @@ export function resolveSpawnedActorsState(
     // Emerging items (mushroom, 1-up, star) start inside the block and rise a
     // tile; everything else spawns directly on top.
     const emerges = spawnedActorEmerges(role);
+    // A super player's power-up block yields the stationary fire flower
+    // instead of the walking mushroom (the ROM's size-dependent contents).
+    const spawnsFireFlower = role === ActorRole.PowerUp && playerIsSuper;
 
     spawnedActors.push({
       entityId,
-      actorId: contents.actorId,
+      actorId: spawnsFireFlower
+        ? (fireFlowerActorId as typeof contents.actorId)
+        : contents.actorId,
       role,
-      velocityX: makeSpawnedActorVelocityX(role, levelSpec),
+      velocityX: spawnsFireFlower
+        ? requireVelocity(0, "spawnedActor.velocityX")
+        : makeSpawnedActorVelocityX(role, levelSpec),
       velocityY: makeSpawnedActorVelocityY(role),
       collectionMode: makeSpawnedActorCollectionMode(role),
       remainingPopupFrames: makeSpawnedActorPopupFrameCount(role),

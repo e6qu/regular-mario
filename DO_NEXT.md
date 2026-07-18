@@ -214,9 +214,9 @@ Everything from the previous "known deltas" list is now in:
   parity, editor UI for connecting walk-in pipes.
 - A human playthrough pass over the full 32-level run for feel/pacing.
 
-## Fidelity backlog (remaining after the 2026-07-19 batch)
+## Fidelity backlog
 
-- Fire flower as a distinct stationary item when already super (block
-  contents by player size); Lakitu respawn after defeat.
-- Springboard compression squash animation (the A-boost + boing shipped).
-- A vine-grow sound event.
+- (cleared 2026-07-19: fire flower when super, Lakitu respawn, spring
+  squash flash, vine-grow sound — the audited backlog is done. Remaining
+  known deviation, kept by design: normal-mode damage knockback, which the
+  ROM does not have; say the word to remove it.)

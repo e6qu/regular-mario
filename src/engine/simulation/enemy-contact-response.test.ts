@@ -28,22 +28,8 @@ function initialEnemyMotion(): EnemyMotionState {
 
 function contactedEnemyState(entityId: EntityId): EnemyInteractionState {
   return {
+    ...makeEmptyEnemyInteractionState(),
     contactedEnemyEntityIds: [entityId],
-    defeatedEnemyEntityIds: [],
-    shelledEnemyEntityIds: [],
-    nudgedShellEnemyEntityIds: [],
-    nudgedShellDirectionByEntityId: new Map(),
-    currentStompChainCount: 0,
-    cumulativeStompScore: 0 as EnemyInteractionState["cumulativeStompScore"],
-    cumulativeStompChainExtraLives: 0,
-    cumulativeInvincibilityScore:
-      0 as EnemyInteractionState["cumulativeInvincibilityScore"],
-    cumulativeShellKillScore:
-      0 as EnemyInteractionState["cumulativeShellKillScore"],
-    currentShellKillChainCount: 0,
-    cumulativeShellKillExtraLives: 0,
-    cumulativeProjectileKillScore:
-      0 as EnemyInteractionState["cumulativeProjectileKillScore"],
   };
 }
 

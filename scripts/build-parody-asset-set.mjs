@@ -1003,6 +1003,35 @@ function bossEnemySprite(leftFileName, rightFileName) {
 // (the axe actor is its one visible marker, as in the ROM).
 const tileNone = Array.from({ length: 16 }, () => "................");
 
+// The fire bloom (our fire flower): a blazing petal ring on a leafy stem.
+const fireBloomPalette = {
+  ".": [0, 0, 0, 0],
+  e: [24, 20, 18, 255],
+  r: [214, 60, 30, 255],
+  o: [246, 150, 46, 255],
+  w: [246, 236, 200, 255],
+  g: [70, 140, 60, 255],
+  d: [46, 96, 42, 255],
+};
+const fireBloom = [
+  "................",
+  "....eooe.eooe...",
+  "...eorroeorroe..",
+  "...eorroeorroe..",
+  "....eooewooe....",
+  "...eoowwwwooe...",
+  "...eorwewwroe...",
+  "...eorwwwwroe...",
+  "....eoowwooe....",
+  ".....eogggoe....",
+  "......egde......",
+  "...gg..egd.gg...",
+  "..gddg.egdgddg..",
+  "...gg..egd.gg...",
+  "......eggde.....",
+  ".......ee.......",
+];
+
 const gateAxePalette = {
   ".": [0, 0, 0, 0],
   e: [24, 20, 18, 255],
@@ -2056,6 +2085,7 @@ async function main() {
     ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
     // The keep's boss at true 32x32 (fire and hammer-throwing variants).
     ["gate-axe.png", gateAxe, gateAxePalette],
+    ["fire-bloom.png", fireBloom, fireBloomPalette],
     ["tile-none.png", tileNone, gateAxePalette],
     ["warden-boss-1.png", scaleGrid16Double(bossWalk1), bossPalette, 32, 32],
     ["warden-boss-2.png", scaleGrid16Double(bossWalk2), bossPalette, 32, 32],
@@ -2378,6 +2408,7 @@ async function main() {
       "vglc-smb-coin": spriteEntry("tile-shell.png"),
       "vglc-smb-question-block-contents": spriteEntry("tile-shell.png"),
       "vglc-smb-power-up": spriteEntry("castaway-powerup.png"),
+      "vglc-smb-fire-flower": spriteEntry("fire-bloom.png"),
       "vglc-smb-extra-life": spriteEntry("castaway-1up.png"),
       "vglc-smb-invincibility": spriteEntry("castaway-star.png"),
       "vglc-smb-climbable": spriteEntry("tile-bamboo.png"),

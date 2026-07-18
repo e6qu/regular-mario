@@ -1,4 +1,5 @@
 import { PlayerOutcomeKind } from "./player-outcome";
+import { ActorRole } from "../domain/level-spec";
 import {
   initialMovementConstants,
   VerticalMovementState,
@@ -22,6 +23,7 @@ export enum SoundEvent {
   Firework = "firework",
   TimeTick = "time-tick",
   SpringBounce = "spring-bounce",
+  VineGrow = "vine-grow",
 }
 
 function isSpringBounce(
@@ -135,6 +137,19 @@ export function resolveSoundEvents(
   // springboard's own bounce twang.
   if (isSpringBounce(previousState, currentState)) {
     events.push(SoundEvent.SpringBounce);
+  }
+
+  // A beanstalk sprouting from its bumped block (the ROM's Sfx_GrowVine):
+  // a new climbable spawned actor appeared this frame.
+  const previousClimbableCount =
+    previousState.spawnedActors.spawnedActors.filter(
+      (actor) => actor.role === ActorRole.Climbable,
+    ).length;
+  const currentClimbableCount = currentState.spawnedActors.spawnedActors.filter(
+    (actor) => actor.role === ActorRole.Climbable,
+  ).length;
+  if (currentClimbableCount > previousClimbableCount) {
+    events.push(SoundEvent.VineGrow);
   }
 
   if (

@@ -235,6 +235,14 @@ const toneSpecs: Record<
     type: "triangle",
     gain: 0.1,
   },
+  // The beanstalk sprouting: a slow ratcheting rise (Sfx_GrowVine).
+  [SoundEvent.VineGrow]: {
+    frequencyHertz: 220,
+    endFrequencyHertz: 660,
+    durationSeconds: 0.5,
+    type: "triangle",
+    gain: 0.07,
+  },
 };
 
 // The cause-specific cartoony death sounds (see playDeathSound).

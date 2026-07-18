@@ -100,6 +100,7 @@ function enemiesWith(cumulativeStompScore: number): EnemyInteractionState {
     cumulativeShellKillExtraLives: 0,
     cumulativeProjectileKillScore:
       0 as EnemyInteractionState["cumulativeProjectileKillScore"],
+    aerialThrowerDefeatFrameByEntityId: {},
   };
 }
 

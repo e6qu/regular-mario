@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-19 — audit backlog finished: flowers, Lakitu, squash, sprout sound
+
+- A power-up block bumped by an already-super player yields the STATIONARY
+  fire flower (authored "fire bloom" art) instead of the walking mushroom —
+  the ROM's size-dependent contents. Lakitu respawns ~10s after a kill
+  while his stretch continues (aerial-thrower defeat frames tracked in the
+  interaction state, replay-deterministic). The springboard flashes a
+  compression squash on launch, and the beanstalk sprout plays a rising
+  Sfx_GrowVine-style ratchet.
+
 ## 2026-07-19 — fidelity backlog cleared: vines grow, springs boost, blocks react
 
 - Beanstalks GROW like the ROM's VineObjectHandler: the climbable sprouts a

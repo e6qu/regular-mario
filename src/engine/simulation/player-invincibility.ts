@@ -157,6 +157,7 @@ export function applyInvincibilityEnemyDefeats(
     currentShellKillChainCount: enemies.currentShellKillChainCount,
     cumulativeShellKillExtraLives: enemies.cumulativeShellKillExtraLives,
     cumulativeProjectileKillScore: enemies.cumulativeProjectileKillScore,
+    aerialThrowerDefeatFrameByEntityId: {},
   };
 }
 

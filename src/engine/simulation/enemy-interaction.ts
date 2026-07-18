@@ -63,6 +63,9 @@ export type EnemyInteractionState = {
   readonly currentShellKillChainCount: number;
   readonly cumulativeShellKillExtraLives: number;
   readonly cumulativeProjectileKillScore: Score;
+  // Defeat frames of aerial throwers (Lakitu): the ROM respawns him a few
+  // seconds after a kill while his stretch continues.
+  readonly aerialThrowerDefeatFrameByEntityId: Readonly<Record<string, number>>;
 };
 
 export function makeEmptyEnemyInteractionState(): EnemyInteractionState {
@@ -80,8 +83,12 @@ export function makeEmptyEnemyInteractionState(): EnemyInteractionState {
     currentShellKillChainCount: 0,
     cumulativeShellKillExtraLives: 0,
     cumulativeProjectileKillScore: 0 as Score,
+    aerialThrowerDefeatFrameByEntityId: {},
   };
 }
+
+// The ROM brings Lakitu back roughly ten seconds after he is defeated.
+export const aerialThrowerRespawnDelayFrames = 600;
 
 export function countNewlyDefeated(
   defeatedSet: Set<EntityId>,
@@ -234,6 +241,15 @@ export function assertValidEnemyInteractionState(
       "enemies.cumulativeProjectileKillScore must be a non-negative number.",
     );
   }
+
+  if (
+    typeof candidate.aerialThrowerDefeatFrameByEntityId !== "object" ||
+    candidate.aerialThrowerDefeatFrameByEntityId === null
+  ) {
+    throw new Error(
+      "enemies.aerialThrowerDefeatFrameByEntityId must be a record.",
+    );
+  }
 }
 
 // Whether a player's hurtbox overlaps any live (not-yet-defeated) enemy. Used
@@ -279,12 +295,29 @@ export function resolveEnemyInteractionState(
   enemyMotion: EnemyMotionState,
   movementConstants: MovementConstants,
   previousState: EnemyInteractionState,
+  frameIndex = 0,
 ): EnemyInteractionState {
   assertValidEnemyInteractionState(previousState, levelSpec);
 
   const actorRoleLookup = makeActorRoleLookup(levelSpec);
   const contactedEnemyEntityIds = [...previousState.contactedEnemyEntityIds];
-  const defeatedEnemyEntityIds = [...previousState.defeatedEnemyEntityIds];
+  const aerialThrowerDefeatFrameByEntityId: Record<string, number> = {
+    ...previousState.aerialThrowerDefeatFrameByEntityId,
+  };
+  // Lakitu comes back: an aerial thrower defeated long enough ago rejoins
+  // the fight (the ROM keeps spawning him while his stretch continues).
+  const respawnedEntityIds = new Set<string>();
+  for (const [entityId, defeatFrame] of Object.entries(
+    aerialThrowerDefeatFrameByEntityId,
+  )) {
+    if (frameIndex - defeatFrame >= aerialThrowerRespawnDelayFrames) {
+      respawnedEntityIds.add(entityId);
+      delete aerialThrowerDefeatFrameByEntityId[entityId];
+    }
+  }
+  const defeatedEnemyEntityIds = previousState.defeatedEnemyEntityIds.filter(
+    (entityId) => !respawnedEntityIds.has(entityId),
+  );
   const shelledEnemyEntityIds: EntityId[] = [];
   const nudgedShellDirectionByEntityId = new Map(
     previousState.nudgedShellDirectionByEntityId,
@@ -393,6 +426,12 @@ export function resolveEnemyInteractionState(
 
       if (!hasEnemyEntityId(defeatedEnemyEntityIds, actor.entityId)) {
         defeatedEnemyEntityIds.push(actor.entityId);
+        if (
+          requireActorRole(actorRoleLookup, actor.actorId) ===
+          ActorRole.AerialThrowingEnemy
+        ) {
+          aerialThrowerDefeatFrameByEntityId[actor.entityId] = frameIndex;
+        }
         currentStompChainCount += 1;
         cumulativeStompScore = (cumulativeStompScore +
           scoreForConsecutiveDefeat(currentStompChainCount)) as Score;
@@ -446,6 +485,7 @@ export function resolveEnemyInteractionState(
     currentShellKillChainCount: previousState.currentShellKillChainCount,
     cumulativeShellKillExtraLives: previousState.cumulativeShellKillExtraLives,
     cumulativeProjectileKillScore: previousState.cumulativeProjectileKillScore,
+    aerialThrowerDefeatFrameByEntityId,
   };
 }
 

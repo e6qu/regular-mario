@@ -12,6 +12,7 @@ import {
   assertValidInteractiveBlockInteractionState,
   assertValidSpawnedActorsState,
   makeEmptyInteractiveBlockInteractionState,
+  fireFlowerActorId,
   makeEmptySpawnedActorsState,
   resolveInteractiveBlockInteractionState,
   resolveSpawnedActorsState,
@@ -889,5 +890,33 @@ describe("interactive block solid collision", () => {
 
     expect(result.player.position.y).toBe(80);
     expect(result.bumpedInteractiveBlocks).toEqual([]);
+  });
+});
+
+describe("size-dependent power-up contents", () => {
+  it("spawns the walking mushroom for a small player", () => {
+    const levelSpec = interactivePowerUpBlockLevelSpec();
+    const spawned = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 4)],
+      1,
+      false,
+    );
+    expect(spawned.spawnedActors[0]?.actorId).not.toBe(fireFlowerActorId);
+    expect(spawned.spawnedActors[0]?.velocityX).not.toBe(0);
+  });
+
+  it("spawns the stationary fire flower for a super player", () => {
+    const levelSpec = interactivePowerUpBlockLevelSpec();
+    const spawned = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 4)],
+      1,
+      true,
+    );
+    expect(spawned.spawnedActors[0]?.actorId).toBe(fireFlowerActorId);
+    expect(spawned.spawnedActors[0]?.velocityX).toBe(0);
   });
 });

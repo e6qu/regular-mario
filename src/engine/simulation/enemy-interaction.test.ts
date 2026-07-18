@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { makeLevelSpec, type LevelSpec } from "../domain/level-spec";
 import type { EntityId } from "../domain/identifiers";
 import {
+  aerialThrowerRespawnDelayFrames,
   assertValidEnemyInteractionState,
   makeEmptyEnemyInteractionState,
   resolveEnemyInteractionState,
@@ -20,6 +21,7 @@ import {
 } from "./enemy-motion";
 import {
   adjacentEnemyLevelSpec,
+  aerialThrowingEnemyLevelSpec,
   firstAuthoredLevelSpec,
   makeExitActor,
   makeExitDefinition,
@@ -917,5 +919,42 @@ describe("stomp chain scoring", () => {
 
     expect(result.currentStompChainCount).toBe(1);
     expect(result.cumulativeStompScore).toBe(100);
+  });
+});
+
+describe("aerial thrower respawn (Lakitu)", () => {
+  it("revives a defeated aerial thrower after the respawn delay", () => {
+    const levelSpec = aerialThrowingEnemyLevelSpec();
+    const defeated: EnemyInteractionState = {
+      ...makeEmptyEnemyInteractionState(),
+      defeatedEnemyEntityIds: ["aerial-thrower-1" as EntityId],
+      aerialThrowerDefeatFrameByEntityId: { "aerial-thrower-1": 100 },
+    };
+    const player = playerAt({ x: 0, y: 64 });
+
+    const still = resolveEnemyInteractionState(
+      player,
+      player,
+      levelSpec,
+      makeInitialEnemyMotionState(levelSpec, initialMovementConstants),
+      initialMovementConstants,
+      defeated,
+      100 + aerialThrowerRespawnDelayFrames - 1,
+    );
+    expect(still.defeatedEnemyEntityIds).toContain("aerial-thrower-1");
+
+    const revived = resolveEnemyInteractionState(
+      player,
+      player,
+      levelSpec,
+      makeInitialEnemyMotionState(levelSpec, initialMovementConstants),
+      initialMovementConstants,
+      defeated,
+      100 + aerialThrowerRespawnDelayFrames,
+    );
+    expect(revived.defeatedEnemyEntityIds).not.toContain("aerial-thrower-1");
+    expect(
+      revived.aerialThrowerDefeatFrameByEntityId["aerial-thrower-1"],
+    ).toBeUndefined();
   });
 });
