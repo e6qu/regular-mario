@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { makeLavaTileIds } from "../../engine/simulation/tile-collision-support";
 
 import {
   ActorRole,
@@ -1257,6 +1258,7 @@ export class BootScene extends Phaser.Scene {
       }
       this.touchControlPanels = [];
       this.gameAudio.stopBackgroundMusic();
+      this.gameAudio.setLavaSizzle(false);
     });
 
     // The invisible position anchor: never drawn, only used to place the sprite
@@ -1509,6 +1511,7 @@ export class BootScene extends Phaser.Scene {
   public onSessionSuspend(): void {
     this.suspended = true;
     this.gameAudio.stopBackgroundMusic();
+    this.gameAudio.setLavaSizzle(false);
     // The root just went display:none with fingers possibly still on buttons —
     // their pointerup will land elsewhere, so drop any held touch input now.
     this.clearHeldTouchState();
@@ -4200,9 +4203,46 @@ export class BootScene extends Phaser.Scene {
     this.touchState.fire = false;
   }
 
+  // True when the god-mode player stands on a lava tile (the engine lands
+  // him on the surface): the tile row at the feet line holds lava within the
+  // collider's column span.
+  private isPlayerStandingOnLava(): boolean {
+    if (!this.godMode) {
+      return false;
+    }
+    const player = this.simulationState.players[0].player;
+    if (player.movement.vertical !== VerticalMovementState.Grounded) {
+      return false;
+    }
+    const lavaTileIds = makeLavaTileIds(this.levelSpec);
+    if (lavaTileIds.size === 0) {
+      return false;
+    }
+    const tileSize = this.levelSpec.tileSizePixels;
+    const feetRow = Math.floor(
+      (player.position.y + player.collider.height) / tileSize,
+    );
+    const row = this.levelSpec.tiles[feetRow];
+    if (row === undefined) {
+      return false;
+    }
+    const firstColumn = Math.floor(player.position.x / tileSize);
+    const lastColumn = Math.floor(
+      (player.position.x + player.collider.width - 1) / tileSize,
+    );
+    for (let column = firstColumn; column <= lastColumn; column += 1) {
+      const tileId = row[column];
+      if (tileId !== undefined && lavaTileIds.has(tileId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private enterPause(byDeath: boolean): void {
     this.paused = true;
     this.pausedByDeath = byDeath;
+    this.gameAudio.setLavaSizzle(false);
     // A mid-flight quake shouldn't wobble the paused/replay view.
     this.cancelCameraShake();
     // The death animation has finished playing (the menu waits for it); tear its
@@ -4835,12 +4875,18 @@ export class BootScene extends Phaser.Scene {
       );
     this.emitSwimBubbles();
 
+    // God mode on lava: the player stands ON the surface (the engine makes it
+    // landable), shown as the on-fire pose over a looping steak sizzle.
+    const burningOnLava = this.isPlayerStandingOnLava();
+    this.gameAudio.setLavaSizzle(burningOnLava);
+
     if (this.playerImageObject !== undefined) {
       const playerImage = resolvePlayerSpriteImage(
         this.userAssetBundle?.playerImage,
         this.simulationState,
         this.currentTheme,
         this.playerCharacter,
+        burningOnLava,
       );
 
       if (playerImage !== undefined) {
@@ -6414,6 +6460,21 @@ export class BootScene extends Phaser.Scene {
               (entityId) => entityId,
             ),
         },
+        // Live enemy positions across every motion class, so a browser test
+        // can time an interaction with a moving enemy (8-4's paratroopa
+        // bounce onto the floating pipe needs the hop phase).
+        enemyActors: [
+          ...this.simulationState.enemyMotion.patrolActors,
+          ...this.simulationState.enemyMotion.flyingActors,
+          ...this.simulationState.enemyMotion.chasingActors,
+          ...this.simulationState.enemyMotion.armoredActors,
+          ...this.simulationState.enemyMotion.throwingActors,
+          ...this.simulationState.enemyMotion.aerialThrowingActors,
+        ].map((actor) => ({
+          entityId: actor.entityId,
+          x: actor.position.x,
+          y: actor.position.y,
+        })),
         enemyContactResponse: makeBrowserEnemyContactResponseSnapshot(
           this.simulationState.enemyContactResponse,
         ),
@@ -7526,6 +7587,7 @@ function resolvePlayerSpriteImage(
   simulationState: SimulationState,
   theme: LevelTheme | undefined,
   character: PlayerCharacter,
+  burning = false,
 ): LoadedImageAsset | undefined {
   if (playerImage === undefined) {
     return undefined;
@@ -7537,11 +7599,13 @@ function resolvePlayerSpriteImage(
   // Fire art is optional in a sprite set; fall back to powered, then bare.
   const prefixes =
     vitalityPrefix === "fire" ? ["fire", "powered"] : [vitalityPrefix];
-  const action = makePlayerSpriteAction(
-    simulationState.players[0].player.movement,
-    theme,
-    simulationState.players[0].player.crouching === true,
-  );
+  const action = burning
+    ? "burning"
+    : makePlayerSpriteAction(
+        simulationState.players[0].player.movement,
+        theme,
+        simulationState.players[0].player.crouching === true,
+      );
 
   // The merman's swim stroke (arms + tail flick) only animates while he is
   // actually moving through the water; drifting still holds the first frame.
@@ -7571,7 +7635,16 @@ function resolvePlayerSpriteImage(
             ...prefixes.map((prefix) => `${prefix}-idle`),
             "idle",
           ]
-        : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
+        : action === "burning"
+          ? [
+              // On-fire art (god mode on lava); sets without it show the
+              // idle frame — the sizzle still tells the story.
+              ...prefixes.map((prefix) => `${prefix}-burning`),
+              "burning",
+              ...prefixes.map((prefix) => `${prefix}-idle`),
+              "idle",
+            ]
+          : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
   return resolveFirstStatefulImage(
     playerImage,

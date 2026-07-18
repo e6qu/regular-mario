@@ -37,6 +37,24 @@ export async function bootPlayTest(page: Page): Promise<void> {
   );
 }
 
+// Boot a content-set level from the #play route, dismiss the "press any key"
+// start prompt, and wait until the simulation is stepping frames.
+export async function bootContentLevel(
+  page: Page,
+  levelName: string,
+): Promise<void> {
+  await page.goto(
+    `/#play?skin=castaway-parody&map=official-smb&level=${levelName}&mode=classic&sound=classic`,
+  );
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+    undefined,
+    { timeout: 30000 },
+  );
+  await page.keyboard.press("Space");
+  await waitForSimulationRunning(page);
+}
+
 // The active game's player x (−1 if no simulation is live).
 export function playerX(page: Page): Promise<number> {
   return page.evaluate(() => {

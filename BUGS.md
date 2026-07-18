@@ -253,6 +253,38 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   survived them; the new `pipe-maze.spec.ts` journey enters the column-81 pipe
   with real input and asserts the warp lands past the first checkpoint.
 
+- **Fixed (2026-07-18): 8-4's water-room exit rejected swimmers.** Sideways
+  pipe mouths are two tiles tall and the placement names the bottom tile, but
+  the walk-in row check accepted only that single row — a 16-pixel band. Fine
+  for standing walk-ins (1-2/2-2-style floor exits centre on it naturally),
+  impossible for a swimmer bobbing at 8-4's mid-wall water-room mouth: entry
+  never fired and the run dead-ended underwater. The row window now spans the
+  real two-tile mouth. Verified by a live-site route drive (pipe 81 → 114,
+  152 → 194, 228 → water room, swim-in exit → 258) and pinned by the
+  `pipe-maze.spec.ts` swimmer journey.
+
+- **Fixed (2026-07-18): god mode could be shoved into lava by enemy contact.**
+  The side-contact response set a knockback velocity on the player before the
+  god-mode damage guard ran, so an "undamageable" player standing at 8-4's
+  lava ledge was pushed in by the paratroopa stream (a pit/lava death god
+  mode does not prevent). God mode now skips the contact shove entirely;
+  stomp rebounds are untouched (pinned by test — bounce-off-enemy routes
+  must keep working), and a collected star still kills enemies on touch
+  (also pinned). Note for the record: the normal-mode damage knockback
+  itself is a deliberate deviation — the ROM never displaces Mario on
+  contact (i-frames only) — kept as designed and test-pinned.
+
+- **Verified (2026-07-18): 8-4 segment 2 is playable as in the ROM.** The
+  floating pipe at column 152 (cap row 6) is reached exactly like 1985: bump
+  the famous hidden block at (150, 9), mount it with a RUNNING jump (a
+  standstill tier-0 jump peaks at 63.8px, a hair under the 4-tile block —
+  the walking/running tiers clear it, matching the original feel), and leap
+  onto the cap. `official-smb-hidden-block.test.ts` finds a working
+  frame-input window against the live engine and pins the whole chain
+  (reveal → mount → cap → pipe entry). The endless paratroopa stream over
+  the lava is the ROM's enemy layout for this room; the stomp bounce off it
+  remains the expert shortcut.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

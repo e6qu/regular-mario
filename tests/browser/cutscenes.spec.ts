@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { timeBonusFramesPerDisplayUnit } from "../../src/engine/simulation/game-score";
-import { readSimulationSnapshot } from "./support";
+import { bootContentLevel, readSimulationSnapshot } from "./support";
 
 // End-of-level cutscene coverage: the flagpole slide (any grab height, with
 // the top-grab ball knock-off), the castle-clear bridge chop + rescue message
@@ -45,28 +45,10 @@ async function waitForPausedFinish(page: Page): Promise<void> {
   );
 }
 
-// Boot a content-set level from the menu route and start its run.
-async function bootMenuLevel(page: Page, levelName: string): Promise<void> {
-  await page.goto(
-    `/#play?skin=castaway-parody&map=official-smb&level=${levelName}&mode=classic&sound=classic`,
-  );
-  await page.waitForFunction(
-    () => window.__originalBrowserPlatformerDebug !== undefined,
-    undefined,
-    { timeout: 30000 },
-  );
-  // Dismiss the "press any key" start prompt and let the run begin.
-  await page.keyboard.press("Space");
-  await page.waitForFunction(() => {
-    const api = window.__originalBrowserPlatformerDebug;
-    return api !== undefined && api.getSimulationSnapshot().frameIndex > 5;
-  });
-}
-
 test("a very-top flag grab knocks the ball off and the cutscene completes", async ({
   page,
 }) => {
-  await bootMenuLevel(page, "smb-1-1");
+  await bootContentLevel(page, "smb-1-1");
   await teleport(page, smb11PoleX, 0);
 
   // The grab at the pole tip: the ball is knocked off and tumbles away.
@@ -114,7 +96,7 @@ test("a very-top flag grab knocks the ball off and the cutscene completes", asyn
 test("a low flag grab also drops the ball, lowers the flag and walks off", async ({
   page,
 }) => {
-  await bootMenuLevel(page, "smb-1-1");
+  await bootContentLevel(page, "smb-1-1");
   await teleport(page, smb11PoleX - 8, smb11LowGrabY);
 
   await waitForPausedFinish(page);
@@ -161,7 +143,7 @@ test("the castle axe chops the bridge and reveals the rescue message", async ({
 test("the real 1-4 castle: Bowser guards the bridge and the axe fells it", async ({
   page,
 }) => {
-  await bootMenuLevel(page, "smb-1-5");
+  await bootContentLevel(page, "smb-1-5");
 
   // Bowser is rendered guarding the bridge.
   const initial = await readSimulationSnapshot(page);

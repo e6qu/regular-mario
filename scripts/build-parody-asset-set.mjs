@@ -1108,7 +1108,49 @@ const fullActionPoses = {
   climb: "climb",
   swim: "swim",
   "swim-2": "swim-2",
+  burning: "burning",
 };
+
+// The on-fire pose (god mode standing on lava): the costume's idle frame
+// engulfed in flames. Deterministic per-column flame heights (no RNG) with
+// yellow tips over orange tongues; drawn over whatever body pixel is there.
+const burningFlameHeights = [3, 5, 4, 6, 3, 7, 4, 5, 6, 4, 7, 3, 5, 4, 6, 3];
+function burningGrid(grid) {
+  const height = grid.length;
+  const rows = grid.map((row) => row.split(""));
+  for (let column = 0; column < 16; column += 1) {
+    const flameHeight = burningFlameHeights[column];
+    for (let step = 0; step < flameHeight; step += 1) {
+      const row = height - 1 - step;
+      if (rows[row] === undefined || rows[row][column] === undefined) {
+        continue;
+      }
+      rows[row][column] = step === flameHeight - 1 ? "2" : "1";
+    }
+  }
+  // A few tongues licking over the head/shoulders so tall frames read as
+  // fully ablaze, not just standing in a campfire.
+  for (const [row, column, letter] of [
+    [1, 4, "2"],
+    [2, 4, "1"],
+    [1, 11, "2"],
+    [2, 11, "1"],
+    [0, 8, "2"],
+    [1, 8, "1"],
+  ]) {
+    if (rows[row] !== undefined && rows[row][column] !== undefined) {
+      rows[row][column] = letter;
+    }
+  }
+  return rows.map((row) => row.join(""));
+}
+function burningPalette(basePalette) {
+  return {
+    ...basePalette,
+    1: [235, 92, 22, 255],
+    2: [255, 214, 64, 255],
+  };
+}
 const luigiActionPoses = {
   ...fullActionPoses,
   // The full Luigi has its own crouch/climb; it glides (jump pose) when swimming.
@@ -1125,6 +1167,7 @@ const robotActionPoses = {
   climb: "idle",
   swim: "jump",
   "swim-2": "jump",
+  burning: "burning",
 };
 
 // Emit the four vitality-tier keys for every action of one costume. `keyPrefix`
@@ -1901,6 +1944,57 @@ async function main() {
     ["castaway-climb-fire.png", castawayClimb, firePlayerPalette],
     ["castaway-swim-fire.png", castawaySwimA, firePlayerPalette],
     ["castaway-swim-2-fire.png", castawaySwimB, firePlayerPalette],
+    // On-fire frames (god mode on lava), every costume and tier: the idle
+    // frame under the shared flame overlay.
+    [
+      "castaway-burning.png",
+      burningGrid(castawayIdle),
+      burningPalette(palette),
+    ],
+    [
+      "castaway-burning-powered.png",
+      burningGrid(castawayIdle),
+      burningPalette(poweredPlayerPalette),
+    ],
+    [
+      "castaway-burning-fire.png",
+      burningGrid(castawayIdle),
+      burningPalette(firePlayerPalette),
+    ],
+    ...[luigiCostume, ...robotCostumes].flatMap((costume) => [
+      [
+        `${costume.key}-burning.png`,
+        burningGrid(costume.poses.idle),
+        burningPalette(costume.palettes.base),
+      ],
+      [
+        `${costume.key}-burning-powered.png`,
+        burningGrid(costume.poses.idle),
+        burningPalette(costume.palettes.powered),
+      ],
+      [
+        `${costume.key}-burning-fire.png`,
+        burningGrid(costume.poses.idle),
+        burningPalette(costume.palettes.fire),
+      ],
+    ]),
+    ...[goombaCostume, princessCostume].flatMap((costume) => [
+      [
+        `${costume.key}-burning.png`,
+        burningGrid(costume.poses.idle),
+        burningPalette(costume.palette),
+      ],
+      [
+        `${costume.key}-burning-powered.png`,
+        burningGrid(costume.poses.idle),
+        burningPalette(costume.palette),
+      ],
+      [
+        `${costume.key}-burning-fire.png`,
+        burningGrid(costume.poses.idle),
+        burningPalette(costume.palette),
+      ],
+    ]),
     // Full green companion costume — distinct art (base/powered/fire per pose).
     ...costumeSpriteFiles(luigiCostume),
     // Four distinct robots (base/powered/fire per pose) plus each robot's own

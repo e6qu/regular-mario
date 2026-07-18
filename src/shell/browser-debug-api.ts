@@ -320,6 +320,13 @@ export type BrowserSimulationSnapshot = {
   readonly timedHazardProjectiles: BrowserTimedHazardProjectilesSnapshot;
   readonly pipeEntry: BrowserPipeEntrySnapshot;
   readonly enemies: BrowserEnemiesSnapshot;
+  // Live enemy actor positions (all motion classes), for tests that need to
+  // time interactions with a moving enemy.
+  readonly enemyActors: readonly {
+    readonly entityId: string;
+    readonly x: number;
+    readonly y: number;
+  }[];
   readonly enemyContactResponse: EnemyContactResponseState;
   // The latched contact-frame observation, or undefined until an enemy is first
   // contacted this level (see BrowserEnemyContactObservation).

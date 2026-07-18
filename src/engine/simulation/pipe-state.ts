@@ -302,14 +302,14 @@ function findEnteredPipe(
         : pipe.entryDirection === "left"
           ? pipe.position.x === leadingLeftTileX
           : pipe.position.x === playerTileX;
-    // Down pipes have a solid mouth: a player standing ON it has their
-    // centre one row above the mouth tile — accept both rows (overlap for
-    // non-solid editor mouths, standing for the decoded solid ones).
+    // Every mouth spans two rows of contact. Down pipes: a player standing ON
+    // the solid mouth has their centre one row above it (overlap for
+    // non-solid editor mouths, standing for the decoded solid ones). Sideways
+    // pipes: the mouth is two tiles tall and the placement names the bottom
+    // one — a swimmer threading 8-4's water-room exit can't centre on a
+    // single tile mid-bob.
     const rowMatches =
-      pipe.entryDirection === "right" || pipe.entryDirection === "left"
-        ? pipe.position.y === playerTileY
-        : pipe.position.y === playerTileY ||
-          pipe.position.y === playerTileY + 1;
+      pipe.position.y === playerTileY || pipe.position.y === playerTileY + 1;
     if (!columnMatches || !rowMatches) {
       continue;
     }

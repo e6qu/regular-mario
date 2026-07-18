@@ -140,15 +140,46 @@ function runtimeFor(name: string): LevelRuntime {
     },
     downPipeCols: transitions
       .filter((transition) => (transition.entryDirection ?? "down") === "down")
-      // The only down pipes a completion ever REQUIRES are forward self-warps
-      // (maze bypasses). Bonus rooms and warp zones are optional side content
-      // that just burns the clock — and backward self-warps are maze traps.
-      .filter(
-        (transition) =>
-          transition.targetLevelName === name &&
-          typeof transition.targetTileX === "number" &&
-          transition.targetTileX > transition.x,
-      )
+      // The only down pipes a completion ever REQUIRES are forward warps
+      // (maze bypasses): self-warps landing ahead, or a side-room detour
+      // whose exit returns ahead (8-4's water room). Bonus rooms and warp
+      // zones are optional side content that just burns the clock — and
+      // backward self-warps are maze traps.
+      .filter((transition) => {
+        if (transition.targetLevelName === name) {
+          return (
+            typeof transition.targetTileX === "number" &&
+            transition.targetTileX > transition.x
+          );
+        }
+        // Detours only become mandatory in a pipe-gated maze (a loop zone no
+        // walking route can pass); elsewhere a bonus room is optional.
+        const pipeGated = spec.loopZones.some(
+          (zone) => zone.requiredRowMin >= spec.heightTiles,
+        );
+        if (!pipeGated) {
+          return false;
+        }
+        const sideRoom =
+          transition.targetLevelName === undefined
+            ? undefined
+            : pack.get(transition.targetLevelName);
+        const sideRoomTransitions = Array.isArray(
+          sideRoom?.metadata.transitions,
+        )
+          ? (sideRoom.metadata.transitions as readonly {
+              readonly x: number;
+              readonly targetLevelName?: string;
+              readonly targetTileX?: number;
+            }[])
+          : [];
+        return sideRoomTransitions.some(
+          (back) =>
+            back.targetLevelName === name &&
+            typeof back.targetTileX === "number" &&
+            back.targetTileX > transition.x,
+        );
+      })
       .map((transition) => transition.x),
     walkIns: transitions
       .filter((transition) => transition.entryDirection === "right")
@@ -493,26 +524,31 @@ function playLevel(
         (player.position.y + player.collider.height / 2) /
           runtime.level.levelSpec.tileSizePixels,
       );
-      const inWalkInZone = runtime.walkIns.some(
+      const targetMouth = runtime.walkIns.find(
         (mouth) => col >= mouth.x - 4 && col <= mouth.x + 1,
       );
       const wallAhead =
-        !inWalkInZone &&
+        targetMouth === undefined &&
         (runtime.solid(col + 1, playerRow) ||
           runtime.solid(col + 2, playerRow));
-      // At a walk-in mouth, sink onto its row and press into it; elsewhere a
-      // wall ahead means stroke over it.
-      jumpFramesLeft = inWalkInZone
-        ? 0
-        : wallAhead
-          ? 5
-          : threatened
-            ? evadeUp
-              ? 5
-              : 0
-            : player.position.y > swimTargetY || rng() < 0.08
-              ? 4
-              : Math.max(0, jumpFramesLeft - 1);
+      // At a walk-in mouth, hold the mouth's altitude band while pressing
+      // into it — a floor-level mouth is sunk onto, a mid-wall mouth (8-4's
+      // water-room exit) is stroked up to; elsewhere a wall ahead means
+      // stroke over it.
+      jumpFramesLeft =
+        targetMouth !== undefined
+          ? playerRow > targetMouth.y
+            ? 4
+            : 0
+          : wallAhead
+            ? 5
+            : threatened
+              ? evadeUp
+                ? 5
+                : 0
+              : player.position.y > swimTargetY || rng() < 0.08
+                ? 4
+                : Math.max(0, jumpFramesLeft - 1);
     } else if (jumpFramesLeft > 0) {
       jumpFramesLeft -= 1;
     } else if (

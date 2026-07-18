@@ -651,6 +651,67 @@ export class GameAudio {
     }
   }
 
+  // The looping steak-sizzle bed for a god-mode player standing on lava:
+  // band-passed noise with a slow crackle flutter. Started/stopped by the
+  // scene as the player steps on/off the surface.
+  private sizzleNodes:
+    | {
+        readonly source: AudioBufferSourceNode;
+        readonly flutter: OscillatorNode;
+        readonly gain: GainNode;
+      }
+    | undefined;
+
+  public setLavaSizzle(active: boolean): void {
+    if (!active) {
+      if (this.sizzleNodes !== undefined) {
+        try {
+          this.sizzleNodes.source.stop();
+          this.sizzleNodes.flutter.stop();
+          this.sizzleNodes.gain.disconnect();
+        } catch {
+          // Best-effort audio teardown.
+        }
+        this.sizzleNodes = undefined;
+      }
+      return;
+    }
+    if (this.sizzleNodes !== undefined) {
+      return;
+    }
+    const audioContext = this.requireAudioContext();
+    if (audioContext === undefined) {
+      return;
+    }
+    try {
+      const now = audioContext.currentTime;
+      const source = audioContext.createBufferSource();
+      source.buffer = this.requireNoiseBuffer(audioContext);
+      source.loop = true;
+      const filter = audioContext.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(4200, now);
+      filter.Q.setValueAtTime(0.9, now);
+      const gain = audioContext.createGain();
+      gain.gain.setValueAtTime(0.12, now);
+      // The crackle: an 11 Hz flutter riding on the gain, like fat spitting.
+      const flutter = audioContext.createOscillator();
+      flutter.frequency.setValueAtTime(11, now);
+      const flutterDepth = audioContext.createGain();
+      flutterDepth.gain.setValueAtTime(0.05, now);
+      flutter.connect(flutterDepth);
+      flutterDepth.connect(gain.gain);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioContext.destination);
+      source.start(now);
+      flutter.start(now);
+      this.sizzleNodes = { source, flutter, gain };
+    } catch {
+      this.sizzleNodes = undefined;
+    }
+  }
+
   private requireAudioContext(): AudioContext | undefined {
     if (this.audioContext !== undefined) {
       // Autoplay policy can leave the context suspended until a user gesture;

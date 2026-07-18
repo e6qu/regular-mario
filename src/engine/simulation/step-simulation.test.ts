@@ -2775,6 +2775,127 @@ describe("god mode", () => {
     expect(stepped.players[0].outcome).toEqual({ kind: "active" });
   });
 
+  // The fixture with a lava pool: bottom-row grass at columns 20-23 replaced
+  // by hazard "lava-surface" tiles (nothing solid beneath — a sink would fall
+  // out of the level).
+  function lavaLevelSpec(): LevelSpec {
+    const lastRow = firstAuthoredLevelInput.tiles.length - 1;
+    const tiles = firstAuthoredLevelInput.tiles.map((row, rowIndex) =>
+      rowIndex === lastRow
+        ? row.map((tileId, columnIndex) =>
+            columnIndex >= 20 && columnIndex <= 23 ? "lava-surface" : tileId,
+          )
+        : row,
+    );
+    const result = makeLevelSpec({
+      ...firstAuthoredLevelInput,
+      tileDefinitions: [
+        ...firstAuthoredLevelInput.tileDefinitions,
+        {
+          tileId: "lava-surface",
+          collision: TileCollisionKind.Hazard,
+        },
+      ],
+      tiles,
+    });
+    if (!result.ok) {
+      throw new Error("Expected lava fixture level to validate.");
+    }
+    return result.value;
+  }
+
+  // Fall onto the lava pool at column 21 under the given constants; stop
+  // early once the outcome resolves.
+  function fallOntoLava(
+    constants: typeof initialMovementConstants,
+  ): SimulationState {
+    let state: SimulationState = withPlayerOverrides(validInitialState(), {
+      player: playerWithTestState({
+        position: { x: 21 * 16, y: 40 },
+        velocity: { x: 0, y: 120 },
+        movement: {
+          horizontal: HorizontalMovementState.Idle,
+          vertical: VerticalMovementState.Falling,
+        },
+      }),
+    });
+    for (let frame = 0; frame < 30; frame += 1) {
+      state = stepSimulation(
+        state,
+        validInputCommand(),
+        constants,
+        lavaLevelSpec(),
+      );
+      if (state.players[0].outcome.kind !== PlayerOutcomeKind.Active) {
+        break;
+      }
+    }
+    return state;
+  }
+
+  it("walks on lava instead of sinking into it", () => {
+    // God mode lands on the surface (feet on the lava row's top edge) and
+    // stays alive.
+    const state = fallOntoLava(godConstants);
+    const player = state.players[0].player;
+    expect(state.players[0].outcome).toEqual({ kind: "active" });
+    expect(player.movement.vertical).toBe(VerticalMovementState.Grounded);
+    // The lava row is the bottom row (row 5, top edge at 80px).
+    expect(player.position.y + player.collider.height).toBe(80);
+  });
+
+  it("without god mode the same lava fall is fatal", () => {
+    const state = fallOntoLava(initialMovementConstants);
+    expect(state.players[0].outcome.kind).toBe(PlayerOutcomeKind.Defeated);
+  });
+
+  it("keeps the full stomp rebound off enemy heads", () => {
+    // Falling onto the beetle at x=96: the stomp must still bounce a god-mode
+    // player (bounce-off-enemy routes like 8-4's paratroopa stream rely on it).
+    const falling: SimulationState = withPlayerOverrides(validInitialState(), {
+      player: playerWithTestState({
+        position: { x: 96, y: 40 },
+        velocity: { x: 0, y: 150 },
+        movement: {
+          horizontal: HorizontalMovementState.Idle,
+          vertical: VerticalMovementState.Falling,
+        },
+      }),
+    });
+    let state = falling;
+    for (let frame = 0; frame < 20; frame += 1) {
+      state = stepGodEnemyContact(state);
+      if (state.enemies.defeatedEnemyEntityIds.length > 0) {
+        break;
+      }
+    }
+    expect(state.enemies.defeatedEnemyEntityIds).toEqual(["beetle-1"]);
+    expect(state.players[0].player.velocity.y).toBeLessThanOrEqual(
+      0 - initialMovementConstants.enemyStompReboundSpeed,
+    );
+  });
+
+  it("never shoves the player on side contact", () => {
+    // Standing against the beetle: contact deals no damage AND no knockback —
+    // an undamageable player must not be pushed (e.g. into a lava pit).
+    const stepped = stepGodEnemyContact(stateWithPlayerAt({ x: 96, y: 64 }));
+    expect(stepped.players[0].player.velocity.x).toBe(0);
+    expect(stepped.players[0].outcome).toEqual({ kind: "active" });
+  });
+
+  it("a collected star still kills enemies on touch", () => {
+    const stepped = stepGodEnemyContact(
+      withPlayerOverrides(stateWithPlayerAt({ x: 96, y: 64 }), {
+        playerInvincibility: {
+          collectedInvincibilityEntityIds: [],
+          remainingFrames: testInvincibilityFrameCount(2),
+        },
+      }),
+    );
+    expectBeetleInvincibilityDefeatedEnemyState(stepped);
+    expect(stepped.players[0].outcome).toEqual({ kind: "active" });
+  });
+
   it("still dies to a pit fall (no soft-lock at the bottom)", () => {
     // Below the 6-row level's bottom edge (96px) and still falling.
     const stepped = stepSimulation(

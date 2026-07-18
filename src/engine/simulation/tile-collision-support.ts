@@ -78,6 +78,24 @@ export function makeSolidTileIds(levelSpec: LevelSpec): ReadonlySet<TileId> {
   return solidTileIds;
 }
 
+// Lava tiles (hazard-kind, "lava-*" ids). God mode walks on these: the
+// downward collision treats them as ground, so an undamageable player
+// sizzles across the surface instead of sinking to a pit death.
+export function makeLavaTileIds(levelSpec: LevelSpec): ReadonlySet<TileId> {
+  const lavaTileIds = new Set<TileId>();
+
+  for (const tileDefinition of levelSpec.tileDefinitions) {
+    if (
+      tileDefinition.collision === TileCollisionKind.Hazard &&
+      tileDefinition.tileId.startsWith("lava")
+    ) {
+      lavaTileIds.add(tileDefinition.tileId);
+    }
+  }
+
+  return lavaTileIds;
+}
+
 export function makeHiddenTileIds(levelSpec: LevelSpec): ReadonlySet<TileId> {
   const hiddenTileIds = new Set<TileId>();
 

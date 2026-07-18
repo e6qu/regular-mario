@@ -5,6 +5,38 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — 8-4 actually winnable + god-mode lava walking
+
+- 8-4 was never winnable by real play: a day-one guard skipped any pipe
+  whose target names its own level — all six 8-4 maze pipes do (in-level
+  warps), so none accepted input and every walking route loops by design.
+  Self-target pipes are now normalized to same-level warps. Two more gates
+  fell in the same sweep: sideways pipe mouths (two tiles tall) only
+  accepted entry on their bottom row — a bobbing swimmer at the water room's
+  mid-wall exit practically never hit a 16px band (now the full mouth), and
+  spent maze checkpoints re-armed on backtracking (now permanently passed).
+  Proof chain: `pipe-maze.spec.ts` enters the column-81 pipe and swims the
+  water-room exit with real input in the built game;
+  `official-smb-hidden-block.test.ts` finds a frame-input window for the
+  ROM's intended segment-2 route (hidden block at (150,9) → running-jump
+  mount → floating-pipe cap); the disassembly's `L_WaterArea3` ("water area
+  used in level 8-4") confirms the underwater passage is faithful content.
+
+- God mode grew real fire-walking: lava is landable ground for an
+  undamageable player (engine: lava tile ids join the downward collision),
+  presented with per-character on-fire sprites (all 8 costumes × 3 tiers,
+  flame-overlay art) and a looping steak-sizzle noise bed. Enemy-contact
+  shoves no longer apply in god mode (they could push the player into a
+  lava/pit death that god mode doesn't guard), while stomp rebounds and
+  star-kill-on-touch behave exactly as in normal play — all three pinned by
+  engine tests. Star invincibility remains its own mechanic, not god mode.
+
+- Playthrough driver: cross-level detour pipes whose side room returns
+  forward (8-4's water room) count as required in pipe-gated mazes, and a
+  water walk-in mouth above the swim line is stroked up to instead of sunk
+  onto. The debug snapshot now exposes live enemy actor positions
+  (`enemyActors`) so browser tests can time moving-enemy interactions.
+
 ## 2026-07-18 — one-request content loading + fetch resilience
 
 - The 503 "Could not start" class fixed structurally: a boot used to fire

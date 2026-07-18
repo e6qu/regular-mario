@@ -138,11 +138,18 @@ import {
 } from "./game-score";
 import type { LevelSpec } from "../domain/level-spec";
 import { ActorRole } from "../domain/level-spec";
+import type { TileId } from "../domain/identifiers";
 import {
   playerHasStandingHeadroom,
   resolveSolidTileCollisionWithBlockBumps,
 } from "./solid-tile-collision";
-import { hiddenBlockPositionKey } from "./tile-collision-support";
+import {
+  hiddenBlockPositionKey,
+  makeLavaTileIds,
+} from "./tile-collision-support";
+
+// Shared empty set: no walkable hazard tiles outside god mode.
+const emptyWalkableHazardTileIds: ReadonlySet<TileId> = new Set<TileId>();
 import { applyVerticalMovement } from "./vertical-movement";
 import {
   ArmoredEnemyBehavior,
@@ -519,6 +526,11 @@ function stepActiveSimulation(
       hiddenBlockPositionKey(position.x, position.y),
     ),
   );
+  // God mode walks ON lava: the surface becomes landable ground (the hazard
+  // contact still fires each frame, which the shell presents as sizzling).
+  const walkableHazardTileIds = movementConstants.godMode
+    ? makeLavaTileIds(levelSpec)
+    : emptyWalkableHazardTileIds;
   const resolvedPlayerWithBumps = resolveSolidTileCollisionWithBlockBumps(
     crouchSizedPlayer,
     movedPlayer,
@@ -526,6 +538,7 @@ function stepActiveSimulation(
     state.breakableBlocks,
     movementConstants.springLaunchSpeed,
     revealedHiddenPositionKeys,
+    walkableHazardTileIds,
   );
   const resolvedPlayerWithBumpsPlayer = resolvedPlayerWithBumps.player;
 
@@ -580,6 +593,7 @@ function stepActiveSimulation(
           state.breakableBlocks,
           movementConstants.springLaunchSpeed,
           revealedHiddenPositionKeys,
+          walkableHazardTileIds,
         ).player;
 
   // Castle maze checkpoints: crossing on the wrong row loops the player back
@@ -1277,6 +1291,12 @@ function applyEnemySideContactResponse(
   playerVitality: PlayerVitalityState,
   movementConstants: MovementConstants,
 ): PlayerSimulationState {
+  // God mode: undamageable also means unshoved — a contact knockback that
+  // deals no damage could still push the player into a pit (8-4's lava
+  // ledge under the paratroopa stream did exactly that).
+  if (movementConstants.godMode) {
+    return player;
+  }
   if (playerVitality.kind === PlayerVitalityKind.Recovering) {
     return applyRecoveryKnockbackVelocity(
       player,

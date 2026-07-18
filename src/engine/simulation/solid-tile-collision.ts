@@ -537,12 +537,19 @@ export function resolveSolidTileCollisionWithBlockBumps(
   // Positions (keyed "column,row") of hidden blocks revealed on earlier frames;
   // a revealed hidden block behaves as solid. Empty by default.
   revealedHiddenPositionKeys: ReadonlySet<string> = new Set<string>(),
+  // Tiles a god-mode player may stand ON (lava): they join the landing
+  // resolution only, so lava never blocks sideways movement or head bumps.
+  walkableHazardTileIds: ReadonlySet<TileId> = new Set<TileId>(),
 ): {
   readonly player: PlayerSimulationState;
   readonly bumpedInteractiveBlocks: readonly TilePoint[];
   readonly bumpedBreakableBlocks: readonly TilePoint[];
 } {
   const solidTileIds = makeSolidTileIds(levelSpec);
+  const landingTileIds =
+    walkableHazardTileIds.size === 0
+      ? solidTileIds
+      : new Set<TileId>([...solidTileIds, ...walkableHazardTileIds]);
   const springTileIds = makeSpringTileIds(levelSpec);
   const interactiveTileIds = makeInteractiveTileIds(levelSpec);
   const breakableTileIds = makeBreakableTileIds(levelSpec);
@@ -582,7 +589,7 @@ export function resolveSolidTileCollisionWithBlockBumps(
       previousPlayer,
       upwardResolvedPlayer,
       levelSpec,
-      solidTileIds,
+      landingTileIds,
       springTileIds,
       breakableTileIds,
       breakableBlocks,
