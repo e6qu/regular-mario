@@ -369,8 +369,8 @@ function princessProfileFrame(params) {
     lean = 0,
     bell = 0,
     legsShown = true,
-    train = 6,
-    waveAmplitude = 2.5,
+    train = 8,
+    waveAmplitude = 3.5,
   } = params;
   const g = blankGrid32();
   const headX = 15 + lean;
@@ -380,7 +380,7 @@ function princessProfileFrame(params) {
   for (let y = 3 + topY - hairLift; y <= 23 - hairLift; y += 1) {
     const depth = y - (3 + topY - hairLift);
     const drift = Math.min(9, Math.round((depth * (2 + hairSweep)) / 6));
-    const wave = clothWave(depth, phase, cycle, waveAmplitude, 2.6);
+    const wave = clothWave(depth, phase, cycle, waveAmplitude, 2.2);
     const backX = headX - 2 - drift + wave;
     const width =
       depth < 3
@@ -419,7 +419,7 @@ function princessProfileFrame(params) {
     const half =
       3 + Math.round((depth * (6 + bell)) / Math.max(1, span)) - rounding;
     const drift = Math.round((depth * sweep) / Math.max(1, span));
-    const flow = clothWave(depth + 4, phase, cycle, waveAmplitude * 0.7, 3.2);
+    const flow = clothWave(depth + 4, phase, cycle, waveAmplitude, 3.0);
     const x0 = 16 - half - drift + Math.min(0, flow);
     const width = half * 2 + 1 + Math.abs(flow);
     fillPx(g, x0, y, width, 1, "D");
@@ -429,7 +429,7 @@ function princessProfileFrame(params) {
   // The dragging train: whips vertically with its own, tip-heavy wave.
   const trainBaseX = 16 - 9 - sweep;
   for (let step = 1; step <= train; step += 1) {
-    const whip = clothWave(step + 6, phase, cycle, 2.2, 2.0);
+    const whip = clothWave(step + 6, phase, cycle, 3, 2.0);
     const trainY = hemY - Math.floor(step / 3) + whip;
     const thickness = step < train - 1 ? 2 : 1;
     fillPx(g, trainBaseX - step, trainY - thickness + 1, 1, thickness, "D");
@@ -439,13 +439,21 @@ function princessProfileFrame(params) {
   for (let x = trainBaseX; x <= 16 + 9; x += 2) {
     plotPx(g, x + (phase % 2), hemY + 1, "d");
   }
-  // Legs mid-stride under the hem.
+  // Legs mid-stride: the front leg plants extended with a flat foot; the
+  // back leg trails BENT — its shin angles back and the heel lifts, like a
+  // real stride, all driven by the phase.
   if (legsShown) {
-    const front = Math.round(3.5 * Math.sin((2 * Math.PI * phase) / cycle));
+    const swing = Math.sin((2 * Math.PI * phase) / cycle);
+    const front = Math.round(3.5 * swing);
+    const backLift = Math.max(0, Math.round(2 * -swing));
+    // Front leg: thigh + shin extended, foot flat on the ground.
     fillPx(g, 16 + front, hemY + 1, 2, 2, "s");
     fillPx(g, 16 + front, hemY + 3, 3, 1, "b");
-    fillPx(g, 14 - front, hemY + 1, 2, 2, "S");
-    fillPx(g, 13 - front, hemY + 3, 3, 1, "b");
+    // Back leg: thigh under the hem, shin angled a pixel further back,
+    // heel raised by the lift.
+    fillPx(g, 14 - front, hemY + 1, 2, 1, "S");
+    fillPx(g, 13 - front, hemY + 2, 2, 1, "S");
+    fillPx(g, 12 - front, hemY + 3 - backLift, 3, 1, "b");
   }
   return gridRows(g);
 }
@@ -530,19 +538,19 @@ export const princessFluidPoses = {
   // read as the skirt filling with air on the way down.
   "fall-1": princessProfileFrame({
     phase: 2,
-    bell: 2,
+    bell: 1,
     hairLift: 3,
     legsShown: false,
     train: 4,
-    waveAmplitude: 3,
+    waveAmplitude: 4,
   }),
   "fall-2": princessProfileFrame({
     phase: 5,
-    bell: 7,
+    bell: 9,
     hairLift: 4,
     legsShown: false,
     train: 3,
-    waveAmplitude: 3,
+    waveAmplitude: 4,
   }),
   fall: princessProfileFrame({
     phase: 2,

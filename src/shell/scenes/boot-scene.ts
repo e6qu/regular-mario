@@ -890,6 +890,9 @@ export class BootScene extends Phaser.Scene {
   // The end-of-level exit march: after the slide the player walks right into
   // the castle doorway and disappears.
   private flagpoleWalkOffActive = false;
+  // The hero finished the march and is inside the castle: the final paused
+  // tableau keeps the sprite hidden (scrubbing earlier frames re-shows it).
+  private flagpoleWalkOffCompleted = false;
   private flagpoleWalkOffTargetX = 0;
   private flagpoleWalkOffY = 0;
   private deathArcActive = false;
@@ -2446,6 +2449,7 @@ export class BootScene extends Phaser.Scene {
     this.playerImageObject?.setFlipX(false); // marching right, into the castle
     if (nextX >= this.flagpoleWalkOffTargetX) {
       this.flagpoleWalkOffActive = false;
+      this.flagpoleWalkOffCompleted = true;
       // Through the doorway and out of sight; a rebuild restores the sprite.
       this.playerImageObject?.setVisible(false);
       // The ROM's payoff order: enter the castle, its flag rises, THEN the
@@ -2806,6 +2810,7 @@ export class BootScene extends Phaser.Scene {
     this.flagpoleFlagDropActive = false;
     this.flagpoleSlideActive = false;
     this.flagpoleWalkOffActive = false;
+    this.flagpoleWalkOffCompleted = false;
     // A finished walk-off hid the sprite at the castle doorway; the rebuild
     // (next level / retry) brings the player back.
     this.playerImageObject?.setVisible(true);
@@ -3894,6 +3899,12 @@ export class BootScene extends Phaser.Scene {
       this.stepTimeBonusCountdown();
 
       if (this.levelAdvanceDelayFramesRemaining === 0) {
+        // The cutscene ends here: a still-tumbling pole ball would freeze
+        // mid-air in the final tableau — it was leaving the screen anyway.
+        if (this.flagpoleBallFall !== undefined) {
+          this.flagpoleBallObject?.setVisible(false);
+          this.flagpoleBallFall = undefined;
+        }
         this.advanceToNextLevel();
         // A level end with no next level to advance to opens the replay menu
         // (advanceToNextLevel leaves the finished outcome in place).
@@ -4632,10 +4643,12 @@ export class BootScene extends Phaser.Scene {
     // the final recorded state while the effect is rebuilt at the offset.
     const simFrame = Math.min(this.scrubFrame, this.pauseFrame);
     this.simulationState = this.runRecorder.stateAt(simFrame);
-    // Scrubbing shows the recorded run, where the player is always on screen —
-    // even when the live tableau ended with the sprite hidden in the castle
-    // doorway after the flagpole walk-off.
-    this.playerImageObject?.setVisible(true);
+    // Scrubbing shows the recorded run, where the player is always on
+    // screen; at the FINAL frame after a completed walk-off he stays hidden
+    // — the cutscene left him inside the castle, not back on the pole.
+    this.playerImageObject?.setVisible(
+      !(this.flagpoleWalkOffCompleted && this.scrubFrame >= this.pauseFrame),
+    );
     this.renderSimulationState();
     // Show the camera where it sat at that frame, rather than letting it chase
     // the scrubbed player. The recorded view is re-anchored by its world-space
@@ -5179,12 +5192,23 @@ export class BootScene extends Phaser.Scene {
     // The invincibility/recovery flash blinks the player sprite.
     if (this.playerImageObject !== undefined) {
       this.playerImageObject.setAlpha(playerAlpha);
+      // After the walk-off the hero is inside the castle: the live tableau
+      // and the paused FINAL frame keep him hidden; scrubbing back shows
+      // the recorded run normally.
+      if (this.flagpoleWalkOffCompleted) {
+        this.playerImageObject.setVisible(
+          this.paused && this.scrubFrame < this.pauseFrame,
+        );
+      }
     }
 
     this.renderCoopPlayers();
 
     const feedbackText = makeOutcomeFeedbackText(
       this.simulationState.players[0].outcome,
+      // A flagpole finish is a course clear; castles and plain gates keep
+      // the gate wording.
+      this.flagObject === undefined,
     );
     // The castle-clear cinematic owns the screen: no "Gate reached — press…"
     // prompt bleeding through the chop/fall/walk-in staging.
@@ -6767,6 +6791,7 @@ export class BootScene extends Phaser.Scene {
             },
             walkOff: {
               active: this.flagpoleWalkOffActive,
+              completed: this.flagpoleWalkOffCompleted,
               playerSpriteVisible: this.playerImageObject?.visible ?? false,
             },
           },
@@ -7744,6 +7769,7 @@ function worldLevelLabelFor(levelVisualName: string | undefined): string {
 
 function makeOutcomeFeedbackText(
   playerOutcome: SimulationState["players"][0]["outcome"],
+  castleFinish = false,
 ): string {
   switch (playerOutcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -7751,7 +7777,9 @@ function makeOutcomeFeedbackText(
     case PlayerOutcomeKind.Defeated:
       return makeDefeatedOutcomeFeedbackText(playerOutcome.reason);
     case PlayerOutcomeKind.Finished:
-      return finishedOutcomeFeedbackText;
+      return castleFinish
+        ? finishedOutcomeFeedbackText
+        : "Course clear — Press R";
     case PlayerOutcomeKind.DefeatedAndFinished:
       return simultaneousOutcomeFeedbackText;
     default: {
@@ -8415,10 +8443,19 @@ function renderNonPlayerActors(
   const roleCounts = makeEmptyRenderedActorRoleCounts();
   const actors: RuntimeRenderedActor[] = [];
 
+  // A level with an authored flagpole marks its exit with the pole itself;
+  // the gate-axe visual is for castle exits (where the gate IS the axe).
+  const hasFlagpole = levelSpec.tiles.some((row) =>
+    row.some((tileId) => tileId === flagpoleTileId),
+  );
+
   for (const actor of levelSpec.actors) {
     const role = requireActorRole(actorRoleLookup, actor.actorId);
 
     if (!isRenderedActorRole(role)) {
+      continue;
+    }
+    if (role === ActorRole.Exit && hasFlagpole) {
       continue;
     }
 

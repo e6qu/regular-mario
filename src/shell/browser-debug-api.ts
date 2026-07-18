@@ -226,6 +226,7 @@ type BrowserCutsceneSnapshot = {
     // sprite disappearing through the doorway.
     readonly walkOff: {
       readonly active: boolean;
+      readonly completed: boolean;
       readonly playerSpriteVisible: boolean;
     };
   };
