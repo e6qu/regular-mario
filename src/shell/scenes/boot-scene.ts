@@ -2116,7 +2116,7 @@ export class BootScene extends Phaser.Scene {
           friendX,
           this.playerRectangle.y + this.playerRectangle.height,
         );
-        this.renderRescuedFriend(friendX, friendFeetY);
+        this.renderRescuedFriend(friendX, friendFeetY, finalCastle);
         this.castleClearMessageText = this.add
           .text(friendX, friendFeetY - 64, message, {
             fontFamily: "monospace",
@@ -2167,12 +2167,19 @@ export class BootScene extends Phaser.Scene {
     return fromPixelY;
   }
 
-  // Show the rescued friend (a princess, in the ROM skin) standing on the
-  // chamber floor — the payoff of the boss falling, as authored art rather
-  // than only the "YOUR FRIEND" text.
-  private renderRescuedFriend(worldX: number, feetPixelY: number): void {
-    const friendAsset =
-      this.userAssetBundle?.reactionImages.get("rescued-friend");
+  // Show the freed captive standing on the chamber floor — the payoff of
+  // the boss falling. Worlds 1-7 free a keep attendant (the ROM's toad
+  // retainer, who points to "another keep"); only the FINAL keep holds the
+  // friend themself.
+  private renderRescuedFriend(
+    worldX: number,
+    feetPixelY: number,
+    finalCastle: boolean,
+  ): void {
+    const friendAsset = finalCastle
+      ? this.userAssetBundle?.reactionImages.get("rescued-friend")
+      : (this.userAssetBundle?.reactionImages.get("freed-attendant") ??
+        this.userAssetBundle?.reactionImages.get("rescued-friend"));
     if (friendAsset === undefined) {
       return;
     }

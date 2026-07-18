@@ -1004,6 +1004,39 @@ function bossEnemySprite(leftFileName, rightFileName) {
 const tileNone = Array.from({ length: 16 }, () => "................");
 
 // The fire bloom (our fire flower): a blazing petal ring on a leafy stem.
+// The freed attendant (worlds 1-7's keep captive): a small island elder in a
+// leaf-brim hat with a lantern — an original design, distinct from the
+// friend rescued at the final keep.
+const attendantPalette = {
+  ".": [0, 0, 0, 0],
+  e: [24, 20, 18, 255],
+  h: [110, 150, 62, 255],
+  H: [82, 118, 48, 255],
+  s: [214, 170, 128, 255],
+  b: [150, 132, 108, 255],
+  w: [245, 240, 220, 255],
+  L: [246, 202, 80, 255],
+  t: [124, 84, 48, 255],
+};
+const attendantGrid = [
+  "................",
+  "....hhhhhhhh....",
+  "...hHhhhhhhHh...",
+  "..hHhhhhhhhhHh..",
+  "..eeeeeeeeeeee..",
+  "....ssssssss....",
+  "....sewssews....",
+  "....ssssssss....",
+  "....ssseesss....",
+  ".....bbbbbb.....",
+  "....bbbbbbbb..t.",
+  "...wbbbbbbbbw.t.",
+  "...wbbbbbbbbwLL.",
+  "....bbbbbbbb.LL.",
+  "....bbb..bbb....",
+  "....ee....ee....",
+];
+
 const fireBloomPalette = {
   ".": [0, 0, 0, 0],
   e: [24, 20, 18, 255],
@@ -2044,6 +2077,7 @@ async function main() {
     ["part-arm.png", partArmGrid, bodyPartPalette],
     ["part-leg.png", partLegGrid, bodyPartPalette],
     ["rescued-friend.png", princessGrid, princessPalette],
+    ["freed-attendant.png", attendantGrid, attendantPalette],
     ["grumbler-idle.png", grumblerIdle, enemyPalette],
     ["grumbler-squashed.png", grumblerSquashed, enemyPalette],
     ["tile-sand.png", tileSand, tilePalette],
@@ -2322,6 +2356,7 @@ async function main() {
       "part-arm": spriteEntry("part-arm.png"),
       "part-leg": spriteEntry("part-leg.png"),
       "rescued-friend": spriteEntry("rescued-friend.png"),
+      "freed-attendant": spriteEntry("freed-attendant.png"),
       // Each robot's own body parts, so a bot explodes into its own colours.
       ...Object.fromEntries(
         robotCostumes.flatMap((costume) =>
