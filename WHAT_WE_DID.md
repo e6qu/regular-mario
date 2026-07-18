@@ -5,6 +5,13 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — god mode (and real checkboxes)
+
+- Revenge mode and God mode are now actual CHECKBOXES in the start menu
+  (styled to match the select boxes, captioned "Play the stomper" / "No
+  damage"), replacing the two-option dropdowns. Same URL mirroring
+  (revenge=1 / god=1), autoplay restore, and tutorial spotlight.
+
 ## 2026-07-18 — god mode
 
 - A GOD MODE toggle in the start menu (off by default, mirrored into the

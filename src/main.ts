@@ -2008,6 +2008,47 @@ function makeStartMenuLabel(text: string): HTMLElement {
   return label;
 }
 
+// A real checkbox in a box styled like the menu's selects, with a short
+// caption after the tick so the row reads as a sentence.
+function makeStartMenuCheckbox(
+  ariaLabel: string,
+  caption: string,
+): { readonly wrapper: HTMLElement; readonly input: HTMLInputElement } {
+  const wrapper = document.createElement("label");
+  wrapper.style.display = "flex";
+  wrapper.style.alignItems = "center";
+  wrapper.style.gap = "8px";
+  wrapper.style.width = "100%";
+  wrapper.style.minWidth = "0";
+  wrapper.style.boxSizing = "border-box";
+  wrapper.style.padding = "8px 10px";
+  wrapper.style.marginTop = "4px";
+  wrapper.style.marginBottom = "8px";
+  wrapper.style.borderRadius = "8px";
+  wrapper.style.border = "3px solid #7a4a1e";
+  wrapper.style.backgroundColor = "#fff7e6";
+  wrapper.style.color = "#3a2410";
+  wrapper.style.fontFamily = "monospace";
+  wrapper.style.fontWeight = "bold";
+  wrapper.style.fontSize = "13px";
+  wrapper.style.cursor = "pointer";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.setAttribute("aria-label", ariaLabel);
+  input.style.width = "16px";
+  input.style.height = "16px";
+  input.style.accentColor = "#7a4a1e";
+  input.style.cursor = "pointer";
+  const text = document.createElement("span");
+  text.textContent = caption;
+  text.style.whiteSpace = "nowrap";
+  text.style.overflow = "hidden";
+  text.style.textOverflow = "ellipsis";
+  wrapper.appendChild(input);
+  wrapper.appendChild(text);
+  return { wrapper, input };
+}
+
 function makeStartMenuDropdown(
   ariaLabel: string,
   options: readonly (readonly [string, string])[],
@@ -2164,16 +2205,12 @@ async function renderStartMenu(
     normalCharacterOptions,
   );
   // Revenge mode: play a Goomba/Princess and stomp half-height Mario/Luigi.
-  const revengeSelect = makeStartMenuDropdown("Revenge", [
-    ["0", "Off (normal)"],
-    ["1", "Revenge mode"],
-  ]);
+  const revengeControl = makeStartMenuCheckbox("Revenge", "Play the stomper");
+  const revengeCheckbox = revengeControl.input;
   // God mode: the player cannot be damaged or defeated by enemies, hazards or
   // the timer (pit falls still reset the level). Off by default.
-  const godSelect = makeStartMenuDropdown("God mode", [
-    ["0", "Off (normal)"],
-    ["1", "God mode (no damage)"],
-  ]);
+  const godControl = makeStartMenuCheckbox("God mode", "No damage");
+  const godCheckbox = godControl.input;
   const setCharacterOptions = (
     options: readonly (readonly [string, string])[],
   ): void => {
@@ -2189,9 +2226,9 @@ async function renderStartMenu(
       characterSelect.value = previous;
     }
   };
-  revengeSelect.addEventListener("change", () => {
+  revengeCheckbox.addEventListener("change", () => {
     setCharacterOptions(
-      revengeSelect.value === "1"
+      revengeCheckbox.checked
         ? revengeCharacterOptions
         : normalCharacterOptions,
     );
@@ -2297,7 +2334,7 @@ async function renderStartMenu(
           body: "Shabby = loud cartoon reactions and silly voices; Classic = calm and chiptune (set Sound just below).",
         },
         {
-          target: fieldOf(revengeSelect),
+          target: fieldOf(revengeControl.wrapper),
           title: "4 / 7 · Revenge",
           body: "Flip it: play a Goomba and stomp Mario & Luigi.",
         },
@@ -2329,8 +2366,8 @@ async function renderStartMenu(
   appendField("GAME MODE", modeSelect);
   appendField("SOUND", audioSelect);
   appendField("RENDERER", rendererSelect);
-  appendField("REVENGE", revengeSelect);
-  appendField("GOD MODE", godSelect);
+  appendField("REVENGE", revengeControl.wrapper);
+  appendField("GOD MODE", godControl.wrapper);
   appendField("CHARACTER", characterSelect);
   appendField("BOTS", botsSelect);
   panel.appendChild(controls);
@@ -2487,16 +2524,17 @@ async function renderStartMenu(
         `&level=${encodeURIComponent(levelSelect.value)}` +
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
         `&renderer=${rendererSelect.value}` +
-        `&revenge=${revengeSelect.value}&character=${characterSelect.value}` +
-        `&bots=${botsSelect.value}&god=${godSelect.value}`,
+        `&revenge=${revengeCheckbox.checked ? "1" : "0"}` +
+        `&character=${characterSelect.value}` +
+        `&bots=${botsSelect.value}&god=${godCheckbox.checked ? "1" : "0"}`,
     );
   };
   for (const control of [
     modeSelect,
     audioSelect,
     rendererSelect,
-    revengeSelect,
-    godSelect,
+    revengeCheckbox,
+    godCheckbox,
     characterSelect,
     botsSelect,
     levelSelect,
@@ -2521,8 +2559,9 @@ async function renderStartMenu(
         `&level=${encodeURIComponent(levelSelect.value)}` +
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
         `&bots=${botsSelect.value}&character=${characterSelect.value}` +
-        `&revenge=${revengeSelect.value}&renderer=${rendererSelect.value}` +
-        `&god=${godSelect.value}`,
+        `&revenge=${revengeCheckbox.checked ? "1" : "0"}` +
+        `&renderer=${rendererSelect.value}` +
+        `&god=${godCheckbox.checked ? "1" : "0"}`,
     );
     void bootSelectedContentSet(
       assetSelect.value,
@@ -2532,8 +2571,8 @@ async function renderStartMenu(
       audioSelect.value === "shabby",
       Number(botsSelect.value) || 0,
       parsePlayerCharacter(characterSelect.value),
-      revengeSelect.value === "1",
-      godSelect.value === "1",
+      revengeCheckbox.checked,
+      godCheckbox.checked,
       status,
     );
   };
@@ -2554,8 +2593,8 @@ async function renderStartMenu(
     }
     // Revenge is set before the character so the roster (goomba/princess vs the
     // normal cast) is populated before we try to select the character.
-    revengeSelect.value = autoplay.revenge;
-    godSelect.value = autoplay.god;
+    revengeCheckbox.checked = autoplay.revenge === "1";
+    godCheckbox.checked = autoplay.god === "1";
     setCharacterOptions(
       autoplay.revenge === "1"
         ? revengeCharacterOptions
@@ -2587,7 +2626,8 @@ async function renderStartMenu(
           `&level=${encodeURIComponent(autoplay.level)}` +
           `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
           `&bots=${botsSelect.value}&character=${characterSelect.value}` +
-          `&revenge=${revengeSelect.value}&god=${godSelect.value}`,
+          `&revenge=${revengeCheckbox.checked ? "1" : "0"}` +
+          `&god=${godCheckbox.checked ? "1" : "0"}`,
       );
       void bootSelectedContentSet(
         assetSelect.value,
@@ -2597,8 +2637,8 @@ async function renderStartMenu(
         audioSelect.value === "shabby",
         Number(botsSelect.value) || 0,
         parsePlayerCharacter(characterSelect.value),
-        revengeSelect.value === "1",
-        godSelect.value === "1",
+        revengeCheckbox.checked,
+        godCheckbox.checked,
         status,
       );
     }
