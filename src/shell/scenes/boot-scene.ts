@@ -179,6 +179,10 @@ const warpBannerDepth = 55;
 // A death auto-plays an instant replay of the run's final seconds (ending in
 // the death animation) when the timeline opens.
 const deathInstantReplayLeadFrames = 180;
+// Contact deaths append their animation to the timeline as scrubbable frames:
+// the run's recorded frames are followed by this many death-animation frames,
+// each deterministically rebuilt on seek (the effects use no randomness).
+const deathTimelineFrameCount = 180;
 // Additional co-op players (demo bots) each wear a distinct Futurama-inspired
 // robot costume (cycled by index via robotCharacterForBotIndex) so a crowd of
 // bots reads as separate machines rather than clones of the primary player.
@@ -1051,7 +1055,12 @@ export class BootScene extends Phaser.Scene {
   // True while the instant replay is playing back the death animation as its
   // finale (the recording ended in a contact death). The frozen final frame is
   // re-exploded/burned/etc. so the replay shows the death, not just the corpse.
-  private replayingDeath = false;
+  // Death-animation frames appended to this pause's timeline (0 when the run
+  // ended without a contact-death animation).
+  private deathReplayFrames = 0;
+  // Rebuilding the death effect at a scrubbed frame must not re-trigger its
+  // one-shot sounds on every seek.
+  private suppressDeathSounds = false;
   private scrubFrame = 0;
   private pauseFrame = 0;
   private pauseFrameState: SimulationState | undefined = undefined;
@@ -2769,7 +2778,9 @@ export class BootScene extends Phaser.Scene {
     const style = this.resolveDeathEffectStyle(outcome.reason);
     this.deathEffectStyle = style;
     // A cartoony, exaggerated death yelp keyed to the cause.
-    this.gameAudio.playDeathSound(this.deathSoundForStyle(style));
+    if (!this.suppressDeathSounds) {
+      this.gameAudio.playDeathSound(this.deathSoundForStyle(style));
+    }
     // A drowning body floats up, so keep the camera following it to the surface;
     // every other style plays in place, so freeze the camera there instead of
     // chasing the launched/scattered body and masking the motion.
@@ -2792,7 +2803,9 @@ export class BootScene extends Phaser.Scene {
   // Burn: set the body alight — pin flickering flame tongues over it and add a
   // scream on top of the sizzle. The body then chars and shrinks in stepBurn.
   private beginBurnEffect(): void {
-    this.gameAudio.playScream();
+    if (!this.suppressDeathSounds) {
+      this.gameAudio.playScream();
+    }
     const flameAsset = this.userAssetBundle?.reactionImages.get("burn-flame");
     if (flameAsset === undefined) {
       return;
@@ -3510,8 +3523,6 @@ export class BootScene extends Phaser.Scene {
     this.deathKnockedEnemies.clear();
     this.deathKnockedEnemyCount = 0;
     this.deathPartCollisionLookup = undefined;
-    // Tearing the death effect down also exits any replay-death playback.
-    this.replayingDeath = false;
     // A new level / retry starts bot tracking fresh so a respawn is never read
     // as a death and no stale bot parts linger.
     this.resetCoopBotState();
@@ -3636,11 +3647,7 @@ export class BootScene extends Phaser.Scene {
       // cancel the death instant replay.
       const scrubbing =
         this.anyFreshlyDown(leftKeyCodes) || this.anyFreshlyDown(rightKeyCodes);
-      if (this.replayingDeath && !scrubbing) {
-        // The replay reached the end and is playing out the death animation.
-        this.stepReplayDeath();
-      } else if (scrubbing) {
-        this.clearReplayDeath();
+      if (scrubbing) {
         this.setReplayPlaying(false);
         this.handleScrubInput();
       } else if (this.replayPlaying) {
@@ -4197,6 +4204,17 @@ export class BootScene extends Phaser.Scene {
     }
     this.setTouchControlsVisible(false);
     this.pauseFrame = this.runRecorder.frameCount;
+    // Contact deaths extend the timeline with scrubbable death-animation
+    // frames; pit/time-up deaths (no authored animation) and finishes do not.
+    const outcome = this.simulationState.players[0].outcome;
+    this.deathReplayFrames =
+      byDeath &&
+      outcome.kind === PlayerOutcomeKind.Defeated &&
+      (outcome.reason === PlayerDefeatReason.EnemyContact ||
+        outcome.reason === PlayerDefeatReason.HazardContact ||
+        outcome.reason === PlayerDefeatReason.HazardAndEnemyContact)
+        ? deathTimelineFrameCount
+        : 0;
     this.scrubFrame = this.pauseFrame;
     this.pauseFrameState = this.simulationState;
     // presentTimelineOverlay reserves bottom space and shrinks the canvas;
@@ -4208,8 +4226,10 @@ export class BootScene extends Phaser.Scene {
     // back automatically and, for contact deaths, end on the full death
     // animation (explosion/burn/impale/float) as the finale — the death is
     // always seen without hunting for the Play button. Scrubbing or Retry
-    // interrupts it like any other playback.
-    if (byDeath) {
+    // interrupts it like any other playback. Only actual defeats: a finish
+    // pause must keep showing the live final tableau without seeking (a
+    // teleport-assisted run does not re-simulate past the teleport).
+    if (byDeath && outcome.kind === PlayerOutcomeKind.Defeated) {
       this.seekToFrame(
         Math.max(0, this.pauseFrame - deathInstantReplayLeadFrames),
       );
@@ -4217,9 +4237,14 @@ export class BootScene extends Phaser.Scene {
     }
   }
 
+  // The scrubbable timeline: the recorded run plus any appended death frames.
+  private timelineEndFrame(): number {
+    return this.pauseFrame + this.deathReplayFrames;
+  }
+
   private presentTimelineOverlay(): void {
     this.ensureTimelineOverlay().show(
-      this.pauseFrame,
+      this.timelineEndFrame(),
       this.scrubFrame,
       this.runThumbnails,
       nominalSixtyHertzFrameDurationMilliseconds,
@@ -4250,6 +4275,7 @@ export class BootScene extends Phaser.Scene {
     this.paused = false;
     this.pausedByDeath = false;
     this.replayPlaying = false;
+    this.deathReplayFrames = 0;
     this.pauseFrameState = undefined;
     this.setTouchControlsVisible(true);
     this.timelineOverlay?.hide();
@@ -4258,9 +4284,8 @@ export class BootScene extends Phaser.Scene {
   // Play the recorded run back frame-by-frame while paused. Starting from the
   // end rewinds to the beginning first; reaching the end stops playback.
   private setReplayPlaying(playing: boolean): void {
-    if (playing && this.scrubFrame >= this.pauseFrame) {
-      // Starting over from the top: drop any finished death-animation aftermath.
-      this.clearReplayDeath();
+    if (playing && this.scrubFrame >= this.timelineEndFrame()) {
+      // Starting over from the top.
       this.seekToFrame(0);
     }
     this.replayPlaying = playing;
@@ -4268,58 +4293,20 @@ export class BootScene extends Phaser.Scene {
   }
 
   private advanceReplayPlayback(): void {
-    if (this.scrubFrame >= this.pauseFrame) {
-      // Reached the end: if the run ended in a contact death, replay that death
-      // animation as the finale before stopping; otherwise just stop.
-      if (this.beginReplayDeath()) {
-        return;
-      }
+    if (this.scrubFrame >= this.timelineEndFrame()) {
       this.setReplayPlaying(false);
       return;
     }
+    // Crossing from the last recorded frame into the death region replays the
+    // death sound once (seek rebuilds are otherwise silent).
+    const crossingIntoDeath =
+      this.deathReplayFrames > 0 && this.scrubFrame === this.pauseFrame;
     this.seekToFrame(this.scrubFrame + 1);
-  }
-
-  // Re-trigger the recorded run's contact-death animation over its
-  // reconstructed final frame so the instant replay ends on the death, not the
-  // frozen corpse. Returns false (and changes nothing) for a pit / time-up /
-  // finish ending, which has no authored animation to replay.
-  private beginReplayDeath(): boolean {
-    this.seekToFrame(this.pauseFrame);
-    // deathArcStarted is already false here (enterPause / clearReplayDeath tore
-    // any prior effect down), so maybeBeginDeathEffect is free to re-fire.
-    this.deathEffectFrame = 0;
-    this.maybeBeginDeathEffect();
-    if (!this.deathArcStarted) {
-      return false;
+    if (crossingIntoDeath && this.deathArcStarted) {
+      this.gameAudio.playDeathSound(
+        this.deathSoundForStyle(this.deathEffectStyle),
+      );
     }
-    this.replayingDeath = true;
-    return true;
-  }
-
-  // Advance the replayed death animation one frame; when it finishes, hold the
-  // aftermath on screen and stop playback.
-  private stepReplayDeath(): void {
-    this.stepDeathEffect();
-    this.stepBotDeathPieces();
-    if (!this.deathEffectAnimating()) {
-      this.replayingDeath = false;
-      this.setReplayPlaying(false);
-    }
-  }
-
-  // Abort an in-progress / finished replay death animation and tear its pieces
-  // down (so scrubbing or restarting shows clean recorded frames again).
-  private clearReplayDeath(): void {
-    if (!this.replayingDeath && !this.deathArcStarted) {
-      return;
-    }
-    this.replayingDeath = false;
-    this.clearDeathEffect();
-    // The re-fired effect is fully torn down: without this, the snapshot (and
-    // maybeBeginDeathEffect's re-fire guard) still reads the death as active
-    // after a scrub, and the held aftermath can never replay again.
-    this.deathArcStarted = false;
   }
 
   // Hold left/right to scrub the timeline while paused; Shift scrubs faster.
@@ -4350,12 +4337,14 @@ export class BootScene extends Phaser.Scene {
     if (!this.paused) {
       return;
     }
-    // Any seek leaves the death-finale aftermath behind: tear the scattered
-    // pieces down so scrubbed frames render clean (the timeline buttons and
-    // drag seek through this path — not just the keyboard scrub).
-    this.clearReplayDeath();
-    this.scrubFrame = Math.max(0, Math.min(Math.round(frame), this.pauseFrame));
-    this.simulationState = this.runRecorder.stateAt(this.scrubFrame);
+    this.scrubFrame = Math.max(
+      0,
+      Math.min(Math.round(frame), this.timelineEndFrame()),
+    );
+    // Frames past the recorded run are death-animation frames: the sim holds
+    // the final recorded state while the effect is rebuilt at the offset.
+    const simFrame = Math.min(this.scrubFrame, this.pauseFrame);
+    this.simulationState = this.runRecorder.stateAt(simFrame);
     // Scrubbing shows the recorded run, where the player is always on screen —
     // even when the live tableau ended with the sprite hidden in the castle
     // doorway after the flagpole walk-off.
@@ -4366,12 +4355,44 @@ export class BootScene extends Phaser.Scene {
     // BOTTOM edge: the paused viewport is shorter (replay bar below), so a raw
     // scroll restore would keep the sky and crop away the ground where the
     // action — including the death animation — plays.
-    const scroll = this.recordedCameraScrolls[this.scrubFrame];
+    const scroll = this.recordedCameraScrolls[simFrame];
     if (scroll !== undefined) {
       this.cameras.main.stopFollow();
       this.setCameraWorldBottom(scroll.x, scroll.worldBottom);
     }
+    this.presentDeathEffectAtFrame(this.scrubFrame - this.pauseFrame);
     this.timelineOverlay?.setCurrentFrame(this.scrubFrame);
+  }
+
+  // Deterministically rebuild the death animation as it looks `effectFrame`
+  // frames after the death (the effects use no randomness, so re-running the
+  // begin+step sequence reproduces the exact pieces). Frame 0 or below — or a
+  // run without a death animation — renders clean recorded frames.
+  private presentDeathEffectAtFrame(effectFrame: number): void {
+    this.clearDeathEffect();
+    this.deathArcStarted = false;
+    if (effectFrame <= 0 || this.deathReplayFrames === 0) {
+      return;
+    }
+    this.deathEffectFrame = 0;
+    this.suppressDeathSounds = true;
+    try {
+      this.maybeBeginDeathEffect();
+    } finally {
+      this.suppressDeathSounds = false;
+    }
+    // Re-read through an accessor: control flow narrowed the field to the
+    // `false` written above, but maybeBeginDeathEffect may have set it.
+    if (!this.isDeathArcStarted()) {
+      return;
+    }
+    for (let step = 0; step < effectFrame; step += 1) {
+      this.stepDeathEffect();
+    }
+  }
+
+  private isDeathArcStarted(): boolean {
+    return this.deathArcStarted;
   }
 
   // The visible world-space bottom edge of the main camera. Phaser zooms

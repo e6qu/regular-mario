@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — scrubbable death frames
+
+- Contact deaths append their animation to the timeline as 180 real frames:
+  seeks deterministically rebuild the effect at the frame offset, so the
+  death sequence is steppable back and forth with the timeline controls
+  (buttons/drag/keys); playback replays the death sound once at the death
+  moment; the separate realtime finale machinery was removed. The auto
+  instant replay is gated to defeats (finish pauses keep the live tableau —
+  teleported runs do not re-simulate past the teleport).
+
 ## 2026-07-18 — death instant replay
 
 - Every death now auto-plays an instant replay when the timeline opens: the

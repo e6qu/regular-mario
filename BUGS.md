@@ -194,6 +194,20 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   playing to the end re-fires the death each time. Regression-tested in
   death-effects.spec.
 
+- **Fixed (2026-07-18, second follow-up): the death frames are now part of
+  the timeline — scrubbable back and forth.** The finale used to play only
+  in realtime; stepping through it was impossible and the aftermath stuck
+  over other frames. Contact deaths now append 180 death-animation frames to
+  the recorded run: every seek deterministically rebuilds the effect at
+  `frame − pauseFrame` (the effects use no randomness), so the timeline
+  buttons and drag step through the explosion/burn/impale/float frame by
+  frame in both directions; playback replays the death sound once when it
+  crosses the death moment; the realtime replayingDeath machinery is gone.
+  One correction found on the way: the auto instant replay must only run for
+  DEFEATS — a finish pause keeps showing the live tableau without seeking
+  (teleport-assisted runs do not re-simulate past the teleport, which the
+  cutscene fixtures exposed).
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

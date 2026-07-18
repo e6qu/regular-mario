@@ -149,13 +149,30 @@ test("the timeline replay re-plays the death animation on-screen", async ({
     visibility.worldHeight - 1,
   );
 
-  // Scrubbing away from the end must tear the finale's scattered pieces down —
-  // they used to persist over every scrubbed frame (a corpse lying mid-level
-  // while the timeline showed the live run).
+  // Let the auto-playback run to the timeline's end (the Play button returns
+  // once playback stops there).
+  await expect(page.locator('button:has-text("▶ Play")').last()).toBeVisible({
+    timeout: 20000,
+  });
+
+  // The death animation is part of the timeline: stepping back within the
+  // death region still shows the effect (rebuilt at that frame), stepping
+  // back into the recorded run clears it, and stepping forward again
+  // re-enters the animation — scrubbable back and forth.
   await page.locator('button:has-text("-60")').last().click();
-  const afterScrub = await deathEffect(page);
-  expect(afterScrub.started).toBe(false);
-  expect(afterScrub.pieceCount).toBe(0);
+  const withinDeath = await deathEffect(page);
+  expect(withinDeath.started).toBe(true);
+  expect(withinDeath.pieceCount).toBeGreaterThan(0);
+
+  await page.locator('button:has-text("-300")').last().click();
+  const backInRun = await deathEffect(page);
+  expect(backInRun.started).toBe(false);
+  expect(backInRun.pieceCount).toBe(0);
+
+  await page.locator('button:has-text("+300")').last().click();
+  const forwardAgain = await deathEffect(page);
+  expect(forwardAgain.started).toBe(true);
+  expect(forwardAgain.pieceCount).toBeGreaterThan(0);
 });
 
 test("falling onto spikes pins the body with X-ed-out eyes", async ({
