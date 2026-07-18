@@ -173,6 +173,17 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   4-2's {5} zone) and each pipe draws its destination world number above
   it, like the original. Screenshot-verified in all three zones.
 
+- **Fixed (2026-07-18): the death animation was effectively invisible in the
+  replay flow.** The full sequence (dismemberment/burn/impale/float) only
+  re-played if you clicked ▶ Play and watched the whole run from frame 0 —
+  and a held Right arrow at the moment of death cancelled playback outright.
+  Every death now cuts to an automatic INSTANT REPLAY: the run's final three
+  seconds play back on their own and, for contact deaths, end on the full
+  death animation as the finale. Keys still held from before the pause no
+  longer count as scrub intent (fresh presses still scrub, and Retry always
+  interrupts). Covered by death-effects.spec, which now asserts the replay
+  fires with no Play click.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

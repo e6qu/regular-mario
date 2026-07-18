@@ -107,17 +107,16 @@ test("the timeline replay re-plays the death animation on-screen", async ({
   await walkRightIntoDeath(page);
 
   // The death opens the replay menu; the pause tears the live effect down so
-  // the timeline scrubs clean recorded frames.
+  // the timeline plays back clean recorded frames.
   await page.waitForFunction(
     () =>
       window.__originalBrowserPlatformerDebug!.getSimulationSnapshot().paused,
     undefined,
     { timeout: 10000 },
   );
-  expect((await deathEffect(page)).started).toBe(false);
 
-  // Play the recording back; reaching the end must re-fire the death burst.
-  await page.locator('button:has-text("▶ Play")').last().click();
+  // The menu auto-plays an instant replay of the final seconds; reaching the
+  // end must re-fire the death burst without any Play click.
   await page.waitForFunction(
     () =>
       window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()

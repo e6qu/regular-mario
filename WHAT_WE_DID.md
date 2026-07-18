@@ -5,6 +5,14 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — death instant replay
+
+- Every death now auto-plays an instant replay when the timeline opens: the
+  final ~3 seconds of the run play back unprompted and contact deaths end on
+  the full death animation (explosion, burn, impale, drown-float) as the
+  finale. Stale held keys no longer cancel playback (scrub intent = keys
+  pressed after the pause).
+
 ## 2026-07-17 — playability audit: water solidity, warp zones, cheep levels
 
 - **Water terrain is solid again** (2-2/7-2 and the water rooms): the ROM's

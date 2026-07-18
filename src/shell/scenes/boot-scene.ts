@@ -176,6 +176,9 @@ const stompedGoombaFlattenFrames = 42;
 const stompedGoombaSquashScaleY = 0.45;
 // The "WELCOME TO WARP ZONE!" wall label sits above the tiles but below the HUD.
 const warpBannerDepth = 55;
+// A death auto-plays an instant replay of the run's final seconds (ending in
+// the death animation) when the timeline opens.
+const deathInstantReplayLeadFrames = 180;
 // Additional co-op players (demo bots) each wear a distinct Futurama-inspired
 // robot costume (cycled by index via robotCharacterForBotIndex) so a crowd of
 // bots reads as separate machines rather than clones of the primary player.
@@ -2353,8 +2356,7 @@ export class BootScene extends Phaser.Scene {
     // Warp rooms booted directly (dev deep links) carry their world in the
     // -wN suffix instead of the main-level prefix.
     const ownWorld =
-      /^smb-(\d+)-/.exec(currentName)?.[1] ??
-      /-w(\d+)$/.exec(currentName)?.[1];
+      /^smb-(\d+)-/.exec(currentName)?.[1] ?? /-w(\d+)$/.exec(currentName)?.[1];
     const warpPipes = this.levelSpec.actors.filter((actor) => {
       if (
         actor.targetLevelName === undefined ||
@@ -3629,8 +3631,12 @@ export class BootScene extends Phaser.Scene {
       // While paused the simulation is frozen and the timeline drives what is
       // shown: play the recording back, hold left/right to scrub (Shift scrubs
       // faster, and pauses playback), or retry.
+      // Only keys pressed AFTER the pause count as scrub intent — a player
+      // (or test) still holding Right from the moment of death must not
+      // cancel the death instant replay.
       const scrubbing =
-        this.anyDown(leftKeyCodes) || this.anyDown(rightKeyCodes);
+        this.anyFreshlyDown(leftKeyCodes) ||
+        this.anyFreshlyDown(rightKeyCodes);
       if (this.replayingDeath && !scrubbing) {
         // The replay reached the end and is playing out the death animation.
         this.stepReplayDeath();
@@ -4199,6 +4205,17 @@ export class BootScene extends Phaser.Scene {
     // that shrink, so the opening paused view keeps the ground/action visible
     // even when the camera's follow was stopped (contact deaths stop it).
     this.presentTimelineOverlay();
+    // A death cuts straight to an INSTANT REPLAY: the last few seconds play
+    // back automatically and, for contact deaths, end on the full death
+    // animation (explosion/burn/impale/float) as the finale — the death is
+    // always seen without hunting for the Play button. Scrubbing or Retry
+    // interrupts it like any other playback.
+    if (byDeath) {
+      this.seekToFrame(
+        Math.max(0, this.pauseFrame - deathInstantReplayLeadFrames),
+      );
+      this.setReplayPlaying(true);
+    }
   }
 
   private presentTimelineOverlay(): void {
