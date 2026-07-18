@@ -140,6 +140,24 @@ describe("pipe entry direction", () => {
     ).toBe(PipeEntryPhase.None);
   });
 
+  it("treats a pipe naming its own level as a same-level warp, not a skip", () => {
+    // 8-4's maze pipes all carry targetLevelName "smb-8-4"; refusing them
+    // left the checkpoint loop as the only path — the level was unwinnable.
+    const result = resolvePipeState(
+      { downHeld: true, horizontal: HorizontalInput.Neutral },
+      playerAgainstPipe(0, 65),
+      makeInitialPipeEntryState(),
+      initialMovementConstants,
+      pipeLevelSpec("down"),
+      "sub-area",
+    );
+    expect(result.pipeEntry.phase).toBe(PipeEntryPhase.Entering);
+    if (result.pipeEntry.phase === PipeEntryPhase.Entering) {
+      expect(result.pipeEntry.targetLevelName).toBeUndefined();
+      expect(result.pipeEntry.targetTilePosition).toEqual({ x: 1, y: 1 });
+    }
+  });
+
   it("keeps down pipes press-to-enter (not walk-in)", () => {
     const level = pipeLevelSpec("down");
     expect(

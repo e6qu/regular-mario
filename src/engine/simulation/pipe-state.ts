@@ -313,12 +313,13 @@ function findEnteredPipe(
     if (!columnMatches || !rowMatches) {
       continue;
     }
-    if (
-      pipe.targetLevelName !== undefined &&
+    // A pipe naming its own level is a same-level warp, not a level advance —
+    // reloading the level it stands in would restart it (8-4's maze pipes all
+    // target smb-8-4). Normalize to the in-level teleport path.
+    const targetLevelName =
       pipe.targetLevelName === currentLevelName
-    ) {
-      continue;
-    }
+        ? undefined
+        : pipe.targetLevelName;
 
     // Down pipes are pressed into from on top; sideways pipes are walked
     // into. Collision resolution zeroes velocity against the solid mouth, so
@@ -334,7 +335,7 @@ function findEnteredPipe(
     if (entered) {
       return {
         pipeEntityId: pipe.entityId,
-        targetLevelName: pipe.targetLevelName,
+        targetLevelName,
         targetTilePosition: pipe.targetTilePosition,
       };
     }

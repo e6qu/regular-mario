@@ -241,6 +241,18 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   The full 8-4 route re-verified live end to end: pipes at 81 → 114,
   152 → 194, 228 → water room → 258, bridge, Bowser, axe, castle clear.
 
+- **Fixed (2026-07-18): 8-4 WAS unfinishable — its maze pipes refused entry.**
+  All six 8-4 maze pipes carry `targetLevelName: "smb-8-4"` (they warp within
+  the level), and a day-one guard in `findEnteredPipe` skipped any pipe whose
+  target names the current level — meant to stop a self-advancing pipe from
+  reloading its own level, it silently made every maze pipe ignore input. With
+  no working pipes, the only path forward crossed a checkpoint on foot at the
+  unreachable required row: an inescapable loop. A self-targeting pipe is now
+  normalized to a same-level warp at entry. The earlier route verifications
+  used the debug teleport, which bypasses pipe entry — which is how this
+  survived them; the new `pipe-maze.spec.ts` journey enters the column-81 pipe
+  with real input and asserts the warp lands past the first checkpoint.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the
