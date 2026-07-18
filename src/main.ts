@@ -2205,7 +2205,7 @@ async function renderStartMenu(
     normalCharacterOptions,
   );
   // Revenge mode: play a Goomba/Princess and stomp half-height Mario/Luigi.
-  const revengeControl = makeStartMenuCheckbox("Revenge", "Play the stomper");
+  const revengeControl = makeStartMenuCheckbox("Revenge", "Mario is the enemy");
   const revengeCheckbox = revengeControl.input;
   // God mode: the player cannot be damaged or defeated by enemies, hazards or
   // the timer (pit falls still reset the level). Off by default.
