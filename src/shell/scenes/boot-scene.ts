@@ -1024,7 +1024,6 @@ export class BootScene extends Phaser.Scene {
   private awaitingStart = false;
   private reactionText!: Phaser.GameObjects.Text;
   private stompReactionBurst!: Phaser.GameObjects.Text;
-  private playerReactionImage: Phaser.GameObjects.Image | undefined;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
   private readonly exaggeratedReactions: boolean;
   private readonly godMode: boolean;
@@ -1381,7 +1380,6 @@ export class BootScene extends Phaser.Scene {
       .setOrigin(0.5, 0.5)
       .setDepth(50)
       .setVisible(false);
-    this.playerReactionImage = this.makeReactionImage("player-head-bonk", 1);
     // Revenge mode brands the stomp pop as a full Mario head with bulging eyes;
     // normal play uses the squashed-enemy reaction.
     this.enemyStompReactionImage = this.makeReactionImage(
@@ -5114,6 +5112,10 @@ export class BootScene extends Phaser.Scene {
     const burningOnLava = this.isPlayerStandingOnLava();
     this.gameAudio.setLavaSizzle(burningOnLava);
 
+    const headBonking =
+      this.exaggeratedReactions &&
+      this.simulationState.players[0].reaction.kind ===
+        PlayerReactionKind.HeadBonk;
     if (this.playerImageObject !== undefined) {
       const playerImage = resolvePlayerSpriteImage(
         this.userAssetBundle?.playerImage,
@@ -5193,31 +5195,18 @@ export class BootScene extends Phaser.Scene {
           this.castleClearFramesRemaining <= 0,
       );
 
-    const headBonking =
-      this.exaggeratedReactions &&
-      this.simulationState.players[0].reaction.kind ===
-        PlayerReactionKind.HeadBonk;
-    const headBonkX = this.playerRectangle.x;
-    const headBonkY =
-      this.playerRectangle.y - this.playerRectangle.height / 2 - 2;
-    // The "OUCH!" shout jitters above the player's head for a painful jolt.
+    // The bonk reaction is just the red "ouch" shout, centred over the head.
+    const headBonkX =
+      this.playerRectangle.x +
+      this.simulationState.players[0].player.collider.width / 2;
+    const headBonkY = this.playerRectangle.y - 4;
     const bonkShake = headBonking
       ? (this.simulationState.clock.frameIndex % 2 === 0 ? 1 : -1) * 1.5
       : 0;
     this.reactionText
-      .setText("OUCH!")
+      .setText("ouch")
       .setPosition(headBonkX + bonkShake, headBonkY)
       .setVisible(headBonking);
-    if (this.playerReactionImage !== undefined) {
-      // The authored wincing bonk sprite is pinned to the player and given a
-      // small downward recoil so the hit reads as a jarring, painful jolt.
-      this.playerReactionImage
-        .setPosition(
-          this.playerRectangle.x + bonkShake,
-          this.playerRectangle.y + 1,
-        )
-        .setVisible(headBonking);
-    }
     this.renderPlayerBloodiness();
 
     const stompReaction = this.simulationState.enemyStompReaction;

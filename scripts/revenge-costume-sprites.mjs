@@ -366,18 +366,26 @@ function princessProfileFrame(params) {
     bell = 0,
     legsShown = true,
     lean = 0,
+    wavePhase = 0,
+    train = 6,
   } = params;
   const g = blankGrid32();
   const headX = 15 + lean;
 
-  // Long hair: a back mass from the crown down past the shoulders, its
-  // column band drifting further back (left) with depth and sweep, and
-  // lifted upward when airborne.
-  for (let y = 3 - hairLift; y <= 17 - hairLift; y += 1) {
+  // Long hair, waist-length: a back mass from the crown down past the hips,
+  // drifting further back (left) with depth and sweep, lifted when airborne,
+  // and RIPPLING — each row shifts by a repeating wave offset so the mane
+  // flutters from frame to frame.
+  const ripple = [0, 1, 1, 0, -1, -1];
+  for (let y = 3 - hairLift; y <= 23 - hairLift; y += 1) {
     const depth = y - (3 - hairLift);
-    const drift = Math.min(6, Math.round((depth * (2 + hairSweep)) / 8));
-    const backX = headX - 2 - drift;
-    const width = y < 6 - hairLift ? 8 : 4 + Math.round(depth / 4);
+    const drift = Math.min(9, Math.round((depth * (2 + hairSweep)) / 6));
+    const wave = ripple[(y + wavePhase) % ripple.length] ?? 0;
+    const backX = headX - 2 - drift + wave;
+    const width =
+      y < 6 - hairLift
+        ? 8
+        : Math.max(3, 5 + Math.round(depth / 5) - Math.floor(depth / 9));
     fillPx(g, backX, y, width, 1, "H");
     plotPx(g, backX, y, "G");
   }
@@ -417,8 +425,18 @@ function princessProfileFrame(params) {
     fillPx(g, x0, y, 2, 1, "d");
     plotPx(g, x0 + width - 1, y, "d");
   }
+  // The train: the gown's back hem drags well behind her, tapering to a
+  // fluttering tip that lifts and dips with the stride phase.
+  const trainBaseX = 16 - 9 - sweep;
+  for (let step = 1; step <= train; step += 1) {
+    const trainY =
+      hemY - Math.floor(step / 3) + ((step + hemPhase) % 2 === 0 ? 0 : 1);
+    const thickness = step < train - 1 ? 2 : 1;
+    fillPx(g, trainBaseX - step, trainY - thickness + 1, 1, thickness, "D");
+    plotPx(g, trainBaseX - step, trainY, "d");
+  }
   // Hem flutter: alternate scallop pixels along the bottom edge.
-  for (let x = 16 - 9 - sweep; x <= 16 + 9; x += 2) {
+  for (let x = trainBaseX; x <= 16 + 9; x += 2) {
     plotPx(g, x + (hemPhase % 2), hemY + 1, "d");
   }
   // Legs mid-stride under the hem (hidden when the bell covers them).
