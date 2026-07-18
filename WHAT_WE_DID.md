@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — lift rows, 8-4 route verification, screenshot tooling
+
+- All lifts were one row too low (walker "settle" correction misapplied to
+  hovering platforms); 8-4's lava shuttle now rides the surface. Census
+  regenerated.
+- 8-4's pipe-gated maze verified completable end-to-end live (every correct
+  pipe lands past its checkpoint; the water room swims through).
+- New `scripts/find-map-pattern.mjs`: locate any screenshot structure in the
+  committed pack (multi-row ASCII pattern search, `.` wildcard) — so a
+  screenshot region is identified exactly instead of guessed.
+- Playthrough driver: stall recovery now alternates a flat no-jump walk
+  (one-tile crawls are walked, not jumped); default smoke drives 1-3
+  directly instead of the flaky vestibule chain; default budget scale 3.
+
 ## 2026-07-18 — god mode (and real checkboxes)
 
 - Revenge mode and God mode are now actual CHECKBOXES in the start menu

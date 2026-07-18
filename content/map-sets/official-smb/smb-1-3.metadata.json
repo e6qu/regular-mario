@@ -84,28 +84,28 @@
       "id": "lift-0",
       "kind": "lift-down",
       "x": 155,
-      "y": 8,
+      "y": 7,
       "widthTiles": 3
     },
     {
       "id": "lift-1",
       "kind": "lift-down",
       "x": 155,
-      "y": 14,
+      "y": 13,
       "widthTiles": 3
     },
     {
       "id": "lift-2",
       "kind": "lift-up",
       "x": 170,
-      "y": 2,
+      "y": 1,
       "widthTiles": 3
     },
     {
       "id": "lift-3",
       "kind": "lift-up",
       "x": 170,
-      "y": 10,
+      "y": 9,
       "widthTiles": 3
     }
   ],

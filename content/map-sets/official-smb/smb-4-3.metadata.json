@@ -92,49 +92,49 @@
       "id": "lift-0",
       "kind": "lift-down",
       "x": 58,
-      "y": 6,
+      "y": 5,
       "widthTiles": 3
     },
     {
       "id": "lift-1",
       "kind": "lift-down",
       "x": 114,
-      "y": 6,
+      "y": 5,
       "widthTiles": 3
     },
     {
       "id": "lift-2",
       "kind": "lift-down",
       "x": 114,
-      "y": 13,
+      "y": 12,
       "widthTiles": 3
     },
     {
       "id": "lift-3",
       "kind": "lift-up",
       "x": 123,
-      "y": 3,
+      "y": 2,
       "widthTiles": 3
     },
     {
       "id": "lift-4",
       "kind": "lift-up",
       "x": 123,
-      "y": 10,
+      "y": 9,
       "widthTiles": 3
     },
     {
       "id": "lift-5",
       "kind": "lift-down",
       "x": 155,
-      "y": 6,
+      "y": 5,
       "widthTiles": 3
     },
     {
       "id": "lift-6",
       "kind": "lift-down",
       "x": 155,
-      "y": 13,
+      "y": 12,
       "widthTiles": 3
     }
   ],

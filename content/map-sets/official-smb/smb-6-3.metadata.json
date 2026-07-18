@@ -28,42 +28,42 @@
       "id": "lift-0",
       "kind": "vertical",
       "x": 28,
-      "y": 14,
+      "y": 13,
       "widthTiles": 3
     },
     {
       "id": "lift-1",
       "kind": "horizontal",
       "x": 43,
-      "y": 6,
+      "y": 5,
       "widthTiles": 3
     },
     {
       "id": "lift-2",
       "kind": "horizontal",
       "x": 48,
-      "y": 8,
+      "y": 7,
       "widthTiles": 3
     },
     {
       "id": "lift-3",
       "kind": "horizontal",
       "x": 55,
-      "y": 7,
+      "y": 6,
       "widthTiles": 3
     },
     {
       "id": "lift-4",
       "kind": "vertical",
       "x": 60,
-      "y": 13,
+      "y": 12,
       "widthTiles": 3
     },
     {
       "id": "lift-5",
       "kind": "balance",
       "x": 70,
-      "y": 6,
+      "y": 5,
       "widthTiles": 2,
       "balancePartnerId": "lift-6"
     },
@@ -71,7 +71,7 @@
       "id": "lift-6",
       "kind": "balance",
       "x": 74,
-      "y": 10,
+      "y": 9,
       "widthTiles": 2,
       "balancePartnerId": "lift-5"
     },
@@ -79,7 +79,7 @@
       "id": "lift-7",
       "kind": "balance",
       "x": 78,
-      "y": 6,
+      "y": 5,
       "widthTiles": 2,
       "balancePartnerId": "lift-8"
     },
@@ -87,7 +87,7 @@
       "id": "lift-8",
       "kind": "balance",
       "x": 81,
-      "y": 10,
+      "y": 9,
       "widthTiles": 2,
       "balancePartnerId": "lift-7"
     },
@@ -95,14 +95,14 @@
       "id": "lift-9",
       "kind": "horizontal",
       "x": 121,
-      "y": 6,
+      "y": 5,
       "widthTiles": 3
     },
     {
       "id": "lift-10",
       "kind": "balance",
       "x": 126,
-      "y": 7,
+      "y": 6,
       "widthTiles": 2,
       "balancePartnerId": "lift-11"
     },
@@ -110,7 +110,7 @@
       "id": "lift-11",
       "kind": "balance",
       "x": 129,
-      "y": 10,
+      "y": 9,
       "widthTiles": 2,
       "balancePartnerId": "lift-10"
     },
@@ -118,28 +118,28 @@
       "id": "lift-12",
       "kind": "drop",
       "x": 141,
-      "y": 8,
+      "y": 7,
       "widthTiles": 3
     },
     {
       "id": "lift-13",
       "kind": "drop",
       "x": 145,
-      "y": 7,
+      "y": 6,
       "widthTiles": 3
     },
     {
       "id": "lift-14",
       "kind": "drop",
       "x": 149,
-      "y": 9,
+      "y": 8,
       "widthTiles": 3
     },
     {
       "id": "lift-15",
       "kind": "drop",
       "x": 153,
-      "y": 8,
+      "y": 7,
       "widthTiles": 3
     }
   ],

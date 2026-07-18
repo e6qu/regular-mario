@@ -47,14 +47,14 @@
       "id": "lift-0",
       "kind": "drop",
       "x": 18,
-      "y": 8,
+      "y": 7,
       "widthTiles": 3
     },
     {
       "id": "lift-1",
       "kind": "drop",
       "x": 22,
-      "y": 9,
+      "y": 8,
       "widthTiles": 3
     }
   ],

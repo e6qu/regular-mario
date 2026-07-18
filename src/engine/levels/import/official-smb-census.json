@@ -238,10 +238,10 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "lift-down@155,14w3",
-        "lift-down@155,8w3",
-        "lift-up@170,10w3",
-        "lift-up@170,2w3"
+        "lift-down@155,13w3",
+        "lift-down@155,7w3",
+        "lift-up@170,1w3",
+        "lift-up@170,9w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -327,10 +327,10 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "horizontal@131,7w3",
-        "horizontal@86,9w3",
-        "horizontal@94,10w3",
-        "vertical@55,7w3"
+        "horizontal@131,6w3",
+        "horizontal@86,8w3",
+        "horizontal@94,9w3",
+        "vertical@55,6w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -381,7 +381,7 @@
         "88,5x6:clockwise/slow"
       ],
       "podoboos": [],
-      "platforms": ["horizontal@138,7w3"],
+      "platforms": ["horizontal@138,6w3"],
       "loopZones": [],
       "spawners": ["104,9:left@240"],
       "tileGridDigest": "8a6470c7"
@@ -754,9 +754,9 @@
       ],
       "podoboos": ["16@272", "30@366"],
       "platforms": [
-        "horizontal@138,7w3",
-        "lift-down@88,11w2",
-        "lift-up@85,11w2"
+        "horizontal@138,6w3",
+        "lift-down@88,10w2",
+        "lift-up@85,10w2"
       ],
       "loopZones": [],
       "spawners": ["98,1:left@240"],
@@ -1045,17 +1045,17 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "balance@136,6w2~lift-10",
-        "balance@140,9w2~lift-9",
-        "balance@81,7w2~lift-4",
-        "balance@88,9w2~lift-3",
-        "drop@60,7w3",
-        "horizontal@103,12w3",
-        "horizontal@132,7w3",
-        "horizontal@30,5w3",
-        "horizontal@33,9w3",
-        "horizontal@94,10w3",
-        "horizontal@96,6w3"
+        "balance@136,5w2~lift-10",
+        "balance@140,8w2~lift-9",
+        "balance@81,6w2~lift-4",
+        "balance@88,8w2~lift-3",
+        "drop@60,6w3",
+        "horizontal@103,11w3",
+        "horizontal@132,6w3",
+        "horizontal@30,4w3",
+        "horizontal@33,8w3",
+        "horizontal@94,9w3",
+        "horizontal@96,5w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -1116,7 +1116,7 @@
         "80,6x6:clockwise/slow"
       ],
       "podoboos": ["103@335", "109@101", "16@272", "26@10", "88@152", "97@185"],
-      "platforms": ["horizontal@138,7w3"],
+      "platforms": ["horizontal@138,6w3"],
       "loopZones": [],
       "spawners": ["103,1:left@240"],
       "tileGridDigest": "9bfb6744"
@@ -1354,13 +1354,13 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "lift-down@114,13w3",
-        "lift-down@114,6w3",
-        "lift-down@155,13w3",
-        "lift-down@155,6w3",
-        "lift-down@58,6w3",
-        "lift-up@123,10w3",
-        "lift-up@123,3w3"
+        "lift-down@114,12w3",
+        "lift-down@114,5w3",
+        "lift-down@155,12w3",
+        "lift-down@155,5w3",
+        "lift-down@58,5w3",
+        "lift-up@123,2w3",
+        "lift-up@123,9w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -1448,17 +1448,17 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "balance@102,6w2~lift-9",
-        "balance@108,10w2~lift-8",
-        "balance@48,6w2~lift-1",
-        "balance@55,9w2~lift-0",
-        "balance@80,6w2~lift-5",
-        "balance@88,10w2~lift-4",
-        "balance@91,6w2~lift-7",
-        "balance@96,10w2~lift-6",
-        "vertical@136,6w3",
-        "vertical@58,7w3",
-        "vertical@62,5w3"
+        "balance@102,5w2~lift-9",
+        "balance@108,9w2~lift-8",
+        "balance@48,5w2~lift-1",
+        "balance@55,8w2~lift-0",
+        "balance@80,5w2~lift-5",
+        "balance@88,9w2~lift-4",
+        "balance@91,5w2~lift-7",
+        "balance@96,9w2~lift-6",
+        "vertical@136,5w3",
+        "vertical@58,6w3",
+        "vertical@62,4w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -1801,10 +1801,10 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "horizontal@131,7w3",
-        "horizontal@86,9w3",
-        "horizontal@94,10w3",
-        "vertical@55,7w3"
+        "horizontal@131,6w3",
+        "horizontal@86,8w3",
+        "horizontal@94,9w3",
+        "vertical@55,6w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -1879,9 +1879,9 @@
         "30@366"
       ],
       "platforms": [
-        "horizontal@138,7w3",
-        "lift-down@88,11w2",
-        "lift-up@85,11w2"
+        "horizontal@138,6w3",
+        "lift-down@88,10w2",
+        "lift-up@85,10w2"
       ],
       "loopZones": [],
       "spawners": ["98,1:left@240"],
@@ -2142,22 +2142,22 @@
       "firebars": [],
       "podoboos": [],
       "platforms": [
-        "balance@126,7w2~lift-11",
-        "balance@129,10w2~lift-10",
-        "balance@70,6w2~lift-6",
-        "balance@74,10w2~lift-5",
-        "balance@78,6w2~lift-8",
-        "balance@81,10w2~lift-7",
-        "drop@141,8w3",
-        "drop@145,7w3",
-        "drop@149,9w3",
-        "drop@153,8w3",
-        "horizontal@121,6w3",
-        "horizontal@43,6w3",
-        "horizontal@48,8w3",
-        "horizontal@55,7w3",
-        "vertical@28,14w3",
-        "vertical@60,13w3"
+        "balance@126,6w2~lift-11",
+        "balance@129,9w2~lift-10",
+        "balance@70,5w2~lift-6",
+        "balance@74,9w2~lift-5",
+        "balance@78,5w2~lift-8",
+        "balance@81,9w2~lift-7",
+        "drop@141,7w3",
+        "drop@145,6w3",
+        "drop@149,8w3",
+        "drop@153,7w3",
+        "horizontal@121,5w3",
+        "horizontal@43,5w3",
+        "horizontal@48,7w3",
+        "horizontal@55,6w3",
+        "vertical@28,13w3",
+        "vertical@60,12w3"
       ],
       "loopZones": [],
       "spawners": [],
@@ -2212,7 +2212,7 @@
         "92,10x6:counter-clockwise/slow"
       ],
       "podoboos": ["131@139", "27@99", "33@249"],
-      "platforms": ["horizontal@138,7w3"],
+      "platforms": ["horizontal@138,6w3"],
       "loopZones": [],
       "spawners": ["104,9:left@240"],
       "tileGridDigest": "8a6470c7"
@@ -2576,7 +2576,7 @@
       "pipes": [],
       "firebars": ["103,8x6:clockwise/slow"],
       "podoboos": ["196@164", "20@244"],
-      "platforms": ["drop@18,8w3", "drop@22,9w3"],
+      "platforms": ["drop@18,7w3", "drop@22,8w3"],
       "loopZones": [
         "112[3-5]loop-group-1/3",
         "128[7-9]loop-group-1/3",
@@ -2992,7 +2992,7 @@
       ],
       "firebars": [],
       "podoboos": ["279@255"],
-      "platforms": ["horizontal@70,14w3"],
+      "platforms": ["horizontal@70,13w3"],
       "loopZones": [
         "176[15-15]loop-group-1/1",
         "256[15-15]loop-group-2/1",
@@ -3064,7 +3064,7 @@
       "pipes": ["vglc-smb-transition-pipe@62,8:right>smb-5-2@114,12"],
       "firebars": [],
       "podoboos": [],
-      "platforms": ["lift-down@22,7w3", "lift-down@28,13w3"],
+      "platforms": ["lift-down@22,6w3", "lift-down@28,12w3"],
       "loopZones": [],
       "spawners": [],
       "tileGridDigest": "d2710366"
@@ -3200,7 +3200,7 @@
       "pipes": [],
       "firebars": [],
       "podoboos": [],
-      "platforms": ["horizontal@16,11w3"],
+      "platforms": ["horizontal@16,10w3"],
       "loopZones": [],
       "spawners": [],
       "tileGridDigest": "f1d1ff76"
@@ -3280,7 +3280,7 @@
       "pipes": [],
       "firebars": [],
       "podoboos": [],
-      "platforms": ["horizontal@16,11w3"],
+      "platforms": ["horizontal@16,10w3"],
       "loopZones": [],
       "spawners": [],
       "tileGridDigest": "f1d1ff76"
@@ -3444,7 +3444,7 @@
       "pipes": [],
       "firebars": [],
       "podoboos": [],
-      "platforms": ["horizontal@16,11w3"],
+      "platforms": ["horizontal@16,10w3"],
       "loopZones": [],
       "spawners": [],
       "tileGridDigest": "7d09801c"
@@ -3536,7 +3536,7 @@
       "pipes": [],
       "firebars": [],
       "podoboos": [],
-      "platforms": ["horizontal@16,11w3"],
+      "platforms": ["horizontal@16,10w3"],
       "loopZones": [],
       "spawners": [],
       "tileGridDigest": "7d09801c"

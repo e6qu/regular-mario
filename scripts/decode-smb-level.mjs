@@ -1401,12 +1401,9 @@ export async function decodeAllLevels(romPath) {
         // single-pipe zone (4-2's {-,5,-}) uses the MIDDLE slot — indexing
         // by pipe order alone landed it on the blank left slot and left the
         // pipe dead.
-        const slotForIndex =
-          zonePipes.length === 1 ? [1] : [0, 1, 2];
+        const slotForIndex = zonePipes.length === 1 ? [1] : [0, 1, 2];
         const destWorld =
-          zoneRow[
-            slotForIndex[Math.min(zoneIndex, slotForIndex.length - 1)]
-          ];
+          zoneRow[slotForIndex[Math.min(zoneIndex, slotForIndex.length - 1)]];
         if (destWorld !== undefined) {
           pushTransition(pipe.col, pipe.row + rowOffset, {
             targetLevelName: `smb-${destWorld}-1`,
@@ -1584,7 +1581,12 @@ export async function decodeAllLevels(romPath) {
         id,
         kind: variant.kind,
         x: e.col,
-        y: e.row + rowOffset - 1,
+        // A platform hovers at its spawn row: the record's y nibble is a
+        // SCREEN row, which maps 1:1 onto the grid (both include the two
+        // status rows). The walker painter's +1 "settle onto the floor"
+        // correction does not apply — with it, every lift rode one row too
+        // low, and 8-4's lava-pit shuttle spawned inside the lava.
+        y: e.row,
         widthTiles: variant.widthTiles,
       };
       if (variant.kind === "balance") {

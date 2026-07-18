@@ -28,7 +28,7 @@
       "id": "lift-0",
       "kind": "balance",
       "x": 48,
-      "y": 6,
+      "y": 5,
       "widthTiles": 2,
       "balancePartnerId": "lift-1"
     },
@@ -36,7 +36,7 @@
       "id": "lift-1",
       "kind": "balance",
       "x": 55,
-      "y": 9,
+      "y": 8,
       "widthTiles": 2,
       "balancePartnerId": "lift-0"
     },
@@ -44,21 +44,21 @@
       "id": "lift-2",
       "kind": "vertical",
       "x": 58,
-      "y": 7,
+      "y": 6,
       "widthTiles": 3
     },
     {
       "id": "lift-3",
       "kind": "vertical",
       "x": 62,
-      "y": 5,
+      "y": 4,
       "widthTiles": 3
     },
     {
       "id": "lift-4",
       "kind": "balance",
       "x": 80,
-      "y": 6,
+      "y": 5,
       "widthTiles": 2,
       "balancePartnerId": "lift-5"
     },
@@ -66,7 +66,7 @@
       "id": "lift-5",
       "kind": "balance",
       "x": 88,
-      "y": 10,
+      "y": 9,
       "widthTiles": 2,
       "balancePartnerId": "lift-4"
     },
@@ -74,7 +74,7 @@
       "id": "lift-6",
       "kind": "balance",
       "x": 91,
-      "y": 6,
+      "y": 5,
       "widthTiles": 2,
       "balancePartnerId": "lift-7"
     },
@@ -82,7 +82,7 @@
       "id": "lift-7",
       "kind": "balance",
       "x": 96,
-      "y": 10,
+      "y": 9,
       "widthTiles": 2,
       "balancePartnerId": "lift-6"
     },
@@ -90,7 +90,7 @@
       "id": "lift-8",
       "kind": "balance",
       "x": 102,
-      "y": 6,
+      "y": 5,
       "widthTiles": 2,
       "balancePartnerId": "lift-9"
     },
@@ -98,7 +98,7 @@
       "id": "lift-9",
       "kind": "balance",
       "x": 108,
-      "y": 10,
+      "y": 9,
       "widthTiles": 2,
       "balancePartnerId": "lift-8"
     },
@@ -106,7 +106,7 @@
       "id": "lift-10",
       "kind": "vertical",
       "x": 136,
-      "y": 6,
+      "y": 5,
       "widthTiles": 3
     }
   ],

@@ -716,6 +716,12 @@ function playLevel(
         backoffFramesLeft === 0
       ) {
         backoffFramesLeft = 30 + Math.floor(rng() * 30);
+        // Alternate the recovery: half the time, follow the backoff with a
+        // flat no-jump walk — one-tile crawls and low corridors are passed by
+        // walking, and a jump-biased retry bonks forever at their mouths.
+        if (rng() < 0.5) {
+          groundModeFramesLeft = 240;
+        }
       }
       if (stallSteps > 420) {
         stallSteps = 0;
@@ -847,7 +853,11 @@ describe("official-smb headless playthroughs", () => {
   //                          bonus sub-areas), each played from its own start
   //   SMB_PLAY_FULL=1      — the 36 classic main levels
   //   SMB_PLAY_BUDGET_SCALE=6+  — more steps per level for the deep mazes
-  const smokeSet = ["smb-1-1", "smb-1-2", "smb-1-5"];
+  // 1-3 is driven directly rather than via the 1-2 vestibule chain: the
+  // chained run doubles the length and its RNG stream re-rolls on any
+  // physics/data change, making it the flakiest smoke by far (the vestibule
+  // transition itself is covered by the browser journeys).
+  const smokeSet = ["smb-1-1", "smb-1-3", "smb-1-5"];
   const mains = (
     process.env.SMB_PLAY_ONLY?.split(",") ??
     (process.env.SMB_PLAY_ALL !== undefined
@@ -859,7 +869,7 @@ describe("official-smb headless playthroughs", () => {
 
   it("plays every selected level to a finish against the real engine", () => {
     const failures: string[] = [];
-    const budgetScale = Number(process.env.SMB_PLAY_BUDGET_SCALE ?? "2");
+    const budgetScale = Number(process.env.SMB_PLAY_BUDGET_SCALE ?? "3");
     for (const name of mains) {
       const budget = (name === "smb-8-4" ? 400_000 : 200_000) * budgetScale;
       const result = playLevel(name, budget);

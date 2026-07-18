@@ -208,6 +208,22 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   (teleport-assisted runs do not re-simulate past the teleport, which the
   cutscene fixtures exposed).
 
+- **Fixed (2026-07-18): every lift rode one row too low — 8-4's lava-pit
+  shuttle spawned inside the lava.** A platform hovers at its spawn row: the
+  record's y nibble is a screen row mapping 1:1 onto the grid, but the lift
+  metadata reused the walker painter's +1 "settle onto the floor" correction.
+  All lifts corrected; 8-4's shuttle now skims the lava surface like the
+  original (screenshot-verified).
+
+- **Verified (2026-07-18): 8-4 IS finishable — the maze is the rule, not a
+  bug.** Walking past a checkpoint page loops you back by design (the ROM's
+  loop command demands the pipe-arrival Y, which walkers can never match);
+  the full canonical route was driven live: pipe at x=81 → 114, pipe at
+  x=152 → 194, pipe at x=228 → the water room (swim to the mouth at x=69) →
+  return at 258 past the final checkpoint → Bowser. Each correct pipe lands
+  beyond its checkpoint, so the run progresses only via them — exactly the
+  original's maze.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the
