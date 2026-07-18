@@ -21,6 +21,11 @@ export type LoopZoneRuntimeState = {
   readonly groupProgress: Readonly<
     Record<string, { readonly evaluated: number; readonly failed: boolean }>
   >;
+  // Checkpoints the player has moved beyond. The ROM's scroll lock makes a
+  // passed checkpoint impossible to approach again; with free backtracking,
+  // wandering left past one (e.g. after a warp arrival beyond it) and walking
+  // right again used to re-arm it and throw the player to the start.
+  readonly passedZoneKeys: readonly string[];
 };
 
 export type LoopZonesResolution = {
@@ -30,7 +35,7 @@ export type LoopZonesResolution = {
 };
 
 export function makeEmptyLoopZoneState(): LoopZoneRuntimeState {
-  return { groupProgress: {} };
+  return { groupProgress: {}, passedZoneKeys: [] };
 }
 
 export function assertValidLoopZoneState(
@@ -39,9 +44,15 @@ export function assertValidLoopZoneState(
   if (typeof candidate !== "object" || candidate === null) {
     throw new Error("Loop zone state must be an object.");
   }
-  const state = candidate as { groupProgress?: unknown };
+  const state = candidate as {
+    groupProgress?: unknown;
+    passedZoneKeys?: unknown;
+  };
   if (typeof state.groupProgress !== "object" || state.groupProgress === null) {
     throw new Error("Loop zone state must have a groupProgress record.");
+  }
+  if (!Array.isArray(state.passedZoneKeys)) {
+    throw new Error("Loop zone state must have a passedZoneKeys array.");
   }
 }
 
@@ -66,8 +77,14 @@ export function resolveLoopZones(
 
   let adjustedPlayer = player;
   let loopedBack = false;
+  const passedZoneKeys = new Set(previousState.passedZoneKeys);
+  const zoneKey = (zone: LevelSpec["loopZones"][number]): string =>
+    `${zone.groupId}:${String(zone.checkTileX)}`;
 
   for (const zone of levelSpec.loopZones) {
+    if (passedZoneKeys.has(zoneKey(zone))) {
+      continue;
+    }
     const checkPixelX = zone.checkTileX * tileSize;
     const crossed =
       previousPlayer.position.x < checkPixelX &&
@@ -120,8 +137,18 @@ export function resolveLoopZones(
     break;
   }
 
+  // A checkpoint left a full tile behind is spent for the rest of the run —
+  // the ROM's scroll lock equivalent.
+  if (!loopedBack) {
+    for (const zone of levelSpec.loopZones) {
+      if (adjustedPlayer.position.x >= (zone.checkTileX + 1) * tileSize) {
+        passedZoneKeys.add(zoneKey(zone));
+      }
+    }
+  }
+
   return {
-    state: { groupProgress },
+    state: { groupProgress, passedZoneKeys: [...passedZoneKeys] },
     player: adjustedPlayer,
     loopedBack,
   };

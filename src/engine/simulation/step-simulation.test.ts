@@ -839,7 +839,7 @@ describe("simulation primitives", () => {
           respawnTimerFrames: 0,
         },
         platforms: { platforms: [] },
-        loopZones: { groupProgress: {} },
+        loopZones: { groupProgress: {}, passedZoneKeys: [] },
         hatchedSpinies: { spinies: [] },
       },
     });

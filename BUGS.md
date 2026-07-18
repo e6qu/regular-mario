@@ -232,6 +232,15 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   embed its rider (the carry used to apply after collision resolution,
   unchecked). Engine regression test sweeps a walled lift a full period.
 
+- **Fixed (2026-07-18): 8-4 felt unfinishable — backtracking re-armed passed
+  maze checkpoints.** The ROM's scroll lock makes a passed checkpoint
+  unapproachable; with our free backtracking, wandering left after a correct
+  pipe warp (e.g. exploring after landing at column 258) and walking right
+  again re-triggered the checkpoint and threw the player to the start. A
+  checkpoint the player has moved a tile beyond is now spent for the run.
+  The full 8-4 route re-verified live end to end: pipes at 81 → 114,
+  152 → 194, 228 → water room → 258, bridge, Bowser, axe, castle clear.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

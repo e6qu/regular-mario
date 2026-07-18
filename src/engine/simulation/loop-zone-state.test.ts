@@ -99,6 +99,33 @@ describe("loop zones", () => {
     expect(resolution.state.groupProgress).toEqual({});
   });
 
+  it("a checkpoint left behind is spent — backtracking cannot re-arm it", () => {
+    // A warp arrival beyond a pipe-gated checkpoint, then wandering left
+    // across it and walking right again: the ROM's scroll lock makes this
+    // impossible, so our free backtracking must not loop the player back.
+    const levelSpec = requireLevelSpec(
+      makeLoopLevelInput([
+        { ...singleZone, requiredRowMin: 15, requiredRowMax: 15 },
+      ]),
+    );
+    // Frame beyond the checkpoint (the warp landed the player past it).
+    const arrived = resolveLoopZones(
+      makeEmptyLoopZoneState(),
+      levelSpec,
+      playerAt(90 * 16, 11 * 16),
+      playerAt(90 * 16, 11 * 16),
+    );
+    expect(arrived.loopedBack).toBe(false);
+    // Backtrack to before the checkpoint, then cross it rightward again.
+    const recrossed = resolveLoopZones(
+      arrived.state,
+      levelSpec,
+      playerAt(80 * 16 - 8, 11 * 16),
+      playerAt(80 * 16 + 4, 11 * 16),
+    );
+    expect(recrossed.loopedBack).toBe(false);
+  });
+
   it("an unreachable row band always loops (pipe-gated checkpoints)", () => {
     const levelSpec = requireLevelSpec(
       makeLoopLevelInput([
