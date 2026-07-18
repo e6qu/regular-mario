@@ -5,6 +5,22 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-19 — fluid character animation: the drifting princess + Elvis koopa
+
+- The princess (revenge mode) is redrawn at 32x32 (2x detail at the same
+  world size) with procedurally composed cloth: profile poses whose gown
+  and long hair trail OPPOSITE her motion, a 4-phase walk cycle, a swept
+  profile jump, a front-facing flare for straight-up jumps, and a
+  parachute-bell fall. Her physics drift to match — fall gravity and
+  terminal speed x0.82, jumps x1.06 to compensate (test-pinned) — small
+  enough not to change what's clearable. Profile art flips with her facing
+  so the cloth always blows against the movement.
+
+- Every playable character now walks with a real time-phased animation
+  cycle (the per-speed static frames become alternating frames), and
+  enemies support time-phased walk frames: the koopa got an Elvis
+  pompadour that swings against his stride (green and red variants).
+
 ## 2026-07-19 — audit backlog finished: flowers, Lakitu, squash, sprout sound
 
 - A power-up block bumped by an already-super player yields the STATIONARY

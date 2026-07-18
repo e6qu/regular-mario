@@ -1229,6 +1229,40 @@ function spriteEntry(fileName, width = spriteSize, height = spriteSize) {
   };
 }
 
+// The koopa's Elvis pompadour: two 16x24 frames (8 hair rows over the 16x16
+// body) with the quiff swinging against his motion — authored for a
+// left-facing walker; the right-facing frames swing the other way.
+const elvisHairPalette = {
+  q: [34, 30, 28, 255],
+  Q: [70, 62, 58, 255],
+};
+function elvisSnapperFrames(bodyGrid) {
+  const hairBack = [
+    "....qqqq........",
+    "..qqqQQqq.......",
+    ".qqQQQQqqq......",
+    ".qqQQQqqqqq.....",
+    "..qqqqqqqqqq....",
+    "...qqq..qqqq....",
+    "........qqq.....",
+    "................",
+  ];
+  const hairForward = [
+    "......qqqq......",
+    "....qqQQqqq.....",
+    "...qqQQQQqqq....",
+    "..qqqQQQqqqq....",
+    "..qqqqqqqqq.....",
+    "..qqqq..qqq.....",
+    "...qq...........",
+    "................",
+  ];
+  return [
+    [...hairBack, ...bodyGrid],
+    [...hairForward, ...bodyGrid],
+  ];
+}
+
 // A walking enemy needs left/right walk frames; this skin reuses one body frame.
 function walkingEnemySprite(fileName) {
   return {
@@ -1278,6 +1312,8 @@ const fullActionPoses = {
   idle: "idle",
   walk: "walk-1",
   run: "walk-2",
+  "walk-anim-1": "walk-1",
+  "walk-anim-2": "walk-2",
   jump: "jump",
   fall: "jump",
   crouch: "crouch",
@@ -1298,9 +1334,11 @@ const burningFlameHeightsB = [5, 3, 6, 4, 7, 4, 6, 3, 4, 7, 4, 6, 3, 6, 4, 5];
 function burningGrid(grid, phase = 1) {
   const heights = phase === 1 ? burningFlameHeightsA : burningFlameHeightsB;
   const height = grid.length;
+  const width = grid[0]?.length ?? 16;
+  const scale = Math.max(1, Math.round(width / 16));
   const rows = grid.map((row) => row.split(""));
-  for (let column = 0; column < 16; column += 1) {
-    const flameHeight = heights[column];
+  for (let column = 0; column < width; column += 1) {
+    const flameHeight = (heights[Math.floor(column / scale) % 16] ?? 3) * scale;
     for (let step = 0; step < flameHeight; step += 1) {
       const row = height - 1 - step;
       if (rows[row] === undefined) {
@@ -1352,6 +1390,8 @@ const robotActionPoses = {
   idle: "idle",
   walk: "walk-1",
   run: "walk-2",
+  "walk-anim-1": "walk-1",
+  "walk-anim-2": "walk-2",
   jump: "jump",
   fall: "jump",
   crouch: "idle",
@@ -1366,19 +1406,34 @@ const robotActionPoses = {
 // is "" for the base castaway (unprefixed keys) or "<character>-" for a costume
 // that resolvePlayerSpriteImage looks up by character prefix. `fileStem` is the
 // PNG basename prefix; powered/fire reuse the pose grid under a tier palette.
-function costumeStateSprites(keyPrefix, fileStem, actionPoses) {
+function costumeStateSprites(
+  keyPrefix,
+  fileStem,
+  actionPoses,
+  frameSizePixels = spriteSize,
+) {
   const stateSprites = {};
   for (const [action, pose] of Object.entries(actionPoses)) {
     const base = `${fileStem}-${pose}`;
-    stateSprites[`${keyPrefix}small-${action}`] = spriteEntry(`${base}.png`);
+    stateSprites[`${keyPrefix}small-${action}`] = spriteEntry(
+      `${base}.png`,
+      frameSizePixels,
+      frameSizePixels,
+    );
     stateSprites[`${keyPrefix}recovering-${action}`] = spriteEntry(
       `${base}.png`,
+      frameSizePixels,
+      frameSizePixels,
     );
     stateSprites[`${keyPrefix}powered-${action}`] = spriteEntry(
       `${base}-powered.png`,
+      frameSizePixels,
+      frameSizePixels,
     );
     stateSprites[`${keyPrefix}fire-${action}`] = spriteEntry(
       `${base}-fire.png`,
+      frameSizePixels,
+      frameSizePixels,
     );
   }
   return stateSprites;
@@ -1405,7 +1460,31 @@ function playerStateSprites() {
     // Revenge-mode protagonists (tall Goomba, Princess): idle/walk/jump art,
     // reused across the crouch/climb/swim actions like the robots.
     ...costumeStateSprites("goomba-", "goomba", robotActionPoses),
-    ...costumeStateSprites("princess-", "princess", robotActionPoses),
+    // The princess's fluid 32x32 pose set: 4-phase walk, profile jump,
+    // front-facing straight-up jump, parachute fall.
+    ...costumeStateSprites(
+      "princess-",
+      "princess",
+      {
+        idle: "idle",
+        walk: "walk-1",
+        run: "walk-3",
+        "walk-anim-1": "walk-1",
+        "walk-anim-2": "walk-2",
+        "walk-anim-3": "walk-3",
+        "walk-anim-4": "walk-4",
+        jump: "jump",
+        "jump-up": "jump-up",
+        fall: "fall",
+        crouch: "idle",
+        climb: "idle",
+        swim: "jump",
+        "swim-2": "jump",
+        "burning-1": "burning-1",
+        "burning-2": "burning-2",
+      },
+      32,
+    ),
   };
 }
 
@@ -1413,10 +1492,11 @@ function playerStateSprites() {
 // base grid under every tier suffix so the character candidate chain always
 // resolves to its one look.
 function singleTierCostumeFiles(costume) {
+  const size = costume.frameSizePixels ?? spriteSize;
   return Object.entries(costume.poses).flatMap(([pose, grid]) => [
-    [`${costume.key}-${pose}.png`, grid, costume.palette],
-    [`${costume.key}-${pose}-powered.png`, grid, costume.palette],
-    [`${costume.key}-${pose}-fire.png`, grid, costume.palette],
+    [`${costume.key}-${pose}.png`, grid, costume.palette, size, size],
+    [`${costume.key}-${pose}-powered.png`, grid, costume.palette, size, size],
+    [`${costume.key}-${pose}-fire.png`, grid, costume.palette, size, size],
   ]);
 }
 
@@ -2106,6 +2186,22 @@ async function main() {
     ["castaway-1up.png", castawayPowerUp, greenRationPalette],
     ["castaway-star.png", castawayStar, starPalette],
     ["snapper-walk.png", snapperWalk, enemyPalette],
+    ...elvisSnapperFrames(snapperWalk).flatMap((grid, index) => [
+      [
+        `snapper-elvis-${index + 1}.png`,
+        grid,
+        { ...enemyPalette, ...elvisHairPalette },
+        16,
+        24,
+      ],
+      [
+        `snapper-red-elvis-${index + 1}.png`,
+        grid,
+        { ...redEnemyPalette, ...elvisHairPalette },
+        16,
+        24,
+      ],
+    ]),
     ["snapper-shell.png", snapperShell, enemyPalette],
     ["snapper-red-walk.png", snapperWalk, redEnemyPalette],
     ["snapper-red-shell.png", snapperShell, redEnemyPalette],
@@ -2195,23 +2291,32 @@ async function main() {
           burningPalette(costume.palettes.fire),
         ],
       ]),
-      ...[goombaCostume, princessCostume].flatMap((costume) => [
-        [
-          `${costume.key}-burning-${phase}.png`,
-          burningGrid(costume.poses.idle, phase),
-          burningPalette(costume.palette),
-        ],
-        [
-          `${costume.key}-burning-${phase}-powered.png`,
-          burningGrid(costume.poses.idle, phase),
-          burningPalette(costume.palette),
-        ],
-        [
-          `${costume.key}-burning-${phase}-fire.png`,
-          burningGrid(costume.poses.idle, phase),
-          burningPalette(costume.palette),
-        ],
-      ]),
+      ...[goombaCostume, princessCostume].flatMap((costume) => {
+        const size = costume.frameSizePixels ?? spriteSize;
+        return [
+          [
+            `${costume.key}-burning-${phase}.png`,
+            burningGrid(costume.poses.idle, phase),
+            burningPalette(costume.palette),
+            size,
+            size,
+          ],
+          [
+            `${costume.key}-burning-${phase}-powered.png`,
+            burningGrid(costume.poses.idle, phase),
+            burningPalette(costume.palette),
+            size,
+            size,
+          ],
+          [
+            `${costume.key}-burning-${phase}-fire.png`,
+            burningGrid(costume.poses.idle, phase),
+            burningPalette(costume.palette),
+            size,
+            size,
+          ],
+        ];
+      }),
     ]),
     // Full green companion costume — distinct art (base/powered/fire per pose).
     ...costumeSpriteFiles(luigiCostume),
@@ -2391,10 +2496,17 @@ async function main() {
       "vglc-smb-enemy": walkingEnemySprite("grumbler-idle.png"),
       "vglc-smb-throwing-enemy": walkingEnemySprite("hurler.png"),
       "vglc-smb-aerial-throwing-enemy": walkingEnemySprite("cloud-tosser.png"),
-      "vglc-smb-koopa": shelledEnemySprite(
-        "snapper-walk.png",
-        "snapper-shell.png",
-      ),
+      "vglc-smb-koopa": {
+        ...shelledEnemySprite("snapper-walk.png", "snapper-shell.png"),
+        stateSprites: {
+          ...shelledEnemySprite("snapper-walk.png", "snapper-shell.png")
+            .stateSprites,
+          "walk-left-1": spriteEntry("snapper-elvis-1.png", 16, 24),
+          "walk-left-2": spriteEntry("snapper-elvis-2.png", 16, 24),
+          "walk-right-1": spriteEntry("snapper-elvis-2.png", 16, 24),
+          "walk-right-2": spriteEntry("snapper-elvis-1.png", 16, 24),
+        },
+      },
       "vglc-smb-parakoopa": wingedEnemySprite(
         "snapper-walk.png",
         "snapper-shell.png",
@@ -2406,10 +2518,17 @@ async function main() {
       ),
       "vglc-smb-cheep": walkingEnemySprite("castaway-fish.png"),
       "vglc-smb-blooper": walkingEnemySprite("castaway-squid.png"),
-      "vglc-smb-koopa-red": shelledEnemySprite(
-        "snapper-red-walk.png",
-        "snapper-red-shell.png",
-      ),
+      "vglc-smb-koopa-red": {
+        ...shelledEnemySprite("snapper-red-walk.png", "snapper-red-shell.png"),
+        stateSprites: {
+          ...shelledEnemySprite("snapper-red-walk.png", "snapper-red-shell.png")
+            .stateSprites,
+          "walk-left-1": spriteEntry("snapper-red-elvis-1.png", 16, 24),
+          "walk-left-2": spriteEntry("snapper-red-elvis-2.png", 16, 24),
+          "walk-right-1": spriteEntry("snapper-red-elvis-2.png", 16, 24),
+          "walk-right-2": spriteEntry("snapper-red-elvis-1.png", 16, 24),
+        },
+      },
       "vglc-smb-parakoopa-red": wingedEnemySprite(
         "snapper-red-walk.png",
         "snapper-red-shell.png",

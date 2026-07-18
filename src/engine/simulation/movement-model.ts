@@ -447,6 +447,46 @@ export const initialMovementConstants: MovementConstants = {
 
 // Underwater physics: buoyant gravity (a slow sink), a low terminal sink speed,
 // and a gentle jump "stroke" the player can repeat to swim upward.
+// The princess (revenge mode) drifts: her gown slows the fall a touch (as if
+// parachuting) and her jumps launch slightly higher to compensate, so every
+// route stays clearable. Small enough not to change level difficulty.
+const princessFallGravityScale = 0.82;
+const princessJumpBoostScale = 1.06;
+export function makePrincessMovementConstants(
+  base: MovementConstants,
+): MovementConstants {
+  return {
+    ...base,
+    jumpLaunchSpeed: requireVelocity(
+      Number(base.jumpLaunchSpeed) * princessJumpBoostScale,
+      "movement.jumpLaunchSpeed",
+    ),
+    runningJumpLaunchSpeed: requireVelocity(
+      Number(base.runningJumpLaunchSpeed) * princessJumpBoostScale,
+      "movement.runningJumpLaunchSpeed",
+    ),
+    gravityFalling: requireAcceleration(
+      Number(base.gravityFalling) * princessFallGravityScale,
+      "movement.gravityFalling",
+    ),
+    maxFallSpeed: requireVelocity(
+      Number(base.maxFallSpeed) * princessFallGravityScale,
+      "movement.maxFallSpeed",
+    ),
+    jumpTiers: base.jumpTiers.map((tier) => ({
+      ...tier,
+      launchSpeed: requireVelocity(
+        Number(tier.launchSpeed) * princessJumpBoostScale,
+        "movement.jumpTiers.launch",
+      ),
+      gravityFalling: requireAcceleration(
+        Number(tier.gravityFalling) * princessFallGravityScale,
+        "movement.jumpTiers.down",
+      ),
+    })),
+  };
+}
+
 export const swimmingMovementConstants: MovementConstants = {
   ...initialMovementConstants,
   swimming: true,

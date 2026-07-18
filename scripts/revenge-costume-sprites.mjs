@@ -315,15 +315,244 @@ export const goombaCostume = {
   palette: goombaPalette,
 };
 
+// ---------------------------------------------------------------------------
+// Fluid 32x32 princess frames (Prince-of-Persia-inspired): profile poses with
+// the gown and long hair trailing OPPOSITE her motion, composed procedurally
+// so the cloth physics stay consistent across the cycle. Art is authored
+// facing RIGHT; the shell flips it when she faces left. Displayed at the
+// 16px world size, the doubled resolution gives sub-world-pixel detail.
+// ---------------------------------------------------------------------------
+function blankGrid32() {
+  return Array.from({ length: 32 }, () =>
+    Array.from({ length: 32 }, () => "."),
+  );
+}
+function plotPx(grid, x, y, letter) {
+  if (y >= 0 && y < 32 && x >= 0 && x < 32) {
+    const row = grid[y];
+    if (row !== undefined) {
+      row[x] = letter;
+    }
+  }
+}
+function fillPx(grid, x0, y0, width, height, letter) {
+  for (let y = y0; y < y0 + height; y += 1) {
+    for (let x = x0; x < x0 + width; x += 1) {
+      plotPx(grid, x, y, letter);
+    }
+  }
+}
+function gridRows(grid) {
+  return grid.map((row) => row.join(""));
+}
+
+// One profile frame. Parameters (pixels):
+//   sweep      how far the gown\'s trailing edge blows back (behind = left)
+//   hairSweep  how far the hair mass trails back
+//   hairLift   raises the hair (jumps/falls blow it upward)
+//   strideFront/strideBack  leg x-offsets for the walk cycle
+//   hemPhase   alternates the hem scallop for cloth flutter
+//   bell       widens the skirt like a bell/parachute (falls)
+//   legsShown  hide the legs when the bell covers them
+//   lean       leans the upper body forward (into the run)
+function princessProfileFrame(params) {
+  const {
+    sweep = 2,
+    hairSweep = 2,
+    hairLift = 0,
+    strideFront = 2,
+    strideBack = -2,
+    hemPhase = 0,
+    bell = 0,
+    legsShown = true,
+    lean = 0,
+  } = params;
+  const g = blankGrid32();
+  const headX = 15 + lean;
+
+  // Long hair: a back mass from the crown down past the shoulders, its
+  // column band drifting further back (left) with depth and sweep, and
+  // lifted upward when airborne.
+  for (let y = 3 - hairLift; y <= 17 - hairLift; y += 1) {
+    const depth = y - (3 - hairLift);
+    const drift = Math.min(6, Math.round((depth * (2 + hairSweep)) / 8));
+    const backX = headX - 2 - drift;
+    const width = y < 6 - hairLift ? 8 : 4 + Math.round(depth / 4);
+    fillPx(g, backX, y, width, 1, "H");
+    plotPx(g, backX, y, "G");
+  }
+  // Head (profile, facing right): rounded skin block with a jaw taper.
+  fillPx(g, headX, 4, 7, 7, "s");
+  fillPx(g, headX + 1, 10, 5, 1, "S");
+  // Hairline over the forehead.
+  fillPx(g, headX, 3, 7, 2, "H");
+  plotPx(g, headX + 6, 4, "H");
+  // Crown with jewels.
+  fillPx(g, headX + 1, 1, 5, 2, "c");
+  plotPx(g, headX + 1, 0, "j");
+  plotPx(g, headX + 3, 0, "j");
+  plotPx(g, headX + 5, 0, "j");
+  // Profile face: eye, nose tip, lips.
+  plotPx(g, headX + 5, 6, "e");
+  plotPx(g, headX + 7, 7, "s");
+  plotPx(g, headX + 7, 8, "S");
+  // Neck + bodice.
+  fillPx(g, headX + 1, 11, 3, 1, "s");
+  fillPx(g, 14 + lean, 12, 6, 3, "D");
+  fillPx(g, 14 + lean, 14, 6, 1, "d");
+  // The forward arm swings with the stride.
+  const armSwing = Math.round(strideFront / 2);
+  fillPx(g, 19 + lean + armSwing, 12, 2, 4, "s");
+  // Gown: a bell that grows with depth, its centre drifting BACK by the
+  // sweep so the cloth trails the run; the trailing edge gets the shadow.
+  const hemY = 27 + Math.min(2, bell);
+  for (let y = 15; y <= hemY; y += 1) {
+    const depth = y - 15;
+    const span = hemY - 15;
+    const half = 3 + Math.round((depth * (6 + bell)) / span);
+    const drift = Math.round((depth * sweep) / span);
+    const x0 = 16 - half - drift;
+    const width = half * 2 + 1;
+    fillPx(g, x0, y, width, 1, "D");
+    fillPx(g, x0, y, 2, 1, "d");
+    plotPx(g, x0 + width - 1, y, "d");
+  }
+  // Hem flutter: alternate scallop pixels along the bottom edge.
+  for (let x = 16 - 9 - sweep; x <= 16 + 9; x += 2) {
+    plotPx(g, x + (hemPhase % 2), hemY + 1, "d");
+  }
+  // Legs mid-stride under the hem (hidden when the bell covers them).
+  if (legsShown) {
+    fillPx(g, 16 + strideFront, hemY + 1, 2, 2, "s");
+    fillPx(g, 16 + strideFront, hemY + 3, 3, 1, "b");
+    fillPx(g, 14 + strideBack, hemY + 1, 2, 2, "S");
+    fillPx(g, 13 + strideBack, hemY + 3, 3, 1, "b");
+  }
+  return gridRows(g);
+}
+
+// A front-facing 32x32 frame (idle and the straight-up jump): the classic
+// symmetric gown, flared for the jump.
+function princessFrontFrame(params) {
+  const { flare = 0, legsShown = true } = params;
+  const g = blankGrid32();
+  // Hair falls evenly on both sides.
+  fillPx(g, 10, 4, 12, 3, "H");
+  fillPx(g, 9, 6, 3, 10, "H");
+  fillPx(g, 20, 6, 3, 10, "H");
+  plotPx(g, 9, 6, "G");
+  plotPx(g, 22, 6, "G");
+  // Face.
+  fillPx(g, 12, 5, 8, 6, "s");
+  fillPx(g, 12, 10, 8, 1, "S");
+  plotPx(g, 14, 7, "e");
+  plotPx(g, 17, 7, "e");
+  fillPx(g, 15, 9, 2, 1, "S");
+  // Crown.
+  fillPx(g, 13, 2, 6, 2, "c");
+  plotPx(g, 13, 1, "j");
+  plotPx(g, 15, 1, "j");
+  plotPx(g, 18, 1, "j");
+  // Bodice + arms.
+  fillPx(g, 13, 11, 6, 4, "D");
+  fillPx(g, 11, 12, 2, 3, "s");
+  fillPx(g, 19, 12, 2, 3, "s");
+  // Gown bell with optional flare.
+  const hemY = 27;
+  for (let y = 15; y <= hemY; y += 1) {
+    const depth = y - 15;
+    const half = 3 + Math.round((depth * (7 + flare)) / (hemY - 15));
+    fillPx(g, 16 - half, y, half * 2 + 1, 1, "D");
+    fillPx(g, 16 - half, y, 1, 1, "d");
+    plotPx(g, 16 + half, y, "d");
+  }
+  for (let x = 16 - 10 - flare; x <= 16 + 10 + flare; x += 2) {
+    plotPx(g, x, hemY + 1, "d");
+  }
+  if (legsShown) {
+    fillPx(g, 12, hemY + 1, 2, 2, "s");
+    fillPx(g, 18, hemY + 1, 2, 2, "s");
+    fillPx(g, 11, hemY + 3, 3, 1, "b");
+    fillPx(g, 18, hemY + 3, 3, 1, "b");
+  }
+  return gridRows(g);
+}
+
+export const princessFluidPalette = {
+  ...princessPlayerPalette,
+  G: [206, 172, 92, 255], // hair shadow edge
+};
+
+// The fluid pose set: a 4-phase walk (stride + cloth flutter), a profile
+// jump with the gown swept back, a parachute-bell fall, and a front-facing
+// flare for the straight-up jump.
+export const princessFluidPoses = {
+  idle: princessFrontFrame({ flare: 0 }),
+  "walk-1": princessProfileFrame({
+    sweep: 2,
+    hairSweep: 2,
+    strideFront: 3,
+    strideBack: -3,
+    hemPhase: 0,
+  }),
+  "walk-2": princessProfileFrame({
+    sweep: 3,
+    hairSweep: 3,
+    strideFront: 1,
+    strideBack: -1,
+    hemPhase: 1,
+    lean: 1,
+  }),
+  "walk-3": princessProfileFrame({
+    sweep: 4,
+    hairSweep: 4,
+    strideFront: -2,
+    strideBack: 2,
+    hemPhase: 0,
+    lean: 1,
+  }),
+  "walk-4": princessProfileFrame({
+    sweep: 3,
+    hairSweep: 3,
+    strideFront: 0,
+    strideBack: 0,
+    hemPhase: 1,
+  }),
+  jump: princessProfileFrame({
+    sweep: 5,
+    hairSweep: 5,
+    hairLift: 2,
+    strideFront: 3,
+    strideBack: -4,
+    hemPhase: 0,
+    lean: 1,
+  }),
+  "jump-up": princessFrontFrame({ flare: 2 }),
+  fall: princessProfileFrame({
+    sweep: 2,
+    hairSweep: 3,
+    hairLift: 3,
+    bell: 3,
+    legsShown: false,
+    hemPhase: 1,
+  }),
+};
+
 export const princessCostume = {
   key: "princess",
-  poses: {
-    idle: princessIdle,
-    "walk-1": princessWalk1,
-    "walk-2": princessWalk2,
-    jump: princessJump,
-  },
-  palette: princessPlayerPalette,
+  poses: princessFluidPoses,
+  palette: princessFluidPalette,
+  // 32x32 art shown at the 16px world size (2x detail).
+  frameSizePixels: 32,
+};
+
+// The legacy 16x16 frames stay referenced (revenge enemy markers reuse the
+// walk heads); keep them exported for the marker composition below.
+export const princessLegacyPoses = {
+  idle: princessIdle,
+  "walk-1": princessWalk1,
+  "walk-2": princessWalk2,
+  jump: princessJump,
 };
 
 // A "type marker" is a small helmet/hat drawn over the hero's head so a stomped

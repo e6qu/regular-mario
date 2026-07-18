@@ -1,4 +1,5 @@
 import {
+  makePrincessMovementConstants,
   HorizontalMovementState,
   VerticalMovementState,
 } from "./movement-model";
@@ -214,5 +215,28 @@ describe("movement model", () => {
         nominalSixtyHertzFrameDurationMilliseconds,
       ),
     ).toThrow("movement.gravityRisingHeld must be a positive finite number.");
+  });
+});
+
+describe("princess movement constants", () => {
+  it("slows the fall and boosts the jump slightly, leaving the rest alone", () => {
+    const princess = makePrincessMovementConstants(initialMovementConstants);
+    expect(princess.gravityFalling).toBeCloseTo(
+      Number(initialMovementConstants.gravityFalling) * 0.82,
+    );
+    expect(princess.maxFallSpeed).toBeCloseTo(
+      Number(initialMovementConstants.maxFallSpeed) * 0.82,
+    );
+    expect(princess.jumpLaunchSpeed).toBeCloseTo(
+      Number(initialMovementConstants.jumpLaunchSpeed) * 1.06,
+    );
+    expect(princess.jumpTiers[0]?.launchSpeed).toBeCloseTo(
+      Number(initialMovementConstants.jumpTiers[0]?.launchSpeed) * 1.06,
+    );
+    // Rising gravity, walk speed and everything else stay stock.
+    expect(princess.gravityRisingHeld).toBe(
+      initialMovementConstants.gravityRisingHeld,
+    );
+    expect(princess.maxWalkSpeed).toBe(initialMovementConstants.maxWalkSpeed);
   });
 });

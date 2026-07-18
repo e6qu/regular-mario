@@ -54,6 +54,7 @@ import {
 } from "../../engine/simulation/input-command";
 import {
   initialMovementConstants,
+  makePrincessMovementConstants,
   swimmingMovementConstants,
   type MovementConstants,
   HorizontalMovementState,
@@ -109,6 +110,7 @@ import { hardLandingDropTiles, resolveGroundQuake } from "../ground-quake";
 import {
   applyCharacterToCandidates,
   defaultPlayerCharacter,
+  parsePlayerCharacter,
   defaultRevengePlayerCharacter,
   revengePlayerCharacters,
   robotCharacterForBotIndex,
@@ -398,9 +400,17 @@ function resolveMovementConstants(
   theme: LevelTheme | undefined,
   bloodyBonks: boolean,
   godMode: boolean,
+  playerCharacter?: PlayerCharacter,
 ): MovementConstants {
-  const base =
+  const themed =
     theme === "water" ? swimmingMovementConstants : initialMovementConstants;
+  // The princess parachutes: a slightly slowed fall with a compensating
+  // jump boost (replay-deterministic — derived from the character, which is
+  // fixed for the run).
+  const base =
+    playerCharacter === "princess"
+      ? makePrincessMovementConstants(themed)
+      : themed;
   // Shabby mode adds cumulative head-bonk bloodiness (and its speed penalty);
   // god mode makes the player undamageable (pit falls still reset).
   if (!bloodyBonks && !godMode) {
@@ -3923,6 +3933,7 @@ export class BootScene extends Phaser.Scene {
         this.currentTheme,
         this.exaggeratedReactions,
         this.godMode,
+        this.playerCharacter,
       ),
       this.levelSpec,
       coopInputCommands,
@@ -4350,6 +4361,7 @@ export class BootScene extends Phaser.Scene {
         this.currentTheme,
         this.exaggeratedReactions,
         this.godMode,
+        this.playerCharacter,
       ),
       this.levelSpec,
     );
@@ -5124,10 +5136,12 @@ export class BootScene extends Phaser.Scene {
         this.facingRight = false;
       }
       const swimming = this.currentTheme === "water";
-      // The burning art's flames lean behind a rightward runner; flip it so
-      // the trail always blows against the direction of movement.
+      // The burning art's flames lean behind a rightward runner, and the
+      // princess's profile poses are authored facing right — flip both so
+      // cloth and flames always trail against the direction of movement.
+      const profileCharacter = this.playerCharacter === "princess";
       this.playerImageObject.setFlipX(
-        (swimming || burningOnLava) && !this.facingRight,
+        (swimming || burningOnLava || profileCharacter) && !this.facingRight,
       );
 
       // The merman is a horizontal fish, so give the swim sprite a squarer,
@@ -8103,23 +8117,60 @@ function resolvePlayerSpriteImage(
             ...prefixes.map((prefix) => `${prefix}-idle`),
             "idle",
           ]
-        : action === "burning"
+        : action === "walk" || action === "run"
           ? (() => {
-              // On-fire art (god mode on lava): two flame phases flicker
-              // (~10Hz); sets without the art show the idle frame — the
-              // sizzle still tells the story.
-              const phase =
-                Math.floor(simulationState.clock.frameIndex / 6) % 2 === 0
-                  ? "burning-1"
-                  : "burning-2";
+              // Time-phased walk animation (Prince-of-Persia fluidity): a
+              // 4-frame cycle when the skin provides it, else the 2-frame
+              // cycle, else the static per-speed pose.
+              const phase4 =
+                (Math.floor(simulationState.clock.frameIndex / 5) % 4) + 1;
+              const phase2 =
+                (Math.floor(simulationState.clock.frameIndex / 7) % 2) + 1;
               return [
-                ...prefixes.map((prefix) => `${prefix}-${phase}`),
-                phase,
+                ...prefixes.map((prefix) => `${prefix}-walk-anim-${phase4}`),
+                ...prefixes.map((prefix) => `${prefix}-walk-anim-${phase2}`),
+                ...prefixes.map((prefix) => `${prefix}-${action}`),
+                action,
                 ...prefixes.map((prefix) => `${prefix}-idle`),
                 "idle",
               ];
             })()
-          : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
+          : action === "jump" || action === "fall"
+            ? (() => {
+                // A straight-up jump keeps the front pose; a moving jump and
+                // the fall use the profile art (with a dedicated parachute
+                // fall frame when the skin has one).
+                const straightUp = Math.abs(player.velocity.x) < 20;
+                const poseChain =
+                  action === "fall"
+                    ? ["fall", "jump"]
+                    : straightUp
+                      ? ["jump-up", "jump"]
+                      : ["jump", "jump-up"];
+                return [
+                  ...poseChain.flatMap((pose) => [
+                    ...prefixes.map((prefix) => `${prefix}-${pose}`),
+                    pose,
+                  ]),
+                ];
+              })()
+            : action === "burning"
+              ? (() => {
+                  // On-fire art (god mode on lava): two flame phases flicker
+                  // (~10Hz); sets without the art show the idle frame — the
+                  // sizzle still tells the story.
+                  const phase =
+                    Math.floor(simulationState.clock.frameIndex / 6) % 2 === 0
+                      ? "burning-1"
+                      : "burning-2";
+                  return [
+                    ...prefixes.map((prefix) => `${prefix}-${phase}`),
+                    phase,
+                    ...prefixes.map((prefix) => `${prefix}-idle`),
+                    "idle",
+                  ];
+                })()
+              : [...prefixes.map((prefix) => `${prefix}-${action}`), action];
 
   return resolveFirstStatefulImage(
     playerImage,
@@ -8248,8 +8299,13 @@ function resolveActorSpriteImage(
     actor.entityId,
   );
   const direction = makeSpriteDirectionFromVelocity(enemyActor.velocity.x);
+  // Time-phased walk frames when the skin provides them (the koopa's
+  // pompadour swings against his stride), else the static direction frame.
+  const walkPhase =
+    (Math.floor(Number(simulationState.clock.frameIndex) / 9) % 2) + 1;
 
   return resolveFirstStatefulImage(actor.userImage, [
+    `walk-${direction}-${walkPhase}`,
     `walk-${direction}`,
     direction,
   ]);
@@ -10241,6 +10297,7 @@ function makeRequiredInitialSimulationState(
       browserGameBootstrap.theme,
       browserGameBootstrap.exaggeratedReactions ?? false,
       browserGameBootstrap.godMode ?? false,
+      parsePlayerCharacter(browserGameBootstrap.playerCharacter ?? null),
     ),
     browserGameBootstrap.initialPlayerVitality,
     browserGameBootstrap.playerCount ?? 1,
