@@ -3635,8 +3635,7 @@ export class BootScene extends Phaser.Scene {
       // (or test) still holding Right from the moment of death must not
       // cancel the death instant replay.
       const scrubbing =
-        this.anyFreshlyDown(leftKeyCodes) ||
-        this.anyFreshlyDown(rightKeyCodes);
+        this.anyFreshlyDown(leftKeyCodes) || this.anyFreshlyDown(rightKeyCodes);
       if (this.replayingDeath && !scrubbing) {
         // The replay reached the end and is playing out the death animation.
         this.stepReplayDeath();
@@ -4317,6 +4316,10 @@ export class BootScene extends Phaser.Scene {
     }
     this.replayingDeath = false;
     this.clearDeathEffect();
+    // The re-fired effect is fully torn down: without this, the snapshot (and
+    // maybeBeginDeathEffect's re-fire guard) still reads the death as active
+    // after a scrub, and the held aftermath can never replay again.
+    this.deathArcStarted = false;
   }
 
   // Hold left/right to scrub the timeline while paused; Shift scrubs faster.
@@ -4347,6 +4350,10 @@ export class BootScene extends Phaser.Scene {
     if (!this.paused) {
       return;
     }
+    // Any seek leaves the death-finale aftermath behind: tear the scattered
+    // pieces down so scrubbed frames render clean (the timeline buttons and
+    // drag seek through this path — not just the keyboard scrub).
+    this.clearReplayDeath();
     this.scrubFrame = Math.max(0, Math.min(Math.round(frame), this.pauseFrame));
     this.simulationState = this.runRecorder.stateAt(this.scrubFrame);
     // Scrubbing shows the recorded run, where the player is always on screen —

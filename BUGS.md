@@ -184,6 +184,16 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   interrupts). Covered by death-effects.spec, which now asserts the replay
   fires with no Play click.
 
+- **Fixed (2026-07-18, follow-up): the death-finale corpse persisted over
+  every scrubbed frame.** The timeline's button/drag seeks bypassed the
+  keyboard path's teardown, so after the instant replay's finale the
+  scattered pieces stayed drawn mid-level while scrubbing showed live-run
+  frames — and a stale `deathArcStarted` flag then blocked the finale from
+  ever re-firing. Every seek now tears the finale down (centralised in
+  seekToFrame) and fully resets the effect state, so scrubs render clean and
+  playing to the end re-fires the death each time. Regression-tested in
+  death-effects.spec.
+
 - Otherwise none currently recorded. (2026-07-11, earlier sweep: four fidelity
   bugs found by the new completability proof and fixed — 4-4/7-4 loop-zone rows
   were in screen space and impassable; water-area terrain sealed the

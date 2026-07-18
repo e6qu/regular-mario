@@ -148,6 +148,14 @@ test("the timeline replay re-plays the death animation on-screen", async ({
   expect(visibility.visibleBottom).toBeGreaterThanOrEqual(
     visibility.worldHeight - 1,
   );
+
+  // Scrubbing away from the end must tear the finale's scattered pieces down —
+  // they used to persist over every scrubbed frame (a corpse lying mid-level
+  // while the timeline showed the live run).
+  await page.locator('button:has-text("-60")').last().click();
+  const afterScrub = await deathEffect(page);
+  expect(afterScrub.started).toBe(false);
+  expect(afterScrub.pieceCount).toBe(0);
 });
 
 test("falling onto spikes pins the body with X-ed-out eyes", async ({
