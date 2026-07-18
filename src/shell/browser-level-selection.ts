@@ -113,6 +113,8 @@ export type BrowserGameBootstrap = {
   // Game-mode toggle: when false, the exaggerated reaction overlays (the "ouch"
   // head-hold and squashed-enemy burst) are suppressed for a calmer classic feel.
   readonly exaggeratedReactions?: boolean;
+  // God mode: undamageable player (pit falls still reset). Menu checkbox.
+  readonly godMode?: boolean;
   // When true, the melody is sung as a baritone "ba ba ba" vocal (the shabby
   // soundtrack); otherwise the original chiptune melody plays.
   readonly vocalSoundtrack?: boolean;

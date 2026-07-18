@@ -109,6 +109,7 @@ describe("movement model", () => {
       pipeExitCooldownFrameCount: 30,
       swimming: false,
       bloodyBonks: false,
+      godMode: false,
     });
   });
 

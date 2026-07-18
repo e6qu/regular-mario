@@ -66,6 +66,7 @@ import {
 } from "./player-state";
 import {
   assertValidPlayerOutcomeState,
+  PlayerDefeatReason,
   PlayerFinishReason,
   PlayerOutcomeKind,
   resolvePlayerOutcomeState,
@@ -905,7 +906,8 @@ function stepActiveSimulation(
     );
   const hazardProtected =
     playerInvincibility.remainingFrames > 0 ||
-    playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Recovering;
+    playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Recovering ||
+    movementConstants.godMode;
   const effectiveHazardContact = hazardContacted && !hazardProtected;
   const playerVitalityAfterHazard =
     effectiveHazardContact &&
@@ -922,9 +924,26 @@ function stepActiveSimulation(
             movementConstants.damageRecoveryInvulnerabilityFrameCount,
         }
       : playerVitalityAfterEnemyContact;
+  // God mode: damage never sticks — any downgrade (a big tier knocked into
+  // recovery, or down to small) is discarded and the prior tier kept.
+  // Power-ups still upgrade normally.
+  const vitalityRank = (kind: PlayerVitalityKind): number =>
+    kind === PlayerVitalityKind.Fire
+      ? 2
+      : kind === PlayerVitalityKind.Powered
+        ? 1
+        : 0;
+  const godSpared =
+    movementConstants.godMode &&
+    (playerVitalityAfterHazard.kind === PlayerVitalityKind.Recovering ||
+      vitalityRank(playerVitalityAfterHazard.kind) <
+        vitalityRank(state.players[0].vitality.kind));
+  const guardedVitality = godSpared
+    ? state.players[0].vitality
+    : playerVitalityAfterHazard;
   const playerAfterHazardResize = resizePlayerForVitality(
     playerAfterAerialStomp,
-    playerVitalityAfterHazard,
+    guardedVitality,
     crouching,
   );
   const outcomeLevelContacts = {
@@ -934,15 +953,30 @@ function stepActiveSimulation(
       playerVitalityAfterEnemyContact.kind === PlayerVitalityKind.Small,
   };
 
-  const playerOutcome = resolvePlayerOutcomeState(
+  const resolvedOutcome = resolvePlayerOutcomeState(
     state.players[0].outcome,
     outcomeLevelContacts,
     damagingEnemies,
-    playerVitalityAfterHazard,
+    guardedVitality,
     levelSpec.fallExitTransition === undefined &&
       hasPlayerFallenIntoPit(playerAfterContactResponse, levelSpec),
     hasLevelTimerExpired(levelTimer),
   );
+  // God mode: only a pit fall can end the run (anything else would soft-lock
+  // at the bottom of the hole); every other defeat is discarded. A defeat
+  // that coincided with a goal contact still counts as the finish.
+  const playerOutcome =
+    movementConstants.godMode &&
+    resolvedOutcome.kind === PlayerOutcomeKind.Defeated &&
+    resolvedOutcome.reason !== PlayerDefeatReason.PitContact
+      ? state.players[0].outcome
+      : movementConstants.godMode &&
+          resolvedOutcome.kind === PlayerOutcomeKind.DefeatedAndFinished
+        ? {
+            kind: PlayerOutcomeKind.Finished as const,
+            reason: resolvedOutcome.finishReason,
+          }
+        : resolvedOutcome;
 
   const justFinished =
     state.players[0].outcome.kind !== PlayerOutcomeKind.Finished &&
@@ -1028,7 +1062,7 @@ function stepActiveSimulation(
     players: [
       {
         player: finalPlayer,
-        vitality: playerVitalityAfterHazard,
+        vitality: guardedVitality,
         invincibility: playerInvincibility,
         outcome: playerOutcome,
         reaction: playerReaction,

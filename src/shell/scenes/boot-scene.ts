@@ -394,11 +394,16 @@ let activeThemePalette: ThemePalette = themePalettes.overworld;
 function resolveMovementConstants(
   theme: LevelTheme | undefined,
   bloodyBonks: boolean,
+  godMode: boolean,
 ): MovementConstants {
   const base =
     theme === "water" ? swimmingMovementConstants : initialMovementConstants;
-  // Shabby mode adds cumulative head-bonk bloodiness (and its speed penalty).
-  return bloodyBonks ? { ...base, bloodyBonks: true } : base;
+  // Shabby mode adds cumulative head-bonk bloodiness (and its speed penalty);
+  // god mode makes the player undamageable (pit falls still reset).
+  if (!bloodyBonks && !godMode) {
+    return base;
+  }
+  return { ...base, bloodyBonks, godMode };
 }
 const thornTileColor = 0x355e3b;
 const thornPointColor = 0xf97316;
@@ -981,6 +986,7 @@ export class BootScene extends Phaser.Scene {
   private playerReactionImage: Phaser.GameObjects.Image | undefined;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
   private readonly exaggeratedReactions: boolean;
+  private readonly godMode: boolean;
   // Floating "+100" score numbers that rise and fade over a defeated enemy.
   private scorePopups: {
     readonly text: Phaser.GameObjects.Text;
@@ -1222,6 +1228,7 @@ export class BootScene extends Phaser.Scene {
     // overlays); the parody experience opts in via the Shabby game mode.
     this.exaggeratedReactions =
       browserGameBootstrap.exaggeratedReactions ?? false;
+    this.godMode = browserGameBootstrap.godMode ?? false;
     this.userAssetBundle = browserGameBootstrap.userAssetBundle;
     this.levelSequence = browserGameBootstrap.levelSequence;
     this.warpLevelsByName = browserGameBootstrap.warpLevelsByName;
@@ -3705,7 +3712,11 @@ export class BootScene extends Phaser.Scene {
     this.simulationState = stepSimulation(
       previousSimulationState,
       inputCommand,
-      resolveMovementConstants(this.currentTheme, this.exaggeratedReactions),
+      resolveMovementConstants(
+        this.currentTheme,
+        this.exaggeratedReactions,
+        this.godMode,
+      ),
       this.levelSpec,
       coopInputCommands,
     );
@@ -4110,7 +4121,11 @@ export class BootScene extends Phaser.Scene {
   private resetRun(): void {
     this.runRecorder = new RunRecorder(
       this.simulationState,
-      resolveMovementConstants(this.currentTheme, this.exaggeratedReactions),
+      resolveMovementConstants(
+        this.currentTheme,
+        this.exaggeratedReactions,
+        this.godMode,
+      ),
       this.levelSpec,
     );
     this.runThumbnails = [];
@@ -9648,6 +9663,7 @@ function makeRequiredInitialSimulationState(
     resolveMovementConstants(
       browserGameBootstrap.theme,
       browserGameBootstrap.exaggeratedReactions ?? false,
+      browserGameBootstrap.godMode ?? false,
     ),
     browserGameBootstrap.initialPlayerVitality,
     browserGameBootstrap.playerCount ?? 1,

@@ -2734,6 +2734,71 @@ describe("simulation primitives", () => {
   });
 });
 
+describe("god mode", () => {
+  const godConstants = { ...initialMovementConstants, godMode: true };
+
+  // One god-mode step against the enemy-contact fixture (beetle at x=96).
+  function stepGodEnemyContact(state: SimulationState): SimulationState {
+    return stepSimulation(
+      state,
+      validInputCommand(),
+      godConstants,
+      firstAuthoredLevelWithoutHazardSpec(),
+    );
+  }
+
+  it("survives enemy contact without damage or defeat", () => {
+    const stepped = stepGodEnemyContact(stateWithPlayerAt({ x: 96, y: 64 }));
+    expect(stepped.players[0].outcome).toEqual({ kind: "active" });
+    expect(stepped.players[0].vitality).toEqual({ kind: "small" });
+    expect(stepped.livesRemaining).toBe(initialLivesCount);
+  });
+
+  it("keeps the big power tier through enemy contact", () => {
+    const stepped = stepGodEnemyContact(
+      withPlayerOverrides(stateWithPlayerAt({ x: 96, y: 64 }), {
+        playerVitality: { kind: PlayerVitalityKind.Powered },
+      }),
+    );
+    expect(stepped.players[0].outcome).toEqual({ kind: "active" });
+    expect(stepped.players[0].vitality).toEqual({ kind: "powered" });
+  });
+
+  it("ignores hazard tile contact", () => {
+    // The thorn at (5,4): stand overlapping it.
+    const stepped = stepSimulation(
+      stateWithPlayerAt({ x: 84, y: 64 }),
+      validInputCommand(),
+      godConstants,
+      firstAuthoredLevelSpec(),
+    );
+    expect(stepped.players[0].outcome).toEqual({ kind: "active" });
+  });
+
+  it("still dies to a pit fall (no soft-lock at the bottom)", () => {
+    // Below the 6-row level's bottom edge (96px) and still falling.
+    const stepped = stepSimulation(
+      withPlayerOverrides(validInitialState(), {
+        player: playerWithTestState({
+          position: { x: 200, y: 130 },
+          velocity: { x: 0, y: 270 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Falling,
+          },
+        }),
+      }),
+      validInputCommand(),
+      godConstants,
+      firstAuthoredLevelWithoutHazardSpec(),
+    );
+    expect(stepped.players[0].outcome).toEqual({
+      kind: "defeated",
+      reason: PlayerDefeatReason.PitContact,
+    });
+  });
+});
+
 describe("crouch (big Mario duck)", () => {
   function inputCommand(
     horizontal: HorizontalInput,

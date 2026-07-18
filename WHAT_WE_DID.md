@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-18 — god mode
+
+- A GOD MODE toggle in the start menu (off by default, mirrored into the
+  #menu/#play URLs as `god=1`): the player cannot be damaged or defeated by
+  enemies, hazards or the timer — power-tier downgrades are discarded, and a
+  defeat that coincided with a goal still counts as the finish. Pit falls
+  still reset the level (a bottomless pit would soft-lock). Implemented as a
+  `godMode` flag in MovementConstants so replay re-simulation stays
+  deterministic; engine tests cover enemy contact, tier retention, hazard
+  tiles, and the pit exception.
+
 ## 2026-07-18 — scrubbable death frames
 
 - Contact deaths append their animation to the timeline as 180 real frames:

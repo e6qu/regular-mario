@@ -31,6 +31,9 @@ and new engine tests (five-fireball soak, spiky stomp, point-blank flames).
 
 What exists now:
 
+- **God mode** (start-menu toggle, off by default; `god=1` in play links):
+  undamageable player for practice/testing — pit falls still reset.
+
 - **Deterministic pure simulation + replay.** A fixed-step core (movement,
   collision, enemies, blocks, projectiles, pipes, platforms, hazards, scoring,
   lives, timers) steps once per frame and is fully replayable: a recorded input

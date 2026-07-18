@@ -372,6 +372,8 @@ type PlayRoute = {
   readonly character: string;
   // "1" for revenge mode (play the stomper), "0" otherwise.
   readonly revenge: string;
+  // "1" for god mode (undamageable player), "0" otherwise.
+  readonly god: string;
   // Rendering backend (canvas / webgl / auto).
   readonly renderer: string;
 };
@@ -2166,6 +2168,12 @@ async function renderStartMenu(
     ["0", "Off (normal)"],
     ["1", "Revenge mode"],
   ]);
+  // God mode: the player cannot be damaged or defeated by enemies, hazards or
+  // the timer (pit falls still reset the level). Off by default.
+  const godSelect = makeStartMenuDropdown("God mode", [
+    ["0", "Off (normal)"],
+    ["1", "God mode (no damage)"],
+  ]);
   const setCharacterOptions = (
     options: readonly (readonly [string, string])[],
   ): void => {
@@ -2322,6 +2330,7 @@ async function renderStartMenu(
   appendField("SOUND", audioSelect);
   appendField("RENDERER", rendererSelect);
   appendField("REVENGE", revengeSelect);
+  appendField("GOD MODE", godSelect);
   appendField("CHARACTER", characterSelect);
   appendField("BOTS", botsSelect);
   panel.appendChild(controls);
@@ -2479,7 +2488,7 @@ async function renderStartMenu(
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
         `&renderer=${rendererSelect.value}` +
         `&revenge=${revengeSelect.value}&character=${characterSelect.value}` +
-        `&bots=${botsSelect.value}`,
+        `&bots=${botsSelect.value}&god=${godSelect.value}`,
     );
   };
   for (const control of [
@@ -2487,6 +2496,7 @@ async function renderStartMenu(
     audioSelect,
     rendererSelect,
     revengeSelect,
+    godSelect,
     characterSelect,
     botsSelect,
     levelSelect,
@@ -2511,7 +2521,8 @@ async function renderStartMenu(
         `&level=${encodeURIComponent(levelSelect.value)}` +
         `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
         `&bots=${botsSelect.value}&character=${characterSelect.value}` +
-        `&revenge=${revengeSelect.value}&renderer=${rendererSelect.value}`,
+        `&revenge=${revengeSelect.value}&renderer=${rendererSelect.value}` +
+        `&god=${godSelect.value}`,
     );
     void bootSelectedContentSet(
       assetSelect.value,
@@ -2522,6 +2533,7 @@ async function renderStartMenu(
       Number(botsSelect.value) || 0,
       parsePlayerCharacter(characterSelect.value),
       revengeSelect.value === "1",
+      godSelect.value === "1",
       status,
     );
   };
@@ -2543,6 +2555,7 @@ async function renderStartMenu(
     // Revenge is set before the character so the roster (goomba/princess vs the
     // normal cast) is populated before we try to select the character.
     revengeSelect.value = autoplay.revenge;
+    godSelect.value = autoplay.god;
     setCharacterOptions(
       autoplay.revenge === "1"
         ? revengeCharacterOptions
@@ -2574,7 +2587,7 @@ async function renderStartMenu(
           `&level=${encodeURIComponent(autoplay.level)}` +
           `&mode=${modeSelect.value}&sound=${audioSelect.value}` +
           `&bots=${botsSelect.value}&character=${characterSelect.value}` +
-          `&revenge=${revengeSelect.value}`,
+          `&revenge=${revengeSelect.value}&god=${godSelect.value}`,
       );
       void bootSelectedContentSet(
         assetSelect.value,
@@ -2585,6 +2598,7 @@ async function renderStartMenu(
         Number(botsSelect.value) || 0,
         parsePlayerCharacter(characterSelect.value),
         revengeSelect.value === "1",
+        godSelect.value === "1",
         status,
       );
     }
@@ -2681,6 +2695,7 @@ async function bootSelectedContentSet(
   botCount: number,
   playerCharacter: PlayerCharacter,
   revengeMode: boolean,
+  godMode: boolean,
   status: HTMLElement,
 ): Promise<void> {
   status.style.color = "#3a2410";
@@ -2767,6 +2782,7 @@ async function bootSelectedContentSet(
         playerCharacter,
         // Revenge mode: play the stomper, enemies become Mario/Luigi.
         revengeMode,
+        godMode,
         exaggeratedReactions,
         // The shabby "Sound" choice sings the melody as a baritone "ba ba ba".
         vocalSoundtrack: shabbyAudio,
@@ -2811,6 +2827,7 @@ async function bootSelectedContentSet(
                   botCount,
                   playerCharacter,
                   revengeMode,
+                  godMode,
                   status,
                 );
               },
@@ -2860,6 +2877,7 @@ function playRouteFromQuery(query: string): PlayRoute | null {
     sound: params.get("sound") ?? "classic",
     bots: params.get("bots") ?? "0",
     revenge: params.get("revenge") ?? "0",
+    god: params.get("god") ?? "0",
     character: params.get("character") ?? "castaway",
     // Empty when the link omits it, so the persisted renderer choice is kept
     // (the preset block only applies a renderer that matches a real option).

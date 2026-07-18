@@ -213,6 +213,9 @@ export type MovementConstants = {
   // "Shabby" mechanics: head-bonks bloody the player and cumulatively slow them
   // (up to 50%). Off in the faithful/original mode.
   readonly bloodyBonks: boolean;
+  // God mode: the player cannot be damaged or defeated by enemies, hazards or
+  // the timer (pit falls still reset — a bottomless pit would soft-lock).
+  readonly godMode: boolean;
 };
 
 function requireAcceleration(
@@ -431,6 +434,7 @@ export const initialMovementConstants: MovementConstants = {
   ),
   swimming: false,
   bloodyBonks: false,
+  godMode: false,
 };
 
 // Underwater physics: buoyant gravity (a slow sink), a low terminal sink speed,
