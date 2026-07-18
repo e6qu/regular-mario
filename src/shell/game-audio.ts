@@ -227,6 +227,14 @@ const toneSpecs: Record<
     type: "square",
     gain: 0.05,
   },
+  // The springboard "boing": a fast coiled-release sweep from low to high.
+  [SoundEvent.SpringBounce]: {
+    frequencyHertz: 150,
+    endFrequencyHertz: 950,
+    durationSeconds: 0.18,
+    type: "triangle",
+    gain: 0.1,
+  },
 };
 
 // The cause-specific cartoony death sounds (see playDeathSound).

@@ -147,6 +147,19 @@ function horizontalFreeSpan(
 }
 
 // The base (frame-driven) position of a platform before runtime offsets.
+// The ROM's oscillating lifts move at constant speed and reverse at the
+// extremes — a triangle wave over the period, not a sine ease.
+function oscillationOffsetPixels(frame: number): number {
+  const phase =
+    (((frame % oscillationPeriodFrames) + oscillationPeriodFrames) %
+      oscillationPeriodFrames) /
+    oscillationPeriodFrames;
+  // Sine-aligned triangle: 0 at phase 0, +1 at 1/4, 0 at 1/2, -1 at 3/4.
+  const triangle =
+    phase < 0.25 ? 4 * phase : phase < 0.75 ? 2 - 4 * phase : 4 * phase - 4;
+  return oscillationAmplitudePixels * triangle;
+}
+
 function basePlatformPosition(
   definition: PlatformDefinition,
   levelSpec: LevelSpec,
@@ -158,20 +171,18 @@ function basePlatformPosition(
   const frame = Number(frameIndex);
   switch (definition.kind) {
     case "vertical": {
-      const phase = (2 * Math.PI * frame) / oscillationPeriodFrames;
       return {
         x: baseX,
-        y: baseY + oscillationAmplitudePixels * Math.sin(phase),
+        y: baseY + oscillationOffsetPixels(frame),
       };
     }
     case "horizontal": {
-      const phase = (2 * Math.PI * frame) / oscillationPeriodFrames;
       // Clamp the sweep to the free span on the plank's row: an off-centre
       // base with the full amplitude could carry the plank into a side wall
       // (8-4's lava shuttle penetrated the pit's right wall and shoved its
       // rider inside it).
       const span = horizontalFreeSpan(definition, levelSpec);
-      const swept = baseX + oscillationAmplitudePixels * Math.sin(phase);
+      const swept = baseX + oscillationOffsetPixels(frame);
       return {
         x: Math.max(span.minX, Math.min(swept, span.maxX)),
         y: baseY,

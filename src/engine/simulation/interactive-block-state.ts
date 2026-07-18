@@ -104,6 +104,12 @@ export type SpawnedActor = {
     readonly x: number;
     readonly y: number;
   };
+  // The actor's collision extent below `position.y`. Every spawned actor
+  // starts one tile tall; a climbable vine's top edge then grows upward each
+  // frame (position.y falls, heightPixels rises) while its bottom stays
+  // anchored to the bumped block, so consumers must read this instead of
+  // assuming a one-tile extent.
+  readonly heightPixels: number;
   readonly active: boolean;
 };
 
@@ -248,6 +254,16 @@ export function assertValidSpawnedActorsState(
         `Spawned actor at index ${index} must have an active boolean.`,
       );
     }
+
+    if (
+      typeof candidateActor.heightPixels !== "number" ||
+      !Number.isFinite(candidateActor.heightPixels) ||
+      candidateActor.heightPixels <= 0
+    ) {
+      throw new Error(
+        `Spawned actor at index ${index} must have a positive numeric heightPixels.`,
+      );
+    }
   }
 }
 
@@ -293,6 +309,14 @@ const spawnedClimbableVelocityX = requireVelocity(
   0,
   "spawnedActor.climbable.velocityX",
 );
+// The vine grows at the original's pace: its handler raises the vine top one
+// pixel on two frames out of every four, i.e. half a pixel per 60 Hz frame.
+const spawnedClimbableGrowthSpeedPixelsPerSecond = 30;
+// A fully grown vine's top edge sits about eight tiles above the bumped
+// block's top...
+const spawnedClimbableGrownTilesAboveBlockTop = 8;
+// ...but never inside the HUD band: growth clamps at the level's tile row 2.
+const spawnedClimbableGrowthCeilingTileRow = 2;
 const spawnedActorStillVelocityY = requireVelocity(
   0,
   "spawnedActor.still.velocityY",
@@ -486,6 +510,7 @@ export function resolveSpawnedActorsState(
         x: position.x * levelSpec.tileSizePixels,
         y: (position.y - (emerges ? 0 : 1)) * levelSpec.tileSizePixels,
       },
+      heightPixels: levelSpec.tileSizePixels,
       active: true,
     });
     spawnedSet.add(entityId);
@@ -527,6 +552,14 @@ export function stepSpawnedActorsState(
           solidTileIds,
           breakableTileIds,
           spawnedPowerUpMovement,
+        );
+      }
+
+      if (spawnedActor.role === ActorRole.Climbable) {
+        return stepSpawnedClimbableActor(
+          spawnedActor,
+          frameDurationSeconds,
+          levelSpec,
         );
       }
 
@@ -620,6 +653,53 @@ function stepSpawnedPowerUpActor(
     solidTileIds,
     breakableTileIds,
   );
+}
+
+// The pixel y coordinate a fully grown climbable's top edge stops at: about
+// eight tiles above the bumped block's top, clamped so it never grows past
+// the level's row 2 into the HUD band.
+function makeSpawnedClimbableGrownTopPixelY(
+  sourceBlockTilePosition: TilePoint,
+  levelSpec: LevelSpec,
+): number {
+  return Math.max(
+    (sourceBlockTilePosition.y - spawnedClimbableGrownTilesAboveBlockTop) *
+      levelSpec.tileSizePixels,
+    spawnedClimbableGrowthCeilingTileRow * levelSpec.tileSizePixels,
+  );
+}
+
+// The vine's bottom stays anchored to the bumped block's top while its top
+// edge extends upward at the original's growth pace until fully grown.
+function stepSpawnedClimbableActor(
+  spawnedActor: SpawnedActor,
+  frameDurationSeconds: number,
+  levelSpec: LevelSpec,
+): SpawnedActor {
+  const grownTopPixelY = makeSpawnedClimbableGrownTopPixelY(
+    spawnedActor.sourceBlockTilePosition,
+    levelSpec,
+  );
+
+  if (spawnedActor.position.y <= grownTopPixelY) {
+    return spawnedActor;
+  }
+
+  const bottomPixelY = spawnedActor.position.y + spawnedActor.heightPixels;
+  const nextTopPixelY = Math.max(
+    spawnedActor.position.y -
+      spawnedClimbableGrowthSpeedPixelsPerSecond * frameDurationSeconds,
+    grownTopPixelY,
+  );
+
+  return {
+    ...spawnedActor,
+    heightPixels: bottomPixelY - nextTopPixelY,
+    position: {
+      x: spawnedActor.position.x,
+      y: nextTopPixelY,
+    },
+  };
 }
 
 function makeNextSpawnedPowerUpVelocityY(

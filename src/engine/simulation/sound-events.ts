@@ -1,5 +1,8 @@
 import { PlayerOutcomeKind } from "./player-outcome";
-import { VerticalMovementState } from "./movement-model";
+import {
+  initialMovementConstants,
+  VerticalMovementState,
+} from "./movement-model";
 import { headBonkReactionFrames, PlayerReactionKind } from "./player-reaction";
 import type { SimulationState } from "./simulation-state";
 
@@ -18,6 +21,28 @@ export enum SoundEvent {
   EnemyShot = "enemy-shot",
   Firework = "firework",
   TimeTick = "time-tick",
+  SpringBounce = "spring-bounce",
+}
+
+function isSpringBounce(
+  previousState: SimulationState,
+  currentState: SimulationState,
+): boolean {
+  // A springboard landing snaps a downward-moving player to exactly the
+  // spring launch speed (passive or A-boosted) within a single step; nothing
+  // else converts downward motion straight into either of those exact upward
+  // speeds, so the velocity transition alone identifies the bounce.
+  const previousVelocityY = previousState.players[0].player.velocity.y;
+  const currentVelocityY = currentState.players[0].player.velocity.y;
+
+  if (previousVelocityY <= 0) {
+    return false;
+  }
+
+  return (
+    currentVelocityY === 0 - initialMovementConstants.springLaunchSpeed ||
+    currentVelocityY === 0 - initialMovementConstants.springBoostLaunchSpeed
+  );
 }
 
 function isFreshHeadBonk(
@@ -104,6 +129,12 @@ export function resolveSoundEvents(
     currentVertical === VerticalMovementState.Jumping
   ) {
     events.push(SoundEvent.Jump);
+  }
+
+  // Layered over the jump chirp (the spring launch also enters Jumping): the
+  // springboard's own bounce twang.
+  if (isSpringBounce(previousState, currentState)) {
+    events.push(SoundEvent.SpringBounce);
   }
 
   if (

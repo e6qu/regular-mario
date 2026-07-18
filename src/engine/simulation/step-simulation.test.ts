@@ -74,6 +74,7 @@ import {
   interactiveCoinBlockLevelSpec,
   powerUpRouteLevelSpec,
   repeatableCoinBlockLevelSpec,
+  springBlockLevelSpec,
   throwingEnemyLevelSpec,
   twoTileGapLevelSpec,
 } from "./level-test-support";
@@ -2734,6 +2735,78 @@ describe("simulation primitives", () => {
         firstAuthoredLevelSpec(),
       ),
     ).toThrow("Simulation frame index cannot advance safely.");
+  });
+});
+
+describe("springboard bounce", () => {
+  // The player one step above the spring tile (row 4, top = 64): the next
+  // step's fall carries the feet across the spring top and fires the launch.
+  function fallingOntoSpringState(): SimulationState {
+    return withPlayerOverrides(
+      initialStateForLevel(
+        springBlockLevelSpec(),
+        "Expected spring block level to validate.",
+      ),
+      {
+        player: playerWithTestState({
+          position: { x: 32, y: 45 },
+          velocity: { x: 0, y: 600 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Falling,
+          },
+        }),
+      },
+    );
+  }
+
+  function jumpHeldInputCommand(): SimulationInputCommand {
+    const result = makeSimulationInputCommand(
+      HorizontalInput.Neutral,
+      true,
+      false,
+      false,
+      false,
+      false,
+    );
+
+    if (!result.ok) {
+      throw new Error("Expected valid jump-held input command.");
+    }
+
+    return result.value;
+  }
+
+  it("launches at the passive spring speed without the jump button", () => {
+    const next = stepSimulation(
+      fallingOntoSpringState(),
+      validInputCommand(),
+      initialMovementConstants,
+      springBlockLevelSpec(),
+    );
+
+    expect(next.players[0].player.velocity.y).toBe(
+      0 - initialMovementConstants.springLaunchSpeed,
+    );
+    expect(next.players[0].player.movement.vertical).toBe(
+      VerticalMovementState.Jumping,
+    );
+  });
+
+  it("launches at the boosted spring speed with the jump button held", () => {
+    const next = stepSimulation(
+      fallingOntoSpringState(),
+      jumpHeldInputCommand(),
+      initialMovementConstants,
+      springBlockLevelSpec(),
+    );
+
+    expect(next.players[0].player.velocity.y).toBe(
+      0 - initialMovementConstants.springBoostLaunchSpeed,
+    );
+    expect(next.players[0].player.movement.vertical).toBe(
+      VerticalMovementState.Jumping,
+    );
   });
 });
 

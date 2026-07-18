@@ -89,9 +89,10 @@ function playerOverlapsClimbable(
     if (
       spawnedActor.active &&
       spawnedActor.role === ActorRole.Climbable &&
+      // A growing vine is climbable only over its grown extent.
       playerOverlapsActorPixel(player, spawnedActor.position, {
         width: levelSpec.tileSizePixels,
-        height: levelSpec.tileSizePixels,
+        height: spawnedActor.heightPixels,
       })
     ) {
       return true;

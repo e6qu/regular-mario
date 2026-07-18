@@ -43,6 +43,7 @@ describe("movement model", () => {
       runningJumpLaunchSpeed: 300,
       enemyStompReboundSpeed: 300,
       springLaunchSpeed: 360,
+      springBoostLaunchSpeed: 480,
       enemyStompForgivenessPixels: 4,
       enemyActivationLeadPixels: 256,
       enemySideContactKnockbackSpeed: 150,

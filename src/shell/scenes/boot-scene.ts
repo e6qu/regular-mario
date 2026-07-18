@@ -730,6 +730,27 @@ export class BootScene extends Phaser.Scene {
   private castleClearWalkStartX: number | undefined;
   private castleFlagObjects: readonly Phaser.GameObjects.GameObject[] = [];
   private castleFlagRiseFramesRemaining = 0;
+  // Tumbling debris from shattered bricks (four shards per brick).
+  private brickShards: {
+    readonly shard: Phaser.GameObjects.Rectangle;
+    velocityX: number;
+    velocityY: number;
+    framesLeft: number;
+  }[] = [];
+  private previousBrokenBrickCount = 0;
+  // Fire-variant keepers already revealed (so a defeat reveals only once).
+  private readonly revealedBowserEntityIds = new Set<string>();
+  private identityReveals: {
+    readonly image: Phaser.GameObjects.Image;
+    velocityY: number;
+    framesLeft: number;
+  }[] = [];
+  // Blocks briefly nudged upward by a head-bonk, with their resting y.
+  private blockNudges: {
+    readonly objects: readonly Phaser.GameObjects.GameObject[];
+    readonly baseYs: readonly number[];
+    framesLeft: number;
+  }[] = [];
   private readonly revealedHiddenTiles = new Set<string>();
   private renderedActors!: readonly RuntimeRenderedActor[];
   private renderedActorRoleCounts!: BrowserRenderedActorRoleCounts;
@@ -1860,6 +1881,17 @@ export class BootScene extends Phaser.Scene {
     this.castleClearWalkStartX = undefined;
     this.castleFlagObjects = [];
     this.castleFlagRiseFramesRemaining = 0;
+    for (const entry of this.brickShards) {
+      entry.shard.destroy();
+    }
+    this.brickShards = [];
+    this.previousBrokenBrickCount = 0;
+    this.blockNudges = [];
+    for (const entry of this.identityReveals) {
+      entry.image.destroy();
+    }
+    this.identityReveals = [];
+    this.revealedBowserEntityIds.clear();
     this.revealedHiddenTiles.clear();
     this.renderFlagpoleFurniture();
     const renderedActorSummary = renderNonPlayerActors(
@@ -2491,6 +2523,12 @@ export class BootScene extends Phaser.Scene {
     this.stepFlagpoleFlagDrop();
     this.stepFlagpoleWalkOff();
     this.stepCastleFlagRise();
+    this.spawnFreshBrickShards();
+    this.stepBrickShards();
+    this.spawnBowserIdentityReveal();
+    this.stepIdentityReveal();
+    this.spawnHeadBonkNudge();
+    this.stepBlockNudges();
     if (!this.flagpoleSlideActive) {
       return;
     }
@@ -5094,9 +5132,15 @@ export class BootScene extends Phaser.Scene {
       PlayerVitalityKind.Recovering;
     const isStarInvincible =
       this.simulationState.players[0].invincibility.remainingFrames > 0;
+    // The star's final second telegraphs the end: the flash slows from the
+    // 3-frame flicker to a lazy 8-frame blink.
+    const starEnding =
+      isStarInvincible &&
+      this.simulationState.players[0].invincibility.remainingFrames < 90;
+    const blinkPeriod = starEnding ? 8 : 3;
     const playerAlpha =
       (isRecoveringVitality || isStarInvincible) &&
-      Math.floor(this.simulationState.clock.frameIndex / 3) % 2 === 1
+      Math.floor(this.simulationState.clock.frameIndex / blinkPeriod) % 2 === 1
         ? 0
         : 1;
     // The invincibility/recovery flash blinks the player sprite.
@@ -5343,6 +5387,174 @@ export class BootScene extends Phaser.Scene {
 
   // Moving lift platforms: one pooled raft (skin art, or a plain rectangle),
   // repositioned every frame from the platform state.
+  // ROM BowserIdentities: a fireball-killed keeper in worlds 1-7 is revealed
+  // as that world's disguise enemy, tumbling off the bridge.
+  private spawnBowserIdentityReveal(): void {
+    const defeated = this.simulationState.enemies.defeatedEnemyEntityIds;
+    for (const entityId of defeated) {
+      if (
+        !entityId.startsWith("vglc-smb-bowser-") ||
+        entityId.startsWith("vglc-smb-bowser-hammers") ||
+        this.revealedBowserEntityIds.has(entityId)
+      ) {
+        continue;
+      }
+      this.revealedBowserEntityIds.add(entityId);
+      const world = Number(
+        /^smb-(\d+)-/.exec(this.currentMainLevelName ?? "")?.[1] ?? "8",
+      );
+      const disguiseActorId = bowserDisguiseActorIdByWorld[world - 1];
+      if (disguiseActorId === undefined) {
+        continue; // World 8: the keeper is the real thing.
+      }
+      const disguiseImage =
+        this.userAssetBundle?.actorImages.get(disguiseActorId);
+      if (disguiseImage === undefined) {
+        continue;
+      }
+      const actor = this.renderedActors.find(
+        (rendered) => rendered.entityId === entityId,
+      );
+      if (actor === undefined) {
+        continue;
+      }
+      const image = addUserFrameImage(
+        this,
+        actor.renderObject.x,
+        actor.renderObject.y,
+        disguiseImage,
+      ).setDepth(40);
+      this.identityReveals.push({ image, velocityY: -120, framesLeft: 90 });
+    }
+  }
+
+  private stepIdentityReveal(): void {
+    if (this.identityReveals.length === 0) {
+      return;
+    }
+    const dt = 1 / 60;
+    this.identityReveals = this.identityReveals.filter((entry) => {
+      entry.framesLeft -= 1;
+      if (entry.framesLeft <= 0) {
+        entry.image.destroy();
+        return false;
+      }
+      entry.velocityY += 540 * dt;
+      entry.image.setPosition(
+        entry.image.x + 30 * dt,
+        entry.image.y + entry.velocityY * dt,
+      );
+      entry.image.setRotation(entry.image.rotation + 0.12);
+      return true;
+    });
+  }
+
+  // The ROM shatters a broken brick into four tumbling fragments. Diff the
+  // cumulative broken list and burst each fresh one.
+  private spawnFreshBrickShards(): void {
+    const broken =
+      this.simulationState.breakableBlocks.brokenBlockTilePositions;
+    for (
+      let index = this.previousBrokenBrickCount;
+      index < broken.length;
+      index += 1
+    ) {
+      const position = broken[index];
+      if (position === undefined) {
+        continue;
+      }
+      const size = this.levelSpec.tileSizePixels;
+      const centerX = position.x * size + size / 2;
+      const centerY = position.y * size + size / 2;
+      for (const [dx, dy] of [
+        [-1, -1],
+        [1, -1],
+        [-1, 1],
+        [1, 1],
+      ] as const) {
+        const shard = this.add
+          .rectangle(centerX + dx * 3, centerY + dy * 3, 5, 5, brickShardColor)
+          .setDepth(30);
+        this.brickShards.push({
+          shard,
+          velocityX: dx * 55,
+          velocityY: -170 + dy * 45,
+          framesLeft: 55,
+        });
+      }
+    }
+    this.previousBrokenBrickCount = broken.length;
+  }
+
+  private stepBrickShards(): void {
+    if (this.brickShards.length === 0) {
+      return;
+    }
+    const dt = 1 / 60;
+    this.brickShards = this.brickShards.filter((entry) => {
+      entry.framesLeft -= 1;
+      if (entry.framesLeft <= 0) {
+        entry.shard.destroy();
+        return false;
+      }
+      entry.velocityY += 540 * dt;
+      entry.shard.setPosition(
+        entry.shard.x + entry.velocityX * dt,
+        entry.shard.y + entry.velocityY * dt,
+      );
+      entry.shard.setRotation(entry.shard.rotation + 0.25);
+      return true;
+    });
+  }
+
+  // A head-bonked block hops ~6px, like the ROM's block bounce: nudge the
+  // render objects of the tile directly above the player's head.
+  private spawnHeadBonkNudge(): void {
+    if (!this.lastSoundEvents.includes(SoundEvent.HeadBonk)) {
+      return;
+    }
+    const player = this.simulationState.players[0].player;
+    const size = this.levelSpec.tileSizePixels;
+    const column = Math.floor(
+      (player.position.x + player.collider.width / 2) / size,
+    );
+    const row = Math.floor((player.position.y - 1) / size);
+    const key = makeTileRenderKey(column, row);
+    const objects: Phaser.GameObjects.GameObject[] = [];
+    const swap = this.usedBlockSwaps.get(key);
+    if (swap !== undefined) {
+      objects.push(swap.image);
+    }
+    for (const renderObject of this.breakableTileRenderObjects.get(key) ?? []) {
+      objects.push(renderObject);
+    }
+    if (objects.length === 0) {
+      return;
+    }
+    this.blockNudges.push({
+      objects,
+      baseYs: objects.map((object) => (object as Phaser.GameObjects.Image).y),
+      framesLeft: blockNudgeFrames,
+    });
+  }
+
+  private stepBlockNudges(): void {
+    if (this.blockNudges.length === 0) {
+      return;
+    }
+    this.blockNudges = this.blockNudges.filter((nudge) => {
+      nudge.framesLeft -= 1;
+      const progress = 1 - nudge.framesLeft / blockNudgeFrames;
+      const lift = nudge.framesLeft <= 0 ? 0 : Math.sin(progress * Math.PI) * 6;
+      nudge.objects.forEach((object, index) => {
+        (object as Phaser.GameObjects.Image).setY(
+          (nudge.baseYs[index] ?? 0) - lift,
+        );
+      });
+      return nudge.framesLeft > 0;
+    });
+  }
+
   private renderPlatforms(): void {
     if (this.levelSpec.platforms.length === 0) {
       return;
@@ -5378,10 +5590,13 @@ export class BootScene extends Phaser.Scene {
         plank.setDisplaySize(placement.widthPixels, placement.heightPixels);
       }
 
-      // Balance platforms hang from their pulley rope; draw it up to the
-      // pulley band under the HUD.
+      // Balance platforms hang from their pulley rope (drawn up to the
+      // pulley band under the HUD); wrap-around elevators ride a full-height
+      // shaft cable like the ROM's vertical lift columns.
       let rope = this.platformRopeRenderObjects[index];
-      if (placement.kind === "balance") {
+      const wantsShaft =
+        placement.kind === "lift-up" || placement.kind === "lift-down";
+      if (placement.kind === "balance" || wantsShaft) {
         if (rope === undefined) {
           rope = this.add
             .rectangle(0, 0, 1, 1, platformRopeColor)
@@ -5389,9 +5604,12 @@ export class BootScene extends Phaser.Scene {
             .setDepth(-1);
           this.platformRopeRenderObjects[index] = rope;
         }
-        const ropeTopY = platformRopePulleyRowY;
+        const ropeTopY = wantsShaft ? 0 : platformRopePulleyRowY;
+        const ropeBottomY = wantsShaft
+          ? this.levelSpec.heightTiles * this.levelSpec.tileSizePixels
+          : placement.y;
         rope.setPosition(placement.x + placement.widthPixels / 2, ropeTopY);
-        rope.setSize(1, Math.max(1, placement.y - ropeTopY));
+        rope.setSize(1, Math.max(1, ropeBottomY - ropeTopY));
         rope.setVisible(true);
       } else if (rope !== undefined) {
         rope.setVisible(false);
@@ -6001,6 +6219,17 @@ export class BootScene extends Phaser.Scene {
         spawnedActor.position.x,
         spawnedActor.position.y,
       );
+      // A growing vine stretches its render to the grown extent (position.y
+      // is the rising top; heightPixels reaches down to the block).
+      if (
+        spawnedActor.role === ActorRole.Climbable &&
+        spawnedActor.heightPixels > this.levelSpec.tileSizePixels
+      ) {
+        renderObject.setScale(
+          1,
+          spawnedActor.heightPixels / this.levelSpec.tileSizePixels,
+        );
+      }
       // While an item is still emerging from its block, draw it behind the
       // tile layer so the block occludes it — it rises cleanly out of the top.
       const emerging =
@@ -8830,6 +9059,19 @@ const flagpoleBallFallBudgetFrames = 90;
 const flagpoleWalkOffDistancePixels = 96;
 // The castle flag's rise after the hero enters the doorway.
 const castleFlagRiseFrames = 40;
+const brickShardColor = 0x9a6b3f;
+// ROM BowserIdentities, worlds 1-7 (world 8 is the real keeper).
+const bowserDisguiseActorIdByWorld: readonly (string | undefined)[] = [
+  "vglc-smb-enemy",
+  "vglc-smb-koopa",
+  "vglc-smb-turtle",
+  "vglc-smb-spiny",
+  "vglc-smb-aerial-throwing-enemy",
+  "vglc-smb-blooper",
+  "vglc-smb-throwing-enemy",
+  undefined,
+];
+const blockNudgeFrames = 10;
 const castleFlagRisePixelsPerFrame = 0.5;
 const flagpoleWalkOffSpeedPixels = 1.25;
 const flagpolePoleColor = 0xc8d8c8;

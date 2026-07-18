@@ -156,6 +156,10 @@ export type MovementConstants = {
   readonly runningJumpLaunchSpeed: VelocityPixelsPerSecond;
   readonly enemyStompReboundSpeed: VelocityPixelsPerSecond;
   readonly springLaunchSpeed: VelocityPixelsPerSecond;
+  // Launch speed when the jump button is held on the launch frame (ROM
+  // JumpspringHandler: pressing A during the bounce stores the stronger $f4
+  // jumpspring force instead of the passive one).
+  readonly springBoostLaunchSpeed: VelocityPixelsPerSecond;
   readonly enemyStompForgivenessPixels: ColliderDimensionPixels;
   readonly enemyActivationLeadPixels: ColliderDimensionPixels;
   readonly enemySideContactKnockbackSpeed: VelocityPixelsPerSecond;
@@ -276,6 +280,10 @@ export const initialMovementConstants: MovementConstants = {
     "movement.enemyStompReboundSpeed",
   ),
   springLaunchSpeed: requireVelocity(360, "movement.springLaunchSpeed"),
+  springBoostLaunchSpeed: requireVelocity(
+    480,
+    "movement.springBoostLaunchSpeed",
+  ),
   enemyStompForgivenessPixels: requireColliderDimensionPixels(
     4,
     "movement.enemyStompForgivenessPixels",

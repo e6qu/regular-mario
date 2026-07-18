@@ -1,5 +1,10 @@
 import type { TilePoint } from "../domain/units";
-import { ActorRole, type SpawnedPowerUpMovement } from "../domain/level-spec";
+import {
+  ActorRole,
+  makeLevelSpec,
+  TileCollisionKind,
+  type SpawnedPowerUpMovement,
+} from "../domain/level-spec";
 import { describe, expect, it } from "vitest";
 import type { LevelSpec } from "../domain/level-spec";
 
@@ -24,6 +29,11 @@ import {
   repeatableCoinBlockLevelSpec,
   cooldownCoinBlockLevelSpec,
   solidHazardBlockLevelSpec,
+  makeExitActor,
+  makeExitDefinition,
+  makeRunnerStartActor,
+  makeRunnerStartDefinition,
+  makeSkyGrassTileDefinitions,
   makeUpwardMovingPlayerAt,
   playerAt,
 } from "./level-test-support";
@@ -35,6 +45,22 @@ function tilePoint(x: number, y: number): TilePoint {
   return {
     x: x as unknown as TilePoint["x"],
     y: y as unknown as TilePoint["y"],
+  };
+}
+
+// A spawned-actor literal missing its trailing validity fields, for the
+// malformed-state rejection tests to build on.
+function malformedSpawnedActorBase() {
+  return {
+    entityId: "spawned-1",
+    actorId: "star-shard",
+    role: ActorRole.Item,
+    velocityX: 0,
+    velocityY: 0,
+    collectionMode: SpawnedActorCollectionMode.PlayerOverlap,
+    remainingPopupFrames: 0,
+    sourceBlockTilePosition: tilePoint(2, 4),
+    position: { x: 0, y: 0 },
   };
 }
 
@@ -101,6 +127,7 @@ function expectedSpawnedActor(params: {
       x: 32,
       y: 48,
     },
+    heightPixels: 16,
     active: true,
   };
 }
@@ -283,6 +310,19 @@ describe("spawned actors state", () => {
       makeEmptyBreakableBlockState(),
     );
     expect(stepped.spawnedActors).toHaveLength(1);
+  });
+
+  it("rejects a spawned actor without a positive heightPixels", () => {
+    expect(() =>
+      assertValidSpawnedActorsState({
+        lastSpawnFrameIndexByBlockKey: {},
+        spawnedActors: [
+          { ...malformedSpawnedActorBase(), active: true, heightPixels: 0 },
+        ],
+      }),
+    ).toThrow(
+      "Spawned actor at index 0 must have a positive numeric heightPixels.",
+    );
   });
 
   it("uses profile-backed movement constants for spawned power-up actors", () => {
@@ -642,19 +682,7 @@ describe("spawned actors state", () => {
     expect(() =>
       assertValidSpawnedActorsState({
         lastSpawnFrameIndexByBlockKey: {},
-        spawnedActors: [
-          {
-            entityId: "spawned-1",
-            actorId: "star-shard",
-            role: ActorRole.Item,
-            velocityX: 0,
-            velocityY: 0,
-            collectionMode: SpawnedActorCollectionMode.PlayerOverlap,
-            remainingPopupFrames: 0,
-            sourceBlockTilePosition: tilePoint(2, 4),
-            position: { x: 0, y: 0 },
-          },
-        ],
+        spawnedActors: [malformedSpawnedActorBase()],
       }),
     ).toThrow("Spawned actor at index 0 must have an active boolean.");
   });
@@ -677,6 +705,152 @@ describe("spawned actors state", () => {
         ],
       }),
     ).toThrow("Spawned actor at index 0 must have a numeric velocityX.");
+  });
+});
+
+// A taller level whose beanstalk block sits low enough (row 12) that the
+// eight-tile growth cap binds before the row-2 HUD clamp does.
+function tallClimbableBlockLevelSpec(): LevelSpec {
+  const skyRowCount = 12;
+  const result = makeLevelSpec({
+    widthTiles: 6,
+    heightTiles: 14,
+    tileSizePixels: 16,
+    tileDefinitions: [
+      ...makeSkyGrassTileDefinitions(),
+      {
+        tileId: "beanstalk-block",
+        collision: TileCollisionKind.Interactive,
+        contentsActorId: "climbable-vine",
+      },
+    ],
+    actorDefinitions: [
+      makeRunnerStartDefinition(),
+      { actorId: "climbable-vine", role: ActorRole.Climbable },
+      makeExitDefinition(),
+    ],
+    tiles: [
+      ...Array.from({ length: skyRowCount }, () => [
+        "sky",
+        "sky",
+        "sky",
+        "sky",
+        "sky",
+        "sky",
+      ]),
+      ["sky", "grass", "beanstalk-block", "sky", "sky", "sky"],
+      ["grass", "grass", "grass", "grass", "grass", "grass"],
+    ],
+    actors: [makeRunnerStartActor(), makeExitActor(5)],
+  });
+
+  if (!result.ok) {
+    throw new Error("Expected tall climbable block level to validate.");
+  }
+
+  return result.value;
+}
+
+describe("spawned climbable growth", () => {
+  const step = (
+    state: SpawnedActorsState,
+    levelSpec: LevelSpec,
+  ): SpawnedActorsState =>
+    stepSpawnedActorsState(
+      state,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      levelSpec,
+      makeEmptyBreakableBlockState(),
+    );
+
+  it("grows the vine top upward half a pixel per frame with the bottom anchored to the block", () => {
+    const levelSpec = interactiveClimbableBlockLevelSpec();
+    const spawned = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 4)],
+    );
+
+    const once = step(spawned, levelSpec).spawnedActors[0]!;
+    // The original raises the vine top one pixel on two frames out of every
+    // four: half a pixel per 60 Hz frame.
+    expect(once.position.y).toBeCloseTo(47.5);
+    expect(once.heightPixels).toBeCloseTo(16.5);
+    // The bottom stays anchored to the bumped block's top edge.
+    expect(once.position.y + once.heightPixels).toBeCloseTo(64);
+
+    const twice = step(step(spawned, levelSpec), levelSpec).spawnedActors[0]!;
+    expect(twice.position.y).toBeCloseTo(47);
+    expect(twice.heightPixels).toBeCloseTo(17);
+
+    // Stepping must not mutate the previous frame's state.
+    expect(spawned.spawnedActors[0]!.position.y).toBe(48);
+    expect(spawned.spawnedActors[0]!.heightPixels).toBe(16);
+  });
+
+  it("stops growing once the vine top is eight tiles above the block top", () => {
+    const levelSpec = tallClimbableBlockLevelSpec();
+    let state = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 12)],
+    );
+
+    // 224 frames grow the remaining 112 pixels; run past that to prove the
+    // cap holds.
+    for (let frame = 0; frame < 300; frame += 1) {
+      state = step(state, levelSpec);
+    }
+
+    const grown = state.spawnedActors[0]!;
+    // Top at (12 - 8) * 16, i.e. eight tiles above the block top at 192.
+    expect(grown.position.y).toBe(64);
+    expect(grown.heightPixels).toBe(128);
+
+    const afterCap = step(state, levelSpec).spawnedActors[0]!;
+    expect(afterCap.position.y).toBe(64);
+    expect(afterCap.heightPixels).toBe(128);
+  });
+
+  it("clamps growth at the level's row 2 so the vine never enters the HUD band", () => {
+    // The default fixture's block sits at row 4, so eight tiles of growth
+    // would overshoot the level top; the row-2 clamp must bind instead.
+    const levelSpec = interactiveClimbableBlockLevelSpec();
+    let state = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 4)],
+    );
+
+    for (let frame = 0; frame < 100; frame += 1) {
+      state = step(state, levelSpec);
+      expect(state.spawnedActors[0]!.position.y).toBeGreaterThanOrEqual(32);
+    }
+
+    const grown = state.spawnedActors[0]!;
+    expect(grown.position.y).toBe(32);
+    expect(grown.heightPixels).toBe(32);
+  });
+
+  it("keeps every grown frame valid and replay-deterministic", () => {
+    const levelSpec = interactiveClimbableBlockLevelSpec();
+    const spawned = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [tilePoint(2, 4)],
+    );
+
+    const runFrames = (frameCount: number): SpawnedActorsState => {
+      let state = spawned;
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        state = step(state, levelSpec);
+        assertValidSpawnedActorsState(state);
+      }
+      return state;
+    };
+
+    // Two identical runs from the same spawn state land on identical states.
+    expect(runFrames(40)).toEqual(runFrames(40));
   });
 });
 

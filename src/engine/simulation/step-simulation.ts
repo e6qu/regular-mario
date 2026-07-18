@@ -39,6 +39,7 @@ import {
   assertValidSpawnedActorsState,
   resolveInteractiveBlockInteractionState,
   resolveSpawnedActorsState,
+  type SpawnedActor,
   stepSpawnedActorsState,
 } from "./interactive-block-state";
 import {
@@ -539,6 +540,7 @@ function stepActiveSimulation(
     movementConstants.springLaunchSpeed,
     revealedHiddenPositionKeys,
     walkableHazardTileIds,
+    effectiveInputCommand.jumpPressed,
   );
   const resolvedPlayerWithBumpsPlayer = resolvedPlayerWithBumps.player;
 
@@ -594,6 +596,7 @@ function stepActiveSimulation(
           movementConstants.springLaunchSpeed,
           revealedHiddenPositionKeys,
           walkableHazardTileIds,
+          effectiveInputCommand.jumpPressed,
         ).player;
 
   // Castle maze checkpoints: crossing on the wrong row loops the player back
@@ -1112,6 +1115,7 @@ function stepActiveSimulation(
       teleportedPlayer,
       levelSpec,
       movementConstants,
+      spawnedActors.spawnedActors,
     ),
     levelTimer,
     timedHazardProjectiles,
@@ -1145,6 +1149,7 @@ function resolveAreaTransferPipeEntry(
   player: PlayerSimulationState,
   levelSpec: LevelSpec,
   movementConstants: MovementConstants,
+  spawnedActors: readonly SpawnedActor[] = [],
 ): SimulationState["pipeEntry"] {
   if (pipeEntry.phase !== PipeEntryPhase.None) {
     return pipeEntry;
@@ -1178,6 +1183,17 @@ function resolveAreaTransferPipeEntry(
     const vineTopPixelY = (vine.y - 1) * tileSize + 4;
     const vineCenterX = vine.x * tileSize + tileSize / 2;
     const playerCenterX = player.position.x + player.collider.width / 2;
+    // The warp waits for the vine itself: a still-growing beanstalk at this
+    // column must have risen to the transfer height before it carries anyone.
+    const vineActor = spawnedActors.find(
+      (actor) =>
+        actor.active &&
+        actor.role === ActorRole.Climbable &&
+        Math.floor(actor.position.x / tileSize) === vine.x,
+    );
+    if (vineActor !== undefined && vineActor.position.y > vineTopPixelY) {
+      continue;
+    }
     if (
       player.position.y <= vineTopPixelY &&
       Math.abs(playerCenterX - vineCenterX) <=

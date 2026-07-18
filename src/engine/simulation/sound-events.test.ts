@@ -72,6 +72,21 @@ function withVertical(
   });
 }
 
+function withVelocityY(
+  state: SimulationState,
+  velocityY: number,
+): SimulationState {
+  return withPrimary(state, {
+    player: {
+      ...state.players[0].player,
+      velocity: {
+        ...state.players[0].player.velocity,
+        y: velocityY as SimulationState["players"][0]["player"]["velocity"]["y"],
+      },
+    },
+  });
+}
+
 function withCollectedItem(state: SimulationState): SimulationState {
   return {
     ...state,
@@ -179,6 +194,53 @@ describe("resolveSoundEvents", () => {
         withVertical(baseState(), VerticalMovementState.Jumping),
       ),
     ).toContain(SoundEvent.Jump);
+  });
+
+  it("emits a spring-bounce event once when a fall snaps to the spring launch speed", () => {
+    const falling = withVelocityY(baseState(), 600);
+    const launched = withVelocityY(
+      withVertical(baseState(), VerticalMovementState.Jumping),
+      0 - initialMovementConstants.springLaunchSpeed,
+    );
+
+    const events = resolveSoundEvents(falling, launched);
+    expect(
+      events.filter((event) => event === SoundEvent.SpringBounce),
+    ).toHaveLength(1);
+  });
+
+  it("emits a spring-bounce event for the boosted held-jump launch", () => {
+    const falling = withVelocityY(baseState(), 600);
+    const launched = withVelocityY(
+      withVertical(baseState(), VerticalMovementState.Jumping),
+      0 - initialMovementConstants.springBoostLaunchSpeed,
+    );
+
+    expect(resolveSoundEvents(falling, launched)).toContain(
+      SoundEvent.SpringBounce,
+    );
+  });
+
+  it("does not emit a spring-bounce event for a ground jump launch", () => {
+    const launched = withVelocityY(
+      withVertical(baseState(), VerticalMovementState.Jumping),
+      0 - initialMovementConstants.springLaunchSpeed,
+    );
+
+    const events = resolveSoundEvents(baseState(), launched);
+    expect(events).toContain(SoundEvent.Jump);
+    expect(events).not.toContain(SoundEvent.SpringBounce);
+  });
+
+  it("does not re-emit a spring-bounce event while already rising", () => {
+    const rising = withVelocityY(
+      withVertical(baseState(), VerticalMovementState.Jumping),
+      0 - initialMovementConstants.springLaunchSpeed,
+    );
+
+    expect(resolveSoundEvents(rising, rising)).not.toContain(
+      SoundEvent.SpringBounce,
+    );
   });
 
   it("emits a land event when the player becomes grounded from airborne", () => {

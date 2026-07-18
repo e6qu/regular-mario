@@ -214,20 +214,9 @@ Everything from the previous "known deltas" list is now in:
   parity, editor UI for connecting walk-in pipes.
 - A human playthrough pass over the full 32-level run for feel/pacing.
 
-## Fidelity backlog (from the 2026-07-18 audit; larger items not yet done)
+## Fidelity backlog (remaining after the 2026-07-19 batch)
 
-- Vine growth: beanstalks should grow tile-by-tile to ~8 tiles with a grow
-  sound (ROM VineObjectHandler); today a single stubby climbable tile
-  transfers almost immediately.
-- Springboard feel: compression animation + an A-press during compression
-  for the super-launch tier + a bounce sound (ROM JumpspringHandler).
-- Brick shatter fragments and the 8px block-bump nudge (blocks currently
-  swap art with no motion; bricks vanish without debris).
-- Bowser identity reveal: a fireball kill in worlds 1-7 should reveal the
-  disguise enemy (ROM BowserIdentities).
 - Fire flower as a distinct stationary item when already super (block
   contents by player size); Lakitu respawn after defeat.
-- ROM-skin Bowser art is scrambled (CHR composition needs a relayout, not
-  just the missing bottom row); parody skin has proper art now.
-- Elevator shaft ropes for lift-up/lift-down planks; triangle-wave lift
-  motion (currently sine); end-of-star music warning.
+- Springboard compression squash animation (the A-boost + boing shipped).
+- A vine-grow sound event.

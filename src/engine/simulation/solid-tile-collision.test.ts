@@ -324,6 +324,42 @@ describe("solid tile collision", () => {
     });
   });
 
+  // Land a falling player on the spring block with or without jump held.
+  function bounceOnSpring(jumpHeld: boolean) {
+    const { previous: previousPlayer, moved: movedPlayer } = fallingPlayerPair({
+      previousPosition: { x: 32, y: 45 },
+      movedPosition: { x: 32, y: 49 },
+    });
+    return resolveSolidTileCollisionWithBlockBumps(
+      previousPlayer,
+      movedPlayer,
+      springBlockLevelSpec(),
+      makeEmptyBreakableBlockState(),
+      initialMovementConstants.springLaunchSpeed,
+      undefined,
+      undefined,
+      jumpHeld,
+    );
+  }
+
+  it("launches a spring bounce at the passive speed without the jump button", () => {
+    const result = bounceOnSpring(false);
+
+    expect(result.player.velocity.y).toBe(
+      0 - initialMovementConstants.springLaunchSpeed,
+    );
+    expect(result.player.movement.vertical).toBe(VerticalMovementState.Jumping);
+  });
+
+  it("launches a spring bounce at the boosted speed with the jump button held", () => {
+    const result = bounceOnSpring(true);
+
+    expect(result.player.velocity.y).toBe(
+      0 - initialMovementConstants.springBoostLaunchSpeed,
+    );
+    expect(result.player.movement.vertical).toBe(VerticalMovementState.Jumping);
+  });
+
   it("does not collide with empty tiles", () => {
     const { previous: previousPlayer, moved: movedPlayer } = fallingPlayerPair({
       previousPosition: { x: 16, y: 0 },

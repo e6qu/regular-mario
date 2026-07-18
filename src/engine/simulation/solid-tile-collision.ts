@@ -540,6 +540,12 @@ export function resolveSolidTileCollisionWithBlockBumps(
   // Tiles a god-mode player may stand ON (lava): they join the landing
   // resolution only, so lava never blocks sideways movement or head bumps.
   walkableHazardTileIds: ReadonlySet<TileId> = new Set<TileId>(),
+  // True when the jump button is down on this frame. A spring landing then
+  // launches at the boosted speed instead of the passive one (ROM
+  // JumpspringHandler: pressing A during the bounce stores the stronger $f4
+  // jumpspring force). False by default so non-input callers keep the
+  // passive bounce.
+  jumpHeld: boolean = false,
 ): {
   readonly player: PlayerSimulationState;
   readonly bumpedInteractiveBlocks: readonly TilePoint[];
@@ -551,6 +557,12 @@ export function resolveSolidTileCollisionWithBlockBumps(
       ? solidTileIds
       : new Set<TileId>([...solidTileIds, ...walkableHazardTileIds]);
   const springTileIds = makeSpringTileIds(levelSpec);
+  // The held-jump bounce speed is a fixed spring property (not a per-mode
+  // tunable like the threaded passive speed), so it comes straight from the
+  // authored movement constants.
+  const effectiveSpringLaunchSpeed = jumpHeld
+    ? initialMovementConstants.springBoostLaunchSpeed
+    : springLaunchSpeed;
   const interactiveTileIds = makeInteractiveTileIds(levelSpec);
   const breakableTileIds = makeBreakableTileIds(levelSpec);
   const hiddenTileIds = makeHiddenTileIds(levelSpec);
@@ -593,7 +605,7 @@ export function resolveSolidTileCollisionWithBlockBumps(
       springTileIds,
       breakableTileIds,
       breakableBlocks,
-      springLaunchSpeed,
+      effectiveSpringLaunchSpeed,
       hidden,
     ),
     bumpedInteractiveBlocks,

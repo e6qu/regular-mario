@@ -5,6 +5,29 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-07-19 — fidelity backlog cleared: vines grow, springs boost, blocks react
+
+- Beanstalks GROW like the ROM's VineObjectHandler: the climbable sprouts a
+  tile tall and rises ~0.5px/frame to 8 tiles (clamped under the HUD band);
+  the climbable region, the cloud-bonus transfer gate, and the stretched
+  render all follow the grown extent — you climb only as high as it has
+  grown, and the warp waits for the vine to reach it.
+
+- Springboards got the ROM feel: holding jump through the bounce launches at
+  a boosted 480 px/s (JumpspringHandler's strong force) vs the passive 360,
+  with a dedicated SpringBounce sound event and a synthesized "boing".
+
+- Blocks react like 1985: a head-bonked block hops, a shattered brick bursts
+  into four tumbling shards, and a fireball-killed keeper in worlds 1-7 is
+  revealed as that world's disguise enemy (ROM BowserIdentities) tumbling
+  off the bridge. Wrap-around elevators ride a full-height shaft cable;
+  oscillating lifts move at constant speed (sine → triangle wave, the ROM's
+  motion); the star's last second telegraphs itself with a slowed blink.
+
+- ROM skin: Bowser's CHR composition rebuilt at the true 32x32 with the
+  rear half's 8px drop (BowserGfxHandler's front/rear layout) — it was
+  32x24 with both halves level, which scrambled him.
+
 ## 2026-07-18 — fidelity sweep: boss, cutscenes, enemies, items, effects
 
 - The keep's boss finally LOOKS like a boss: authored 32x32 warden art (two
