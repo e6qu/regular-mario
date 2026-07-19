@@ -45,17 +45,11 @@ async function waitForPausedFinish(page: Page): Promise<void> {
   );
 }
 
-test("a very-top flag grab knocks the ball off and the cutscene completes", async ({
+test("a very-top flag grab keeps the ball crowning the pole while the cutscene completes", async ({
   page,
 }) => {
   await bootContentLevel(page, "smb-1-1");
   await teleport(page, smb11PoleX, 0);
-
-  // The grab at the pole tip: the ball is knocked off and tumbles away.
-  await page.waitForFunction(() => {
-    const s = window.__originalBrowserPlatformerDebug!.getSimulationSnapshot();
-    return s.cutscene.flagpoleSlide.ball.falling;
-  });
 
   // The player slides the full pole to the base and the flag lowers with him,
   // resting at the pole's bottom (just above the dismount row).
@@ -74,12 +68,10 @@ test("a very-top flag grab knocks the ball off and the cutscene completes", asyn
     return !slide.flagDropActive && (slide.flagY ?? 0) > slide.targetY - 2 * 16;
   });
 
-  // The knocked ball eventually falls off the level and disappears.
-  await page.waitForFunction(() => {
-    const s = window.__originalBrowserPlatformerDebug!.getSimulationSnapshot();
-    const ball = s.cutscene.flagpoleSlide.ball;
-    return !ball.falling && !ball.visible;
-  });
+  // The ball never moves: it stays crowning the pole, visible throughout.
+  const midCutscene = await readSimulationSnapshot(page);
+  expect(midCutscene.cutscene.flagpoleSlide.ball.falling).toBe(false);
+  expect(midCutscene.cutscene.flagpoleSlide.ball.visible).toBe(true);
 
   // The exit march: the player walks right and disappears into the castle.
   await page.waitForFunction(() => {
@@ -93,7 +85,7 @@ test("a very-top flag grab knocks the ball off and the cutscene completes", asyn
   await expect(page.getByRole("button", { name: /Next level/ })).toBeVisible();
 });
 
-test("a low flag grab also drops the ball, lowers the flag and walks off", async ({
+test("a low flag grab lowers the flag and walks off, ball untouched", async ({
   page,
 }) => {
   await bootContentLevel(page, "smb-1-1");
@@ -102,9 +94,9 @@ test("a low flag grab also drops the ball, lowers the flag and walks off", async
   await waitForPausedFinish(page);
   const finished = await readSimulationSnapshot(page);
   const slide = finished.cutscene.flagpoleSlide;
-  // Any pole grab knocks the crowning ball off (it falls out of the level).
+  // The crowning ball never leaves the pole tip.
   expect(slide.ball.falling).toBe(false);
-  expect(slide.ball.visible).toBe(false);
+  expect(slide.ball.visible).toBe(true);
   // The flag lowered all the way to the pole bottom, past the low grab point.
   expect(slide.flagDropActive).toBe(false);
   expect(slide.flagY ?? 0).toBeGreaterThan(smb11LowGrabY);

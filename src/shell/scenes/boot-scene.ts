@@ -205,7 +205,7 @@ const scoreBadgeStrokeColor = 0xf59e0b;
 const scoreGemX = 8;
 const scoreGemY = 6;
 const scoreGemSize = 8;
-const flagpoleSlideSpeedPixels = 4;
+const flagpoleSlideSpeedPixels = 2;
 // The standard on-ground actor sprite height; taller sprites are bottom-aligned
 // to this baseline so their feet rest on the ground.
 const groundedActorSpriteHeightPixels = 16;
@@ -879,9 +879,7 @@ export class BootScene extends Phaser.Scene {
     | undefined = undefined;
   private flagpoleFlagBaseY = 0;
   // The decorative ball crowning the pole; a grab at the very top knocks it
-  // off (flagpoleBallFall holds its tumble velocity while falling).
   private flagpoleBallObject: Phaser.GameObjects.Arc | undefined = undefined;
-  private flagpoleBallFall: { vx: number; vy: number } | undefined = undefined;
   private flagpoleFlagDropActive = false;
   // Rest positions of the furniture, so a same-level retry (which does not
   // rebuild the level objects) can put the flag and ball back.
@@ -890,6 +888,7 @@ export class BootScene extends Phaser.Scene {
   // The end-of-level exit march: after the slide the player walks right into
   // the castle doorway and disappears.
   private flagpoleWalkOffActive = false;
+  private flagpoleDismountHoldFramesRemaining = 0;
   // The hero finished the march and is inside the castle: the final paused
   // tableau keeps the sprite hidden (scrubbing earlier frames re-shows it).
   private flagpoleWalkOffCompleted = false;
@@ -2274,13 +2273,6 @@ export class BootScene extends Phaser.Scene {
       Math.floor(this.playerRectangle.y / tileSizePixels),
     );
 
-    // Grabbing the pole knocks the crowning ball off — it pops and tumbles
-    // down while the player slides. Set before any dismount bail so even a
-    // pole with no reachable base still reacts.
-    const ballKnocked = this.flagpoleBallObject !== undefined;
-    if (ballKnocked) {
-      this.flagpoleBallFall = { ...flagpoleBallKnockVelocity };
-    }
     // The flag always lowers fully to the base, as in the original — even when
     // the player grabbed low (or at the base) and barely slides themselves.
     this.flagpoleFlagDropActive = this.flagObject !== undefined;
@@ -2315,7 +2307,6 @@ export class BootScene extends Phaser.Scene {
     this.levelAdvanceDelayFramesRemaining = Math.max(
       this.levelAdvanceDelayFramesRemaining,
       flagDropFrames,
-      ballKnocked ? flagpoleBallFallBudgetFrames : 0,
     );
 
     if (groundRow === undefined) {
@@ -2323,9 +2314,24 @@ export class BootScene extends Phaser.Scene {
     }
     const baseY = groundRow * tileSizePixels - colliderHeight;
     if (this.playerRectangle.y >= baseY - 1) {
-      // Already at the base — no slide needed; walk straight off to the
-      // castle.
-      this.beginFlagpoleWalkOff(this.playerRectangle.x, this.playerRectangle.y);
+      // Already at the base — no slide, but the ROM still takes its flip-and-
+      // hold beat before the walk-off.
+      this.flagpoleSlideColumnX = column * tileSizePixels;
+      this.flagpoleSlideTargetY = this.playerRectangle.y;
+      this.positionPlayerSpriteAt(
+        this.flagpoleSlideColumnX + tileSizePixels / 2,
+        this.playerRectangle.y,
+      );
+      this.playerImageObject?.setFlipX(true);
+      this.flagpoleDismountHoldFramesRemaining = flagpoleDismountHoldFrames;
+      this.levelAdvanceDelayFramesRemaining = Math.max(
+        this.levelAdvanceDelayFramesRemaining,
+        flagpoleDismountHoldFrames +
+          Math.ceil(
+            flagpoleWalkOffDistancePixels / flagpoleWalkOffSpeedPixels,
+          ) +
+          flagpoleFinishTailFrames,
+      );
       return;
     }
 
@@ -2335,6 +2341,7 @@ export class BootScene extends Phaser.Scene {
     // Keep the level open for the slide AND the walk-off that follows it.
     const slideFrames =
       Math.ceil((baseY - this.playerRectangle.y) / flagpoleSlideSpeedPixels) +
+      flagpoleDismountHoldFrames +
       Math.ceil(flagpoleWalkOffDistancePixels / flagpoleWalkOffSpeedPixels) +
       flagpoleFinishTailFrames;
     this.levelAdvanceDelayFramesRemaining = Math.max(
@@ -2515,21 +2522,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   // The knocked-off ball tumbles under gravity until it leaves the level.
-  private stepFlagpoleBallFall(): void {
-    const ball = this.flagpoleBallObject;
-    const fall = this.flagpoleBallFall;
-    if (ball === undefined || fall === undefined) {
-      return;
-    }
-    fall.vy += flagpoleBallFallGravityPixels;
-    ball.x += fall.vx;
-    ball.y += fall.vy;
-    if (ball.y > this.levelSpec.heightTiles * this.levelSpec.tileSizePixels) {
-      ball.setVisible(false);
-      this.flagpoleBallFall = undefined;
-    }
-  }
-
   // The flag drops down the pole to its base, alongside (and independent of)
   // the player's own slide — the original lowers it fully on any grab height.
   private stepFlagpoleFlagDrop(): void {
@@ -2546,7 +2538,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   private stepFlagpoleSlide(): void {
-    this.stepFlagpoleBallFall();
     this.stepFlagpoleFlagDrop();
     this.stepFlagpoleWalkOff();
     this.stepCastleFlagRise();
@@ -2558,6 +2549,18 @@ export class BootScene extends Phaser.Scene {
     this.stepBlockNudges();
     this.spawnSpringSquash();
     this.stepSpringSquashes();
+    if (this.flagpoleDismountHoldFramesRemaining > 0) {
+      // The ROM's dismount beat: hang at the base a moment, flipped to the
+      // pole's far side, before hopping off toward the castle.
+      this.flagpoleDismountHoldFramesRemaining -= 1;
+      if (this.flagpoleDismountHoldFramesRemaining === 0) {
+        this.beginFlagpoleWalkOff(
+          this.flagpoleSlideColumnX + this.levelSpec.tileSizePixels / 2,
+          this.flagpoleSlideTargetY,
+        );
+      }
+      return;
+    }
     if (!this.flagpoleSlideActive) {
       return;
     }
@@ -2568,8 +2571,13 @@ export class BootScene extends Phaser.Scene {
     this.positionPlayerSpriteAt(this.flagpoleSlideColumnX, nextY);
     if (nextY >= this.flagpoleSlideTargetY) {
       this.flagpoleSlideActive = false;
-      // Dismount at the base and march off to the castle.
-      this.beginFlagpoleWalkOff(this.flagpoleSlideColumnX, nextY);
+      // Reaching the base: flip to the pole's far side and hold the beat.
+      this.positionPlayerSpriteAt(
+        this.flagpoleSlideColumnX + this.levelSpec.tileSizePixels / 2,
+        nextY,
+      );
+      this.playerImageObject?.setFlipX(true);
+      this.flagpoleDismountHoldFramesRemaining = flagpoleDismountHoldFrames;
     }
   }
 
@@ -2806,11 +2814,11 @@ export class BootScene extends Phaser.Scene {
   private renderFlagpoleFurniture(): void {
     this.flagObject = undefined;
     this.flagpoleBallObject = undefined;
-    this.flagpoleBallFall = undefined;
     this.flagpoleFlagDropActive = false;
     this.flagpoleSlideActive = false;
     this.flagpoleWalkOffActive = false;
     this.flagpoleWalkOffCompleted = false;
+    this.flagpoleDismountHoldFramesRemaining = 0;
     // A finished walk-off hid the sprite at the castle doorway; the rebuild
     // (next level / retry) brings the player back.
     this.playerImageObject?.setVisible(true);
@@ -2887,7 +2895,6 @@ export class BootScene extends Phaser.Scene {
     this.flagpoleSlideActive = false;
     this.flagpoleFlagDropActive = false;
     this.flagpoleWalkOffActive = false;
-    this.flagpoleBallFall = undefined;
     if (this.flagObject !== undefined) {
       this.flagObject.y = this.flagpoleFlagHomeY;
     }
@@ -3899,12 +3906,6 @@ export class BootScene extends Phaser.Scene {
       this.stepTimeBonusCountdown();
 
       if (this.levelAdvanceDelayFramesRemaining === 0) {
-        // The cutscene ends here: a still-tumbling pole ball would freeze
-        // mid-air in the final tableau — it was leaving the screen anyway.
-        if (this.flagpoleBallFall !== undefined) {
-          this.flagpoleBallObject?.setVisible(false);
-          this.flagpoleBallFall = undefined;
-        }
         this.advanceToNextLevel();
         // A level end with no next level to advance to opens the replay menu
         // (advanceToNextLevel leaves the finished outcome in place).
@@ -6785,7 +6786,7 @@ export class BootScene extends Phaser.Scene {
             flagDropActive: this.flagpoleFlagDropActive,
             ball: {
               present: this.flagpoleBallObject !== undefined,
-              falling: this.flagpoleBallFall !== undefined,
+              falling: false,
               visible: this.flagpoleBallObject?.visible ?? false,
               y: this.flagpoleBallObject?.y,
             },
@@ -9212,12 +9213,11 @@ const flagpoleFurnitureDepth = 5;
 // at this size; the slide caps its drop above the ground line with it).
 const flagpoleFlagHeightRatio = 0.9;
 // Knocking the top ball off: it pops up-and-away, then falls under gravity.
-const flagpoleBallKnockVelocity = { vx: 0.9, vy: -2.2 } as const;
-const flagpoleBallFallGravityPixels = 0.28;
 // Post-animation grace and the frames budgeted for a knocked ball to clear
 // even a tall level, so the finish overlay never freezes them mid-air.
 const flagpoleFinishTailFrames = 24;
-const flagpoleBallFallBudgetFrames = 90;
+// The ROM's pause at the pole base before the hop-off-and-walk.
+const flagpoleDismountHoldFrames = 26;
 // The exit march to the castle doorway: distance walked and walking speed.
 const flagpoleWalkOffDistancePixels = 96;
 // The castle flag's rise after the hero enters the doorway.
