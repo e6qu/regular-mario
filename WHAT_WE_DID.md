@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-04 — real-server multiplayer browser QA
+
+- Added a separate Playwright configuration that launches the production-built
+  standalone service, with no Vite preview substitution. The two-client journey
+  proves password login, profile edits, level selection, create/join/start,
+  keyboard input, game chat, semantic game-layout JSON, and a desktop capture.
+  The administrator journey logs in separately, pauses/steps/resumes that game,
+  and captures a 390×844 mobile view. Both journeys pass.
+
 ## 2026-08-04 — multiplayer leave lifecycle
 
 - Added a deliberate Leave game operation through browser, HTTP, service,

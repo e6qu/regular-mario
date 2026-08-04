@@ -57,6 +57,10 @@ export type MultiplayerService = {
     token: string | undefined,
     nowMilliseconds: number,
   ): readonly PublicGameSummary[];
+  activeGame(
+    token: string | undefined,
+    nowMilliseconds: number,
+  ): PublicGameSummary | undefined;
   levels(
     token: string | undefined,
     nowMilliseconds: number,
@@ -269,6 +273,13 @@ export function makeMultiplayerService(
     games(token, nowMilliseconds) {
       requirePlayerProfile(token, nowMilliseconds);
       return lobby.games();
+    },
+    activeGame(token, nowMilliseconds) {
+      const profile = requirePlayerProfile(token, nowMilliseconds);
+      const gameId = lobby.gameForPlayer(profile.playerId);
+      return gameId === undefined
+        ? undefined
+        : lobby.games().find((game) => game.gameId === gameId);
     },
     levels(token, nowMilliseconds) {
       requirePlayerProfile(token, nowMilliseconds);

@@ -60,6 +60,21 @@ export function makeLobbyLayout(
   ]);
 }
 
+export function makeGameLayout(
+  profile: MultiplayerPlayerProfile,
+  game: PublicGameSummary,
+): SemanticUiNode {
+  return node("main", "Multiplayer game", [
+    node("heading", `${game.levelId} (${game.mode})`),
+    node("status", `Game ${game.gameId}: ${game.phase}`),
+    node("img", "Authoritative multiplayer game view", [], "game.canvas"),
+    node("log", "Game chat", [], "chat.game"),
+    node("button", "Send game chat", [], "chat.game.send"),
+    node("button", "Leave game", [], "game.leave"),
+    node("status", `Playing as ${profile.nickname}`),
+  ]);
+}
+
 export function makeAdminLayout(
   games: readonly PublicGameSummary[],
 ): SemanticUiNode {

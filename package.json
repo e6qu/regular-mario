@@ -35,6 +35,7 @@
     "typecheck": "tsc --build --pretty false",
     "test": "vitest run",
     "test:browser": "pnpm run build && env -u NO_COLOR playwright test",
+    "test:multiplayer-browser": "pnpm run build && pnpm run build:server && env -u NO_COLOR playwright test -c playwright.multiplayer.config.ts",
     "check": "pnpm run check:dependency-policy && pnpm run check:repository-content && pnpm run check:transitive-licenses && pnpm run audit:vulnerabilities && pnpm run format:check && pnpm run lint && pnpm run dead-code && pnpm run copy-paste && pnpm run typecheck && pnpm run test && pnpm run build",
     "check:dependency-policy": "node scripts/check-dependency-policy.mjs",
     "check:repository-content": "node scripts/check-repository-content-policy.mjs",

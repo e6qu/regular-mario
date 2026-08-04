@@ -73,6 +73,11 @@ What exists now:
   three validated authored levels—Shoreline Sprint, Cavern Route, and Coinbox
   Crossing—so the selected level is also the exact level used for prediction.
 
+- **Real-server browser QA (2026-08-04).** A dedicated Playwright configuration
+  builds and launches the standalone service, then proves two isolated browser
+  contexts can create/join/start/input/chat and inspect semantic game layout;
+  it also proves admin pause/step/resume and captures desktop/mobile screens.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

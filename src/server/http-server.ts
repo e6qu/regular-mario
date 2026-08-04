@@ -5,14 +5,19 @@ import {
   type ServerResponse,
 } from "node:http";
 import { readFile } from "node:fs/promises";
-import { resolve, sep } from "node:path";
+import { extname, resolve, sep } from "node:path";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { bundledMultiplayerLevels } from "../multiplayer/bundled-levels";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
-import { makeAdminLayout, makeLobbyLayout, makeLoginLayout } from "./layout";
+import {
+  makeAdminLayout,
+  makeGameLayout,
+  makeLobbyLayout,
+  makeLoginLayout,
+} from "./layout";
 import {
   makeMultiplayerService,
   type MakeMultiplayerServiceConfig,
@@ -133,6 +138,25 @@ function clearedCookie(name: string, secureCookies: boolean): string {
   return `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureCookies ? "; Secure" : ""}`;
 }
 
+function staticContentType(path: string): string {
+  switch (extname(path)) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".png":
+      return "image/png";
+    case ".svg":
+      return "image/svg+xml";
+    default:
+      return "application/octet-stream";
+  }
+}
+
 function makeDefaultServiceConfig(
   config: MakeMultiplayerServiceConfig,
 ): MakeMultiplayerServiceConfig {
@@ -249,10 +273,13 @@ export function makeMultiplayerHttpServer(
         } catch {
           try {
             const profile = service.requirePlayer(playerToken, now());
+            const activeGame = service.activeGame(playerToken, now());
             json(
               response,
               200,
-              makeLobbyLayout(profile, service.games(playerToken, now())),
+              activeGame === undefined
+                ? makeLobbyLayout(profile, service.games(playerToken, now()))
+                : makeGameLayout(profile, activeGame),
             );
           } catch {
             json(response, 200, makeLoginLayout());
@@ -422,7 +449,9 @@ export function makeMultiplayerHttpServer(
           return;
         }
         const body = await readFile(filePath);
-        response.writeHead(200);
+        response.writeHead(200, {
+          "content-type": staticContentType(filePath),
+        });
         response.end(body);
         return;
       }

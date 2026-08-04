@@ -11,7 +11,12 @@ import {
   MultiplayerGamePhase,
   type MultiplayerPlayerProfile,
 } from "../multiplayer/game-runner";
-import { makeAdminLayout, makeLobbyLayout, makeLoginLayout } from "./layout";
+import {
+  makeAdminLayout,
+  makeGameLayout,
+  makeLobbyLayout,
+  makeLoginLayout,
+} from "./layout";
 
 const profile: MultiplayerPlayerProfile = {
   playerId: requireMultiplayerPlayerId("mira"),
@@ -42,5 +47,9 @@ describe("semantic multiplayer layout", () => {
       true,
     );
     expect(makeAdminLayout([game])).toMatchObject({ role: "main" });
+    expect(makeGameLayout(profile, game)).toMatchObject({
+      role: "main",
+      label: "Multiplayer game",
+    });
   });
 });
