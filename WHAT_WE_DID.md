@@ -34,6 +34,13 @@ committed — only numeric metadata, code, docs, and scripts.
   completed screen briefly, then returns to the lobby. Focused runner/lobby/
   service tests, lint, typecheck, and production browser/server builds pass.
 
+## 2026-08-04 — remote snapshot interpolation
+
+- Added a small pure remote-player interpolator with a 100 ms render buffer,
+  midpoint and late-packet-clamp unit coverage, and browser-canvas integration.
+  Local prediction remains separate and authoritative positions still win on
+  reconciliation. Lint, typecheck, focused tests, and production build pass.
+
 ## 2026-08-04 — dependency security maintenance
 
 - Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,

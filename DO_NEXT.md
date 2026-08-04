@@ -39,10 +39,10 @@
   every finished game's memberships. Next, add remote-player interpolation,
   local audio derivation, and browser-level multi-client proof of this handoff.
 
-- Live keyboard prediction is now connected to the supported first authored
-  server level. Generalise that predictor as the server catalogue grows, add
-  interpolation for non-local players, and consume pushed snapshots rather
-  than relying only on the current polling fallback.
+- Live keyboard prediction, pushed snapshots, and 100 ms remote interpolation
+  are now connected to the supported first authored server level. Next add
+  local audio derivation, grow the server catalogue, and write two-client
+  Playwright journeys with injected network delay.
 
 - Security maintenance is current as of 2026-08-04: Vite 8.2.0, ESLint 10.8.0,
   and a lockfile-scoped `brace-expansion` 5.0.9 override leave the dependency

@@ -60,6 +60,11 @@ What exists now:
   prediction. Each authoritative acknowledgement reconciles the local player
   and replays remaining inputs before canvas rendering.
 
+- **Remote interpolation wired (2026-08-04).** Non-local players render from
+  a 100 ms buffered interpolation of the 20 Hz authoritative snapshot stream,
+  avoiding visible packet-rate stepping while retaining safe clamping under
+  delayed updates.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

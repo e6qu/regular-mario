@@ -92,6 +92,10 @@ function renderGameCanvas(
   snapshot: GameSnapshot,
   playerId: string,
   predictedPosition: { readonly x: number; readonly y: number } | undefined,
+  remotePositions: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >,
 ): void {
   context.fillStyle = "#70b7e6";
   context.fillRect(0, 0, multiplayerCanvasWidth, multiplayerCanvasHeight);
@@ -101,7 +105,7 @@ function renderGameCanvas(
     const position =
       player.playerId === playerId && predictedPosition !== undefined
         ? predictedPosition
-        : player;
+        : (remotePositions.get(player.playerId) ?? player);
     context.fillStyle = player.playerId === playerId ? "#ffd54a" : "#f06d8f";
     context.fillRect(position.x * 3, position.y * 3, 28, 32);
     context.fillStyle = "#0b0f19";
@@ -302,6 +306,7 @@ function renderGame(
     firstAuthoredLevelSpec(),
     initialMovementConstants,
   );
+  const remoteInterpolator = makeRemotePlayerInterpolator(100);
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -309,6 +314,10 @@ function renderGame(
   socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(socketUrl);
   function displaySnapshot(snapshot: GameSnapshot): void {
+    remoteInterpolator.push(
+      snapshot.players.filter((player) => player.playerId !== profile.playerId),
+      performance.now(),
+    );
     const local = snapshot.players.find(
       (player) => player.playerId === profile.playerId,
     );
@@ -328,6 +337,7 @@ function renderGame(
             x: Number(localRuntime.player.position.x),
             y: Number(localRuntime.player.position.y),
           },
+      remoteInterpolator.positions(performance.now()),
     );
     if (snapshot.phase === "finished") {
       window.clearInterval(interval);
@@ -597,3 +607,4 @@ import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
 import { makeClientPrediction } from "../multiplayer/client-prediction";
+import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
