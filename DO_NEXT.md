@@ -35,6 +35,10 @@
   interpolation/local prediction, add admin UI controls, and write two-client
   Playwright journeys (including screenshots and injected network delay).
 
+- Deliberate leave is now implemented. Next lifecycle work is completion:
+  broadcast and retain the final authoritative snapshot long enough to show the
+  result, then return every member to the lobby and release all game slots.
+
 - Security maintenance is current as of 2026-08-04: Vite 8.2.0, ESLint 10.8.0,
   and a lockfile-scoped `brace-expansion` 5.0.9 override leave the dependency
   vulnerability audit clean. Preserve that override until `typescript-eslint`

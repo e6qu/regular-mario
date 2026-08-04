@@ -72,6 +72,7 @@ export type MultiplayerService = {
     gameId: string,
     nowMilliseconds: number,
   ): PublicGameSummary;
+  leaveGame(token: string | undefined, nowMilliseconds: number): void;
   startGame(
     token: string | undefined,
     gameId: string,
@@ -288,6 +289,9 @@ export function makeMultiplayerService(
         requirePlayerProfile(token, nowMilliseconds),
         requireMultiplayerGameId(gameId),
       );
+    },
+    leaveGame(token, nowMilliseconds) {
+      lobby.leaveGame(requirePlayerProfile(token, nowMilliseconds).playerId);
     },
     startGame(token, gameId, nowMilliseconds) {
       const profile = requirePlayerProfile(token, nowMilliseconds);

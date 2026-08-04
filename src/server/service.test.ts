@@ -91,4 +91,15 @@ describe("multiplayer service", () => {
     service.recordScreenshot(player.token, game.gameId, screenshot, 0);
     expect(service.adminScreenshot(admin, game.gameId, 0)).toBe(screenshot);
   });
+
+  it("releases a player slot when a player deliberately leaves", () => {
+    const service = makeService();
+    const player = service.loginPlayer("friends", 0);
+    service.createGame(player.token, "first-authored", "regular", 0);
+    service.leaveGame(player.token, 1);
+    expect(service.games(player.token, 1)).toEqual([]);
+    expect(
+      service.createGame(player.token, "first-authored", "revenge", 1).mode,
+    ).toBe("revenge");
+  });
 });

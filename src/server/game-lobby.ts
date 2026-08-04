@@ -56,6 +56,7 @@ export type MultiplayerLobby = {
     player: MultiplayerPlayerProfile,
     gameId: MultiplayerGameId,
   ): PublicGameSummary;
+  leaveGame(playerId: MultiplayerPlayerId): void;
   updatePlayerProfile(player: MultiplayerPlayerProfile): void;
   startGame(
     playerId: MultiplayerPlayerId,
@@ -183,6 +184,20 @@ export function makeMultiplayerLobby(
       game.runner.join(player);
       gameIdByPlayerId.set(player.playerId, gameId);
       return summary(gameId, game);
+    },
+    leaveGame(playerId) {
+      const gameId = gameIdByPlayerId.get(playerId);
+      if (gameId === undefined) {
+        return;
+      }
+      const game = requireGame(gameId);
+      if (game.runner.snapshot().players.length === 1) {
+        gamesById.delete(gameId);
+        gameIdByPlayerId.delete(playerId);
+        return;
+      }
+      game.runner.leave(playerId);
+      gameIdByPlayerId.delete(playerId);
     },
     updatePlayerProfile(player) {
       const gameId = gameIdByPlayerId.get(player.playerId);

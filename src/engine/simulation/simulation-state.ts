@@ -147,6 +147,31 @@ export function appendSimulationPlayerAt(
   };
 }
 
+/** Remove a co-op player when its network member deliberately leaves. */
+export function removeSimulationPlayerAt(
+  state: SimulationState,
+  playerIndex: number,
+): SimulationState {
+  if (!Number.isInteger(playerIndex) || playerIndex < 0) {
+    throw new Error("Simulation player index must be a non-negative integer.");
+  }
+  if (state.players.length <= 1) {
+    throw new Error("Simulation must retain at least one player.");
+  }
+  if (playerIndex >= state.players.length) {
+    throw new Error("Simulation player index is outside the player list.");
+  }
+  const players = state.players.filter((_, index) => index !== playerIndex);
+  const firstPlayer = players[0];
+  if (firstPlayer === undefined) {
+    throw new Error("Simulation must retain at least one player.");
+  }
+  return {
+    ...state,
+    players: [firstPlayer, ...players.slice(1)] as SimulationPlayers,
+  };
+}
+
 // Build a runtime for an additional co-op player from its kinematics. Co-op
 // players currently carry only kinematics; their vitality/outcome/reaction are
 // neutral (they use only the shared movement + the death/goal rules so far).

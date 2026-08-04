@@ -341,6 +341,12 @@ export function makeMultiplayerHttpServer(
           return;
         }
       }
+      if (request.method === "POST" && url.pathname === "/api/game/leave") {
+        service.leaveGame(playerToken, now());
+        json(response, 200, { ok: true });
+        broadcast({ type: "games-changed" });
+        return;
+      }
       const adminMatch =
         /^\/api\/admin\/games\/([a-z][a-z0-9-]*)\/(pause|resume|step|screenshot)$/.exec(
           url.pathname,

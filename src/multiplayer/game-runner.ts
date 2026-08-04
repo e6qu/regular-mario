@@ -7,6 +7,7 @@ import {
 } from "../engine/simulation/input-command";
 import {
   appendSimulationPlayerAt,
+  removeSimulationPlayerAt,
   type SimulationState,
 } from "../engine/simulation/simulation-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
@@ -67,6 +68,7 @@ export type AuthoritativeGameSnapshot = {
 
 export type AuthoritativeGameRunner = {
   join(player: MultiplayerPlayerProfile): AuthoritativeGameSnapshot;
+  leave(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   updateProfile(player: MultiplayerPlayerProfile): AuthoritativeGameSnapshot;
   start(requestedBy: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   pause(): AuthoritativeGameSnapshot;
@@ -233,6 +235,19 @@ export function makeAuthoritativeGameRunner(
       state = appendSimulationPlayerAt(state, { x: spawnX, y: spawnY });
       players = [...players, { ...player, slot: players.length }];
       commandByPlayerId.set(player.playerId, neutralCommand);
+      return makeSnapshot();
+    },
+    leave(playerId) {
+      const leaving = requirePlayer(playerId);
+      if (players.length <= 1) {
+        throw new Error("The final player must end the game instead.");
+      }
+      state = removeSimulationPlayerAt(state, leaving.slot);
+      players = players
+        .filter((candidate) => candidate.playerId !== playerId)
+        .map((candidate, slot) => ({ ...candidate, slot }));
+      commandByPlayerId.delete(playerId);
+      acknowledgedInputSequenceByPlayerId.delete(playerId);
       return makeSnapshot();
     },
     updateProfile(player) {

@@ -266,7 +266,12 @@ function renderGame(
       chatInput.value = "";
     }),
   );
-  panel.append(makeButton("Return to lobby", () => renderLobby(mount)));
+  panel.append(
+    makeButton("Leave game", async () => {
+      await requestJson("/game/leave", { method: "POST" });
+      await renderLobby(mount);
+    }),
+  );
   mount.append(panel);
 
   let sequence = 0;

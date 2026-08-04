@@ -91,4 +91,26 @@ describe("public multiplayer lobby", () => {
       "members",
     );
   });
+
+  it("lets a player leave to join another game and removes an empty game", () => {
+    const lobby = makeLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const first = lobby.createGame(
+      mira,
+      "first-authored",
+      MultiplayerGameMode.Regular,
+    );
+    lobby.joinGame(ren, first.gameId);
+    lobby.leaveGame(ren.playerId);
+    expect(lobby.gameForPlayer(ren.playerId)).toBeUndefined();
+    const second = lobby.createGame(
+      ren,
+      "first-authored",
+      MultiplayerGameMode.Regular,
+    );
+    expect(second.playerCount).toBe(1);
+    lobby.leaveGame(mira.playerId);
+    expect(lobby.games().map((game) => game.gameId)).toEqual([second.gameId]);
+  });
 });

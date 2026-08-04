@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-04 — multiplayer leave lifecycle
+
+- Added a deliberate Leave game operation through browser, HTTP, service,
+  lobby, authoritative runner, and deterministic simulation layers. Departing
+  members are removed and remaining simulation slots are compacted coherently;
+  the final departure clears its ephemeral game and releases the one-game
+  membership restriction. Focused runner/lobby/service tests, lint, typecheck,
+  and production server build pass.
+
 ## 2026-08-04 — dependency security maintenance
 
 - Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,

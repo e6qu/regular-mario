@@ -55,6 +55,11 @@ What exists now:
   Phaser rendering parity, selectable level/mode UI, and browser journeys are
   still pending.
 
+- **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
+  the member from the authoritative simulation, frees their one-game slot, and
+  removes a game when its final member leaves. The browser exposes this as an
+  explicit Leave game action.
+
 - **Dependency-security maintenance (2026-08-04).** Updated Vite to 8.2.0 and
   ESLint to 10.8.0, and scoped the vulnerable TypeScript-ESLint transitive
   `brace-expansion` edge to patched 5.0.9. Dependency policy and vulnerability
