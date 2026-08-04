@@ -11,14 +11,21 @@ import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { bundledMultiplayerLevels } from "../multiplayer/bundled-levels";
-import { multiplayerSnapshotFramesPerSecond } from "../multiplayer/domain";
+import {
+  multiplayerSnapshotFramesPerSecond,
+  requireMultiplayerPlayerId,
+} from "../multiplayer/domain";
+import type { QueuedSimulationInput } from "../multiplayer/input-queue";
+import { requireMultiplayerProtocolVersion } from "../multiplayer/protocol";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 import {
   makeAdminLayout,
+  makeAdminLoginLayout,
   makeGameLayout,
   makeLobbyLayout,
   makeLoginLayout,
 } from "./layout";
+import { makeLoginAttemptLimiter } from "./login-attempt-limiter";
 import {
   makeMultiplayerService,
   type MakeMultiplayerServiceConfig,
@@ -26,7 +33,6 @@ import {
 } from "./service";
 
 const jsonBodyMaximumBytes = 64 * 1024;
-const multiplayerProtocolVersion = "1";
 const loginAttemptWindowMilliseconds = 60_000;
 const maximumLoginAttemptsPerWindow = 5;
 const snapshotBroadcastIntervalMilliseconds =
@@ -102,6 +108,43 @@ function requireString(record: JsonRecord, key: string): string {
     throw new Error(`${key} must be a string.`);
   }
   return value;
+}
+
+function requireQueuedInput(
+  record: JsonRecord,
+  playerId: QueuedSimulationInput["playerId"],
+  receivedAtMilliseconds: number,
+): QueuedSimulationInput {
+  const commandResult = makeSimulationInputCommand(
+    record["horizontal"],
+    record["jumpPressed"],
+    record["runHeld"],
+    record["firePressed"],
+    record["upHeld"],
+    record["downHeld"],
+  );
+  if (!commandResult.ok) {
+    throw new Error(
+      commandResult.errors.map((error) => error.message).join(" "),
+    );
+  }
+  const sequence = record["sequence"];
+  const intendedFrame = record["intendedFrame"];
+  if (
+    typeof sequence !== "number" ||
+    typeof intendedFrame !== "number" ||
+    !Number.isSafeInteger(sequence) ||
+    !Number.isSafeInteger(intendedFrame)
+  ) {
+    throw new Error("Input sequence and intendedFrame must be safe integers.");
+  }
+  return {
+    playerId,
+    sequence,
+    intendedFrame,
+    receivedAtMilliseconds,
+    command: commandResult.value,
+  };
 }
 
 async function readJsonBody(request: IncomingMessage): Promise<JsonRecord> {
@@ -186,7 +229,10 @@ export function makeMultiplayerHttpServer(
     makeDefaultServiceConfig(config.service),
   );
   const socketsByPlayerId = new Map<string, Set<WebSocket>>();
-  const failedLoginTimesByAddress = new Map<string, readonly number[]>();
+  const loginAttemptLimiter = makeLoginAttemptLimiter(
+    maximumLoginAttemptsPerWindow,
+    loginAttemptWindowMilliseconds,
+  );
   const profileBySocket = new WeakMap<
     WebSocket,
     ReturnType<MultiplayerService["requirePlayer"]>
@@ -249,13 +295,10 @@ export function makeMultiplayerHttpServer(
     const adminToken = cookies.get(adminCookieName);
     const address = request.socket.remoteAddress ?? "unknown";
     try {
-      if (
-        url.pathname.startsWith("/api/") &&
-        url.pathname !== "/api/health" &&
-        request.headers["x-multiplayer-protocol-version"] !==
-          multiplayerProtocolVersion
-      ) {
-        throw new Error("Unsupported multiplayer protocol version.");
+      if (url.pathname.startsWith("/api/") && url.pathname !== "/api/health") {
+        requireMultiplayerProtocolVersion(
+          request.headers["x-multiplayer-protocol-version"],
+        );
       }
       if (request.method === "GET" && url.pathname === "/api/health") {
         json(response, 200, { ok: true });
@@ -263,15 +306,7 @@ export function makeMultiplayerHttpServer(
       }
       if (request.method === "POST" && url.pathname === "/api/login") {
         const currentTime = now();
-        const recentFailures = (
-          failedLoginTimesByAddress.get(address) ?? []
-        ).filter(
-          (attemptedAt) =>
-            currentTime - attemptedAt < loginAttemptWindowMilliseconds,
-        );
-        if (recentFailures.length >= maximumLoginAttemptsPerWindow) {
-          throw new Error("Too many password attempts. Try again shortly.");
-        }
+        loginAttemptLimiter.assertAllowed(address, currentTime);
         let loggedIn;
         try {
           loggedIn = service.loginPlayer(
@@ -279,13 +314,10 @@ export function makeMultiplayerHttpServer(
             currentTime,
           );
         } catch (error) {
-          failedLoginTimesByAddress.set(address, [
-            ...recentFailures,
-            currentTime,
-          ]);
+          loginAttemptLimiter.recordFailure(address, currentTime);
           throw error;
         }
-        failedLoginTimesByAddress.delete(address);
+        loginAttemptLimiter.reset(address);
         response.setHeader(
           "set-cookie",
           sessionCookie(loggedIn.token, config.secureCookies),
@@ -332,7 +364,13 @@ export function makeMultiplayerHttpServer(
                 : makeGameLayout(profile, activeGame),
             );
           } catch {
-            json(response, 200, makeLoginLayout());
+            json(
+              response,
+              200,
+              url.searchParams.get("screen") === "admin"
+                ? makeAdminLoginLayout()
+                : makeLoginLayout(),
+            );
           }
         }
         return;
@@ -443,7 +481,7 @@ export function makeMultiplayerHttpServer(
         return;
       }
       const adminMatch =
-        /^\/api\/admin\/games\/([a-z][a-z0-9-]*)\/(pause|resume|step|screenshot)$/.exec(
+        /^\/api\/admin\/games\/([a-z][a-z0-9-]*)\/(pause|resume|step|input|screenshot)$/.exec(
           url.pathname,
         );
       if (adminMatch !== null) {
@@ -461,6 +499,24 @@ export function makeMultiplayerHttpServer(
         }
         if (request.method === "POST" && action === "step") {
           json(response, 200, service.adminStep(adminToken, gameId, now()));
+          return;
+        }
+        if (request.method === "POST" && action === "input") {
+          const body = await readJsonBody(request);
+          json(
+            response,
+            200,
+            service.adminSubmitInput(
+              adminToken,
+              gameId,
+              requireQueuedInput(
+                body,
+                requireMultiplayerPlayerId(requireString(body, "playerId")),
+                now(),
+              ),
+              now(),
+            ),
+          );
           return;
         }
         if (request.method === "GET" && action === "screenshot") {
@@ -572,44 +628,12 @@ export function makeMultiplayerHttpServer(
           throw new Error("WebSocket message must be an object.");
         }
         const type = requireString(message, "type");
-        if (message["protocolVersion"] !== multiplayerProtocolVersion) {
-          throw new Error("Unsupported multiplayer protocol version.");
-        }
+        requireMultiplayerProtocolVersion(message["protocolVersion"]);
         const token = parseCookies(request).get(sessionCookieName);
         if (type === "input") {
-          const commandResult = makeSimulationInputCommand(
-            message["horizontal"],
-            message["jumpPressed"],
-            message["runHeld"],
-            message["firePressed"],
-            message["upHeld"],
-            message["downHeld"],
-          );
-          if (!commandResult.ok) {
-            throw new Error(
-              commandResult.errors.map((error) => error.message).join(" "),
-            );
-          }
-          const sequence = message["sequence"];
-          const intendedFrame = message["intendedFrame"];
-          if (
-            typeof sequence !== "number" ||
-            typeof intendedFrame !== "number" ||
-            !Number.isSafeInteger(sequence) ||
-            !Number.isSafeInteger(intendedFrame)
-          ) {
-            throw new Error(
-              "Input sequence and intendedFrame must be safe integers.",
-            );
-          }
           service.submitInput(
             token,
-            {
-              sequence,
-              intendedFrame,
-              receivedAtMilliseconds: now(),
-              command: commandResult.value,
-            },
+            requireQueuedInput(message, profile.playerId, now()),
             now(),
           );
         } else if (type === "lobby-chat") {

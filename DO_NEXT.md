@@ -53,6 +53,11 @@
   vulnerability audit clean. Preserve that override until `typescript-eslint`
   can safely be updated past the nested vulnerable range.
 
+- Multiplayer implementation and verification are complete. For deployment,
+  create a VPS `.env` from `.env.example` with long unique passwords and a
+  signing secret, run `docker compose up -d --build`, and configure the
+  externally managed Caddy reverse proxy/TLS entry. Do not commit that `.env`.
+
 ## Landed: playability audit (2026-07-17)
 
 - Water solidity per the ROM's lower-bound rule (exits enforced by the end

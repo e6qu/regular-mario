@@ -1,13 +1,6 @@
 import type { PublicGameSummary } from "./game-lobby";
 import type { MultiplayerPlayerProfile } from "../multiplayer/game-runner";
-
-export type SemanticUiNode = {
-  readonly role: string;
-  readonly label: string;
-  readonly action?: string;
-  readonly value?: string;
-  readonly children: readonly SemanticUiNode[];
-};
+import type { SemanticUiNode } from "../multiplayer/semantic-ui";
 
 function node(
   role: string,
@@ -31,6 +24,14 @@ export function makeLoginLayout(): SemanticUiNode {
     node("textbox", "Server password", [], "login.password"),
     node("button", "Enter lobby", [], "login.submit"),
     node("link", "Administrator login", [], "admin.login"),
+  ]);
+}
+
+export function makeAdminLoginLayout(): SemanticUiNode {
+  return node("main", "Administrator login", [
+    node("heading", "Administrator login"),
+    node("textbox", "Administrator password", [], "admin.password"),
+    node("button", "Enter administration", [], "admin.submit"),
   ]);
 }
 

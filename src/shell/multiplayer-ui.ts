@@ -38,9 +38,62 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
 }
 
 const multiplayerApiPrefix = "/api";
-const multiplayerProtocolVersion = "1";
 const multiplayerCanvasWidth = 768;
 const multiplayerCanvasHeight = 240;
+
+function isSemanticUiNode(value: unknown): value is SemanticUiNode {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  return (
+    typeof record["role"] === "string" &&
+    typeof record["label"] === "string" &&
+    Array.isArray(record["children"]) &&
+    record["children"].every(isSemanticUiNode) &&
+    (record["action"] === undefined || typeof record["action"] === "string") &&
+    (record["value"] === undefined || typeof record["value"] === "string")
+  );
+}
+
+function renderSemanticUiNode(node: SemanticUiNode): HTMLElement {
+  const element = document.createElement("div");
+  element.setAttribute("data-semantic-role", node.role);
+  element.setAttribute("data-semantic-label", node.label);
+  if (node.action !== undefined) {
+    element.setAttribute("data-semantic-action", node.action);
+  }
+  if (node.value !== undefined) {
+    element.setAttribute("data-semantic-value", node.value);
+  }
+  const label = document.createElement("span");
+  label.textContent =
+    node.value === undefined ? node.label : `${node.label}: ${node.value}`;
+  element.append(label);
+  for (const child of node.children) {
+    element.append(renderSemanticUiNode(child));
+  }
+  return element;
+}
+
+async function appendSemanticLayout(
+  panel: HTMLElement,
+  layoutPath = "/layout",
+): Promise<void> {
+  const layout: unknown = await requestJson(layoutPath);
+  if (!isSemanticUiNode(layout)) {
+    throw new Error("Server returned an invalid semantic multiplayer UI tree.");
+  }
+  if (!panel.isConnected) {
+    return;
+  }
+  const inspector = document.createElement("details");
+  inspector.setAttribute("data-role", "semantic-ui-tree");
+  const summary = document.createElement("summary");
+  summary.textContent = "Inspectable server UI tree";
+  inspector.append(summary, renderSemanticUiNode(layout));
+  panel.append(inspector);
+}
 
 async function requestJson<Value>(
   path: string,
@@ -269,6 +322,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
     }),
   );
   mount.append(panel);
+  await appendSemanticLayout(panel);
 }
 
 function renderGame(
@@ -320,6 +374,7 @@ function renderGame(
     );
   }
   mount.append(panel);
+  void appendSemanticLayout(panel);
 
   let sequence = 0;
   const held = new Set<string>();
@@ -538,6 +593,7 @@ export async function renderMultiplayerUi(mount: HTMLElement): Promise<void> {
       }),
     );
     mount.append(panel);
+    await appendSemanticLayout(panel);
   }
 }
 
@@ -612,6 +668,7 @@ export async function renderMultiplayerAdminUi(
       panel.append(section);
     }
     mount.append(panel);
+    void appendSemanticLayout(panel);
   }
   try {
     await renderDashboard();
@@ -644,6 +701,7 @@ export async function renderMultiplayerAdminUi(
       }),
     );
     mount.append(panel);
+    void appendSemanticLayout(panel, "/layout?screen=admin");
   }
 }
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
@@ -657,4 +715,6 @@ import {
 import { makeClientPrediction } from "../multiplayer/client-prediction";
 import { requireBundledMultiplayerLevel } from "../multiplayer/bundled-levels";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
+import { multiplayerProtocolVersion } from "../multiplayer/protocol";
+import type { SemanticUiNode } from "../multiplayer/semantic-ui";
 import { GameAudio } from "./game-audio";

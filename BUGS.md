@@ -2,6 +2,13 @@
 
 ## Known Bugs
 
+### Multiplayer hardening audit — no regression found 2026-08-04
+
+The semantic UI renderer, password-attempt boundary, protocol rejection, and
+admin queue-injection path have focused unit/service coverage and a real
+two-browser screenshot journey. No new multiplayer defect was found; the next
+scheduled check is the full quality gate plus 100 ms/3 s transport journey.
+
 ### Dependency audit — resolved 2026-08-04
 
 Vite 8.0.16 carried a vulnerable PostCSS release, and the TypeScript ESLint

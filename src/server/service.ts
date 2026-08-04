@@ -136,6 +136,12 @@ export type MultiplayerService = {
     gameId: string,
     nowMilliseconds: number,
   ): AuthoritativeGameSnapshot;
+  adminSubmitInput(
+    token: string | undefined,
+    gameId: string,
+    input: QueuedSimulationInput,
+    nowMilliseconds: number,
+  ): AuthoritativeGameSnapshot;
   adminExpireAllPlayers(
     token: string | undefined,
     nowMilliseconds: number,
@@ -376,6 +382,14 @@ export function makeMultiplayerService(
         requireMultiplayerGameId(gameId),
         nowMilliseconds,
       );
+    },
+    adminSubmitInput(token, gameId, input, nowMilliseconds) {
+      requireAdmin(token, nowMilliseconds);
+      const parsedGameId = requireMultiplayerGameId(gameId);
+      if (lobby.gameForPlayer(input.playerId) !== parsedGameId) {
+        throw new Error("Input player is not a member of this game.");
+      }
+      return lobby.submitGameInput(input, nowMilliseconds);
     },
     adminExpireAllPlayers(token, nowMilliseconds) {
       requireAdmin(token, nowMilliseconds);

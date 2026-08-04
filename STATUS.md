@@ -95,6 +95,20 @@ What exists now:
   protocol version 1 and reject mismatches visibly. The standalone server also
   rate-limits failed password attempts per address (five per minute).
 
+- **Inspectable semantic UI and controlled admin input (2026-08-04).** The
+  typed server UI tree is now shared with and recursively rendered by the
+  browser as stable semantic/action DOM metadata, including both login
+  screens. The API returns the same tree. Password throttling is isolated with
+  deterministic expiry/boundary tests, and administrator input injection is
+  constrained to a named game member and the identical validated queue command
+  path used by WebSocket players.
+
+- **Final multiplayer hardening proof (2026-08-04).** `pnpm run check` is
+  green (dependency, content, license, vulnerability, format, lint, dead-code,
+  duplication, type, unit, and production-build gates). The standalone
+  two-browser journey also passes at injected 100 ms and 3,000 ms snapshot
+  delay, with desktop/mobile screenshots.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

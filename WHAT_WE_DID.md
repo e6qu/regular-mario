@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-04 — semantic browser rendering and hardened control boundary
+
+- Shared the typed semantic UI-node definition between the server layout
+  factory and the browser. Each multiplayer screen now fetches and recursively
+  renders its exact server-owned tree with stable role, label, action, and
+  value metadata, while the authenticated JSON endpoint remains the direct
+  machine-readable representation. The administrator login has its own tree.
+- Extracted protocol-version validation and the five-attempt-per-minute
+  password limiter into deterministic modules with boundary/expiry tests.
+  Added a protected admin input endpoint that validates the target player is a
+  member of the named game, then routes the command through the same typed
+  expiring input queue used by WebSocket players; it cannot mutate game state
+  directly.
+- Verified the final change with the full repository quality gate and the
+  standalone two-browser journey at injected 100 ms and 3,000 ms snapshot
+  delay; both desktop and mobile screenshots were captured by Playwright.
+
 ## 2026-08-04 — real-server multiplayer browser QA
 
 - Added a separate Playwright configuration that launches the production-built

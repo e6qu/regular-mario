@@ -52,6 +52,11 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
     role: "main",
     label: "Multiplayer game",
   });
+  await expect(
+    creator.locator(
+      '[data-semantic-role="main"][data-semantic-label="Multiplayer game"]',
+    ),
+  ).toBeAttached();
   await guest.getByLabel("Game chat message").fill("hello from Ren");
   await guest.getByRole("button", { name: "Send game chat" }).click();
   await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();

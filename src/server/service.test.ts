@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { HorizontalInput } from "../engine/simulation/input-command";
+import type { MultiplayerPlayerId } from "../multiplayer/domain";
 import { makeMultiplayerService } from "./service";
 
 function makeService() {
@@ -25,6 +26,23 @@ function makeService() {
     movementConstants: initialMovementConstants,
     nextGameId: () => `game-${++gameId}`,
   });
+}
+
+function rightInput(playerId: MultiplayerPlayerId, sequence: number) {
+  return {
+    playerId,
+    sequence,
+    intendedFrame: sequence,
+    receivedAtMilliseconds: 0,
+    command: {
+      horizontal: HorizontalInput.Right,
+      jumpPressed: false,
+      runHeld: false,
+      firePressed: false,
+      upHeld: false,
+      downHeld: false,
+    },
+  };
 }
 
 describe("multiplayer service", () => {
@@ -54,19 +72,7 @@ describe("multiplayer service", () => {
     service.startGame(player.token, game.gameId, 0);
     service.submitInput(
       player.token,
-      {
-        sequence: 1,
-        intendedFrame: 1,
-        receivedAtMilliseconds: 0,
-        command: {
-          horizontal: HorizontalInput.Right,
-          jumpPressed: false,
-          runHeld: false,
-          firePressed: false,
-          upHeld: false,
-          downHeld: false,
-        },
-      },
+      rightInput(player.profile.playerId, 1),
       0,
     );
     expect(service.tick(1)[0]).toMatchObject({ frame: 1 });
@@ -75,6 +81,34 @@ describe("multiplayer service", () => {
       frame: 2,
     });
     service.adminResume(admin, game.gameId, 2);
+  });
+
+  it("lets an administrator inject only a validated member input", () => {
+    const service = makeService();
+    const player = service.loginPlayer("friends", 0);
+    const admin = service.loginAdmin("administrator", 0);
+    const game = service.createGame(
+      player.token,
+      "first-authored",
+      "regular",
+      0,
+    );
+    service.startGame(player.token, game.gameId, 0);
+    service.adminSubmitInput(
+      admin,
+      game.gameId,
+      rightInput(player.profile.playerId, 1),
+      0,
+    );
+    expect(service.tick(1)[0]?.players[0]?.acknowledgedInputSequence).toBe(1);
+    expect(() =>
+      service.adminSubmitInput(
+        admin,
+        "game-unknown",
+        rightInput(player.profile.playerId, 2),
+        0,
+      ),
+    ).toThrow("Input player is not a member of this game.");
   });
 
   it("accepts only bounded member screenshots and exposes them only to admin", () => {
