@@ -519,15 +519,21 @@ export function makeMultiplayerHttpServer(
           throw new Error("Admin game route is incomplete.");
         }
         if (request.method === "POST" && action === "pause") {
-          json(response, 200, service.adminPause(adminToken, gameId, now()));
+          const snapshot = service.adminPause(adminToken, gameId, now());
+          json(response, 200, snapshot);
+          broadcast({ type: "snapshots", snapshots: [snapshot] });
           return;
         }
         if (request.method === "POST" && action === "resume") {
-          json(response, 200, service.adminResume(adminToken, gameId, now()));
+          const snapshot = service.adminResume(adminToken, gameId, now());
+          json(response, 200, snapshot);
+          broadcast({ type: "snapshots", snapshots: [snapshot] });
           return;
         }
         if (request.method === "POST" && action === "step") {
-          json(response, 200, service.adminStep(adminToken, gameId, now()));
+          const snapshot = service.adminStep(adminToken, gameId, now());
+          json(response, 200, snapshot);
+          broadcast({ type: "snapshots", snapshots: [snapshot] });
           return;
         }
         if (request.method === "POST" && action === "input") {

@@ -5,6 +5,25 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — full authored multiplayer visual parity
+
+- Replaced the reduced multiplayer canvas with the local authored Phaser
+  `BootScene` in authoritative-render mode. The server snapshot now includes a
+  JSON-safe complete simulation state, preserving map-backed engine state;
+  the scene renders it without stepping an independent simulation.
+- Bound each original multiplayer avatar to an authored player costume and
+  supplied ordered nickname/costume presentation for all same-screen players.
+  Two independently authenticated browser clients therefore render the same
+  game frame, including different selected characters, rather than generic
+  bot placeholders.
+- Added an exact local-core/server two-player trace test (12 frames) and a
+  real-server two-browser test that pauses an authoritative frame and compares
+  all 921,600 raw 1280×720 RGBA pixels with zero differences. It excludes DOM
+  controls by reading the canvas buffer itself, not by cropping or masking.
+- Admin pause/step/resume now broadcasts its changed snapshot immediately.
+  The complete real-server browser suite passes with injected 100 ms and
+  3,000 ms snapshot delay.
+
 ## 2026-08-04 — multiplayer completion audit
 
 - Replaced the temporary multiplayer canvas with a snapshot-only Phaser

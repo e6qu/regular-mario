@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { enterMultiplayerLobby } from "./support";
+
 const injectedSnapshotDelayMilliseconds = Number(
   process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"] ?? "0",
 );
@@ -13,11 +15,7 @@ async function login(page: Page): Promise<void> {
   expect(await unsupportedProtocol.json()).toMatchObject({
     error: "Unsupported multiplayer protocol version.",
   });
-  await page.getByLabel("Server password").fill("friends");
-  await page.getByRole("button", { name: "Enter lobby" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Trusted friends lobby" }),
-  ).toBeVisible();
+  await enterMultiplayerLobby(page);
 }
 
 test("two trusted friends create, join, chat, and inspect a game", async ({

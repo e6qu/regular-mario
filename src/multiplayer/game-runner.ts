@@ -27,6 +27,10 @@ import {
   type InputQueueMetrics,
   type QueuedSimulationInput,
 } from "./input-queue";
+import {
+  encodeMultiplayerSimulationState,
+  type MultiplayerSimulationWireState,
+} from "./simulation-wire";
 
 const sharedCameraWidthPixels = 256;
 const multiplayerInputQueueMaximumMessages = 16 * 180;
@@ -63,6 +67,8 @@ export type AuthoritativeGameSnapshot = {
   readonly phase: MultiplayerGamePhase;
   readonly frame: number;
   readonly cameraLeftPixels: number;
+  /** Positions alone cannot faithfully render the authored game. */
+  readonly simulationState: MultiplayerSimulationWireState;
   readonly players: readonly AuthoritativePlayerSnapshot[];
   readonly queue: InputQueueMetrics;
 };
@@ -155,6 +161,7 @@ export function makeAuthoritativeGameRunner(
       phase,
       frame: Number(state.clock.frameIndex),
       cameraLeftPixels,
+      simulationState: encodeMultiplayerSimulationState(state),
       players: players.map((player) => {
         const runtime = state.players[player.slot];
         if (runtime === undefined) {

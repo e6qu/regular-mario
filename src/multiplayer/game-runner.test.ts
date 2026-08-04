@@ -12,6 +12,7 @@ import {
   makeInitialSimulationState,
   type SimulationState,
 } from "../engine/simulation/simulation-state";
+import { stepSimulation } from "../engine/simulation/step-simulation";
 import {
   PlayerDefeatReason,
   PlayerFinishReason,
@@ -33,6 +34,7 @@ import {
   MultiplayerGamePhase,
   type MultiplayerPlayerProfile,
 } from "./game-runner";
+import { decodeMultiplayerSimulationState } from "./simulation-wire";
 
 const neutral: SimulationInputCommand = {
   horizontal: HorizontalInput.Neutral,
@@ -145,6 +147,72 @@ describe("authoritative multiplayer game runner", () => {
     expect(stepped.players[0]!.acknowledgedInputSequence).toBe(1);
     expect(stepped.players[0]!.inputAcknowledgementLagMilliseconds).toBe(1);
     expect(stepped.queue.depth).toBe(0);
+  });
+
+  it("is bit-for-bit state-equivalent to a local two-player engine trace", () => {
+    const runner = makeRunner();
+    const joined = runner.join(profile("ren", "Ren"));
+    let localState = decodeMultiplayerSimulationState(joined.simulationState);
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    const creatorCommand: SimulationInputCommand = {
+      ...neutral,
+      horizontal: HorizontalInput.Right,
+      runHeld: true,
+    };
+    const guestCommand: SimulationInputCommand = {
+      ...neutral,
+      horizontal: HorizontalInput.Left,
+      jumpPressed: true,
+    };
+    for (let frame = 1; frame <= 12; frame += 1) {
+      const currentGuestCommand =
+        frame === 1 ? guestCommand : { ...guestCommand, jumpPressed: false };
+      if (frame === 1) {
+        runner.submitInput(
+          {
+            playerId: requireMultiplayerPlayerId("mira"),
+            sequence: 1,
+            intendedFrame: frame,
+            receivedAtMilliseconds: 0,
+            command: creatorCommand,
+          },
+          0,
+        );
+        runner.submitInput(
+          {
+            playerId: requireMultiplayerPlayerId("ren"),
+            sequence: 1,
+            intendedFrame: frame,
+            receivedAtMilliseconds: 0,
+            command: currentGuestCommand,
+          },
+          0,
+        );
+      } else {
+        runner.submitInput(
+          {
+            playerId: requireMultiplayerPlayerId("ren"),
+            sequence: frame,
+            intendedFrame: frame,
+            receivedAtMilliseconds: 0,
+            command: currentGuestCommand,
+          },
+          0,
+        );
+      }
+      localState = stepSimulation(
+        localState,
+        creatorCommand,
+        initialMovementConstants,
+        firstAuthoredLevelSpec(),
+        [currentGuestCommand],
+      );
+      const server = runner.step(frame);
+      expect(decodeMultiplayerSimulationState(server.simulationState)).toEqual(
+        localState,
+      );
+    }
   });
 
   it("steps the same authoritative lifecycle in regular and revenge modes", () => {

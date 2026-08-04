@@ -2,6 +2,19 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Visual parity closure (2026-08-05)
+
+- Complete. Multiplayer uses the authored local `BootScene` in
+  authoritative-render mode. The server transports full JSON-safe simulation
+  state; no separate placeholder canvas remains.
+- Complete. `game-runner.test.ts` proves a 12-frame two-player local/core
+  simulation trace equals every authoritative server state. The real-server
+  Playwright parity journey connects two distinct avatars, pauses a shared
+  frame, and compares every raw 1280×720 canvas pixel with zero tolerance.
+- Complete. Admin pause/step/resume now immediately broadcast the changed
+  authoritative snapshot, so debug controls and parity capture observe the
+  same frame. The production browser journey passes at 100 ms and 3,000 ms.
+
 - Implement `PLAN.md` Milestone 9 in its recorded order. Start with an
   originality audit of multiplayer-facing character names/art and typed server
   domain/protocol IDs; do not add a broker, database, or server dependency

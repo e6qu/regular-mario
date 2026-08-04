@@ -2,6 +2,14 @@
 
 ## Current State
 
+**Multiplayer visual parity verified (2026-08-05).** The browser no longer
+uses a reduced multiplayer scene: it renders the full authored `BootScene`
+from complete authoritative state. A 12-frame two-player local engine trace
+equals the server state on every frame, and two independently authenticated
+clients with different avatar selections render a paused server frame with
+zero differing raw pixels at 1280×720. The full standalone browser suite
+passes at 100 ms and 3 s snapshot delay.
+
 An original browser platformer with faithful classic-side-scroller mechanics,
 built as a deterministic functional-core simulation plus a Phaser/Vite shell.
 Preparing for a public beta/demo release. **849 unit tests + browser journeys

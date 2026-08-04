@@ -137,12 +137,21 @@ its local player.
    simulated 100 ms through 3 s delay. Record new dependencies' license,
    purpose, maintenance, security, and age before adoption.
 
-**Completion evidence (2026-08-04):** all six delivery steps are implemented.
+**Completion evidence (2026-08-04, strengthened 2026-08-05):** all six delivery steps are implemented.
 The pure runner covers the 16-player cap, late current-camera spawn, spectator
 retention, and joined-player completion. The production standalone service is
 driven by Playwright in two isolated browsers, including semantic layout,
 normal input, game chat, retained screenshots, admin boot/expiry/pause/step,
 and injected 100 ms/3 s snapshot delay. `pnpm run check` is green.
+
+The multiplayer canvas is now the same authored `BootScene` as local play in
+authoritative-render mode, not a separate simplified snapshot painter. A
+lossless wire codec carries complete simulation state (including map-backed
+state) to that scene. The proof suite deep-compares a 12-frame two-player
+local-engine trace against each server state, and independently connects two
+different avatars, pauses one named authoritative frame, then requires all
+921,600 raw canvas pixels (1280×720) to match exactly between the clients.
+No crop, scale, mask, or pixel tolerance is used.
 
 ## Target
 

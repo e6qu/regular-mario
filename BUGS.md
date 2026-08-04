@@ -2,6 +2,16 @@
 
 ## Known Bugs
 
+### Multiplayer placeholder rendering and frame-sync gap — fixed 2026-08-05
+
+The old multiplayer view painted a reduced sky/ground/player scene, which
+could not match local rendering and hid admin pause changes from connected
+clients. Multiplayer now reuses the authored `BootScene` with full lossless
+authoritative state. Admin pause/step/resume broadcasts the revised frame.
+The dedicated two-client test uses different selected avatars and verifies
+every raw 1280×720 canvas pixel is identical at one paused server frame;
+the local engine/server trace is deep-equal for 12 frames.
+
 ### Multiplayer hardening audit — no regression found 2026-08-04
 
 The semantic UI renderer, password-attempt boundary, protocol rejection, and

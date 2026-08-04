@@ -713,7 +713,7 @@ function makeBrowserProjectileSnapshot(projectile: {
 export class BootScene extends Phaser.Scene {
   private readonly browserGameBootstrap: BrowserGameBootstrap;
   // Which costume the player wears (default castaway; Luigi is the green swap).
-  private readonly playerCharacter: PlayerCharacter;
+  private playerCharacter: PlayerCharacter;
   // Revenge mode: you play the stomper (goomba/princess) and the walking
   // enemies are re-skinned as half-height Mario/Luigi you stomp.
   private readonly revengeMode: boolean;
@@ -1283,6 +1283,44 @@ export class BootScene extends Phaser.Scene {
     // levels carry the tier the player finished the prior level with.
     this.carriedPlayerVitality = browserGameBootstrap.initialPlayerVitality;
     window.addEventListener("keydown", this.handleEarlyStartKey);
+  }
+
+  /** Render a server-owned frame without stepping this scene's local simulation. */
+  public applyAuthoritativeSimulationState(state: SimulationState): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept remote state.",
+      );
+    }
+    this.simulationState = state;
+    this.renderSimulationState();
+  }
+
+  /**
+   * Names and authored costumes are presentation data, separate from the
+   * deterministic engine state. The order must match SimulationState.players.
+   */
+  public applyAuthoritativePlayerPresentation(
+    primaryCharacter: PlayerCharacter,
+    coopPlayers: readonly {
+      readonly character: PlayerCharacter;
+      readonly nickname: string;
+    }[],
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept remote players.",
+      );
+    }
+    if (coopPlayers.length !== this.simulationState.players.length - 1) {
+      throw new Error(
+        "Authoritative player presentation does not match simulation slots.",
+      );
+    }
+    this.playerCharacter = primaryCharacter;
+    this.coopBotCharacters = coopPlayers.map((player) => player.character);
+    this.coopBotNames = coopPlayers.map((player) => player.nickname);
+    this.renderSimulationState();
   }
 
   public create(): void {
@@ -3787,6 +3825,9 @@ export class BootScene extends Phaser.Scene {
   }
 
   public override update(): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly === true) {
+      return;
+    }
     assertValidPlayerVitalityState(this.simulationState.players[0].vitality);
     assertValidPlayerOutcomeState(this.simulationState.players[0].outcome);
     assertValidCollectibleInteractionState(

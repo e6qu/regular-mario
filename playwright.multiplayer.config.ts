@@ -7,6 +7,9 @@ const snapshotDelay = process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"] ?? "0";
 export default defineConfig({
   testDir: "tests/multiplayer-browser",
   fullyParallel: false,
+  // These journeys share one intentionally stateful trusted-friends server.
+  // Serial workers prevent one test's public game from appearing in another.
+  workers: 1,
   retries: 0,
   use: { baseURL: multiplayerUrl },
   webServer: {

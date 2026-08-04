@@ -1,8 +1,10 @@
 /** Read-only protocol view consumed by the browser multiplayer renderer. */
+import type { MultiplayerSimulationWireState } from "./simulation-wire";
 type MultiplayerRenderedPlayer = {
   readonly playerId: string;
   readonly nickname: string;
   readonly avatarId: string;
+  readonly slot: number;
   readonly spectator: boolean;
   readonly x: number;
   readonly y: number;
@@ -14,5 +16,6 @@ export type MultiplayerRenderedSnapshot = {
   readonly phase: string;
   readonly frame: number;
   readonly cameraLeftPixels: number;
+  readonly simulationState: MultiplayerSimulationWireState;
   readonly players: readonly MultiplayerRenderedPlayer[];
 };

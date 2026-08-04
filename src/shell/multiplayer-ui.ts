@@ -29,6 +29,37 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
 
 const multiplayerApiPrefix = "/api";
 
+const multiplayerVisualStyleId = "multiplayer-visual-language";
+
+function installMultiplayerVisualLanguage(): void {
+  if (document.getElementById(multiplayerVisualStyleId) !== null) {
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = multiplayerVisualStyleId;
+  style.textContent = `
+    .multiplayer-panel { max-width: 980px; margin: 24px auto; padding: 22px;
+      color: #172033; background: linear-gradient(#8ed4ea 0 18%, #dff4ee 18% 100%);
+      font-family: monospace; border: 5px solid #172033; box-shadow: 9px 9px 0 #285a37; }
+    .multiplayer-panel h1, .multiplayer-panel h2 { margin: 0 0 14px; letter-spacing: .08em; }
+    .multiplayer-panel h1 { color: #172033; text-shadow: 2px 2px #f5f7fb; }
+    .multiplayer-panel section, .multiplayer-panel form, .multiplayer-panel [role=log] {
+      display: block; margin: 12px 0; padding: 12px; background: #f5f7fb;
+      border: 3px solid #172033; box-shadow: 4px 4px 0 #6ca83f; }
+    .multiplayer-panel button { margin: 5px; padding: 9px 13px; border: 3px solid #172033;
+      background: #ffd54a; color: #172033; font: inherit; font-weight: 800; cursor: pointer;
+      box-shadow: 3px 3px 0 #b9682f; }
+    .multiplayer-panel button:hover, .multiplayer-panel button:focus-visible { background: #ff9d2e; outline: 3px solid #f5f7fb; outline-offset: 2px; }
+    .multiplayer-panel input, .multiplayer-panel select { margin: 4px; padding: 8px; border: 2px solid #172033; font: inherit; background: #fffef6; }
+    .multiplayer-game-panel { position: fixed; z-index: 5; top: 12px; left: 12px; max-width: 360px;
+      max-height: calc(100vh - 24px); overflow: auto; margin: 0; background: #f5f7fbe8; }
+    .multiplayer-game-host { position: fixed; inset: 0; z-index: 1; }
+    @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
+      .multiplayer-game-panel { right: 8px; left: 8px; top: 8px; max-width: none; max-height: 42vh; } }
+  `;
+  document.head.append(style);
+}
+
 function isSemanticUiNode(value: unknown): value is SemanticUiNode {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
@@ -111,11 +142,10 @@ async function requestJson<Value>(
 }
 
 function makePanel(): HTMLElement {
+  installMultiplayerVisualLanguage();
   const panel = document.createElement("main");
   panel.setAttribute("data-role", "multiplayer");
-  panel.style.cssText =
-    "max-width:900px;margin:28px auto;padding:24px;background:#0b0f19;color:#f5f7fb;" +
-    "font-family:monospace;border:2px solid #ffd54a;border-radius:12px;";
+  panel.className = "multiplayer-panel";
   return panel;
 }
 
@@ -160,6 +190,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
   nickname.value = lobby.profile.nickname;
   nickname.setAttribute("aria-label", "Nickname");
   const avatar = document.createElement("select");
+  avatar.setAttribute("aria-label", "Avatar");
   for (const avatarId of [
     "castaway",
     "tidekeeper",
@@ -229,9 +260,12 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
           `/games/${game.gameId}/join`,
           { method: "POST" },
         );
+        const currentLobby = await requestJson<{
+          readonly profile: PlayerProfile;
+        }>("/lobby");
         renderGame(
           mount,
-          lobby.profile,
+          currentLobby.profile,
           joined.game.gameId,
           joined.game.levelId,
           joined.game.creator.playerId,
@@ -248,9 +282,12 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
             `/games/${game.gameId}/start`,
             { method: "POST" },
           );
+          const currentLobby = await requestJson<{
+            readonly profile: PlayerProfile;
+          }>("/lobby");
           renderGame(
             mount,
-            lobby.profile,
+            currentLobby.profile,
             started.game.gameId,
             started.game.levelId,
             started.game.creator.playerId,
@@ -297,7 +334,8 @@ function renderGame(
   title.textContent = `Game ${gameId}`;
   const status = document.createElement("p");
   const gameHost = document.createElement("div");
-  const renderer = makeMultiplayerPhaserRenderer(gameHost);
+  gameHost.className = "multiplayer-game-host";
+  const renderer = makeMultiplayerPhaserRenderer(gameHost, levelId, false);
   const chatInput = document.createElement("input");
   chatInput.maxLength = 256;
   chatInput.setAttribute("aria-label", "Game chat message");
@@ -305,7 +343,8 @@ function renderGame(
   chatLog.setAttribute("role", "log");
   chatLog.setAttribute("aria-label", "Game chat");
   let disposeView: () => void = () => renderer.destroy();
-  panel.append(title, status, gameHost, chatLog, chatInput);
+  panel.classList.add("multiplayer-game-panel");
+  panel.append(title, status, chatLog, chatInput);
   panel.append(
     makeButton("Send game chat", async () => {
       await requestJson(`/games/${gameId}/chat`, {
@@ -332,7 +371,7 @@ function renderGame(
       }),
     );
   }
-  mount.append(panel);
+  mount.append(gameHost, panel);
   void appendSemanticLayout(panel);
 
   let sequence = 0;
@@ -394,23 +433,11 @@ function renderGame(
     const local = snapshot.players.find(
       (player) => player.playerId === profile.playerId,
     );
-    const predicted =
-      local === undefined
-        ? undefined
-        : prediction.reconcile(local.acknowledgedInputSequence, local);
+    if (local !== undefined) {
+      prediction.reconcile(local.acknowledgedInputSequence, local);
+    }
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
-    const localRuntime = predicted?.state.players[0];
-    renderer.render(
-      snapshot,
-      profile.playerId,
-      localRuntime === undefined
-        ? undefined
-        : {
-            x: Number(localRuntime.player.position.x),
-            y: Number(localRuntime.player.position.y),
-          },
-      remoteInterpolator.positions(performance.now()),
-    );
+    renderer.render(snapshot);
     if (snapshot.phase === "finished") {
       if (!completedAudioPlayed) {
         audio.playEvents([SoundEvent.LevelComplete]);

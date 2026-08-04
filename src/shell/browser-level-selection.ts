@@ -122,6 +122,9 @@ export type BrowserGameBootstrap = {
   // enemies are re-skinned as half-height Mario/Luigi you stomp. Set from the
   // ?revenge= query parameter.
   readonly revengeMode?: boolean;
+  // Multiplayer's presentation scene receives complete state from the server.
+  // It must render that state, never advance a competing local simulation.
+  readonly authoritativeRenderOnly?: boolean;
 };
 
 export type BrowserGameViewport = {
