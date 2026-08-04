@@ -82,6 +82,11 @@ export type MultiplayerService = {
     gameId: string,
     nowMilliseconds: number,
   ): PublicGameSummary;
+  endGame(
+    token: string | undefined,
+    gameId: string,
+    nowMilliseconds: number,
+  ): void;
   submitInput(
     token: string | undefined,
     input: Omit<QueuedSimulationInput, "playerId">,
@@ -310,6 +315,10 @@ export function makeMultiplayerService(
         profile.playerId,
         requireMultiplayerGameId(gameId),
       );
+    },
+    endGame(token, gameId, nowMilliseconds) {
+      const profile = requirePlayerProfile(token, nowMilliseconds);
+      lobby.endGame(profile.playerId, requireMultiplayerGameId(gameId));
     },
     submitInput(token, input, nowMilliseconds) {
       const profile = requirePlayerProfile(token, nowMilliseconds);

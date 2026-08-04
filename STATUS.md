@@ -87,6 +87,10 @@ What exists now:
   passes after registering standalone multiplayer server/browser entrypoints
   with dead-code analysis and removing a pre-existing duplicate test setup.
 
+- **Creator game end (2026-08-04).** A creator-only End game action now clears
+  the game through the authenticated HTTP service and returns the browser to
+  the public lobby.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

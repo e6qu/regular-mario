@@ -360,7 +360,7 @@ export function makeMultiplayerHttpServer(
         return;
       }
       const gameMatch =
-        /^\/api\/games\/([a-z][a-z0-9-]*)\/(join|start|chat|snapshot)$/.exec(
+        /^\/api\/games\/([a-z][a-z0-9-]*)\/(join|start|end|chat|snapshot)$/.exec(
           url.pathname,
         );
       if (gameMatch !== null) {
@@ -379,6 +379,12 @@ export function makeMultiplayerHttpServer(
           json(response, 200, {
             game: service.startGame(playerToken, gameId, now()),
           });
+          broadcast({ type: "games-changed" });
+          return;
+        }
+        if (request.method === "POST" && action === "end") {
+          service.endGame(playerToken, gameId, now());
+          json(response, 200, { ok: true });
           broadcast({ type: "games-changed" });
           return;
         }

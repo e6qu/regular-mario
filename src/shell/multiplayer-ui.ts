@@ -220,6 +220,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
           lobby.profile,
           joined.game.gameId,
           joined.game.levelId,
+          joined.game.creator.playerId,
         );
       }),
     );
@@ -238,6 +239,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
             lobby.profile,
             started.game.gameId,
             started.game.levelId,
+            started.game.creator.playerId,
           );
         }),
       );
@@ -272,6 +274,7 @@ function renderGame(
   profile: PlayerProfile,
   gameId: string,
   levelId: string,
+  creatorPlayerId: string,
 ): void {
   mount.replaceChildren();
   const panel = makePanel();
@@ -306,6 +309,14 @@ function renderGame(
       await renderLobby(mount);
     }),
   );
+  if (creatorPlayerId === profile.playerId) {
+    panel.append(
+      makeButton("End game", async () => {
+        await requestJson(`/games/${gameId}/end`, { method: "POST" });
+        await renderLobby(mount);
+      }),
+    );
+  }
   mount.append(panel);
 
   let sequence = 0;

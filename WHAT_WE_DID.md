@@ -30,6 +30,12 @@ committed — only numeric metadata, code, docs, and scripts.
   private. Refactored an existing duplicated spectator test setup into one
   helper. `pnpm run check` now passes end to end.
 
+## 2026-08-04 — creator end-game control
+
+- Added the creator-authorized end-game service and HTTP route, plus the
+  matching browser action. Focused service/lobby tests, lint, typecheck, and
+  the production client build pass.
+
 ## 2026-08-04 — multiplayer leave lifecycle
 
 - Added a deliberate Leave game operation through browser, HTTP, service,
