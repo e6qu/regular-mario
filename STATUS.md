@@ -55,6 +55,11 @@ What exists now:
   Phaser rendering parity, selectable level/mode UI, and browser journeys are
   still pending.
 
+- **Live prediction wired (2026-08-04).** Keyboard commands now create one
+  validated command for both the WebSocket protocol and local deterministic
+  prediction. Each authoritative acknowledgement reconciles the local player
+  and replays remaining inputs before canvas rendering.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

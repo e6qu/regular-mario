@@ -39,6 +39,11 @@
   broadcast and retain the final authoritative snapshot long enough to show the
   result, then return every member to the lobby and release all game slots.
 
+- Live keyboard prediction is now connected to the supported first authored
+  server level. Generalise that predictor as the server catalogue grows, add
+  interpolation for non-local players, and consume pushed snapshots rather
+  than relying only on the current polling fallback.
+
 - Security maintenance is current as of 2026-08-04: Vite 8.2.0, ESLint 10.8.0,
   and a lockfile-scoped `brace-expansion` 5.0.9 override leave the dependency
   vulnerability audit clean. Preserve that override until `typescript-eslint`

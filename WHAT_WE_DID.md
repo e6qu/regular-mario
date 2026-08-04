@@ -14,6 +14,15 @@ committed — only numeric metadata, code, docs, and scripts.
   membership restriction. Focused runner/lobby/service tests, lint, typecheck,
   and production server build pass.
 
+## 2026-08-04 — live client prediction
+
+- Connected the browser's keyboard commands to the same deterministic predictor
+  used by its unit tests. A command is validated once, sent with its sequence
+  number, applied immediately locally, then acknowledged server positions
+  correct and replay only outstanding inputs. The initial screenshot send is
+  also guarded until the WebSocket is actually open. Lint, typecheck, and the
+  production browser build pass.
+
 ## 2026-08-04 — dependency security maintenance
 
 - Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,

@@ -83,20 +83,25 @@ function renderGameCanvas(
   context: CanvasRenderingContext2D,
   snapshot: GameSnapshot,
   playerId: string,
+  predictedPosition: { readonly x: number; readonly y: number } | undefined,
 ): void {
   context.fillStyle = "#70b7e6";
   context.fillRect(0, 0, multiplayerCanvasWidth, multiplayerCanvasHeight);
   context.fillStyle = "#285a37";
   context.fillRect(0, multiplayerCanvasHeight - 32, multiplayerCanvasWidth, 32);
   for (const player of snapshot.players) {
+    const position =
+      player.playerId === playerId && predictedPosition !== undefined
+        ? predictedPosition
+        : player;
     context.fillStyle = player.playerId === playerId ? "#ffd54a" : "#f06d8f";
-    context.fillRect(player.x * 3, player.y * 3, 28, 32);
+    context.fillRect(position.x * 3, position.y * 3, 28, 32);
     context.fillStyle = "#0b0f19";
     context.font = "12px monospace";
     context.fillText(
       player.spectator ? `${player.nickname} (watching)` : player.nickname,
-      player.x * 3,
-      player.y * 3 - 5,
+      position.x * 3,
+      position.y * 3 - 5,
     );
   }
 }
@@ -276,6 +281,19 @@ function renderGame(
 
   let sequence = 0;
   const held = new Set<string>();
+  const initialPredictionState = makeInitialSimulationState(
+    nominalSixtyHertzFrameDurationMilliseconds,
+    firstAuthoredLevelSpec(),
+    initialMovementConstants,
+  );
+  if (!initialPredictionState.ok) {
+    throw new Error("Multiplayer prediction could not initialise.");
+  }
+  const prediction = makeClientPrediction(
+    initialPredictionState.value,
+    firstAuthoredLevelSpec(),
+    initialMovementConstants,
+  );
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -287,21 +305,35 @@ function renderGame(
       return;
     }
     sequence += 1;
+    const commandResult = makeSimulationInputCommand(
+      held.has("ArrowLeft")
+        ? "left"
+        : held.has("ArrowRight")
+          ? "right"
+          : "neutral",
+      held.has("Space") || held.has("ArrowUp"),
+      held.has("ShiftLeft") || held.has("ShiftRight"),
+      held.has("KeyX"),
+      held.has("ArrowUp"),
+      held.has("ArrowDown"),
+    );
+    if (!commandResult.ok) {
+      throw new Error(
+        commandResult.errors.map((error) => error.message).join(" "),
+      );
+    }
+    prediction.submit(sequence, commandResult.value);
     socket.send(
       JSON.stringify({
         type: "input",
         sequence,
         intendedFrame: sequence,
-        horizontal: held.has("ArrowLeft")
-          ? "left"
-          : held.has("ArrowRight")
-            ? "right"
-            : "neutral",
-        jumpPressed: held.has("Space") || held.has("ArrowUp"),
-        runHeld: held.has("ShiftLeft") || held.has("ShiftRight"),
-        firePressed: held.has("KeyX"),
-        upHeld: held.has("ArrowUp"),
-        downHeld: held.has("ArrowDown"),
+        horizontal: commandResult.value.horizontal,
+        jumpPressed: commandResult.value.jumpPressed,
+        runHeld: commandResult.value.runHeld,
+        firePressed: commandResult.value.firePressed,
+        upHeld: commandResult.value.upHeld,
+        downHeld: commandResult.value.downHeld,
       }),
     );
   }
@@ -324,6 +356,9 @@ function renderGame(
     }
   };
   const keyup = (event: KeyboardEvent) => {
+    if (!held.has(event.code)) {
+      return;
+    }
     held.delete(event.code);
     sendInput();
   };
@@ -335,15 +370,35 @@ function renderGame(
       const snapshot = await requestJson<GameSnapshot>(
         `/games/${gameId}/snapshot`,
       );
-      status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
-      renderGameCanvas(gameContext, snapshot, profile.playerId);
-      socket.send(
-        JSON.stringify({
-          type: "screenshot",
-          gameId,
-          pngDataUrl: canvas.toDataURL("image/png"),
-        }),
+      const local = snapshot.players.find(
+        (player) => player.playerId === profile.playerId,
       );
+      const predicted =
+        local === undefined
+          ? undefined
+          : prediction.reconcile(local.acknowledgedInputSequence, local);
+      status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+      const localRuntime = predicted?.state.players[0];
+      renderGameCanvas(
+        gameContext,
+        snapshot,
+        profile.playerId,
+        localRuntime === undefined
+          ? undefined
+          : {
+              x: Number(localRuntime.player.position.x),
+              y: Number(localRuntime.player.position.y),
+            },
+      );
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            type: "screenshot",
+            gameId,
+            pngDataUrl: canvas.toDataURL("image/png"),
+          }),
+        );
+      }
       if (snapshot.phase === "finished") {
         window.clearInterval(interval);
       }
@@ -504,3 +559,9 @@ export async function renderMultiplayerAdminUi(
     mount.append(panel);
   }
 }
+import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
+import { makeSimulationInputCommand } from "../engine/simulation/input-command";
+import { initialMovementConstants } from "../engine/simulation/movement-model";
+import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
+import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
+import { makeClientPrediction } from "../multiplayer/client-prediction";
