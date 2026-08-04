@@ -45,7 +45,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await creator.waitForTimeout(injectedSnapshotDelayMilliseconds + 200);
   await expect(creator.getByText(/playing · frame [1-9]/)).toBeVisible();
 
-  const layout = await creator.request.get("/api/layout");
+  const layout = await creator.request.get("/api/layout", {
+    headers: { "x-multiplayer-protocol-version": "1" },
+  });
   expect(await layout.json()).toMatchObject({
     role: "main",
     label: "Multiplayer game",

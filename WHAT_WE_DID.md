@@ -36,6 +36,14 @@ committed — only numeric metadata, code, docs, and scripts.
   matching browser action. Focused service/lobby tests, lint, typecheck, and
   the production client build pass.
 
+## 2026-08-04 — protocol and password boundary
+
+- Added protocol version 1 enforcement to every authenticated HTTP request and
+  each WebSocket message; mismatches fail visibly. Browser QA now sends the
+  required header for agent layout inspection. Failed login attempts are
+  limited to five per address per minute in the intentionally ephemeral
+  standalone process. Full repository and real-server browser gates pass.
+
 ## 2026-08-04 — multiplayer leave lifecycle
 
 - Added a deliberate Leave game operation through browser, HTTP, service,

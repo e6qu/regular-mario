@@ -91,6 +91,10 @@ What exists now:
   the game through the authenticated HTTP service and returns the browser to
   the public lobby.
 
+- **Protocol and login boundary (2026-08-04).** HTTP and WebSocket messages use
+  protocol version 1 and reject mismatches visibly. The standalone server also
+  rate-limits failed password attempts per address (five per minute).
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

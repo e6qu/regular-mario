@@ -38,6 +38,7 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
 }
 
 const multiplayerApiPrefix = "/api";
+const multiplayerProtocolVersion = "1";
 const multiplayerCanvasWidth = 768;
 const multiplayerCanvasHeight = 240;
 
@@ -52,6 +53,7 @@ async function requestJson<Value>(
       ...(init.body === undefined
         ? {}
         : { "content-type": "application/json" }),
+      "x-multiplayer-protocol-version": multiplayerProtocolVersion,
       ...init.headers,
     },
   });
@@ -381,6 +383,7 @@ function renderGame(
       socket.send(
         JSON.stringify({
           type: "screenshot",
+          protocolVersion: multiplayerProtocolVersion,
           gameId,
           pngDataUrl: canvas.toDataURL("image/png"),
         }),
@@ -437,6 +440,7 @@ function renderGame(
     socket.send(
       JSON.stringify({
         type: "input",
+        protocolVersion: multiplayerProtocolVersion,
         sequence,
         intendedFrame: sequence,
         horizontal: commandResult.value.horizontal,

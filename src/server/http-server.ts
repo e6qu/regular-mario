@@ -26,6 +26,9 @@ import {
 } from "./service";
 
 const jsonBodyMaximumBytes = 64 * 1024;
+const multiplayerProtocolVersion = "1";
+const loginAttemptWindowMilliseconds = 60_000;
+const maximumLoginAttemptsPerWindow = 5;
 const snapshotBroadcastIntervalMilliseconds =
   1000 / multiplayerSnapshotFramesPerSecond;
 const sessionCookieName = "platformer_session";
@@ -183,6 +186,7 @@ export function makeMultiplayerHttpServer(
     makeDefaultServiceConfig(config.service),
   );
   const socketsByPlayerId = new Map<string, Set<WebSocket>>();
+  const failedLoginTimesByAddress = new Map<string, readonly number[]>();
   const profileBySocket = new WeakMap<
     WebSocket,
     ReturnType<MultiplayerService["requirePlayer"]>
@@ -243,17 +247,45 @@ export function makeMultiplayerHttpServer(
     const cookies = parseCookies(request);
     const playerToken = cookies.get(sessionCookieName);
     const adminToken = cookies.get(adminCookieName);
+    const address = request.socket.remoteAddress ?? "unknown";
     try {
+      if (
+        url.pathname.startsWith("/api/") &&
+        url.pathname !== "/api/health" &&
+        request.headers["x-multiplayer-protocol-version"] !==
+          multiplayerProtocolVersion
+      ) {
+        throw new Error("Unsupported multiplayer protocol version.");
+      }
       if (request.method === "GET" && url.pathname === "/api/health") {
         json(response, 200, { ok: true });
         return;
       }
       if (request.method === "POST" && url.pathname === "/api/login") {
-        const body = await readJsonBody(request);
-        const loggedIn = service.loginPlayer(
-          requireString(body, "password"),
-          now(),
+        const currentTime = now();
+        const recentFailures = (
+          failedLoginTimesByAddress.get(address) ?? []
+        ).filter(
+          (attemptedAt) =>
+            currentTime - attemptedAt < loginAttemptWindowMilliseconds,
         );
+        if (recentFailures.length >= maximumLoginAttemptsPerWindow) {
+          throw new Error("Too many password attempts. Try again shortly.");
+        }
+        let loggedIn;
+        try {
+          loggedIn = service.loginPlayer(
+            requireString(await readJsonBody(request), "password"),
+            currentTime,
+          );
+        } catch (error) {
+          failedLoginTimesByAddress.set(address, [
+            ...recentFailures,
+            currentTime,
+          ]);
+          throw error;
+        }
+        failedLoginTimesByAddress.delete(address);
         response.setHeader(
           "set-cookie",
           sessionCookie(loggedIn.token, config.secureCookies),
@@ -540,6 +572,9 @@ export function makeMultiplayerHttpServer(
           throw new Error("WebSocket message must be an object.");
         }
         const type = requireString(message, "type");
+        if (message["protocolVersion"] !== multiplayerProtocolVersion) {
+          throw new Error("Unsupported multiplayer protocol version.");
+        }
         const token = parseCookies(request).get(sessionCookieName);
         if (type === "input") {
           const commandResult = makeSimulationInputCommand(
