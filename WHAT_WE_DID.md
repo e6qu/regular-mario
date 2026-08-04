@@ -41,6 +41,14 @@ committed — only numeric metadata, code, docs, and scripts.
   Local prediction remains separate and authoritative positions still win on
   reconciliation. Lint, typecheck, focused tests, and production build pass.
 
+## 2026-08-04 — local multiplayer audio
+
+- Wired the existing original synthesized `GameAudio` shell to local
+  prediction: it resolves sound events from predicted state transitions after
+  user input, while the completion snapshot produces one local victory cue.
+  The server never receives, stores, or streams audio. Existing audio and
+  prediction tests, lint, typecheck, and production build pass.
+
 ## 2026-08-04 — dependency security maintenance
 
 - Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,

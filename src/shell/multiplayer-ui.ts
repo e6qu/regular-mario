@@ -306,7 +306,9 @@ function renderGame(
     firstAuthoredLevelSpec(),
     initialMovementConstants,
   );
+  const audio = new GameAudio();
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
+  let completedAudioPlayed = false;
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -340,6 +342,10 @@ function renderGame(
       remoteInterpolator.positions(performance.now()),
     );
     if (snapshot.phase === "finished") {
+      if (!completedAudioPlayed) {
+        audio.playEvents([SoundEvent.LevelComplete]);
+        completedAudioPlayed = true;
+      }
       window.clearInterval(interval);
       window.setTimeout(() => void renderLobby(mount), 1500);
     }
@@ -386,7 +392,11 @@ function renderGame(
         commandResult.errors.map((error) => error.message).join(" "),
       );
     }
-    prediction.submit(sequence, commandResult.value);
+    const priorPrediction = prediction.snapshot();
+    const predicted = prediction.submit(sequence, commandResult.value);
+    audio.playEvents(
+      resolveSoundEvents(priorPrediction.state, predicted.state),
+    );
     socket.send(
       JSON.stringify({
         type: "input",
@@ -606,5 +616,10 @@ import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
+import {
+  resolveSoundEvents,
+  SoundEvent,
+} from "../engine/simulation/sound-events";
 import { makeClientPrediction } from "../multiplayer/client-prediction";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
+import { GameAudio } from "./game-audio";

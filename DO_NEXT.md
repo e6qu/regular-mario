@@ -39,9 +39,9 @@
   every finished game's memberships. Next, add remote-player interpolation,
   local audio derivation, and browser-level multi-client proof of this handoff.
 
-- Live keyboard prediction, pushed snapshots, and 100 ms remote interpolation
-  are now connected to the supported first authored server level. Next add
-  local audio derivation, grow the server catalogue, and write two-client
+- Live keyboard prediction, pushed snapshots, 100 ms remote interpolation, and
+  local-only synthesized audio are now connected to the supported first
+  authored server level. Next grow the server catalogue and write two-client
   Playwright journeys with injected network delay.
 
 - Security maintenance is current as of 2026-08-04: Vite 8.2.0, ESLint 10.8.0,

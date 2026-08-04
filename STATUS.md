@@ -65,6 +65,10 @@ What exists now:
   avoiding visible packet-rate stepping while retaining safe clamping under
   delayed updates.
 
+- **Local multiplayer audio wired (2026-08-04).** Browser-only synthesized
+  effects derive from local predicted simulation transitions, with a local
+  completion cue; audio is never transported or retained by the server.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an
