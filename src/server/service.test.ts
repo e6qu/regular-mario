@@ -33,6 +33,9 @@ describe("multiplayer service", () => {
     const player = service.loginPlayer("friends", 0);
     const admin = service.loginAdmin("administrator", 0);
     expect(service.requirePlayer(player.token, 0).nickname).toBe("Guest");
+    expect(service.levels(player.token, 0)).toEqual([
+      { id: "first-authored", label: "First Authored" },
+    ]);
     expect(service.adminDebug(admin, 0).activeSessionCount).toBe(2);
     expect(() => service.adminDebug(player.token, 0)).toThrow("Authentication");
   });

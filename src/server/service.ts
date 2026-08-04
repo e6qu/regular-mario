@@ -57,6 +57,10 @@ export type MultiplayerService = {
     token: string | undefined,
     nowMilliseconds: number,
   ): readonly PublicGameSummary[];
+  levels(
+    token: string | undefined,
+    nowMilliseconds: number,
+  ): readonly { readonly id: string; readonly label: string }[];
   createGame(
     token: string | undefined,
     levelId: string,
@@ -264,6 +268,13 @@ export function makeMultiplayerService(
     games(token, nowMilliseconds) {
       requirePlayerProfile(token, nowMilliseconds);
       return lobby.games();
+    },
+    levels(token, nowMilliseconds) {
+      requirePlayerProfile(token, nowMilliseconds);
+      return config.levels.map((level) => ({
+        id: level.id,
+        label: level.label,
+      }));
     },
     createGame(token, levelId, mode, nowMilliseconds) {
       return lobby.createGame(

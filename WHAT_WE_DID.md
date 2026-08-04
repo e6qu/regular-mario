@@ -61,6 +61,14 @@ committed — only numeric metadata, code, docs, and scripts.
   corrects from authoritative position, and replays the remaining history.
   Focused unit tests plus lint/typecheck/client production build pass.
 
+## 2026-08-04 — multiplayer level and mode selection
+
+- Added the authenticated bundled-level catalogue endpoint and used it in the
+  browser lobby's game-creation controls. Players can now choose a server-
+  advertised bundled level and either regular or revenge mode rather than the
+  previous hard-coded regular first-authored game. Service tests, lint,
+  typecheck, and production client build pass.
+
 ## 2026-07-19 — fluid character animation: the drifting princess + Elvis koopa
 
 - The princess (revenge mode) is redrawn at 32x32 (2x detail at the same

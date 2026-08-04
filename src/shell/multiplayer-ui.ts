@@ -102,14 +102,22 @@ function renderGameCanvas(
 }
 
 async function renderLobby(mount: HTMLElement): Promise<void> {
-  const lobby = await requestJson<{
-    readonly profile: PlayerProfile;
-    readonly games: readonly GameSummary[];
-    readonly messages: readonly {
-      readonly nickname: string;
-      readonly text: string;
-    }[];
-  }>("/lobby");
+  const [lobby, levelResponse] = await Promise.all([
+    requestJson<{
+      readonly profile: PlayerProfile;
+      readonly games: readonly GameSummary[];
+      readonly messages: readonly {
+        readonly nickname: string;
+        readonly text: string;
+      }[];
+    }>("/lobby"),
+    requestJson<{
+      readonly levels: readonly {
+        readonly id: string;
+        readonly label: string;
+      }[];
+    }>("/levels"),
+  ]);
   mount.replaceChildren();
   const panel = makePanel();
   const heading = document.createElement("h1");
@@ -155,14 +163,28 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
   );
   panel.append(profileForm);
 
-  const create = makeButton("Create first-authored game", async () => {
+  const levelSelect = document.createElement("select");
+  levelSelect.setAttribute("aria-label", "Bundled level");
+  for (const level of levelResponse.levels) {
+    levelSelect.append(new Option(level.label, level.id));
+  }
+  const modeSelect = document.createElement("select");
+  modeSelect.setAttribute("aria-label", "Game mode");
+  modeSelect.append(
+    new Option("Regular", "regular"),
+    new Option("Revenge", "revenge"),
+  );
+  const create = makeButton("Create game", async () => {
     await requestJson("/games", {
       method: "POST",
-      body: JSON.stringify({ levelId: "first-authored", mode: "regular" }),
+      body: JSON.stringify({
+        levelId: levelSelect.value,
+        mode: modeSelect.value,
+      }),
     });
     await renderLobby(mount);
   });
-  panel.append(create);
+  panel.append("Level ", levelSelect, " Mode ", modeSelect, create);
   const games = document.createElement("section");
   const gamesHeading = document.createElement("h2");
   gamesHeading.textContent = "Public games";

@@ -274,6 +274,10 @@ export function makeMultiplayerHttpServer(
         });
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/levels") {
+        json(response, 200, { levels: service.levels(playerToken, now()) });
+        return;
+      }
       if (request.method === "POST" && url.pathname === "/api/lobby/chat") {
         json(response, 200, {
           message: service.sendLobbyChat(
