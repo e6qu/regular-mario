@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Multiplayer startup obstruction and overlay — fixed 2026-08-05
+
+The first public course could begin with hazards/enemies immediately beside a
+new player, while idle remote players were solid and could form an impassable
+wall. The game controls also overlaid the browser canvas. The opening course
+is now a safe runway, online player bodies intentionally overlap, and the
+controls occupy a responsive sidebar. A four-real-browser recorded journey
+proves keyboard movement, level completion, and next-level transition.
+
 ### Reported local game-start failure — awaiting logged reproduction (2026-08-05)
 
 The original failed Start request predates file diagnostics, so its cause is

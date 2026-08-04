@@ -5,8 +5,7 @@ import {
   type SimulationInputCommand,
 } from "../engine/simulation/input-command";
 import { makeLevelSpec } from "../engine/domain/level-spec";
-import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
-import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
+import { multiplayerOnboardingLevelInput } from "../engine/levels/multiplayer-onboarding-level";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import {
   makeInitialSimulationState,
@@ -32,6 +31,7 @@ import {
 import {
   makeAuthoritativeGameRunner,
   MultiplayerGamePhase,
+  type AuthoritativeGameRunner,
   type MultiplayerPlayerProfile,
 } from "./game-runner";
 import { decodeMultiplayerSimulationState } from "./simulation-wire";
@@ -56,7 +56,7 @@ function profile(id: string, nickname = "Mira"): MultiplayerPlayerProfile {
 function makeInitialState(): SimulationState {
   const initial = makeInitialSimulationState(
     nominalSixtyHertzFrameDurationMilliseconds,
-    firstAuthoredLevelSpec(),
+    multiplayerLevelSpec(),
     initialMovementConstants,
   );
   if (!initial.ok) {
@@ -65,16 +65,25 @@ function makeInitialState(): SimulationState {
   return initial.value;
 }
 
+function multiplayerLevelSpec() {
+  const result = makeLevelSpec(multiplayerOnboardingLevelInput);
+  if (!result.ok) {
+    throw new Error("Expected a valid multiplayer onboarding level.");
+  }
+  return result.value;
+}
+
 function makeRunnerForMode(
   initialState: SimulationState,
   mode: MultiplayerGameMode,
 ) {
   return makeAuthoritativeGameRunner({
     gameId: requireMultiplayerGameId("game-1"),
+    levelId: "multiplayer-onboarding",
     creator: profile("mira"),
     mode,
     initialState,
-    levelSpec: firstAuthoredLevelSpec(),
+    levelSpec: multiplayerLevelSpec(),
     movementConstants: initialMovementConstants,
   });
 }
@@ -85,6 +94,31 @@ function makeRunnerWithInitialState(initialState: SimulationState) {
 
 function makeRunner() {
   return makeRunnerWithInitialState(makeInitialState());
+}
+
+function runCreatorRightToFinish(runner: AuthoritativeGameRunner) {
+  let snapshot = runner.snapshot();
+  for (let frame = 1; frame <= 900; frame += 1) {
+    runner.submitInput(
+      {
+        playerId: requireMultiplayerPlayerId("mira"),
+        sequence: frame,
+        intendedFrame: frame,
+        receivedAtMilliseconds: frame,
+        command: {
+          ...neutral,
+          horizontal: HorizontalInput.Right,
+          runHeld: true,
+        },
+      },
+      frame,
+    );
+    snapshot = runner.step(frame);
+    if (snapshot.phase === MultiplayerGamePhase.Finished) {
+      break;
+    }
+  }
+  return snapshot;
 }
 
 describe("authoritative multiplayer game runner", () => {
@@ -110,7 +144,7 @@ describe("authoritative multiplayer game runner", () => {
           player: {
             ...initial.players[0].player,
             position: {
-              x: requireSimulationPixelPosition(300, "test.player.x"),
+              x: requireSimulationPixelPosition(270, "test.player.x"),
               y: initial.players[0].player.position.y,
             },
           },
@@ -147,6 +181,23 @@ describe("authoritative multiplayer game runner", () => {
     expect(stepped.players[0]!.acknowledgedInputSequence).toBe(1);
     expect(stepped.players[0]!.inputAcknowledgementLagMilliseconds).toBe(1);
     expect(stepped.queue.depth).toBe(0);
+  });
+
+  it("can run the introductory course to its ground-level goal", () => {
+    const runner = makeRunner();
+    runner.start(requireMultiplayerPlayerId("mira"));
+    const snapshot = runCreatorRightToFinish(runner);
+    expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
+  });
+
+  it("lets a moving player pass idle online party members", () => {
+    const runner = makeRunner();
+    runner.join(profile("ren", "Ren"));
+    runner.join(profile("sol", "Sol"));
+    runner.join(profile("ivy", "Ivy"));
+    runner.start(requireMultiplayerPlayerId("mira"));
+    const snapshot = runCreatorRightToFinish(runner);
+    expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
   });
 
   it("is bit-for-bit state-equivalent to a local two-player engine trace", () => {
@@ -205,8 +256,9 @@ describe("authoritative multiplayer game runner", () => {
         localState,
         creatorCommand,
         initialMovementConstants,
-        firstAuthoredLevelSpec(),
+        multiplayerLevelSpec(),
         [currentGuestCommand],
+        false,
       );
       const server = runner.step(frame);
       expect(decodeMultiplayerSimulationState(server.simulationState)).toEqual(
@@ -292,8 +344,8 @@ describe("authoritative multiplayer game runner", () => {
 
   it("finishes the whole game when a joined player reaches the goal", () => {
     const levelResult = makeLevelSpec({
-      ...firstAuthoredLevelInput,
-      tiles: firstAuthoredLevelInput.tiles.map((row, rowIndex) =>
+      ...multiplayerOnboardingLevelInput,
+      tiles: multiplayerOnboardingLevelInput.tiles.map((row, rowIndex) =>
         row.map((tile, columnIndex) =>
           rowIndex === 4 && columnIndex === 9 ? "gate" : tile,
         ),
@@ -312,6 +364,7 @@ describe("authoritative multiplayer game runner", () => {
     }
     const runner = makeAuthoritativeGameRunner({
       gameId: requireMultiplayerGameId("game-1"),
+      levelId: "joined-player-goal",
       creator: profile("mira"),
       mode: MultiplayerGameMode.Regular,
       initialState: initial.value,

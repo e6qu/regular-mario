@@ -2,6 +2,16 @@
 
 ## Current State
 
+**Multiplayer real-play acceptance (2026-08-05).** The shared game canvas now
+uses the full browser viewport left of a non-overlapping control sidebar.
+The introductory course has a safe runway and transitions the same public game
+to the next bundled course when any player reaches its goal. Online players
+can pass through idle party members, preventing a shared-screen deadlock. A
+real four-context production Playwright journey logs in, creates/joins/starts,
+sends actual keyboard input from all players, verifies movement and the next
+level with all four authoritative members, then records each perspective under
+ignored `playwright_adhoc/multiplayer-full-run/`.
+
 **Multiplayer visual parity verified (2026-08-05, corrected).** Multiplayer
 now loads the same authored skin bundle and full `BootScene` as local play;
 production Docker/test builds include the static content rather than falling

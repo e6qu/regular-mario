@@ -199,6 +199,10 @@ export function stepSimulation(
   // state.players[i + 1]); empty/short means those players hold neutral. Single-
   // player callers omit this entirely.
   coopInputCommands: readonly SimulationInputCommand[] = [],
+  // Network co-op intentionally permits players to overlap.  Remote players
+  // otherwise become an accidental wall when one friend is idle, which makes
+  // a shared-screen Internet game needlessly easy to deadlock.
+  resolveCoopPlayerCollisions = true,
 ): SimulationState {
   const nextClock = makeNextSimulationClock(state);
   assertValidPlayerVitalityState(state.players[0].vitality);
@@ -251,20 +255,23 @@ export function stepSimulation(
     primaryStepped.enemyMotion,
     primaryStepped.enemies.defeatedEnemyEntityIds,
   );
-  // Players are solid to each other (no walk-through, stand on heads, a stack
-  // rides its bottom player). Resolve every player's kinematics together — no
-  // special case for the primary. Single-player short-circuits.
+  // Local co-op retains its solid-player mechanics. Online co-op opts out so
+  // an idle player cannot block the party's route.
   const runtimesBeforePlayerCollision = [primaryRuntime, ...coopRuntimes];
   const activePlayerIndices = runtimesBeforePlayerCollision.flatMap(
     (runtime, index) =>
       runtime.outcome.kind === PlayerOutcomeKind.Active ? [index] : [],
   );
-  const collidedActivePlayers = resolvePlayerCollisions(
-    activePlayerIndices.map(
-      (index) => runtimesBeforePlayerCollision[index]!.player,
-    ),
-    activePlayerIndices.map((index) => state.players[index]!.player),
-  );
+  const collidedActivePlayers = resolveCoopPlayerCollisions
+    ? resolvePlayerCollisions(
+        activePlayerIndices.map(
+          (index) => runtimesBeforePlayerCollision[index]!.player,
+        ),
+        activePlayerIndices.map((index) => state.players[index]!.player),
+      )
+    : activePlayerIndices.map(
+        (index) => runtimesBeforePlayerCollision[index]!.player,
+      );
   const collidedPlayerByIndex = new Map(
     activePlayerIndices.map((index, activeIndex) => [
       index,

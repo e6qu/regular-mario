@@ -5,6 +5,22 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — multiplayer real-play, layout, and progression closure
+
+- Reworked the game view into a full-height canvas plus responsive sidebar, so
+  multiplayer controls do not cover gameplay at desktop widths.
+- Replaced the punishing opening screen with a safe runway and ground-level
+  goal. On completion, the same public game advances its existing party and
+  chat into the next bundled level rather than tearing down immediately.
+- Online co-op players now pass through one another. This avoids an idle
+  player blocking the shared screen while retaining the local co-op collision
+  implementation for modes that use it.
+- Added a production-server, four-independent-browser Playwright journey. It
+  records every browser, uses real login/create/join/start/key events, verifies
+  movement, four authoritative members after transition, a non-overlapping
+  layout, and captures all player views in ignored
+  `playwright_adhoc/multiplayer-full-run/`.
+
 ## 2026-08-05 — multiplayer stress coverage and local diagnostics
 
 - Added an eight-independent-browser-player stress journey: distinct sessions

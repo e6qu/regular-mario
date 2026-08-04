@@ -23,6 +23,7 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
   const record = value as Readonly<Record<string, unknown>>;
   return (
     typeof record["gameId"] === "string" &&
+    typeof record["levelId"] === "string" &&
     typeof record["cameraLeftPixels"] === "number"
   );
 }
@@ -51,11 +52,14 @@ function installMultiplayerVisualLanguage(): void {
       box-shadow: 3px 3px 0 #b9682f; }
     .multiplayer-panel button:hover, .multiplayer-panel button:focus-visible { background: #ff9d2e; outline: 3px solid #f5f7fb; outline-offset: 2px; }
     .multiplayer-panel input, .multiplayer-panel select { margin: 4px; padding: 8px; border: 2px solid #172033; font: inherit; background: #fffef6; }
-    .multiplayer-game-panel { position: fixed; z-index: 5; top: 12px; left: 12px; max-width: 360px;
-      max-height: calc(100vh - 24px); overflow: auto; margin: 0; background: #f5f7fbe8; }
-    .multiplayer-game-host { position: fixed; inset: 0; z-index: 1; }
+    .multiplayer-game-shell { min-height: 100vh; display: flex; align-items: stretch; background: #172033; }
+    .multiplayer-game-host { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
+    .multiplayer-game-panel { position: relative; z-index: 1; flex: 0 0 340px; box-sizing: border-box;
+      max-height: 100vh; overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
-      .multiplayer-game-panel { right: 8px; left: 8px; top: 8px; max-width: none; max-height: 42vh; } }
+      .multiplayer-game-shell { min-height: 100vh; flex-direction: column; }
+      .multiplayer-game-host { flex: 1 1 auto; min-height: 0; }
+      .multiplayer-game-panel { flex: 0 0 auto; max-height: 42vh; border-width: 5px 0 0; } }
   `;
   document.head.append(style);
 }
@@ -184,6 +188,9 @@ async function renderLobby(
   ]);
   mount.replaceChildren();
   const panel = makePanel();
+  const gameShell = document.createElement("section");
+  gameShell.className = "multiplayer-game-shell";
+  gameShell.setAttribute("aria-label", "Multiplayer game layout");
   const heading = document.createElement("h1");
   heading.textContent = "Trusted friends lobby";
   panel.append(heading);
@@ -336,12 +343,16 @@ function renderGame(
 ): void {
   mount.replaceChildren();
   const panel = makePanel();
+  const gameShell = document.createElement("section");
+  gameShell.className = "multiplayer-game-shell";
+  gameShell.setAttribute("aria-label", "Multiplayer game layout");
   const title = document.createElement("h1");
   title.textContent = `Game ${gameId}`;
   const status = document.createElement("p");
   const gameHost = document.createElement("div");
   gameHost.className = "multiplayer-game-host";
-  const renderer = makeMultiplayerPhaserRenderer(
+  let currentLevelId = levelId;
+  let renderer = makeMultiplayerPhaserRenderer(
     gameHost,
     levelId,
     false,
@@ -382,27 +393,32 @@ function renderGame(
       }),
     );
   }
-  mount.append(gameHost, panel);
+  gameShell.append(gameHost, panel);
+  mount.append(gameShell);
   void appendSemanticLayout(panel);
 
   let sequence = 0;
   const held = new Set<string>();
-  const initialPredictionState = makeInitialSimulationState(
-    nominalSixtyHertzFrameDurationMilliseconds,
-    requireBundledMultiplayerLevel(levelId).levelSpec,
-    initialMovementConstants,
-  );
-  if (!initialPredictionState.ok) {
-    throw new Error("Multiplayer prediction could not initialise.");
+  function makePrediction(nextLevelId: string) {
+    const initialPredictionState = makeInitialSimulationState(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      requireBundledMultiplayerLevel(nextLevelId).levelSpec,
+      initialMovementConstants,
+    );
+    if (!initialPredictionState.ok) {
+      throw new Error("Multiplayer prediction could not initialise.");
+    }
+    return makeClientPrediction(
+      initialPredictionState.value,
+      requireBundledMultiplayerLevel(nextLevelId).levelSpec,
+      initialMovementConstants,
+    );
   }
-  const prediction = makeClientPrediction(
-    initialPredictionState.value,
-    requireBundledMultiplayerLevel(levelId).levelSpec,
-    initialMovementConstants,
-  );
+  let prediction = makePrediction(levelId);
   const audio = new GameAudio();
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
   let completedAudioPlayed = false;
+  let latestAuthoritativeFrame = 0;
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -437,6 +453,22 @@ function renderGame(
     }
   }
   function displaySnapshot(snapshot: GameSnapshot): void {
+    latestAuthoritativeFrame = Math.max(
+      latestAuthoritativeFrame,
+      snapshot.frame,
+    );
+    if (snapshot.levelId !== currentLevelId) {
+      currentLevelId = snapshot.levelId;
+      renderer.destroy();
+      renderer = makeMultiplayerPhaserRenderer(
+        gameHost,
+        currentLevelId,
+        false,
+        userAssetBundle,
+      );
+      prediction = makePrediction(currentLevelId);
+      title.textContent = `Game ${gameId} · ${currentLevelId}`;
+    }
     remoteInterpolator.push(
       snapshot.players.filter((player) => player.playerId !== profile.playerId),
       performance.now(),
@@ -535,7 +567,11 @@ function renderGame(
         type: "input",
         protocolVersion: multiplayerProtocolVersion,
         sequence,
-        intendedFrame: sequence,
+        // Sequences order messages; the server's clock is the separate frame
+        // namespace. Tagging input with the latest observed server frame makes
+        // it immediately consumable instead of deferring it behind an unrelated
+        // client message count.
+        intendedFrame: latestAuthoritativeFrame,
         horizontal: commandResult.value.horizontal,
         jumpPressed: commandResult.value.jumpPressed,
         runHeld: commandResult.value.runHeld,

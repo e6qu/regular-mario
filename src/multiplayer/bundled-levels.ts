@@ -1,7 +1,7 @@
 import { makeLevelSpec, type LevelSpec } from "../engine/domain/level-spec";
 import { cavernRouteLevelInput } from "../engine/levels/cavern-route-level";
 import { coinBlockRouteLevelInput } from "../engine/levels/coin-block-route-level";
-import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
+import { multiplayerOnboardingLevelInput } from "../engine/levels/multiplayer-onboarding-level";
 
 export type BundledMultiplayerLevel = {
   readonly id: string;
@@ -21,9 +21,9 @@ function requireBundledLevelSpec(
 
 export const bundledMultiplayerLevels: readonly BundledMultiplayerLevel[] = [
   {
-    id: "first-authored",
-    label: "Shoreline Sprint",
-    levelSpec: requireBundledLevelSpec(firstAuthoredLevelInput),
+    id: "multiplayer-onboarding",
+    label: "Party Runway",
+    levelSpec: requireBundledLevelSpec(multiplayerOnboardingLevelInput),
   },
   {
     id: "cavern-route",

@@ -13,6 +13,7 @@ coverage/
 playwright-report/
 test-results/
 screenshots/
+playwright_adhoc/
 
 # Generated caches
 .vite/

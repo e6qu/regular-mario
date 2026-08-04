@@ -18,6 +18,14 @@
 
 ### Active local diagnosis (2026-08-05)
 
+- Complete: recorded real-play acceptance is now at
+  `playwright_adhoc/multiplayer-full-run/` (ignored). Four isolated browsers
+  authenticate, create/join/start one public game, exercise actual keyboard
+  movement, complete the safe introductory course, and enter `cavern-route`
+  with four server-authoritative members. The game panel is a sidebar, not an
+  overlay; online players pass through idle party members so a friend cannot
+  block the run.
+
 - The local server runs with `LOG_FILE=screenshots/server.log`. Reproduce the
   failed Start action once to capture its redacted `http_error` entry; no
   password, cookie, chat, or snapshot data is logged.

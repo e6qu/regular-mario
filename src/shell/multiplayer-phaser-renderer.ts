@@ -50,6 +50,8 @@ export function makeMultiplayerPhaserRenderer(
   let destroyed = false;
   game.events.once(Phaser.Core.Events.READY, () => {
     ready = true;
+    game.canvas.tabIndex = 0;
+    game.canvas.focus();
     if (latestSnapshot !== undefined && !destroyed) {
       applySnapshot(requireRemoteScene(game), latestSnapshot);
     }
@@ -68,6 +70,7 @@ export function makeMultiplayerPhaserRenderer(
         "data-authoritative-player-count",
         String(snapshot.players.length),
       );
+      game.canvas.setAttribute("data-authoritative-level-id", snapshot.levelId);
       if (ready) {
         applySnapshot(requireRemoteScene(game), snapshot);
       }

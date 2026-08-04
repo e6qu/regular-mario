@@ -41,8 +41,8 @@ export type PublicGameSummary = {
 type HostedGame = {
   readonly creatorPlayerId: MultiplayerPlayerId;
   readonly creator: MultiplayerPlayerProfile;
-  readonly levelId: string;
-  readonly runner: AuthoritativeGameRunner;
+  levelId: string;
+  runner: AuthoritativeGameRunner;
   readonly chat: EphemeralChatRoom;
 };
 
@@ -139,23 +139,79 @@ export function makeMultiplayerLobby(
     }
   }
 
+  function makeRunner(
+    gameId: MultiplayerGameId,
+    creator: MultiplayerPlayerProfile,
+    levelId: string,
+    mode: MultiplayerGameMode,
+    members: readonly MultiplayerPlayerProfile[],
+  ): AuthoritativeGameRunner {
+    const level = levelById.get(levelId);
+    if (level === undefined) {
+      throw new Error("Selected level is not a bundled multiplayer level.");
+    }
+    const initialState = makeInitialSimulationState(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level.levelSpec,
+      config.movementConstants,
+    );
+    if (!initialState.ok) {
+      throw new Error(
+        "Selected level cannot create an initial simulation state.",
+      );
+    }
+    const runner = makeAuthoritativeGameRunner({
+      gameId,
+      levelId,
+      creator,
+      mode,
+      initialState: initialState.value,
+      levelSpec: level.levelSpec,
+      movementConstants: config.movementConstants,
+    });
+    for (const member of members.slice(1)) {
+      runner.join(member);
+    }
+    return runner;
+  }
+
+  function nextLevelId(levelId: string): string | undefined {
+    const index = config.levels.findIndex((level) => level.id === levelId);
+    if (index < 0) {
+      throw new Error("Current game level is not bundled.");
+    }
+    return config.levels[index + 1]?.id;
+  }
+
+  function advanceCompletedGame(
+    gameId: MultiplayerGameId,
+    game: HostedGame,
+  ): AuthoritativeGameSnapshot | undefined {
+    const nextId = nextLevelId(game.levelId);
+    if (nextId === undefined) {
+      return undefined;
+    }
+    const previous = game.runner.snapshot();
+    const members = previous.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      avatarId: player.avatarId,
+    }));
+    const creator = members.find(
+      (member) => member.playerId === game.creatorPlayerId,
+    );
+    if (creator === undefined) {
+      throw new Error("Game creator is absent from its own game.");
+    }
+    game.levelId = nextId;
+    game.runner = makeRunner(gameId, creator, nextId, previous.mode, members);
+    game.runner.start(game.creatorPlayerId);
+    return game.runner.snapshot();
+  }
+
   return {
     createGame(creator, levelId, mode) {
       assertPlayerHasNoOtherGame(creator.playerId);
-      const level = levelById.get(levelId);
-      if (level === undefined) {
-        throw new Error("Selected level is not a bundled multiplayer level.");
-      }
-      const initialState = makeInitialSimulationState(
-        nominalSixtyHertzFrameDurationMilliseconds,
-        level.levelSpec,
-        config.movementConstants,
-      );
-      if (!initialState.ok) {
-        throw new Error(
-          "Selected level cannot create an initial simulation state.",
-        );
-      }
       const gameId = requireMultiplayerGameId(config.nextGameId());
       if (gamesById.has(gameId)) {
         throw new Error("Generated game ID already exists.");
@@ -164,14 +220,7 @@ export function makeMultiplayerLobby(
         creatorPlayerId: creator.playerId,
         creator,
         levelId,
-        runner: makeAuthoritativeGameRunner({
-          gameId,
-          creator,
-          mode,
-          initialState: initialState.value,
-          levelSpec: level.levelSpec,
-          movementConstants: config.movementConstants,
-        }),
+        runner: makeRunner(gameId, creator, levelId, mode, [creator]),
         chat: makeEphemeralChatRoom(),
       };
       gamesById.set(gameId, game);
@@ -255,7 +304,12 @@ export function makeMultiplayerLobby(
           const snapshot = game.runner.step(nowMilliseconds);
           snapshots.push(snapshot);
           if (snapshot.phase === MultiplayerGamePhase.Finished) {
-            completedGameIds.push(gameId);
+            const advanced = advanceCompletedGame(gameId, game);
+            if (advanced === undefined) {
+              completedGameIds.push(gameId);
+            } else {
+              snapshots[snapshots.length - 1] = advanced;
+            }
           }
         }
       }

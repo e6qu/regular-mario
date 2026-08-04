@@ -63,6 +63,7 @@ type AuthoritativePlayerSnapshot = MultiplayerPlayerProfile & {
 
 export type AuthoritativeGameSnapshot = {
   readonly gameId: MultiplayerGameId;
+  readonly levelId: string;
   readonly mode: MultiplayerGameMode;
   readonly phase: MultiplayerGamePhase;
   readonly frame: number;
@@ -91,6 +92,7 @@ export type AuthoritativeGameRunner = {
 
 export type MakeAuthoritativeGameRunnerConfig = {
   readonly gameId: MultiplayerGameId;
+  readonly levelId: string;
   readonly creator: MultiplayerPlayerProfile;
   readonly mode: MultiplayerGameMode;
   readonly initialState: SimulationState;
@@ -157,6 +159,7 @@ export function makeAuthoritativeGameRunner(
   function makeSnapshot(): AuthoritativeGameSnapshot {
     return {
       gameId: config.gameId,
+      levelId: config.levelId,
       mode: config.mode,
       phase,
       frame: Number(state.clock.frameIndex),
@@ -217,6 +220,7 @@ export function makeAuthoritativeGameRunner(
       config.movementConstants,
       config.levelSpec,
       commands.slice(1),
+      false,
     );
     updateCamera();
     if (

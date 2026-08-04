@@ -13,6 +13,7 @@ type MultiplayerRenderedPlayer = {
 
 export type MultiplayerRenderedSnapshot = {
   readonly gameId: string;
+  readonly levelId: string;
   readonly phase: string;
   readonly frame: number;
   readonly cameraLeftPixels: number;

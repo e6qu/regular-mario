@@ -8,7 +8,7 @@ import {
 describe("bundled multiplayer levels", () => {
   it("offers multiple validated original levels", () => {
     expect(bundledMultiplayerLevels.map((level) => level.id)).toEqual([
-      "first-authored",
+      "multiplayer-onboarding",
       "cavern-route",
       "coin-block-route",
     ]);

@@ -154,6 +154,14 @@ independently requires two different multiplayer avatars to match exactly. The
 comparison hides only the local route's non-game ESC navigation hint and uses
 no crop, scale, mask, or pixel tolerance for gameplay pixels.
 
+**Real-play acceptance evidence (2026-08-05):** the production standalone
+server is exercised by four isolated, recorded Playwright browsers. They log
+in, choose profiles, create/join/start one public game, send real keyboard
+input, demonstrate movement with idle party members present, complete the
+safe introductory course, and remain four authoritative members after the
+game advances to the next bundled course. The ignored recordings and
+per-player screenshots are written under `playwright_adhoc/multiplayer-full-run/`.
+
 ## Target
 
 Faithful classic-platformer feel — mechanics, HUD, background, physics, and
