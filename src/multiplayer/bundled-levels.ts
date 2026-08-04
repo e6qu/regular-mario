@@ -26,14 +26,14 @@ export const bundledMultiplayerLevels: readonly BundledMultiplayerLevel[] = [
     levelSpec: requireBundledLevelSpec(multiplayerOnboardingLevelInput),
   },
   {
-    id: "cavern-route",
-    label: "Cavern Route",
-    levelSpec: requireBundledLevelSpec(cavernRouteLevelInput),
-  },
-  {
     id: "coin-block-route",
     label: "Coinbox Crossing",
     levelSpec: requireBundledLevelSpec(coinBlockRouteLevelInput),
+  },
+  {
+    id: "cavern-route",
+    label: "Cavern Route",
+    levelSpec: requireBundledLevelSpec(cavernRouteLevelInput),
   },
 ];
 

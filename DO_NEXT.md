@@ -26,6 +26,13 @@
   overlay; online players pass through idle party members so a friend cannot
   block the run.
 
+- Complete: the stronger two-level proof supersedes the old one-transition
+  claim. `full-run-recording.spec.ts` launches four separate browser processes,
+  not merely four contexts; it completes `multiplayer-onboarding`, completes
+  `coin-block-route`, and verifies four rendered `cavern-route` clients. Its
+  fresh videos and screenshots remain ignored in
+  `playwright_adhoc/multiplayer-full-run/`.
+
 - The local server runs with `LOG_FILE=screenshots/server.log`. Reproduce the
   failed Start action once to capture its redacted `http_error` entry; no
   password, cookie, chat, or snapshot data is logged.

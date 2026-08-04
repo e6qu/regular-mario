@@ -12,6 +12,13 @@ sends actual keyboard input from all players, verifies movement and the next
 level with all four authoritative members, then records each perspective under
 ignored `playwright_adhoc/multiplayer-full-run/`.
 
+**Two-course multiplayer completion proof (2026-08-05).** Four genuinely
+separate Chromium processes now record the same full journey through Party
+Runway and Coinbox Crossing, then enter Cavern Route together. The test checks
+all four post-transition canvases at exactly 940×720 CSS and backing pixels,
+and screenshots each player only after its authoritative frame is rendered.
+The inspected captures show the authored game plus sidebar without overlap.
+
 **Multiplayer visual parity verified (2026-08-05, corrected).** Multiplayer
 now loads the same authored skin bundle and full `BootScene` as local play;
 production Docker/test builds include the static content rather than falling

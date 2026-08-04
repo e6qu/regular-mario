@@ -1,4 +1,7 @@
 import Phaser from "phaser";
+
+export const authoritativeRenderSceneReadyEvent =
+  "authoritative-render-scene-ready";
 import { makeLavaTileIds } from "../../engine/simulation/tile-collision-support";
 
 import {
@@ -1212,12 +1215,20 @@ export class BootScene extends Phaser.Scene {
   private sizeCanvasToDisplay(): void {
     const canvas = this.game.canvas;
     const parent = canvas.parentElement;
-    const cssWidth = Math.max(1, parent?.clientWidth ?? window.innerWidth);
+    // Read the resolved layout rectangle, not clientHeight: an inline or
+    // freshly replaced canvas can temporarily influence clientHeight and give
+    // one multiplayer client a taller backing buffer than its siblings.
+    const parentBounds = parent?.getBoundingClientRect();
+    const cssWidth = Math.max(
+      1,
+      Math.floor(parentBounds?.width ?? window.innerWidth),
+    );
     // Shrink the canvas by the space the replay strip reserves at the bottom so
     // the strip sits below the game area rather than over it.
     const cssHeight = Math.max(
       1,
-      (parent?.clientHeight ?? window.innerHeight) - this.reservedBottomPixels,
+      Math.floor(parentBounds?.height ?? window.innerHeight) -
+        this.reservedBottomPixels,
     );
     // The Canvas-2D renderer fills the whole backing store in software every
     // frame, so its cost scales with pixelRatio². On phones (coarse pointer,
@@ -1298,13 +1309,23 @@ export class BootScene extends Phaser.Scene {
   }
 
   /** Render a server-owned frame without stepping this scene's local simulation. */
-  public applyAuthoritativeSimulationState(state: SimulationState): void {
+  public applyAuthoritativeSimulationState(
+    state: SimulationState,
+    cameraLeftPixels: number,
+  ): void {
     if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
       throw new Error(
         "Only an authoritative-render scene can accept remote state.",
       );
     }
     this.simulationState = state;
+    // Every online client must render the server's shared screen, never the
+    // transient local follow position from its own Phaser boot timing.
+    this.cameras.main.stopFollow();
+    this.setCameraWorldBottom(
+      cameraLeftPixels,
+      this.levelSpec.heightTiles * this.levelSpec.tileSizePixels,
+    );
     this.renderSimulationState();
   }
 
@@ -1526,6 +1547,7 @@ export class BootScene extends Phaser.Scene {
 
     this.publishDebugApi();
     this.renderSimulationState();
+    this.events.emit(authoritativeRenderSceneReadyEvent);
 
     // Freeze on frame 0 until the first key, so a slow load doesn't eat the run.
     this.awaitingStart = this.browserGameBootstrap.awaitStart ?? false;

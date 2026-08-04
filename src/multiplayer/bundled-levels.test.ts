@@ -9,8 +9,8 @@ describe("bundled multiplayer levels", () => {
   it("offers multiple validated original levels", () => {
     expect(bundledMultiplayerLevels.map((level) => level.id)).toEqual([
       "multiplayer-onboarding",
-      "cavern-route",
       "coin-block-route",
+      "cavern-route",
     ]);
     expect(
       requireBundledMultiplayerLevel("cavern-route").levelSpec.widthTiles,

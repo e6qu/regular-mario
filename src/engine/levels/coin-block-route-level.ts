@@ -26,6 +26,10 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
       collision: TileCollisionKind.Interactive,
       contentsActorId: "coin",
     },
+    {
+      tileId: "gate",
+      collision: TileCollisionKind.Goal,
+    },
   ],
   actorDefinitions: [
     {
@@ -57,7 +61,11 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
       "sky",
     ],
     makeTileRun("sky", coinBlockRouteWidthTiles),
-    makeTileRun("sky", coinBlockRouteWidthTiles),
+    [
+      ...makeTileRun("sky", 8),
+      "gate",
+      ...makeTileRun("sky", coinBlockRouteWidthTiles - 9),
+    ],
     makeTileRun("grass", coinBlockRouteWidthTiles),
   ],
   actors: [

@@ -5,7 +5,10 @@ import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import { selectBrowserGameBootstrap } from "./browser-level-selection";
 import { createGameConfig } from "./create-game-config";
-import { BootScene } from "./scenes/boot-scene";
+import {
+  authoritativeRenderSceneReadyEvent,
+  BootScene,
+} from "./scenes/boot-scene";
 import type { UserAssetBundle } from "./user-asset-loader";
 
 export type MultiplayerPhaserRenderer = {
@@ -45,21 +48,30 @@ export function makeMultiplayerPhaserRenderer(
       awaitStart: false,
     }),
   );
+  const canvas = game.canvas;
   let latestSnapshot: MultiplayerRenderedSnapshot | undefined;
   let ready = false;
   let destroyed = false;
   game.events.once(Phaser.Core.Events.READY, () => {
-    ready = true;
-    game.canvas.tabIndex = 0;
-    game.canvas.focus();
-    if (latestSnapshot !== undefined && !destroyed) {
-      applySnapshot(requireRemoteScene(game), latestSnapshot);
+    const scene = requireRemoteScene(game);
+    const markReady = () => {
+      ready = true;
+      canvas.tabIndex = 0;
+      canvas.focus();
+      if (latestSnapshot !== undefined && !destroyed) {
+        applySnapshot(scene, latestSnapshot);
+      }
+    };
+    if (scene.sys.isActive()) {
+      markReady();
+    } else {
+      scene.events.once(authoritativeRenderSceneReadyEvent, markReady);
     }
   });
-  game.canvas.setAttribute("aria-label", "Authoritative multiplayer game view");
-  game.canvas.setAttribute("data-role", "multiplayer-phaser-canvas");
+  canvas.setAttribute("aria-label", "Authoritative multiplayer game view");
+  canvas.setAttribute("data-role", "multiplayer-phaser-canvas");
   return {
-    canvas: game.canvas,
+    canvas,
     render(snapshot) {
       latestSnapshot = snapshot;
       game.canvas.setAttribute(
@@ -78,6 +90,10 @@ export function makeMultiplayerPhaserRenderer(
     destroy() {
       destroyed = true;
       game.destroy(true);
+      // Phaser's asynchronous destruction does not consistently detach the
+      // canvas before a newly advanced server course mounts its replacement.
+      // The shell must guarantee exactly one authoritative canvas per client.
+      canvas.remove();
     },
   };
 }
@@ -88,6 +104,7 @@ function applySnapshot(
 ): void {
   scene.applyAuthoritativeSimulationState(
     decodeMultiplayerSimulationState(snapshot.simulationState),
+    snapshot.cameraLeftPixels,
   );
   const orderedPlayers = [...snapshot.players].sort(
     (left, right) => left.slot - right.slot,

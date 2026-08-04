@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — verified four-player, two-course multiplayer completion
+
+- Strengthened the Playwright recording from isolated contexts to four separate
+  Chromium processes: one recorded authenticated session per player. The test
+  drives actual keyboard input, completes Party Runway, completes Coinbox
+  Crossing, and verifies all four players' authoritative entry into Cavern
+  Route.
+- Corrected Coinbox Crossing so its visible exit includes an actual goal tile;
+  server completion can no longer be blocked by an actor-only exit.
+- Reset the client intended-frame clock on a server level transition, preventing
+  the new runner from rejecting keyboard input as future-dated.
+- Made the multiplayer Phaser shell reliable over repeated transitions: mount
+  the host before boot, apply snapshots after explicit scene readiness, apply
+  server camera position, tear down old canvases, and size from the rendered
+  host rectangle. The acceptance test asserts one 940×720 CSS/backing canvas
+  for every session before taking ignored screenshots and videos.
+
 ## 2026-08-05 — multiplayer real-play, layout, and progression closure
 
 - Reworked the game view into a full-height canvas plus responsive sidebar, so

@@ -162,6 +162,16 @@ safe introductory course, and remain four authoritative members after the
 game advances to the next bundled course. The ignored recordings and
 per-player screenshots are written under `playwright_adhoc/multiplayer-full-run/`.
 
+**Two-level real-play acceptance (2026-08-05):** four separate Chromium
+processes, each with its own recorded authenticated player session, complete
+Party Runway and then Coinbox Crossing in one authoritative public game before
+all four render the opening frame of Cavern Route. The browser test asserts
+input movement, exactly four server members through both transitions, the
+server frame/camera, one 940×720 canvas per player, matching CSS/backing
+dimensions, and post-transition screenshots. It caught and closed a missing
+goal tile, frame-clock reset, detached-canvas boot, camera, and canvas-teardown
+defects rather than treating the first transition as sufficient proof.
+
 ## Target
 
 Faithful classic-platformer feel — mechanics, HUD, background, physics, and

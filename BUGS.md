@@ -2,6 +2,17 @@
 
 ## Known Bugs
 
+### Multi-course authoritative rendering and exit completion — fixed 2026-08-05
+
+A real four-player two-course run found five defects that the prior
+single-transition smoke test missed: Coinbox Crossing's visible exit lacked a
+goal tile; input tagged with the previous course's frame clock was rejected;
+old Phaser canvases could survive a transition; Phaser sometimes booted inside
+a detached host and measured the wrong viewport; and clients could render a
+snapshot before `BootScene.create()` built its objects. The gate now carries a
+goal collision tile, frame clock reset, explicit canvas teardown, mounted-host
+construction, rendered-bounds sizing, and a scene-ready snapshot barrier.
+
 ### Multiplayer startup obstruction and overlay — fixed 2026-08-05
 
 The first public course could begin with hazards/enemies immediately beside a

@@ -52,12 +52,13 @@ function installMultiplayerVisualLanguage(): void {
       box-shadow: 3px 3px 0 #b9682f; }
     .multiplayer-panel button:hover, .multiplayer-panel button:focus-visible { background: #ff9d2e; outline: 3px solid #f5f7fb; outline-offset: 2px; }
     .multiplayer-panel input, .multiplayer-panel select { margin: 4px; padding: 8px; border: 2px solid #172033; font: inherit; background: #fffef6; }
-    .multiplayer-game-shell { min-height: 100vh; display: flex; align-items: stretch; background: #172033; }
-    .multiplayer-game-host { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden; }
+    .multiplayer-game-shell { height: 100vh; min-height: 0; display: flex; align-items: stretch; overflow: hidden; background: #172033; }
+    .multiplayer-game-host { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+    .multiplayer-game-host canvas { display: block; }
     .multiplayer-game-panel { position: relative; z-index: 1; flex: 0 0 340px; box-sizing: border-box;
       max-height: 100vh; overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
-      .multiplayer-game-shell { min-height: 100vh; flex-direction: column; }
+      .multiplayer-game-shell { height: 100vh; min-height: 0; flex-direction: column; }
       .multiplayer-game-host { flex: 1 1 auto; min-height: 0; }
       .multiplayer-game-panel { flex: 0 0 auto; max-height: 42vh; border-width: 5px 0 0; } }
   `;
@@ -352,19 +353,12 @@ function renderGame(
   const gameHost = document.createElement("div");
   gameHost.className = "multiplayer-game-host";
   let currentLevelId = levelId;
-  let renderer = makeMultiplayerPhaserRenderer(
-    gameHost,
-    levelId,
-    false,
-    userAssetBundle,
-  );
   const chatInput = document.createElement("input");
   chatInput.maxLength = 256;
   chatInput.setAttribute("aria-label", "Game chat message");
   const chatLog = document.createElement("div");
   chatLog.setAttribute("role", "log");
   chatLog.setAttribute("aria-label", "Game chat");
-  let disposeView: () => void = () => renderer.destroy();
   panel.classList.add("multiplayer-game-panel");
   panel.append(title, status, chatLog, chatInput);
   panel.append(
@@ -395,6 +389,15 @@ function renderGame(
   }
   gameShell.append(gameHost, panel);
   mount.append(gameShell);
+  // Phaser measures its parent during boot. Mount first so every browser
+  // session sees the real viewport instead of a detached, zero-sized host.
+  let renderer = makeMultiplayerPhaserRenderer(
+    gameHost,
+    levelId,
+    false,
+    userAssetBundle,
+  );
+  let disposeView: () => void = () => renderer.destroy();
   void appendSemanticLayout(panel);
 
   let sequence = 0;
@@ -453,12 +456,12 @@ function renderGame(
     }
   }
   function displaySnapshot(snapshot: GameSnapshot): void {
-    latestAuthoritativeFrame = Math.max(
-      latestAuthoritativeFrame,
-      snapshot.frame,
-    );
     if (snapshot.levelId !== currentLevelId) {
       currentLevelId = snapshot.levelId;
+      // A newly advanced course owns a fresh frame clock. Retaining the prior
+      // course's larger frame number makes every new keyboard command look
+      // implausibly far in the future to the authoritative input queue.
+      latestAuthoritativeFrame = snapshot.frame;
       renderer.destroy();
       renderer = makeMultiplayerPhaserRenderer(
         gameHost,
@@ -468,6 +471,11 @@ function renderGame(
       );
       prediction = makePrediction(currentLevelId);
       title.textContent = `Game ${gameId} · ${currentLevelId}`;
+    } else {
+      latestAuthoritativeFrame = Math.max(
+        latestAuthoritativeFrame,
+        snapshot.frame,
+      );
     }
     remoteInterpolator.push(
       snapshot.players.filter((player) => player.playerId !== profile.playerId),
