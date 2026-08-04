@@ -103,6 +103,11 @@ export type MultiplayerService = {
     text: string,
     nowMilliseconds: number,
   ): ChatMessage;
+  gameMessages(
+    token: string | undefined,
+    gameId: string,
+    nowMilliseconds: number,
+  ): readonly ChatMessage[];
   lobbyMessages(
     token: string | undefined,
     nowMilliseconds: number,
@@ -347,6 +352,14 @@ export function makeMultiplayerService(
         text,
         nowMilliseconds,
       );
+    },
+    gameMessages(token, gameId, nowMilliseconds) {
+      const profile = requirePlayerProfile(token, nowMilliseconds);
+      const parsedGameId = requireMultiplayerGameId(gameId);
+      if (lobby.gameForPlayer(profile.playerId) !== parsedGameId) {
+        throw new Error("Only game members can read game chat.");
+      }
+      return lobby.gameMessages(parsedGameId);
     },
     lobbyMessages(token, nowMilliseconds) {
       requirePlayerProfile(token, nowMilliseconds);

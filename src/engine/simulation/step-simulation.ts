@@ -365,19 +365,36 @@ function stepCoopPlayers(
       ),
     };
   });
+  // A co-op member reaching the goal completes the shared level immediately,
+  // including during the brief spawn-invincibility window. The authoritative
+  // multiplayer runner ends the whole game when any runtime is finished.
+  const withGoalOutcomes = moved.map<PlayerRuntime>((runtime) => {
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return runtime;
+    }
+    return detectLevelContactState(runtime.player, levelSpec).goal
+      ? {
+          ...runtime,
+          outcome: {
+            kind: PlayerOutcomeKind.Finished,
+            reason: PlayerFinishReason.GoalContact,
+          },
+        }
+      : runtime;
+  });
   // During the spawn-invincibility window nobody is removed, so the bots ride
   // out the initial scrum unharmed.
   if (
     frameIndex * Number(frameDurationMilliseconds) <
     coopSpawnInvincibilityMilliseconds
   ) {
-    return moved;
+    return withGoalOutcomes;
   }
   // A defeated co-op player remains in the uniform player array as a spectator
   // until the level ends. Keeping the stable slot is required by authoritative
   // multiplayer: network player IDs must never silently shift when somebody
   // dies. Defeated runtimes no longer collide or consume input above.
-  return moved.map((runtime) => {
+  return moved.map<PlayerRuntime>((runtime) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
@@ -400,15 +417,30 @@ function stepCoopPlayers(
           : levelContact.hazard
             ? PlayerDefeatReason.HazardContact
             : undefined;
-    return reason === undefined
-      ? runtime
-      : {
-          ...runtime,
-          outcome: {
+    if (reason === undefined) {
+      return levelContact.goal
+        ? {
+            ...runtime,
+            outcome: {
+              kind: PlayerOutcomeKind.Finished,
+              reason: PlayerFinishReason.GoalContact,
+            },
+          }
+        : runtime;
+    }
+    return {
+      ...runtime,
+      outcome: levelContact.goal
+        ? {
+            kind: PlayerOutcomeKind.DefeatedAndFinished,
+            defeatReason: reason,
+            finishReason: PlayerFinishReason.GoalContact,
+          }
+        : {
             kind: PlayerOutcomeKind.Defeated,
             reason,
           },
-        };
+    };
   });
 }
 

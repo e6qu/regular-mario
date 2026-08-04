@@ -23,13 +23,17 @@ Secure HttpOnly cookies, so HTTPS termination by Caddy is required.
   passwords and issue short opaque cookies (24 h player / 1 h admin).
 - `/api/layout` returns the exact semantic tree behind the login, lobby, and
   admin screens. Player routes expose profile, public games, game creation,
-  joining, start, chat, and snapshots.
+  joining, start/end/leave, chat (`GET` and `POST` per game), and snapshots.
 - `/api/admin/debug` returns redacted sessions/game state plus queue and
-  acknowledgement metrics. Admin routes pause, resume, or advance exactly one
-  game frame; screenshots are readable only through the matching admin route.
+  acknowledgement/transport metrics. Admin routes pause, resume, inject one
+  validated member input, or advance exactly one game frame; screenshots are
+  readable only through the matching admin route.
 - A same-origin WebSocket carries explicit input commands, chat, and client
   screenshot reports. Inputs are ordered per player, expire after three
   seconds, and are acknowledged by 20 Hz state snapshots.
+- Every API request other than health and every WebSocket payload supplies
+  protocol version `1`; mismatches fail visibly. Failed player-password
+  attempts are limited to five per source address per minute.
 
 Playwright/browser automation should authenticate normally, inspect
 `/api/layout`, use the admin frame controls, then capture the visible browser

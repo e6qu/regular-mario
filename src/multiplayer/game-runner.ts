@@ -54,6 +54,7 @@ type AuthoritativePlayerSnapshot = MultiplayerPlayerProfile & {
   readonly x: number;
   readonly y: number;
   readonly acknowledgedInputSequence: number;
+  readonly inputAcknowledgementLagMilliseconds: number;
 };
 
 export type AuthoritativeGameSnapshot = {
@@ -120,6 +121,7 @@ export function makeAuthoritativeGameRunner(
     MultiplayerPlayerId,
     number
   >();
+  const acknowledgementLagByPlayerId = new Map<MultiplayerPlayerId, number>();
   const inputQueue: ExpiringInputQueue = makeExpiringInputQueue(
     multiplayerInputQueueMaximumMessages,
     multiplayerInputExpiryMilliseconds,
@@ -170,6 +172,8 @@ export function makeAuthoritativeGameRunner(
           y: Number(runtime.player.position.y),
           acknowledgedInputSequence:
             acknowledgedInputSequenceByPlayerId.get(player.playerId) ?? 0,
+          inputAcknowledgementLagMilliseconds:
+            acknowledgementLagByPlayerId.get(player.playerId) ?? 0,
         };
       }),
       queue: inputQueue.metrics(),
@@ -190,6 +194,10 @@ export function makeAuthoritativeGameRunner(
         acknowledgedInputSequenceByPlayerId.set(
           player.playerId,
           newest.sequence,
+        );
+        acknowledgementLagByPlayerId.set(
+          player.playerId,
+          Math.max(0, nowMilliseconds - newest.receivedAtMilliseconds),
         );
       }
     }
@@ -248,6 +256,7 @@ export function makeAuthoritativeGameRunner(
         .map((candidate, slot) => ({ ...candidate, slot }));
       commandByPlayerId.delete(playerId);
       acknowledgedInputSequenceByPlayerId.delete(playerId);
+      acknowledgementLagByPlayerId.delete(playerId);
       return makeSnapshot();
     },
     updateProfile(player) {

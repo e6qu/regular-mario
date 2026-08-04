@@ -6,6 +6,13 @@ const injectedSnapshotDelayMilliseconds = Number(
 
 async function login(page: Page): Promise<void> {
   await page.goto("/#multiplayer");
+  const unsupportedProtocol = await page.request.get("/api/lobby", {
+    headers: { "x-multiplayer-protocol-version": "0" },
+  });
+  expect(unsupportedProtocol.status()).toBe(400);
+  expect(await unsupportedProtocol.json()).toMatchObject({
+    error: "Unsupported multiplayer protocol version.",
+  });
   await page.getByLabel("Server password").fill("friends");
   await page.getByRole("button", { name: "Enter lobby" }).click();
   await expect(
@@ -39,11 +46,19 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
+  await expect(
+    creator.getByLabel("Authoritative multiplayer game view"),
+  ).toHaveAttribute("data-role", "multiplayer-phaser-canvas");
   await creator.keyboard.down("ArrowRight");
   await creator.waitForTimeout(120);
   await creator.keyboard.up("ArrowRight");
   await creator.waitForTimeout(injectedSnapshotDelayMilliseconds + 200);
   await expect(creator.getByText(/playing · frame [1-9]/)).toBeVisible();
+  expect(
+    await creator
+      .getByLabel("Authoritative multiplayer game view")
+      .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL().length),
+  ).toBeGreaterThan(1_000);
 
   const layout = await creator.request.get("/api/layout", {
     headers: { "x-multiplayer-protocol-version": "1" },
@@ -59,6 +74,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   ).toBeAttached();
   await guest.getByLabel("Game chat message").fill("hello from Ren");
   await guest.getByRole("button", { name: "Send game chat" }).click();
+  await expect(creator.getByRole("log", { name: "Game chat" })).toContainText(
+    "Ren: hello from Ren",
+  );
   await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();
   await creator.screenshot({ path: "test-results/multiplayer-desktop.png" });
   await creatorContext.close();
@@ -73,8 +91,28 @@ test("administrator can inspect and step a paused game", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Multiplayer administration" }),
   ).toBeVisible();
+  await expect(
+    page.locator(
+      '[data-semantic-role="main"][data-semantic-label="Multiplayer administration"]',
+    ),
+  ).toBeAttached();
+  await expect(
+    page.getByText(
+      new RegExp(
+        `Snapshots: [0-9]+ · delay ${injectedSnapshotDelayMilliseconds} ms`,
+      ),
+    ),
+  ).toBeVisible();
   await page.getByRole("button", { name: "pause" }).click();
   await page.getByRole("button", { name: "step" }).click();
   await page.getByRole("button", { name: "resume" }).click();
+  await expect(page.getByAltText(/Latest screenshot for game-/)).toBeVisible();
+  await page
+    .getByRole("button", { name: /Boot (Mira|Ren)/ })
+    .first()
+    .click();
+  await page
+    .getByRole("button", { name: "Expire all player sessions" })
+    .click();
   await page.screenshot({ path: "test-results/multiplayer-admin-mobile.png" });
 });

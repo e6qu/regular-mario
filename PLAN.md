@@ -137,6 +137,13 @@ its local player.
    simulated 100 ms through 3 s delay. Record new dependencies' license,
    purpose, maintenance, security, and age before adoption.
 
+**Completion evidence (2026-08-04):** all six delivery steps are implemented.
+The pure runner covers the 16-player cap, late current-camera spawn, spectator
+retention, and joined-player completion. The production standalone service is
+driven by Playwright in two isolated browsers, including semantic layout,
+normal input, game chat, retained screenshots, admin boot/expiry/pause/step,
+and injected 100 ms/3 s snapshot delay. `pnpm run check` is green.
+
 ## Target
 
 Faithful classic-platformer feel — mechanics, HUD, background, physics, and

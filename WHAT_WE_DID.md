@@ -5,6 +5,22 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-04 — multiplayer completion audit
+
+- Replaced the temporary multiplayer canvas with a snapshot-only Phaser
+  renderer that applies the authoritative shared camera, interpolated remote
+  positions, predicted local position, and bounded screenshot capture. Its
+  production-browser canvas output is asserted nonblank.
+- Made game chat readable and live-refreshed for game members, cleaned up game
+  WebSocket/input/polling resources on every leave/end/completion route, and
+  exposed authenticated transport cadence/protocol-error plus per-player input
+  acknowledgement-lag metrics.
+- Found and fixed a deterministic-core gap: additional co-op players now get a
+  finished outcome on goal contact, including the spawn-invincibility period.
+  Runner coverage now includes the hard cap, late-camera spawn, spectator,
+  and joined-player completion; browser coverage includes protocol mismatch,
+  retained screenshot, admin boot/expiry, and visible cross-client game chat.
+
 ## 2026-08-04 — semantic browser rendering and hardened control boundary
 
 - Shared the typed semantic UI-node definition between the server layout

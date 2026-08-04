@@ -4,14 +4,23 @@ import {
   HorizontalInput,
   type SimulationInputCommand,
 } from "../engine/simulation/input-command";
+import { makeLevelSpec } from "../engine/domain/level-spec";
+import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
-import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import {
+  makeInitialSimulationState,
+  type SimulationState,
+} from "../engine/simulation/simulation-state";
+import {
+  PlayerDefeatReason,
   PlayerFinishReason,
   PlayerOutcomeKind,
 } from "../engine/simulation/player-outcome";
-import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
+import {
+  nominalSixtyHertzFrameDurationMilliseconds,
+  requireSimulationPixelPosition,
+} from "../engine/simulation/simulation-units";
 import {
   MultiplayerGameMode,
   requireMultiplayerAvatar,
@@ -42,7 +51,7 @@ function profile(id: string, nickname = "Mira"): MultiplayerPlayerProfile {
   };
 }
 
-function makeRunner() {
+function makeInitialState(): SimulationState {
   const initial = makeInitialSimulationState(
     nominalSixtyHertzFrameDurationMilliseconds,
     firstAuthoredLevelSpec(),
@@ -51,14 +60,29 @@ function makeRunner() {
   if (!initial.ok) {
     throw new Error("Expected a valid simulation state.");
   }
+  return initial.value;
+}
+
+function makeRunnerForMode(
+  initialState: SimulationState,
+  mode: MultiplayerGameMode,
+) {
   return makeAuthoritativeGameRunner({
     gameId: requireMultiplayerGameId("game-1"),
     creator: profile("mira"),
-    mode: MultiplayerGameMode.Regular,
-    initialState: initial.value,
+    mode,
+    initialState,
     levelSpec: firstAuthoredLevelSpec(),
     movementConstants: initialMovementConstants,
   });
+}
+
+function makeRunnerWithInitialState(initialState: SimulationState) {
+  return makeRunnerForMode(initialState, MultiplayerGameMode.Regular);
+}
+
+function makeRunner() {
+  return makeRunnerWithInitialState(makeInitialState());
 }
 
 describe("authoritative multiplayer game runner", () => {
@@ -72,6 +96,31 @@ describe("authoritative multiplayer game runner", () => {
       x: 144,
       y: 64,
     });
+  });
+
+  it("spawns a late joiner in the current authoritative camera screen", () => {
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          player: {
+            ...initial.players[0].player,
+            position: {
+              x: requireSimulationPixelPosition(300, "test.player.x"),
+              y: initial.players[0].player.position.y,
+            },
+          },
+        },
+      ],
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+    runner.step(1);
+    const beforeJoin = runner.snapshot();
+    expect(beforeJoin.cameraLeftPixels).toBeGreaterThan(0);
+    const joined = runner.join(profile("ren", "Ren"));
+    expect(joined.players[1]?.x).toBe(beforeJoin.cameraLeftPixels + 128 + 16);
   });
 
   it("runs only after the creator starts and acknowledges queued input", () => {
@@ -94,7 +143,23 @@ describe("authoritative multiplayer game runner", () => {
     const stepped = runner.step(1);
     expect(stepped.frame).toBe(1);
     expect(stepped.players[0]!.acknowledgedInputSequence).toBe(1);
+    expect(stepped.players[0]!.inputAcknowledgementLagMilliseconds).toBe(1);
     expect(stepped.queue.depth).toBe(0);
+  });
+
+  it("steps the same authoritative lifecycle in regular and revenge modes", () => {
+    for (const mode of [
+      MultiplayerGameMode.Regular,
+      MultiplayerGameMode.Revenge,
+    ]) {
+      const runner = makeRunnerForMode(makeInitialState(), mode);
+      runner.start(requireMultiplayerPlayerId("mira"));
+      expect(runner.step(1)).toMatchObject({
+        mode,
+        phase: MultiplayerGamePhase.Playing,
+        frame: 1,
+      });
+    }
   });
 
   it("supports admin-style pause and exact one-frame advancement", () => {
@@ -109,35 +174,89 @@ describe("authoritative multiplayer game runner", () => {
     });
   });
 
+  it("retains defeated members as spectators while active players continue", () => {
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason: PlayerDefeatReason.PitContact,
+          },
+        },
+      ],
+    });
+    const snapshot = runner.snapshot();
+    expect(snapshot.players[0]?.spectator).toBe(true);
+    expect(snapshot.phase).toBe(MultiplayerGamePhase.Waiting);
+  });
+
+  it("enforces the hard sixteen-player game cap", () => {
+    const runner = makeRunner();
+    for (let playerNumber = 1; playerNumber < 16; playerNumber += 1) {
+      runner.join(profile(`player-${playerNumber}`, `Player ${playerNumber}`));
+    }
+    expect(runner.snapshot().players).toHaveLength(16);
+    expect(() => runner.join(profile("overflow", "Overflow"))).toThrow(
+      "cannot exceed 16",
+    );
+  });
+
   it("finishes the whole game when any authoritative player has finished", () => {
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.Finished,
+            reason: PlayerFinishReason.GoalContact,
+          },
+        },
+      ],
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+    expect(runner.step(1).phase).toBe(MultiplayerGamePhase.Finished);
+  });
+
+  it("finishes the whole game when a joined player reaches the goal", () => {
+    const levelResult = makeLevelSpec({
+      ...firstAuthoredLevelInput,
+      tiles: firstAuthoredLevelInput.tiles.map((row, rowIndex) =>
+        row.map((tile, columnIndex) =>
+          rowIndex === 4 && columnIndex === 9 ? "gate" : tile,
+        ),
+      ),
+    });
+    if (!levelResult.ok) {
+      throw new Error("Expected a valid joined-player goal test level.");
+    }
     const initial = makeInitialSimulationState(
       nominalSixtyHertzFrameDurationMilliseconds,
-      firstAuthoredLevelSpec(),
+      levelResult.value,
       initialMovementConstants,
     );
     if (!initial.ok) {
-      throw new Error("Expected a valid simulation state.");
+      throw new Error("Expected a valid joined-player goal test state.");
     }
     const runner = makeAuthoritativeGameRunner({
       gameId: requireMultiplayerGameId("game-1"),
       creator: profile("mira"),
       mode: MultiplayerGameMode.Regular,
-      initialState: {
-        ...initial.value,
-        players: [
-          {
-            ...initial.value.players[0],
-            outcome: {
-              kind: PlayerOutcomeKind.Finished,
-              reason: PlayerFinishReason.GoalContact,
-            },
-          },
-        ],
-      },
-      levelSpec: firstAuthoredLevelSpec(),
+      initialState: initial.value,
+      levelSpec: levelResult.value,
       movementConstants: initialMovementConstants,
     });
+    runner.join(profile("ren", "Ren"));
     runner.start(requireMultiplayerPlayerId("mira"));
-    expect(runner.step(1).phase).toBe(MultiplayerGamePhase.Finished);
+    const snapshot = runner.step(1);
+    expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
+    expect(snapshot.players[1]).toMatchObject({
+      playerId: "ren",
+      spectator: true,
+    });
   });
 });

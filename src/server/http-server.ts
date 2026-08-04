@@ -40,6 +40,13 @@ const snapshotBroadcastIntervalMilliseconds =
 const sessionCookieName = "platformer_session";
 const adminCookieName = "platformer_admin_session";
 
+type TransportDebugMetrics = {
+  readonly snapshotBroadcastCount: number;
+  readonly lastSnapshotBroadcastMilliseconds: number | undefined;
+  readonly configuredSnapshotDelayMilliseconds: number;
+  readonly protocolErrorCount: number;
+};
+
 type JsonRecord = Readonly<Record<string, unknown>>;
 
 export type MultiplayerHttpServer = {
@@ -242,6 +249,8 @@ export function makeMultiplayerHttpServer(
     maxPayload: 64 * 1024,
   });
   let lastSnapshotBroadcastMilliseconds = 0;
+  let snapshotBroadcastCount = 0;
+  let protocolErrorCount = 0;
   const snapshotDelayMilliseconds = config.snapshotDelayMilliseconds ?? 0;
   if (
     !Number.isSafeInteger(snapshotDelayMilliseconds) ||
@@ -282,7 +291,20 @@ export function makeMultiplayerHttpServer(
     ) {
       broadcast({ type: "snapshots", snapshots }, snapshotDelayMilliseconds);
       lastSnapshotBroadcastMilliseconds = nowMilliseconds;
+      snapshotBroadcastCount += 1;
     }
+  }
+
+  function transportDebugMetrics(): TransportDebugMetrics {
+    return {
+      snapshotBroadcastCount,
+      lastSnapshotBroadcastMilliseconds:
+        snapshotBroadcastCount === 0
+          ? undefined
+          : lastSnapshotBroadcastMilliseconds,
+      configuredSnapshotDelayMilliseconds: snapshotDelayMilliseconds,
+      protocolErrorCount,
+    };
   }
 
   async function handle(
@@ -467,6 +489,13 @@ export function makeMultiplayerHttpServer(
               now(),
             ),
           });
+          broadcast({ type: "game-chat", gameId });
+          return;
+        }
+        if (request.method === "GET" && action === "chat") {
+          json(response, 200, {
+            messages: service.gameMessages(playerToken, gameId, now()),
+          });
           return;
         }
         if (request.method === "GET" && action === "snapshot") {
@@ -527,7 +556,10 @@ export function makeMultiplayerHttpServer(
         }
       }
       if (request.method === "GET" && url.pathname === "/api/admin/debug") {
-        json(response, 200, service.adminDebug(adminToken, now()));
+        json(response, 200, {
+          ...service.adminDebug(adminToken, now()),
+          transport: transportDebugMetrics(),
+        });
         return;
       }
       if (
@@ -569,6 +601,12 @@ export function makeMultiplayerHttpServer(
       }
       failure(response, 404, new Error("Route does not exist."));
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message === "Unsupported multiplayer protocol version."
+      ) {
+        protocolErrorCount += 1;
+      }
       failure(
         response,
         /Authentication|password/.test(
@@ -645,6 +683,10 @@ export function makeMultiplayerHttpServer(
             requireString(message, "text"),
             now(),
           );
+          broadcast({
+            type: "game-chat",
+            gameId: requireString(message, "gameId"),
+          });
         } else if (type === "screenshot") {
           service.recordScreenshot(
             token,
@@ -656,6 +698,12 @@ export function makeMultiplayerHttpServer(
           throw new Error("WebSocket message type is unsupported.");
         }
       } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === "Unsupported multiplayer protocol version."
+        ) {
+          protocolErrorCount += 1;
+        }
         socket.send(
           JSON.stringify({
             type: "error",

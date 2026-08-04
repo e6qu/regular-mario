@@ -56,7 +56,9 @@
 - Multiplayer implementation and verification are complete. For deployment,
   create a VPS `.env` from `.env.example` with long unique passwords and a
   signing secret, run `docker compose up -d --build`, and configure the
-  externally managed Caddy reverse proxy/TLS entry. Do not commit that `.env`.
+  externally managed Caddy reverse proxy/TLS entry. The final local proof is
+  `pnpm run check` plus `pnpm run test:multiplayer-lag`; do not commit that
+  `.env`.
 
 ## Landed: playability audit (2026-07-17)
 

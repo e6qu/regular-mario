@@ -126,6 +126,23 @@ describe("multiplayer service", () => {
     expect(service.adminScreenshot(admin, game.gameId, 0)).toBe(screenshot);
   });
 
+  it("returns game chat only to the game members", () => {
+    const service = makeService();
+    const member = service.loginPlayer("friends", 0);
+    const outsider = service.loginPlayer("friends", 0);
+    const game = service.createGame(
+      member.token,
+      "first-authored",
+      "regular",
+      0,
+    );
+    service.sendGameChat(member.token, game.gameId, "hello", 0);
+    expect(service.gameMessages(member.token, game.gameId, 0)).toHaveLength(1);
+    expect(() => service.gameMessages(outsider.token, game.gameId, 0)).toThrow(
+      "members",
+    );
+  });
+
   it("releases a player slot when a player deliberately leaves", () => {
     const service = makeService();
     const player = service.loginPlayer("friends", 0);

@@ -14,32 +14,20 @@ type GameSummary = {
   readonly maximumPlayerCount: number;
 };
 
-type GameSnapshot = {
-  readonly gameId: string;
-  readonly phase: string;
-  readonly frame: number;
-  readonly players: readonly {
-    readonly playerId: string;
-    readonly nickname: string;
-    readonly avatarId: string;
-    readonly spectator: boolean;
-    readonly x: number;
-    readonly y: number;
-    readonly acknowledgedInputSequence: number;
-  }[];
-};
+type GameSnapshot = MultiplayerRenderedSnapshot;
 
 function isGameSnapshot(value: unknown): value is GameSnapshot {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
   const record = value as Readonly<Record<string, unknown>>;
-  return typeof record["gameId"] === "string";
+  return (
+    typeof record["gameId"] === "string" &&
+    typeof record["cameraLeftPixels"] === "number"
+  );
 }
 
 const multiplayerApiPrefix = "/api";
-const multiplayerCanvasWidth = 768;
-const multiplayerCanvasHeight = 240;
 
 function isSemanticUiNode(value: unknown): value is SemanticUiNode {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -58,6 +46,7 @@ function isSemanticUiNode(value: unknown): value is SemanticUiNode {
 
 function renderSemanticUiNode(node: SemanticUiNode): HTMLElement {
   const element = document.createElement("div");
+  element.setAttribute("role", node.role);
   element.setAttribute("data-semantic-role", node.role);
   element.setAttribute("data-semantic-label", node.label);
   if (node.action !== undefined) {
@@ -89,6 +78,7 @@ async function appendSemanticLayout(
   }
   const inspector = document.createElement("details");
   inspector.setAttribute("data-role", "semantic-ui-tree");
+  inspector.setAttribute("aria-hidden", "true");
   const summary = document.createElement("summary");
   summary.textContent = "Inspectable server UI tree";
   inspector.append(summary, renderSemanticUiNode(layout));
@@ -140,37 +130,6 @@ function makeButton(
     "margin:6px;padding:8px 12px;font:inherit;cursor:pointer;";
   button.addEventListener("click", () => void onClick());
   return button;
-}
-
-function renderGameCanvas(
-  context: CanvasRenderingContext2D,
-  snapshot: GameSnapshot,
-  playerId: string,
-  predictedPosition: { readonly x: number; readonly y: number } | undefined,
-  remotePositions: ReadonlyMap<
-    string,
-    { readonly x: number; readonly y: number }
-  >,
-): void {
-  context.fillStyle = "#70b7e6";
-  context.fillRect(0, 0, multiplayerCanvasWidth, multiplayerCanvasHeight);
-  context.fillStyle = "#285a37";
-  context.fillRect(0, multiplayerCanvasHeight - 32, multiplayerCanvasWidth, 32);
-  for (const player of snapshot.players) {
-    const position =
-      player.playerId === playerId && predictedPosition !== undefined
-        ? predictedPosition
-        : (remotePositions.get(player.playerId) ?? player);
-    context.fillStyle = player.playerId === playerId ? "#ffd54a" : "#f06d8f";
-    context.fillRect(position.x * 3, position.y * 3, 28, 32);
-    context.fillStyle = "#0b0f19";
-    context.font = "12px monospace";
-    context.fillText(
-      player.spectator ? `${player.nickname} (watching)` : player.nickname,
-      position.x * 3,
-      position.y * 3 - 5,
-    );
-  }
 }
 
 async function renderLobby(mount: HTMLElement): Promise<void> {
@@ -337,19 +296,16 @@ function renderGame(
   const title = document.createElement("h1");
   title.textContent = `Game ${gameId}`;
   const status = document.createElement("p");
-  const canvas = document.createElement("canvas");
-  canvas.width = multiplayerCanvasWidth;
-  canvas.height = multiplayerCanvasHeight;
-  canvas.setAttribute("aria-label", "Authoritative multiplayer game view");
-  const context = canvas.getContext("2d");
-  if (context === null) {
-    throw new Error("Multiplayer canvas context is unavailable.");
-  }
-  const gameContext = context;
+  const gameHost = document.createElement("div");
+  const renderer = makeMultiplayerPhaserRenderer(gameHost);
   const chatInput = document.createElement("input");
   chatInput.maxLength = 256;
   chatInput.setAttribute("aria-label", "Game chat message");
-  panel.append(title, status, canvas, chatInput);
+  const chatLog = document.createElement("div");
+  chatLog.setAttribute("role", "log");
+  chatLog.setAttribute("aria-label", "Game chat");
+  let disposeView: () => void = () => renderer.destroy();
+  panel.append(title, status, gameHost, chatLog, chatInput);
   panel.append(
     makeButton("Send game chat", async () => {
       await requestJson(`/games/${gameId}/chat`, {
@@ -357,11 +313,13 @@ function renderGame(
         body: JSON.stringify({ text: chatInput.value }),
       });
       chatInput.value = "";
+      await refreshGameChat();
     }),
   );
   panel.append(
     makeButton("Leave game", async () => {
       await requestJson("/game/leave", { method: "POST" });
+      disposeView();
       await renderLobby(mount);
     }),
   );
@@ -369,6 +327,7 @@ function renderGame(
     panel.append(
       makeButton("End game", async () => {
         await requestJson(`/games/${gameId}/end`, { method: "POST" });
+        disposeView();
         await renderLobby(mount);
       }),
     );
@@ -400,6 +359,33 @@ function renderGame(
   );
   socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(socketUrl);
+  let disposed = false;
+  function dispose(): void {
+    if (disposed) {
+      return;
+    }
+    disposed = true;
+    window.clearInterval(snapshotInterval);
+    window.clearInterval(chatInterval);
+    socket.close();
+    renderer.destroy();
+    window.removeEventListener("keydown", keydown);
+    window.removeEventListener("keyup", keyup);
+  }
+  disposeView = dispose;
+  async function refreshGameChat(): Promise<void> {
+    const response = await requestJson<{
+      readonly messages: readonly {
+        readonly nickname: string;
+        readonly text: string;
+      }[];
+    }>(`/games/${gameId}/chat`);
+    if (!disposed) {
+      chatLog.textContent = response.messages
+        .map((message) => `${message.nickname}: ${message.text}`)
+        .join("\n");
+    }
+  }
   function displaySnapshot(snapshot: GameSnapshot): void {
     remoteInterpolator.push(
       snapshot.players.filter((player) => player.playerId !== profile.playerId),
@@ -414,8 +400,7 @@ function renderGame(
         : prediction.reconcile(local.acknowledgedInputSequence, local);
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
     const localRuntime = predicted?.state.players[0];
-    renderGameCanvas(
-      gameContext,
+    renderer.render(
       snapshot,
       profile.playerId,
       localRuntime === undefined
@@ -431,8 +416,10 @@ function renderGame(
         audio.playEvents([SoundEvent.LevelComplete]);
         completedAudioPlayed = true;
       }
-      window.clearInterval(interval);
-      window.setTimeout(() => void renderLobby(mount), 1500);
+      dispose();
+      window.setTimeout(() => {
+        void renderLobby(mount);
+      }, 1500);
     }
     if (socket.readyState === WebSocket.OPEN) {
       socket.send(
@@ -440,7 +427,7 @@ function renderGame(
           type: "screenshot",
           protocolVersion: multiplayerProtocolVersion,
           gameId,
-          pngDataUrl: canvas.toDataURL("image/png"),
+          pngDataUrl: renderer.canvas.toDataURL("image/png"),
         }),
       );
     }
@@ -451,6 +438,19 @@ function renderGame(
       typeof message !== "object" ||
       message === null ||
       !("type" in message) ||
+      typeof message.type !== "string"
+    ) {
+      return;
+    }
+    if (
+      message.type === "game-chat" &&
+      "gameId" in message &&
+      message.gameId === gameId
+    ) {
+      void refreshGameChat();
+      return;
+    }
+    if (
       message.type !== "snapshots" ||
       !("snapshots" in message) ||
       !Array.isArray(message.snapshots)
@@ -534,7 +534,8 @@ function renderGame(
   };
   window.addEventListener("keydown", keydown);
   window.addEventListener("keyup", keyup);
-  const interval = window.setInterval(() => void update(), 50);
+  const snapshotInterval = window.setInterval(() => void update(), 50);
+  const chatInterval = window.setInterval(() => void refreshGameChat(), 1000);
   async function update(): Promise<void> {
     try {
       if (socket.readyState === WebSocket.OPEN) {
@@ -547,17 +548,15 @@ function renderGame(
     } catch (error) {
       status.textContent =
         error instanceof Error ? error.message : "Game connection failed.";
-      window.clearInterval(interval);
+      dispose();
     }
   }
   void update();
+  void refreshGameChat();
   window.addEventListener(
     "hashchange",
     () => {
-      window.clearInterval(interval);
-      socket.close();
-      window.removeEventListener("keydown", keydown);
-      window.removeEventListener("keyup", keyup);
+      dispose();
     },
     { once: true },
   );
@@ -605,12 +604,23 @@ export async function renderMultiplayerAdminUi(
       readonly activeSessionCount: number;
       readonly games: readonly GameSummary[];
       readonly snapshots: readonly GameSnapshot[];
+      readonly transport: {
+        readonly snapshotBroadcastCount: number;
+        readonly lastSnapshotBroadcastMilliseconds?: number;
+        readonly configuredSnapshotDelayMilliseconds: number;
+        readonly protocolErrorCount: number;
+      };
     }>("/admin/debug");
     mount.replaceChildren();
     const panel = makePanel();
     panel.append(
       Object.assign(document.createElement("h1"), {
         textContent: "Multiplayer administration",
+      }),
+    );
+    panel.append(
+      Object.assign(document.createElement("p"), {
+        textContent: `Snapshots: ${debug.transport.snapshotBroadcastCount} · delay ${debug.transport.configuredSnapshotDelayMilliseconds} ms · protocol errors ${debug.transport.protocolErrorCount}`,
       }),
     );
     panel.append(
@@ -716,5 +726,7 @@ import { makeClientPrediction } from "../multiplayer/client-prediction";
 import { requireBundledMultiplayerLevel } from "../multiplayer/bundled-levels";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";
+import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";
+import { makeMultiplayerPhaserRenderer } from "./multiplayer-phaser-renderer";
 import { GameAudio } from "./game-audio";

@@ -38,22 +38,21 @@ What exists now:
   avatar roster, standalone Docker-deployed Node service, and authenticated
   semantic-layout/state/screenshot debug controls.
 
-- **Multiplayer foundation landed (in progress).** The repository now has a
+- **Multiplayer service delivered.** The repository has a
   typed authoritative game runner, stable 16-player spectator slots, 60 Hz
   runner/20 Hz protocol contract, bounded 3-second expiring input queues,
   ephemeral chats, anonymous/admin signed sessions, public-game lobby service,
   semantic layout JSON, admin pause/step/resume/debug interfaces, a standalone
-  HTTP/WebSocket server, and one-container deployment artifacts. Broader
-  bundled-level selection, Phaser render parity, and end-to-end multi-browser
-  QA remain to be implemented.
+  HTTP/WebSocket server, and one-container deployment artifacts. The shared
+  authored level catalogue, Phaser snapshot renderer, and multi-browser QA are
+  included.
 
-- **Browser multiplayer route landed (in progress).** `#multiplayer` provides
+- **Browser multiplayer route delivered.** `#multiplayer` provides
   password login, profile/avatar editing, public-game create/join/start,
   lobby/game chat, keyboard WebSocket input, a live shared canvas, and client
   screenshot reporting. A pure client predictor immediately simulates local
-  commands and replays unacknowledged history after server correction. Full
-  Phaser rendering parity, selectable level/mode UI, and browser journeys are
-  still pending.
+  commands and replays unacknowledged history after server correction. The
+  game view is rendered through a snapshot-only Phaser adapter.
 
 - **Live prediction wired (2026-08-04).** Keyboard commands now create one
   validated command for both the WebSocket protocol and local deterministic
@@ -108,6 +107,13 @@ What exists now:
   duplication, type, unit, and production-build gates). The standalone
   two-browser journey also passes at injected 100 ms and 3,000 ms snapshot
   delay, with desktop/mobile screenshots.
+
+- **Multiplayer completion audit (2026-08-04).** Late joins are unit-proven to
+  spawn in the current camera screen; the hard 16-player cap, spectator slots,
+  any-player completion, visible in-game chat, bounded game-view cleanup, and
+  per-player acknowledgement/transport debug metrics are now covered. The
+  common-screen Phaser canvas and its retained admin screenshot are browser
+  asserted rather than only captured.
 
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
