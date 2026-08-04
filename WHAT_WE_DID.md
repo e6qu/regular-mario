@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-04 — dependency security maintenance
+
+- Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,
+  purpose, registry, and age evidence. The Vite update replaces the vulnerable
+  nested PostCSS version.
+- A scoped pnpm override pins the older TypeScript ESLint dependency edge to
+  patched `brace-expansion` 5.0.9 (published 2026-07-30); the newest direct
+  TypeScript ESLint release was still inside the project’s three-day adoption
+  gate. Dependency policy, vulnerability audit, format, lint, typecheck, and
+  browser/server production builds pass.
+
 ## 2026-08-04 — trusted-friends multiplayer design approved
 
 - Recorded `PLAN.md` Milestone 9: a single password-gated public lobby;

@@ -35,6 +35,11 @@
   interpolation/local prediction, add admin UI controls, and write two-client
   Playwright journeys (including screenshots and injected network delay).
 
+- Security maintenance is current as of 2026-08-04: Vite 8.2.0, ESLint 10.8.0,
+  and a lockfile-scoped `brace-expansion` 5.0.9 override leave the dependency
+  vulnerability audit clean. Preserve that override until `typescript-eslint`
+  can safely be updated past the nested vulnerable range.
+
 ## Landed: playability audit (2026-07-17)
 
 - Water solidity per the ROM's lower-bound rule (exits enforced by the end

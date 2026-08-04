@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Dependency audit — resolved 2026-08-04
+
+Vite 8.0.16 carried a vulnerable PostCSS release, and the TypeScript ESLint
+toolchain resolved an older vulnerable `brace-expansion`. Vite is now 8.2.0,
+ESLint is 10.8.0, and a scoped package-manager override resolves every locked
+`brace-expansion` edge to patched 5.0.9. `pnpm run audit:vulnerabilities` is
+clean; retain the override until the direct TypeScript ESLint update is old
+enough for the project's three-day adoption gate.
+
 ### Collision geometry vs the ROM (from the 2026-07-12 hitbox audit) — all fixed
 
 A full audit against the ROM's `BoundBoxCtrlData` (disassembly) found our

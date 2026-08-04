@@ -55,6 +55,11 @@ What exists now:
   Phaser rendering parity, selectable level/mode UI, and browser journeys are
   still pending.
 
+- **Dependency-security maintenance (2026-08-04).** Updated Vite to 8.2.0 and
+  ESLint to 10.8.0, and scoped the vulnerable TypeScript-ESLint transitive
+  `brace-expansion` edge to patched 5.0.9. Dependency policy and vulnerability
+  audit pass again.
+
 - **God mode** (start-menu toggle, off by default; `god=1` in play links):
   undamageable player for practice/testing — pit falls still reset.
 
