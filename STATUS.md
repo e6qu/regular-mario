@@ -36,8 +36,16 @@ What exists now:
   password-gated lobby, public 16-player authoritative games, client
   prediction with an expiring typed input queue, ephemeral chats, original
   avatar roster, standalone Docker-deployed Node service, and authenticated
-  semantic-layout/state/screenshot debug controls. No implementation has
-  started yet.
+  semantic-layout/state/screenshot debug controls.
+
+- **Multiplayer foundation landed (in progress).** The repository now has a
+  typed authoritative game runner, stable 16-player spectator slots, 60 Hz
+  runner/20 Hz protocol contract, bounded 3-second expiring input queues,
+  ephemeral chats, anonymous/admin signed sessions, public-game lobby service,
+  semantic layout JSON, admin pause/step/resume/debug interfaces, a standalone
+  HTTP/WebSocket server, and one-container deployment artifacts. The browser
+  multiplayer client, local prediction rendering, all bundled-level selection,
+  and end-to-end multi-browser QA remain to be implemented.
 
 - **God mode** (start-menu toggle, off by default; `god=1` in play links):
   undamageable player for practice/testing — pit falls still reset.

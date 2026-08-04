@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "lib": ["ESNext"],
+    "types": ["node"]
+  },
+  "include": [
+    "src/server/**/*.ts",
+    "src/multiplayer/**/*.ts",
+    "src/engine/**/*.ts"
+  ],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test-support.ts"]
+}

@@ -17,6 +17,18 @@
   current screenshot capture, pause, and exact-frame step in the browser QA
   plan. Cover two browser clients under injected 100 ms–3 s delay.
 
+### Current implementation checkpoint (2026-08-04)
+
+- The server foundation is implemented and focused tests pass: `src/multiplayer`
+  owns the original avatar roster, TTL queue, authoritative runner, and stable
+  spectator slots; `src/server` owns sessions, chats, games, admin controls,
+  semantic JSON, HTTP/WebSocket transport, and Docker deployment.
+- Next, integrate a `/multiplayer` browser route with password/profile/lobby/
+  game/chat screens, same-core client prediction + server reconciliation,
+  remote player interpolation, local audio, canvas screenshot reporting, and
+  an admin browser debug screen. Then expand the server level catalogue from
+  the initial authored bundled level to the supported authored bundle.
+
 ## Landed: playability audit (2026-07-17)
 
 - Water solidity per the ROM's lower-bound rule (exits enforced by the end

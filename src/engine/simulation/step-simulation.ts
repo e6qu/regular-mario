@@ -254,12 +254,23 @@ export function stepSimulation(
   // Players are solid to each other (no walk-through, stand on heads, a stack
   // rides its bottom player). Resolve every player's kinematics together — no
   // special case for the primary. Single-player short-circuits.
-  const collided = resolvePlayerCollisions(
-    [primaryRuntime.player, ...coopRuntimes.map((runtime) => runtime.player)],
-    [
-      state.players[0].player,
-      ...state.players.slice(1).map((runtime) => runtime.player),
-    ],
+  const runtimesBeforePlayerCollision = [primaryRuntime, ...coopRuntimes];
+  const activePlayerIndices = runtimesBeforePlayerCollision.flatMap(
+    (runtime, index) =>
+      runtime.outcome.kind === PlayerOutcomeKind.Active ? [index] : [],
+  );
+  const collidedActivePlayers = resolvePlayerCollisions(
+    activePlayerIndices.map(
+      (index) => runtimesBeforePlayerCollision[index]!.player,
+    ),
+    activePlayerIndices.map((index) => state.players[index]!.player),
+  );
+  const collidedPlayerByIndex = new Map(
+    activePlayerIndices.map((index, activeIndex) => [
+      index,
+      collidedActivePlayers[activeIndex] ??
+        runtimesBeforePlayerCollision[index]!.player,
+    ]),
   );
   // Any player reaching the goal completes the level for everyone: if a co-op
   // player touches the goal while the primary is still active, finish the level.
@@ -278,12 +289,12 @@ export function stepSimulation(
   const players: SimulationPlayers = [
     {
       ...primaryRuntime,
-      player: collided[0] ?? primaryRuntime.player,
+      player: collidedPlayerByIndex.get(0) ?? primaryRuntime.player,
       outcome: primaryOutcome,
     },
     ...coopRuntimes.map((runtime, index) => ({
       ...runtime,
-      player: collided[index + 1] ?? runtime.player,
+      player: collidedPlayerByIndex.get(index + 1) ?? runtime.player,
     })),
   ];
   return { ...primaryStepped, players };
@@ -339,16 +350,21 @@ function stepCoopPlayers(
   if (coopRuntimes.length === 0) {
     return coopRuntimes;
   }
-  const moved = coopRuntimes.map((runtime, index) => ({
-    ...runtime,
-    player: stepCoopPlayerKinematics(
-      runtime.player,
-      coopInputCommands[index] ?? neutralInputCommand,
-      frameDurationMilliseconds,
-      movementConstants,
-      levelSpec,
-    ),
-  }));
+  const moved = coopRuntimes.map((runtime, index) => {
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return runtime;
+    }
+    return {
+      ...runtime,
+      player: stepCoopPlayerKinematics(
+        runtime.player,
+        coopInputCommands[index] ?? neutralInputCommand,
+        frameDurationMilliseconds,
+        movementConstants,
+        levelSpec,
+      ),
+    };
+  });
   // During the spawn-invincibility window nobody is removed, so the bots ride
   // out the initial scrum unharmed.
   if (
@@ -357,23 +373,43 @@ function stepCoopPlayers(
   ) {
     return moved;
   }
-  // A co-op player that touches an enemy, walks into a hazard, or falls into a
-  // pit is out for the rest of the level (removed from the field) — the "dead
-  // until level ends" rule, applied uniformly.
-  return moved.filter(
-    (runtime) =>
-      !playerContactsLiveEnemy(
-        runtime.player,
-        levelSpec,
-        enemyMotion,
-        defeatedEnemyEntityIds,
-      ) &&
-      !detectLevelContactState(runtime.player, levelSpec).hazard &&
-      !(
-        levelSpec.fallExitTransition === undefined &&
-        hasPlayerFallenIntoPit(runtime.player, levelSpec)
-      ),
-  );
+  // A defeated co-op player remains in the uniform player array as a spectator
+  // until the level ends. Keeping the stable slot is required by authoritative
+  // multiplayer: network player IDs must never silently shift when somebody
+  // dies. Defeated runtimes no longer collide or consume input above.
+  return moved.map((runtime) => {
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return runtime;
+    }
+    const enemyContact = playerContactsLiveEnemy(
+      runtime.player,
+      levelSpec,
+      enemyMotion,
+      defeatedEnemyEntityIds,
+    );
+    const levelContact = detectLevelContactState(runtime.player, levelSpec);
+    const fellIntoPit =
+      levelSpec.fallExitTransition === undefined &&
+      hasPlayerFallenIntoPit(runtime.player, levelSpec);
+    const reason = fellIntoPit
+      ? PlayerDefeatReason.PitContact
+      : enemyContact && levelContact.hazard
+        ? PlayerDefeatReason.HazardAndEnemyContact
+        : enemyContact
+          ? PlayerDefeatReason.EnemyContact
+          : levelContact.hazard
+            ? PlayerDefeatReason.HazardContact
+            : undefined;
+    return reason === undefined
+      ? runtime
+      : {
+          ...runtime,
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason,
+          },
+        };
+  });
 }
 
 const neutralInputCommand: SimulationInputCommand = {

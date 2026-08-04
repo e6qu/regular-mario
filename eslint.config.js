@@ -12,6 +12,7 @@ export default typescriptEslint.config(
     ignores: [
       ".cache/**",
       "dist/**",
+      "server-dist/**",
       "node_modules/**",
       "playwright-report/**",
       "test-results/**",

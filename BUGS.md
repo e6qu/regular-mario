@@ -309,6 +309,12 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
 - **Original avatar boundary (planned 2026-08-04):** existing code and docs
   include third-party-derived character labels. Multiplayer-facing avatar
   choices must be audited and replaced with original names/art before release.
+- **Multiplayer client is incomplete (2026-08-04):** the authoritative
+  server, API, and debug control surface exist, but the existing Vite/Phaser
+  browser shell has not yet switched from local co-op bots to a remote session,
+  client-side prediction/reconciliation, remote interpolation, or screenshot
+  reporting. Do not present multiplayer as playable until the browser and
+  multi-client QA work in `DO_NEXT.md` lands.
 
 - **Content-policy boundary (hard rule).** ROM bytes, ROM URLs, ROM-extracted
   pixel/audio outputs, and reference captures must **never** be committed — they

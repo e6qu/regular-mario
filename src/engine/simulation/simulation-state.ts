@@ -121,6 +121,32 @@ export type PlayerRuntime = {
 // is no privileged singular "player" field.
 export type SimulationPlayers = readonly [PlayerRuntime, ...PlayerRuntime[]];
 
+// Add a player without rebuilding the world. Authoritative multiplayer uses
+// this when somebody joins an already-running game; their stable array slot is
+// retained after defeat so network identity never shifts.
+export function appendSimulationPlayerAt(
+  state: SimulationState,
+  spawnPosition: PlayerSimulationState["position"],
+): SimulationState {
+  if (state.players.length >= maxSimulationPlayers) {
+    throw new Error(
+      `Simulation cannot exceed ${maxSimulationPlayers} players.`,
+    );
+  }
+  const initialPlayer = makeCoopPlayerSimulationState(state.players.length - 1);
+  const player: PlayerSimulationState = {
+    ...initialPlayer,
+    position: spawnPosition,
+  };
+  return {
+    ...state,
+    players: [
+      ...state.players,
+      makeCoopPlayerRuntime(player),
+    ] as SimulationPlayers,
+  };
+}
+
 // Build a runtime for an additional co-op player from its kinematics. Co-op
 // players currently carry only kinematics; their vitality/outcome/reaction are
 // neutral (they use only the shared movement + the death/goal rules so far).

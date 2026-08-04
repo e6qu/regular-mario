@@ -5,6 +5,8 @@ node_modules/
 
 # Build output
 dist/
+server-dist/
+.env
 build/
 out/
 coverage/

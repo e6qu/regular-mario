@@ -29,6 +29,27 @@ committed — only numeric metadata, code, docs, and scripts.
   original, so third-party character identities cannot be shipped as selectable
   avatars.
 
+## 2026-08-04 — multiplayer authoritative-server foundation
+
+- Added original, typed multiplayer identities/avatar roster, a bounded
+  per-player ordered input queue with a three-second TTL, 16-player
+  authoritative runner, stable co-op spectator slots after death, and
+  explicit admin pause/exact-frame-step/resume support. Unit tests pin queue
+  rejection/expiry, join spawn, input acknowledgement, spectator retention,
+  and game lifecycle.
+- Added a single-process Node HTTP/WebSocket service with anonymous 24-hour
+  player sessions, separate one-hour admin sessions, password-safe comparison,
+  public one-game-per-player lobby, ephemeral rate-limited chats, profile
+  changes, game start/join, redacted debug snapshots, and bounded client-sent
+  PNG screenshot retention for admin inspection.
+- Added a semantic UI-tree API and a real process smoke test (health, password
+  login, authenticated layout JSON, profile, game creation). `ws@8.21.1` and
+  `@types/ws@8.18.1` are documented against the license/freshness policy.
+- Added `Dockerfile`, `compose.yaml`, `.env.example`, and deployment docs for
+  a one-container service behind externally supplied Caddy. The first service
+  exposes the initial authored bundled level while browser/client integration
+  and full bundled-level catalogue remain in progress.
+
 ## 2026-07-19 — fluid character animation: the drifting princess + Elvis koopa
 
 - The princess (revenge mode) is redrawn at 32x32 (2x detail at the same
