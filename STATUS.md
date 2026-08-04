@@ -31,6 +31,14 @@ and new engine tests (five-fireball soak, spiky stomp, point-blank flames).
 
 What exists now:
 
+- **Next approved work: trusted-friends multiplayer.** The scope and
+  implementation decisions are recorded in `PLAN.md` Milestone 9: one
+  password-gated lobby, public 16-player authoritative games, client
+  prediction with an expiring typed input queue, ephemeral chats, original
+  avatar roster, standalone Docker-deployed Node service, and authenticated
+  semantic-layout/state/screenshot debug controls. No implementation has
+  started yet.
+
 - **God mode** (start-menu toggle, off by default; `god=1` in play links):
   undamageable player for practice/testing — pit falls still reset.
 

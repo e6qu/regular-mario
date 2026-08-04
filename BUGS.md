@@ -296,6 +296,20 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
 
 ## Risks To Track
 
+- **Multiplayer high-latency fairness (planned 2026-08-04):** client
+  prediction is deliberately optimistic and will visibly reconcile under
+  severe delay. The first release must pin input expiry, acknowledgement
+  ordering, and 100 ms–3 s delay behaviour in deterministic protocol fixtures
+  and two-client browser tests before claiming the mode is suitable for
+  trusted friends.
+- **Remote-debug privacy (planned 2026-08-04):** semantic layout, screenshots,
+  queue metrics, and frame controls can reveal live game/chat activity or alter
+  a game. They must remain admin-session-gated, redact session secrets, retain
+  only bounded screenshots, and never be served from public endpoints.
+- **Original avatar boundary (planned 2026-08-04):** existing code and docs
+  include third-party-derived character labels. Multiplayer-facing avatar
+  choices must be audited and replaced with original names/art before release.
+
 - **Content-policy boundary (hard rule).** ROM bytes, ROM URLs, ROM-extracted
   pixel/audio outputs, and reference captures must **never** be committed — they
   stay under ignored `.cache/user-levels/`. Committed metadata is numeric-only;

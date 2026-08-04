@@ -5,6 +5,30 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-04 — trusted-friends multiplayer design approved
+
+- Recorded `PLAN.md` Milestone 9: a single password-gated public lobby;
+  creator-started, public, one-level 16-player games; ephemeral lobby/game
+  chats; shared current-screen spawning; spectator-on-death; completion when
+  any player reaches the finish; and local-only audio.
+- Selected a fool-proof first deployment: one standalone TypeScript/Node
+  process in Docker Compose behind user-provided Caddy, with no database or
+  broker. A bounded typed in-process input queue has sequence ordering and a
+  three-second message TTL; the queue boundary remains replaceable should
+  multi-instance hosting later require a broker.
+- Defined authoritative 60 Hz simulation, 20 Hz snapshots, client prediction
+  and acknowledgement replay, plus interpolation for remote players. The
+  intended smooth case is ~100 ms latency; server authority and explicit
+  correction remain safe through three seconds.
+- Defined separate expiring anonymous player/admin sessions and authenticated
+  semantic-layout JSON, state/network metrics, screenshots, pause, and
+  exact-frame stepping so browser automation and remote agents can inspect
+  and test the service. No implementation was included in this planning
+  change.
+- Reaffirmed the originality boundary: multiplayer avatar labels/art must be
+  original, so third-party character identities cannot be shipped as selectable
+  avatars.
+
 ## 2026-07-19 — fluid character animation: the drifting princess + Elvis koopa
 
 - The princess (revenge mode) is redrawn at 32x32 (2x detail at the same

@@ -1,5 +1,22 @@
 # DO_NEXT.md
 
+## Next: trusted-friends multiplayer service (approved 2026-08-04)
+
+- Implement `PLAN.md` Milestone 9 in its recorded order. Start with an
+  originality audit of multiplayer-facing character names/art and typed server
+  domain/protocol IDs; do not add a broker, database, or server dependency
+  without recording dependency-policy evidence.
+- The first deployment is a single standalone Node service behind externally
+  supplied Caddy, with a bounded in-process 3-second TTL input queue. Games,
+  chat, and anonymous signed sessions are intentionally ephemeral across a
+  server restart.
+- Keep authoritative simulation at 60 Hz, snapshots at 20 Hz, and client
+  prediction/reconciliation explicit and testable. Use the existing
+  deterministic core; Phaser remains a browser-only renderer/input shell.
+- Include admin-gated semantic-layout JSON, redacted game/network metrics,
+  current screenshot capture, pause, and exact-frame step in the browser QA
+  plan. Cover two browser clients under injected 100 ms–3 s delay.
+
 ## Landed: playability audit (2026-07-17)
 
 - Water solidity per the ROM's lower-bound rule (exits enforced by the end
