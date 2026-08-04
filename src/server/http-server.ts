@@ -31,6 +31,7 @@ import {
   type MakeMultiplayerServiceConfig,
   type MultiplayerService,
 } from "./service";
+import type { ServerLogger } from "./file-logger";
 
 const jsonBodyMaximumBytes = 64 * 1024;
 const loginAttemptWindowMilliseconds = 60_000;
@@ -61,6 +62,7 @@ export type MakeMultiplayerHttpServerConfig = {
   readonly staticRoot?: string;
   readonly secureCookies: boolean;
   readonly snapshotDelayMilliseconds?: number;
+  readonly logger?: ServerLogger;
 };
 
 function now(): number {
@@ -316,6 +318,13 @@ export function makeMultiplayerHttpServer(
     const playerToken = cookies.get(sessionCookieName);
     const adminToken = cookies.get(adminCookieName);
     const address = request.socket.remoteAddress ?? "unknown";
+    response.once("finish", () => {
+      config.logger?.("http_request", {
+        method: request.method ?? "unknown",
+        path: url.pathname,
+        status: response.statusCode,
+      });
+    });
     try {
       if (url.pathname.startsWith("/api/") && url.pathname !== "/api/health") {
         requireMultiplayerProtocolVersion(
@@ -607,6 +616,11 @@ export function makeMultiplayerHttpServer(
       }
       failure(response, 404, new Error("Route does not exist."));
     } catch (error) {
+      config.logger?.("http_error", {
+        method: request.method ?? "unknown",
+        path: url.pathname,
+        error: error instanceof Error ? error.message : "Unknown error.",
+      });
       if (
         error instanceof Error &&
         error.message === "Unsupported multiplayer protocol version."
@@ -635,6 +649,9 @@ export function makeMultiplayerHttpServer(
     try {
       profile = service.requirePlayer(token, now());
     } catch {
+      config.logger?.("websocket_upgrade_denied", {
+        path: request.url ?? "/",
+      });
       socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
       socket.destroy();
       return;
@@ -652,6 +669,7 @@ export function makeMultiplayerHttpServer(
       return;
     }
     const playerId = profile.playerId as string;
+    config.logger?.("websocket_connected", { playerId });
     const sockets = socketsByPlayerId.get(playerId) ?? new Set<WebSocket>();
     sockets.add(socket);
     socketsByPlayerId.set(playerId, sockets);
@@ -704,6 +722,10 @@ export function makeMultiplayerHttpServer(
           throw new Error("WebSocket message type is unsupported.");
         }
       } catch (error) {
+        config.logger?.("websocket_error", {
+          playerId,
+          error: error instanceof Error ? error.message : "Unknown error.",
+        });
         if (
           error instanceof Error &&
           error.message === "Unsupported multiplayer protocol version."
@@ -719,6 +741,7 @@ export function makeMultiplayerHttpServer(
       }
     });
     socket.on("close", () => {
+      config.logger?.("websocket_closed", { playerId });
       const remaining = socketsByPlayerId.get(playerId);
       remaining?.delete(socket);
       if (remaining?.size === 0) {

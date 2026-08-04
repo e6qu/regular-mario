@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — multiplayer stress coverage and local diagnostics
+
+- Added an eight-independent-browser-player stress journey: distinct sessions
+  authenticate sequentially (preserving the login rate limit), join one game,
+  start it, send keyboard input, verify eight server players, wait for every
+  canvas to receive that eight-player snapshot, and save ignored local captures.
+- Added optional `LOG_FILE` diagnostics: timestamped, redacted JSON request,
+  WebSocket, and process/server errors. Passwords, cookies, chat text, and
+  simulation snapshots are excluded. The local server writes
+  `screenshots/server.log` for the pending Start-failure diagnosis.
+- The stress capture found and fixed a visibility gap: absent optional sprites,
+  local and remote primary/co-op players render as distinct pixel fallback
+  bodies instead of disappearing.
+
 ## 2026-08-05 — full authored multiplayer visual parity
 
 - Replaced the reduced multiplayer canvas with the local authored Phaser

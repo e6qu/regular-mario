@@ -4,6 +4,7 @@ import {
   makeMultiplayerHttpServer,
   makeProductionServiceConfig,
 } from "./http-server";
+import { makeFileServerLogger } from "./file-logger";
 import { multiplayerAuthoritativeFramesPerSecond } from "../multiplayer/domain";
 
 function requireEnvironment(name: string): string {
@@ -20,6 +21,11 @@ if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) {
   throw new Error("PORT must be a valid TCP port.");
 }
 const snapshotDelayValue = process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"];
+const logFile = process.env["LOG_FILE"];
+const logger =
+  logFile === undefined || logFile.length === 0
+    ? undefined
+    : makeFileServerLogger(logFile);
 const snapshotDelayMilliseconds =
   snapshotDelayValue === undefined ? undefined : Number(snapshotDelayValue);
 if (
@@ -42,6 +48,7 @@ const app = makeMultiplayerHttpServer({
   ...(snapshotDelayMilliseconds === undefined
     ? {}
     : { snapshotDelayMilliseconds }),
+  ...(logger === undefined ? {} : { logger }),
 });
 
 setInterval(
@@ -49,7 +56,19 @@ setInterval(
   1000 / multiplayerAuthoritativeFramesPerSecond,
 ).unref();
 app.server.listen(port, "0.0.0.0", () => {
+  logger?.("server_started", { port });
   process.stdout.write(
     `Trusted-friends multiplayer server listening on ${port}.\n`,
   );
+});
+app.server.on("error", (error) => {
+  logger?.("server_error", { error: error.message });
+});
+process.on("uncaughtException", (error) => {
+  logger?.("uncaught_exception", { error: error.message });
+});
+process.on("unhandledRejection", (reason) => {
+  logger?.("unhandled_rejection", {
+    error: reason instanceof Error ? reason.message : String(reason),
+  });
 });

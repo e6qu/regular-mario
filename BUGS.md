@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Reported local game-start failure — awaiting logged reproduction (2026-08-05)
+
+The original failed Start request predates file diagnostics, so its cause is
+not recoverable from evidence. The local server now writes redacted request and
+WebSocket errors to `screenshots/server.log`; reproduce once to capture the
+specific error. The eight-browser stress journey creates, joins, and starts
+successfully.
+
 ### Multiplayer placeholder rendering and frame-sync gap — fixed 2026-08-05
 
 The old multiplayer view painted a reduced sky/ground/player scene, which

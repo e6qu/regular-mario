@@ -57,6 +57,14 @@ export function makeMultiplayerPhaserRenderer(
     canvas: game.canvas,
     render(snapshot) {
       latestSnapshot = snapshot;
+      game.canvas.setAttribute(
+        "data-authoritative-frame",
+        String(snapshot.frame),
+      );
+      game.canvas.setAttribute(
+        "data-authoritative-player-count",
+        String(snapshot.players.length),
+      );
       if (ready) {
         applySnapshot(requireRemoteScene(game), snapshot);
       }

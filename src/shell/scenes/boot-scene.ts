@@ -160,6 +160,12 @@ const initialFrameDurationMilliseconds =
 const outcomeFeedbackPositionX = 300;
 const outcomeFeedbackPositionY = 54;
 const scoreTextPositionX = 8;
+const fallbackCastawayColor = 0x0f766e;
+const fallbackTidekeeperColor = 0x2563eb;
+const fallbackBrassScoutColor = 0xd97706;
+const fallbackMossRunnerColor = 0x4d7c0f;
+const fallbackCloudSailorColor = 0x7c3aed;
+const fallbackEmberWardenColor = 0xdc2626;
 // How long a floating "+points" score popup rises and fades.
 const scorePopupFrames = 36;
 // Victory-firework tuning: frames between successive bursts and how long each
@@ -1007,13 +1013,15 @@ export class BootScene extends Phaser.Scene {
   // sit strictly above it instead of the strip overlapping the play field.
   private reservedBottomPixels = 0;
   // An invisible anchor for the player's position (camera follow, death arc,
-  // flagpole slide). The visible player is always the authored sprite
-  // (playerImageObject); there is no procedural vector-rectangle player.
+  // flagpole slide). It is also a crisp fallback body when optional sprites
+  // are unavailable, so no local or remote player disappears.
   private playerRectangle!: Phaser.GameObjects.Rectangle;
   private playerImageObject: Phaser.GameObjects.Image | undefined;
-  // Sprites for the additional co-op players (demo bots), kept in sync with
-  // simulationState.players[1..] and positioned from them each frame.
-  private readonly coopPlayerImages: Phaser.GameObjects.Image[] = [];
+  // Authored sprites or crisp fallback bodies for additional co-op players.
+  private readonly coopPlayerImages: (
+    | Phaser.GameObjects.Image
+    | Phaser.GameObjects.Rectangle
+  )[] = [];
   // Last non-trivial horizontal travel direction, so the water merman can face
   // the way he swims.
   private facingRight = true;
@@ -1318,6 +1326,7 @@ export class BootScene extends Phaser.Scene {
       );
     }
     this.playerCharacter = primaryCharacter;
+    this.playerRectangle.setFillStyle(playerFallbackColor(primaryCharacter));
     this.coopBotCharacters = coopPlayers.map((player) => player.character);
     this.coopBotNames = coopPlayers.map((player) => player.nickname);
     this.renderSimulationState();
@@ -1340,8 +1349,8 @@ export class BootScene extends Phaser.Scene {
       this.gameAudio.setLavaSizzle(false);
     });
 
-    // The invisible position anchor: never drawn, only used to place the sprite
-    // and drive the camera.
+    // Prefer the authored sprite, but retain a pixel fallback body when no
+    // optional sprite bundle was loaded.
     this.playerRectangle = this.add
       .rectangle(
         0,
@@ -1350,11 +1359,14 @@ export class BootScene extends Phaser.Scene {
         initialPlayerSimulationStateConfig.colliderHeight,
       )
       .setOrigin(0)
-      .setVisible(false);
+      .setDepth(57);
     this.playerImageObject = renderPlayerImage(
       this,
       this.userAssetBundle?.playerImage,
     );
+    this.playerRectangle
+      .setFillStyle(playerFallbackColor(this.playerCharacter))
+      .setVisible(this.playerImageObject === undefined);
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -6052,11 +6064,10 @@ export class BootScene extends Phaser.Scene {
   private renderCoopPlayers(): void {
     const coopRuntimes = this.simulationState.players.slice(1);
     while (this.coopPlayerImages.length < coopRuntimes.length) {
-      const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
-      if (image === undefined) {
-        break;
-      }
-      this.coopPlayerImages.push(image);
+      this.coopPlayerImages.push(
+        renderPlayerImage(this, this.userAssetBundle?.playerImage) ??
+          this.add.rectangle(0, 0, 1, 1).setOrigin(0).setDepth(57),
+      );
     }
     while (this.coopPlayerImages.length > coopRuntimes.length) {
       this.coopPlayerImages.pop()?.destroy();
@@ -6084,11 +6095,21 @@ export class BootScene extends Phaser.Scene {
         this.currentTheme,
         this.coopBotCharacters[index] ?? robotCharacterForBotIndex(index),
       );
-      if (sprite !== undefined) {
+      if (sprite !== undefined && image instanceof Phaser.GameObjects.Image) {
         setUserFrameImage(this, image, sprite);
       }
+      if (image instanceof Phaser.GameObjects.Image) {
+        image.setFlipX(
+          this.currentTheme === "water" && coopPlayer.velocity.x < -4,
+        );
+      } else {
+        image.setFillStyle(
+          playerFallbackColor(
+            this.coopBotCharacters[index] ?? robotCharacterForBotIndex(index),
+          ),
+        );
+      }
       image
-        .setFlipX(this.currentTheme === "water" && coopPlayer.velocity.x < -4)
         .setPosition(coopPlayer.position.x, coopPlayer.position.y)
         .setDisplaySize(coopPlayer.collider.width, coopPlayer.collider.height);
       // Float this bot's call-sign just above its head, centred on the sprite.
@@ -9449,6 +9470,31 @@ function renderUserActorImage(
     container: scene.add.container(pixelPosition.x, pixelPosition.y, [image]),
     image,
   };
+}
+
+function playerFallbackColor(character: PlayerCharacter): number {
+  switch (character) {
+    case "castaway":
+      return fallbackCastawayColor;
+    case "luigi":
+      return fallbackTidekeeperColor;
+    case "robot1":
+      return fallbackBrassScoutColor;
+    case "robot2":
+      return fallbackMossRunnerColor;
+    case "robot3":
+      return fallbackCloudSailorColor;
+    case "robot4":
+    case "goomba":
+    case "princess":
+      return fallbackEmberWardenColor;
+    default: {
+      const exhaustive: never = character;
+      throw new Error(
+        `Unsupported fallback player character: ${String(exhaustive)}`,
+      );
+    }
+  }
 }
 
 function renderPlayerImage(

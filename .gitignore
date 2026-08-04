@@ -12,6 +12,7 @@ out/
 coverage/
 playwright-report/
 test-results/
+screenshots/
 
 # Generated caches
 .vite/

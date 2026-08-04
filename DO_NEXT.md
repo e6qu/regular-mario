@@ -15,6 +15,15 @@
   authoritative snapshot, so debug controls and parity capture observe the
   same frame. The production browser journey passes at 100 ms and 3,000 ms.
 
+### Active local diagnosis (2026-08-05)
+
+- The local server runs with `LOG_FILE=screenshots/server.log`. Reproduce the
+  failed Start action once to capture its redacted `http_error` entry; no
+  password, cookie, chat, or snapshot data is logged.
+- The eight-browser stress journey passes and writes ignored local captures:
+  `screenshots/multiplayer-stress-creator.png` and
+  `screenshots/multiplayer-stress-player-8.png`.
+
 - Implement `PLAN.md` Milestone 9 in its recorded order. Start with an
   originality audit of multiplayer-facing character names/art and typed server
   domain/protocol IDs; do not add a broker, database, or server dependency
