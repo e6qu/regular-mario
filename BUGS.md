@@ -2,14 +2,6 @@
 
 ## Known Bugs
 
-### Multiplayer completion lifecycle — open
-
-Deliberately leaving a game now releases the member and removes an empty game,
-but a finished game is not yet automatically returned to the lobby after its
-final snapshot. This must be resolved alongside the client WebSocket snapshot
-flow so every participant sees the completed state before their membership is
-released.
-
 ### Dependency audit — resolved 2026-08-04
 
 Vite 8.0.16 carried a vulnerable PostCSS release, and the TypeScript ESLint

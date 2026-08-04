@@ -35,9 +35,9 @@
   interpolation/local prediction, add admin UI controls, and write two-client
   Playwright journeys (including screenshots and injected network delay).
 
-- Deliberate leave is now implemented. Next lifecycle work is completion:
-  broadcast and retain the final authoritative snapshot long enough to show the
-  result, then return every member to the lobby and release all game slots.
+- Completion now broadcasts one final pushed snapshot and immediately releases
+  every finished game's memberships. Next, add remote-player interpolation,
+  local audio derivation, and browser-level multi-client proof of this handoff.
 
 - Live keyboard prediction is now connected to the supported first authored
   server level. Generalise that predictor as the server catalogue grows, add

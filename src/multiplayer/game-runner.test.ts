@@ -7,6 +7,10 @@ import {
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
+import {
+  PlayerFinishReason,
+  PlayerOutcomeKind,
+} from "../engine/simulation/player-outcome";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
 import {
   MultiplayerGameMode,
@@ -103,5 +107,37 @@ describe("authoritative multiplayer game runner", () => {
       frame: 1,
       phase: MultiplayerGamePhase.Paused,
     });
+  });
+
+  it("finishes the whole game when any authoritative player has finished", () => {
+    const initial = makeInitialSimulationState(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+    );
+    if (!initial.ok) {
+      throw new Error("Expected a valid simulation state.");
+    }
+    const runner = makeAuthoritativeGameRunner({
+      gameId: requireMultiplayerGameId("game-1"),
+      creator: profile("mira"),
+      mode: MultiplayerGameMode.Regular,
+      initialState: {
+        ...initial.value,
+        players: [
+          {
+            ...initial.value.players[0],
+            outcome: {
+              kind: PlayerOutcomeKind.Finished,
+              reason: PlayerFinishReason.GoalContact,
+            },
+          },
+        ],
+      },
+      levelSpec: firstAuthoredLevelSpec(),
+      movementConstants: initialMovementConstants,
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+    expect(runner.step(1).phase).toBe(MultiplayerGamePhase.Finished);
   });
 });

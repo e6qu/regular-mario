@@ -249,9 +249,21 @@ export function makeMultiplayerLobby(
     },
     stepAll(nowMilliseconds) {
       const snapshots: AuthoritativeGameSnapshot[] = [];
-      for (const game of gamesById.values()) {
+      const completedGameIds: MultiplayerGameId[] = [];
+      for (const [gameId, game] of gamesById.entries()) {
         if (game.runner.snapshot().phase === MultiplayerGamePhase.Playing) {
-          snapshots.push(game.runner.step(nowMilliseconds));
+          const snapshot = game.runner.step(nowMilliseconds);
+          snapshots.push(snapshot);
+          if (snapshot.phase === MultiplayerGamePhase.Finished) {
+            completedGameIds.push(gameId);
+          }
+        }
+      }
+      for (const gameId of completedGameIds) {
+        const completedGame = requireGame(gameId);
+        gamesById.delete(gameId);
+        for (const player of completedGame.runner.snapshot().players) {
+          gameIdByPlayerId.delete(player.playerId);
         }
       }
       return snapshots;

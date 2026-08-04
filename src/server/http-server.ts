@@ -11,6 +11,7 @@ import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
+import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 import { makeAdminLayout, makeLobbyLayout, makeLoginLayout } from "./layout";
 import {
   makeMultiplayerService,
@@ -19,6 +20,7 @@ import {
 } from "./service";
 
 const jsonBodyMaximumBytes = 64 * 1024;
+const snapshotBroadcastIntervalMilliseconds = 1000 / 20;
 const sessionCookieName = "platformer_session";
 const adminCookieName = "platformer_admin_session";
 
@@ -162,6 +164,7 @@ export function makeMultiplayerHttpServer(
     noServer: true,
     maxPayload: 64 * 1024,
   });
+  let lastSnapshotBroadcastMilliseconds = 0;
 
   function broadcast(value: unknown): void {
     const encoded = JSON.stringify(value);
@@ -176,8 +179,17 @@ export function makeMultiplayerHttpServer(
 
   function broadcastSnapshots(nowMilliseconds: number): void {
     const snapshots = service.tick(nowMilliseconds);
-    if (snapshots.length > 0) {
+    const containsFinishedGame = snapshots.some(
+      (snapshot) => snapshot.phase === MultiplayerGamePhase.Finished,
+    );
+    if (
+      snapshots.length > 0 &&
+      (containsFinishedGame ||
+        nowMilliseconds - lastSnapshotBroadcastMilliseconds >=
+          snapshotBroadcastIntervalMilliseconds)
+    ) {
       broadcast({ type: "snapshots", snapshots });
+      lastSnapshotBroadcastMilliseconds = nowMilliseconds;
     }
   }
 

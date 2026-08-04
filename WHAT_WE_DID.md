@@ -23,6 +23,17 @@ committed — only numeric metadata, code, docs, and scripts.
   also guarded until the WebSocket is actually open. Lint, typecheck, and the
   production browser build pass.
 
+## 2026-08-04 — multiplayer completion and 20 Hz snapshot delivery
+
+- The authoritative service continues stepping at 60 Hz but broadcasts normal
+  WebSocket snapshots at 20 Hz. A final game frame bypasses that interval so
+  every connected participant can render it before the lobby removes the game
+  and releases all player memberships.
+- The browser now listens for its pushed snapshot stream as well as retaining
+  the HTTP polling fallback. On a final snapshot it stops polling, holds the
+  completed screen briefly, then returns to the lobby. Focused runner/lobby/
+  service tests, lint, typecheck, and production browser/server builds pass.
+
 ## 2026-08-04 — dependency security maintenance
 
 - Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,

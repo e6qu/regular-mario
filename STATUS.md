@@ -65,6 +65,11 @@ What exists now:
   removes a game when its final member leaves. The browser exposes this as an
   explicit Leave game action.
 
+- **Multiplayer completion lifecycle (2026-08-04).** The server broadcasts the
+  final authoritative frame immediately, clears the finished game and every
+  member slot, and the browser consumes that pushed snapshot before returning
+  participants to the lobby.
+
 - **Dependency-security maintenance (2026-08-04).** Updated Vite to 8.2.0 and
   ESLint to 10.8.0, and scoped the vulnerable TypeScript-ESLint transitive
   `brace-expansion` edge to patched 5.0.9. Dependency policy and vulnerability

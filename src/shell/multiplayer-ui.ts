@@ -29,6 +29,14 @@ type GameSnapshot = {
   }[];
 };
 
+function isGameSnapshot(value: unknown): value is GameSnapshot {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const record = value as Readonly<Record<string, unknown>>;
+  return typeof record["gameId"] === "string";
+}
+
 const multiplayerApiPrefix = "/api";
 const multiplayerCanvasWidth = 768;
 const multiplayerCanvasHeight = 240;
@@ -300,6 +308,52 @@ function renderGame(
   );
   socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(socketUrl);
+  function displaySnapshot(snapshot: GameSnapshot): void {
+    const local = snapshot.players.find(
+      (player) => player.playerId === profile.playerId,
+    );
+    const predicted =
+      local === undefined
+        ? undefined
+        : prediction.reconcile(local.acknowledgedInputSequence, local);
+    status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+    const localRuntime = predicted?.state.players[0];
+    renderGameCanvas(
+      gameContext,
+      snapshot,
+      profile.playerId,
+      localRuntime === undefined
+        ? undefined
+        : {
+            x: Number(localRuntime.player.position.x),
+            y: Number(localRuntime.player.position.y),
+          },
+    );
+    if (snapshot.phase === "finished") {
+      window.clearInterval(interval);
+      window.setTimeout(() => void renderLobby(mount), 1500);
+    }
+  }
+  socket.addEventListener("message", (event) => {
+    const message: unknown = JSON.parse(String(event.data));
+    if (
+      typeof message !== "object" ||
+      message === null ||
+      !("type" in message) ||
+      message.type !== "snapshots" ||
+      !("snapshots" in message) ||
+      !Array.isArray(message.snapshots)
+    ) {
+      return;
+    }
+    const snapshot = message.snapshots.find(
+      (candidate): candidate is GameSnapshot =>
+        isGameSnapshot(candidate) && candidate.gameId === gameId,
+    );
+    if (snapshot !== undefined) {
+      displaySnapshot(snapshot);
+    }
+  });
   function sendInput(): void {
     if (socket.readyState !== WebSocket.OPEN) {
       return;
@@ -370,26 +424,7 @@ function renderGame(
       const snapshot = await requestJson<GameSnapshot>(
         `/games/${gameId}/snapshot`,
       );
-      const local = snapshot.players.find(
-        (player) => player.playerId === profile.playerId,
-      );
-      const predicted =
-        local === undefined
-          ? undefined
-          : prediction.reconcile(local.acknowledgedInputSequence, local);
-      status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
-      const localRuntime = predicted?.state.players[0];
-      renderGameCanvas(
-        gameContext,
-        snapshot,
-        profile.playerId,
-        localRuntime === undefined
-          ? undefined
-          : {
-              x: Number(localRuntime.player.position.x),
-              y: Number(localRuntime.player.position.y),
-            },
-      );
+      displaySnapshot(snapshot);
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(
           JSON.stringify({
@@ -398,9 +433,6 @@ function renderGame(
             pngDataUrl: canvas.toDataURL("image/png"),
           }),
         );
-      }
-      if (snapshot.phase === "finished") {
-        window.clearInterval(interval);
       }
     } catch (error) {
       status.textContent =
