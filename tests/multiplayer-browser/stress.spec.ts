@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { enterMultiplayerLobby } from "./support";
+import { enterMultiplayerLobby, findGameIdByCreatorNickname } from "./support";
 
 const playerCount = 8;
 test.setTimeout(120_000);
@@ -53,21 +53,7 @@ test("eight independent browser players can share one authoritative game", async
     throw new Error("Stress creator is missing.");
   }
   await creator.getByRole("button", { name: "Create game" }).click();
-  const lobby = await creator.request.get("/api/lobby", {
-    headers: { "x-multiplayer-protocol-version": "1" },
-  });
-  const games = (await lobby.json()) as {
-    readonly games: readonly {
-      readonly gameId: string;
-      readonly creator: { readonly nickname: string };
-    }[];
-  };
-  const game = games.games.find(
-    (candidate) => candidate.creator.nickname === "LoadPilot0",
-  );
-  if (game === undefined) {
-    throw new Error("Stress game was not created.");
-  }
+  const gameId = await findGameIdByCreatorNickname(creator, "LoadPilot0");
   for (const page of pages.slice(1)) {
     await page.reload();
     await page
@@ -92,7 +78,7 @@ test("eight independent browser players can share one authoritative game", async
   await expect
     .poll(async () => {
       const snapshot = await creator.request.get(
-        `/api/games/${game.gameId}/snapshot`,
+        `/api/games/${gameId}/snapshot`,
         { headers: { "x-multiplayer-protocol-version": "1" } },
       );
       const body = (await snapshot.json()) as {

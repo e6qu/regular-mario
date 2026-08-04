@@ -6,6 +6,7 @@ import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapsh
 import { selectBrowserGameBootstrap } from "./browser-level-selection";
 import { createGameConfig } from "./create-game-config";
 import { BootScene } from "./scenes/boot-scene";
+import type { UserAssetBundle } from "./user-asset-loader";
 
 export type MultiplayerPhaserRenderer = {
   readonly canvas: HTMLCanvasElement;
@@ -30,6 +31,7 @@ export function makeMultiplayerPhaserRenderer(
   parent: HTMLElement,
   levelId: string,
   revengeMode: boolean,
+  userAssetBundle: UserAssetBundle,
 ): MultiplayerPhaserRenderer {
   const bootstrap = selectBrowserGameBootstrap(
     `?browserLevel=${encodeURIComponent(levelId)}`,
@@ -38,6 +40,7 @@ export function makeMultiplayerPhaserRenderer(
     createGameConfig(parent, {
       ...bootstrap,
       revengeMode,
+      userAssetBundle,
       authoritativeRenderOnly: true,
       awaitStart: false,
     }),

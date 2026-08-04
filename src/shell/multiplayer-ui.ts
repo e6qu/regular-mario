@@ -162,7 +162,10 @@ function makeButton(
   return button;
 }
 
-async function renderLobby(mount: HTMLElement): Promise<void> {
+async function renderLobby(
+  mount: HTMLElement,
+  userAssetBundle: UserAssetBundle,
+): Promise<void> {
   const [lobby, levelResponse] = await Promise.all([
     requestJson<{
       readonly profile: PlayerProfile;
@@ -220,7 +223,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
           avatarId: avatar.value,
         }),
       });
-      await renderLobby(mount);
+      await renderLobby(mount, userAssetBundle);
     }),
   );
   panel.append(profileForm);
@@ -244,7 +247,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
         mode: modeSelect.value,
       }),
     });
-    await renderLobby(mount);
+    await renderLobby(mount, userAssetBundle);
   });
   panel.append("Level ", levelSelect, " Mode ", modeSelect, create);
   const games = document.createElement("section");
@@ -269,6 +272,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
           joined.game.gameId,
           joined.game.levelId,
           joined.game.creator.playerId,
+          userAssetBundle,
         );
       }),
     );
@@ -291,6 +295,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
             started.game.gameId,
             started.game.levelId,
             started.game.creator.playerId,
+            userAssetBundle,
           );
         }),
       );
@@ -314,7 +319,7 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
         method: "POST",
         body: JSON.stringify({ text: chatInput.value }),
       });
-      await renderLobby(mount);
+      await renderLobby(mount, userAssetBundle);
     }),
   );
   mount.append(panel);
@@ -327,6 +332,7 @@ function renderGame(
   gameId: string,
   levelId: string,
   creatorPlayerId: string,
+  userAssetBundle: UserAssetBundle,
 ): void {
   mount.replaceChildren();
   const panel = makePanel();
@@ -335,7 +341,12 @@ function renderGame(
   const status = document.createElement("p");
   const gameHost = document.createElement("div");
   gameHost.className = "multiplayer-game-host";
-  const renderer = makeMultiplayerPhaserRenderer(gameHost, levelId, false);
+  const renderer = makeMultiplayerPhaserRenderer(
+    gameHost,
+    levelId,
+    false,
+    userAssetBundle,
+  );
   const chatInput = document.createElement("input");
   chatInput.maxLength = 256;
   chatInput.setAttribute("aria-label", "Game chat message");
@@ -359,7 +370,7 @@ function renderGame(
     makeButton("Leave game", async () => {
       await requestJson("/game/leave", { method: "POST" });
       disposeView();
-      await renderLobby(mount);
+      await renderLobby(mount, userAssetBundle);
     }),
   );
   if (creatorPlayerId === profile.playerId) {
@@ -367,7 +378,7 @@ function renderGame(
       makeButton("End game", async () => {
         await requestJson(`/games/${gameId}/end`, { method: "POST" });
         disposeView();
-        await renderLobby(mount);
+        await renderLobby(mount, userAssetBundle);
       }),
     );
   }
@@ -445,7 +456,7 @@ function renderGame(
       }
       dispose();
       window.setTimeout(() => {
-        void renderLobby(mount);
+        void renderLobby(mount, userAssetBundle);
       }, 1500);
     }
     if (socket.readyState === WebSocket.OPEN) {
@@ -589,9 +600,12 @@ function renderGame(
   );
 }
 
-export async function renderMultiplayerUi(mount: HTMLElement): Promise<void> {
+export async function renderMultiplayerUi(
+  mount: HTMLElement,
+  userAssetBundle: UserAssetBundle,
+): Promise<void> {
   try {
-    await renderLobby(mount);
+    await renderLobby(mount, userAssetBundle);
   } catch {
     mount.replaceChildren();
     const panel = makePanel();
@@ -611,7 +625,7 @@ export async function renderMultiplayerUi(mount: HTMLElement): Promise<void> {
             method: "POST",
             body: JSON.stringify({ password: password.value }),
           });
-          await renderLobby(mount);
+          await renderLobby(mount, userAssetBundle);
         } catch (reason) {
           error.textContent =
             reason instanceof Error ? reason.message : "Login failed.";
@@ -757,3 +771,4 @@ import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapsh
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";
 import { makeMultiplayerPhaserRenderer } from "./multiplayer-phaser-renderer";
 import { GameAudio } from "./game-audio";
+import type { UserAssetBundle } from "./user-asset-loader";

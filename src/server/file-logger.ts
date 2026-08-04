@@ -1,7 +1,7 @@
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-export type ServerLogFields = Readonly<Record<string, string | number>>;
+type ServerLogFields = Readonly<Record<string, string | number>>;
 export type ServerLogger = (event: string, fields: ServerLogFields) => void;
 
 /**

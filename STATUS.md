@@ -2,13 +2,15 @@
 
 ## Current State
 
-**Multiplayer visual parity verified (2026-08-05).** The browser no longer
-uses a reduced multiplayer scene: it renders the full authored `BootScene`
-from complete authoritative state. A 12-frame two-player local engine trace
-equals the server state on every frame, and two independently authenticated
-clients with different avatar selections render a paused server frame with
-zero differing raw pixels at 1280×720. The full standalone browser suite
-passes at 100 ms and 3 s snapshot delay.
+**Multiplayer visual parity verified (2026-08-05, corrected).** Multiplayer
+now loads the same authored skin bundle and full `BootScene` as local play;
+production Docker/test builds include the static content rather than falling
+back to procedural shapes. A 12-frame two-player local engine trace equals the
+server state on every frame. A real local `BootScene`, frozen on a named paused
+server state, and its multiplayer counterpart have zero differing raw pixels
+at 1280×720 (the local-only ESC navigation hint is deliberately hidden for
+this gameplay-canvas comparison); two different multiplayer avatars also
+match exactly. The eight-browser journey passes and saves ignored screenshots.
 
 **Multiplayer stress/diagnostics (2026-08-05).** An eight-independent-browser
 player journey starts one authoritative game, waits for every client to render

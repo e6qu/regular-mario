@@ -755,6 +755,16 @@ async function loadDefaultSkinBundle(): Promise<UserAssetBundle | undefined> {
   }
 }
 
+async function requireDefaultSkinBundle(): Promise<UserAssetBundle> {
+  const bundle = await loadDefaultSkinBundle();
+  if (bundle === undefined) {
+    throw new Error(
+      "The authored default skin could not load; multiplayer cannot safely fall back to placeholder art.",
+    );
+  }
+  return bundle;
+}
+
 // Boot a custom/uploaded/edited level. `skinId` is an asset-set id whose sprites
 // render the level (shapes are used only as a fallback if the set fails to load).
 // `onExit` (ESC / the overlay button / death) runs when the player leaves — the
@@ -3041,7 +3051,16 @@ function applyRoute(): void {
   }
   if (raw === "multiplayer") {
     clearApp();
-    void renderMultiplayerUi(appElement!);
+    void requireDefaultSkinBundle()
+      .then((bundle) => renderMultiplayerUi(appElement!, bundle))
+      .catch((reason: unknown) => {
+        const error = document.createElement("p");
+        error.textContent =
+          reason instanceof Error
+            ? reason.message
+            : "Multiplayer failed to load.";
+        appElement!.replaceChildren(error);
+      });
     return;
   }
   if (raw === "multiplayer-admin") {

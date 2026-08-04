@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { enterMultiplayerLobby } from "./support";
+import {
+  enterMultiplayerLobby,
+  findGameIdByCreatorNickname,
+  pauseGameAsAdministrator,
+} from "./support";
 
 async function setProfile(
   page: Page,
@@ -40,12 +44,18 @@ async function requireSameAuthoritativeFrame(
     .toMatch(/^paused · frame [0-9]+$/);
 }
 
-async function expectExactCanvasParity(left: Page, right: Page): Promise<void> {
+async function expectExactCanvasParity(
+  left: Page,
+  right: Page,
+  leftLabel = "Authoritative multiplayer game view",
+  rightLabel = "Authoritative multiplayer game view",
+): Promise<void> {
   const [leftDataUrl, rightDataUrl] = await Promise.all(
-    [left, right].map((page) =>
-      page
-        .getByLabel("Authoritative multiplayer game view")
-        .evaluate((element) => (element as HTMLCanvasElement).toDataURL()),
+    [[left, leftLabel] as const, [right, rightLabel] as const].map(
+      ([page, label]) =>
+        page
+          .getByLabel(label)
+          .evaluate((element) => (element as HTMLCanvasElement).toDataURL()),
     ),
   );
   if (leftDataUrl === undefined || rightDataUrl === undefined) {
@@ -75,15 +85,27 @@ async function expectExactCanvasParity(left: Page, right: Page): Promise<void> {
         return { differentPixels: -1, local, remote };
       }
       let differentPixels = 0;
+      let minX = local.width;
+      let minY = local.height;
+      let maxX = -1;
+      let maxY = -1;
       for (let index = 0; index < local.data.length; index += 1) {
         if (local.data[index] !== remote.data[index]) {
           differentPixels += 1;
+          const pixelIndex = Math.floor(index / 4);
+          const x = pixelIndex % local.width;
+          const y = Math.floor(pixelIndex / local.width);
+          minX = Math.min(minX, x);
+          minY = Math.min(minY, y);
+          maxX = Math.max(maxX, x);
+          maxY = Math.max(maxY, y);
         }
       }
       return {
         width: local.width,
         height: local.height,
         differentPixels,
+        differenceBounds: [minX, minY, maxX, maxY],
       };
     },
     { localDataUrl: leftDataUrl, remoteDataUrl: rightDataUrl },
@@ -92,8 +114,104 @@ async function expectExactCanvasParity(left: Page, right: Page): Promise<void> {
     width: 1280,
     height: 720,
     differentPixels: 0,
+    differenceBounds: [1280, 720, -1, -1],
   });
 }
+
+test("the actual local BootScene and a paused server frame render every pixel identically", async ({
+  browser,
+}) => {
+  const playerContext = await browser.newContext();
+  const localContext = await browser.newContext();
+  const adminContext = await browser.newContext();
+  const player = await playerContext.newPage();
+  const local = await localContext.newPage();
+  const admin = await adminContext.newPage();
+
+  await enterMultiplayerLobby(player);
+  await player.getByRole("button", { name: "Create game" }).click();
+  await player.getByRole("button", { name: "Start" }).click();
+  await expect(
+    player.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+
+  const lobby = await player.request.get("/api/lobby", {
+    headers: { "x-multiplayer-protocol-version": "1" },
+  });
+  const lobbyBody = (await lobby.json()) as {
+    readonly profile: { readonly playerId: string };
+    readonly games: readonly {
+      readonly gameId: string;
+      readonly creator: { readonly playerId: string };
+    }[];
+  };
+  const game = lobbyBody.games.find(
+    (candidate) => candidate.creator.playerId === lobbyBody.profile.playerId,
+  );
+  if (game === undefined) {
+    throw new Error("Local/server parity game is missing from the lobby.");
+  }
+
+  await pauseGameAsAdministrator(admin, game.gameId);
+  await expect
+    .poll(() => player.locator(".multiplayer-game-panel p").textContent())
+    .toMatch(/^paused · frame [0-9]+$/);
+  const snapshot = await player.request.get(
+    `/api/games/${game.gameId}/snapshot`,
+    {
+      headers: { "x-multiplayer-protocol-version": "1" },
+    },
+  );
+  const body = (await snapshot.json()) as {
+    readonly simulationState: Parameters<
+      NonNullable<
+        Window["__originalBrowserPlatformerDebug"]
+      >["renderMultiplayerWireStateForDebug"]
+    >[0];
+  };
+
+  await local.goto("/?browserLevel=first-authored");
+  await expect(
+    local.getByLabel("Original platformer game canvas"),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      local.evaluate(() =>
+        window.__originalBrowserPlatformerDebug === undefined
+          ? undefined
+          : "ready",
+      ),
+    )
+    .toBe("ready");
+  await local.evaluate((simulationState) => {
+    window.__originalBrowserPlatformerDebug?.renderMultiplayerWireStateForDebug(
+      simulationState,
+    );
+  }, body.simulationState);
+
+  await Promise.all([
+    local.screenshot({ path: "screenshots/local-server-parity-local.png" }),
+    player.screenshot({
+      path: "screenshots/local-server-parity-multiplayer.png",
+    }),
+    local
+      .getByLabel("Original platformer game canvas")
+      .screenshot({ path: "screenshots/local-server-parity-local-canvas.png" }),
+    player.getByLabel("Authoritative multiplayer game view").screenshot({
+      path: "screenshots/local-server-parity-multiplayer-canvas.png",
+    }),
+  ]);
+  await expectExactCanvasParity(
+    local,
+    player,
+    "Original platformer game canvas",
+  );
+  await Promise.all([
+    playerContext.close(),
+    localContext.close(),
+    adminContext.close(),
+  ]);
+});
 
 test("two independently connected avatars render every server-driven pixel identically", async ({
   browser,
@@ -124,37 +242,12 @@ test("two independently connected avatars render every server-driven pixel ident
     guest.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
 
-  const lobby = await creator.request.get("/api/lobby", {
+  const gameId = await findGameIdByCreatorNickname(creator, "PixelMira");
+  await pauseGameAsAdministrator(admin, gameId);
+  await requireSameAuthoritativeFrame(creator, guest);
+  const snapshot = await creator.request.get(`/api/games/${gameId}/snapshot`, {
     headers: { "x-multiplayer-protocol-version": "1" },
   });
-  const games = (await lobby.json()) as {
-    readonly games: readonly {
-      readonly gameId: string;
-      readonly creator: { readonly nickname: string };
-    }[];
-  };
-  const game = games.games.find(
-    (candidate) => candidate.creator.nickname === "PixelMira",
-  );
-  if (game === undefined) {
-    throw new Error("Parity game is missing from the lobby.");
-  }
-
-  await admin.goto("/#multiplayer-admin");
-  await admin.getByLabel("Administrator password").fill("administrator");
-  await admin.getByRole("button", { name: "Enter administration" }).click();
-  await admin
-    .locator("section")
-    .filter({ hasText: game.gameId })
-    .getByRole("button", { name: "pause" })
-    .click();
-  await requireSameAuthoritativeFrame(creator, guest);
-  const snapshot = await creator.request.get(
-    `/api/games/${game.gameId}/snapshot`,
-    {
-      headers: { "x-multiplayer-protocol-version": "1" },
-    },
-  );
   expect(await snapshot.json()).toMatchObject({
     players: [
       { nickname: "PixelMira", avatarId: "tidekeeper" },

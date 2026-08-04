@@ -94,6 +94,10 @@ import {
 } from "../../engine/simulation/sound-events";
 import { stepSimulation } from "../../engine/simulation/step-simulation";
 import {
+  decodeMultiplayerSimulationState,
+  type MultiplayerSimulationWireState,
+} from "../../multiplayer/simulation-wire";
+import {
   makePlayerTileColumnSpan,
   makePlayerTileRowSpan,
 } from "../../engine/simulation/player-tile-span";
@@ -1301,6 +1305,20 @@ export class BootScene extends Phaser.Scene {
       );
     }
     this.simulationState = state;
+    this.renderSimulationState();
+  }
+
+  /** Test/dev bridge for comparing a local BootScene against a server frame. */
+  public renderMultiplayerWireStateForDebug(
+    state: MultiplayerSimulationWireState,
+  ): void {
+    // Freeze before rendering so the ordinary local update loop cannot advance
+    // between receiving the named server frame and the canvas readback.
+    this.paused = true;
+    // This is local-route navigation chrome, not level rendering. Multiplayer
+    // exposes its leave control in the semantic shell instead.
+    this.exitHintText.setVisible(false);
+    this.simulationState = decodeMultiplayerSimulationState(state);
     this.renderSimulationState();
   }
 
@@ -6707,6 +6725,9 @@ export class BootScene extends Phaser.Scene {
 
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
+      renderMultiplayerWireStateForDebug: (state) => {
+        this.renderMultiplayerWireStateForDebug(state);
+      },
       teleportPlayer: (xPixels: number, yPixels: number) => {
         // Fail loudly on states a teleport cannot meaningfully change, instead
         // of silently moving a sprite the frozen simulation will never step —

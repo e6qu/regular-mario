@@ -35,7 +35,7 @@
     "typecheck": "tsc --build --pretty false",
     "test": "vitest run",
     "test:browser": "pnpm run build && env -u NO_COLOR playwright test",
-    "test:multiplayer-browser": "pnpm run build && pnpm run build:server && env -u NO_COLOR playwright test -c playwright.multiplayer.config.ts",
+    "test:multiplayer-browser": "pnpm run build:release && pnpm run build:server && env -u NO_COLOR playwright test -c playwright.multiplayer.config.ts",
     "test:multiplayer-lag": "MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS=100 pnpm run test:multiplayer-browser && MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS=3000 pnpm run test:multiplayer-browser",
     "check": "pnpm run check:dependency-policy && pnpm run check:repository-content && pnpm run check:transitive-licenses && pnpm run audit:vulnerabilities && pnpm run format:check && pnpm run lint && pnpm run dead-code && pnpm run copy-paste && pnpm run typecheck && pnpm run test && pnpm run build",
     "check:dependency-policy": "node scripts/check-dependency-policy.mjs",

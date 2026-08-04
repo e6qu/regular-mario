@@ -19,6 +19,17 @@ committed — only numeric metadata, code, docs, and scripts.
   local and remote primary/co-op players render as distinct pixel fallback
   bodies instead of disappearing.
 
+## 2026-08-05 — corrected local/multiplayer visual proof
+
+- Found that the prior “parity” check compared two multiplayer fallback
+  renderers, not local play. Multiplayer now receives the same authored skin
+  bundle as local `BootScene`; a missing bundle fails visibly rather than
+  silently using placeholder art.
+- Changed Docker and standalone browser QA to build the release static content
+  required by that bundle. Added an actual local-`BootScene` versus paused
+  server-frame test that checks every 1280×720 gameplay pixel exactly, plus
+  ignored local and eight-player screenshots under `screenshots/`.
+
 ## 2026-08-05 — full authored multiplayer visual parity
 
 - Replaced the reduced multiplayer canvas with the local authored Phaser

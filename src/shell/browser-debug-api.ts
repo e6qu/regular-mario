@@ -11,6 +11,7 @@ import type { PlayerReactionState } from "../engine/simulation/player-reaction";
 import type { PlayerSimulationState } from "../engine/simulation/player-state";
 import type { PlayerVitalityState } from "../engine/simulation/player-vitality";
 import type { StompReactionState } from "../engine/simulation/stomp-reaction";
+import type { MultiplayerSimulationWireState } from "../multiplayer/simulation-wire";
 
 export type BrowserLevelCollisionKind =
   LevelSpec["tileDefinitions"][number]["collision"];
@@ -353,6 +354,12 @@ export type BrowserPlatformerDebugApi = {
   // collider resize included), so browser tests can exercise big-Mario-only
   // mechanics (duck-slides, brick breaking) without scripting a power-up grab.
   readonly setPlayerVitality: (kind: "small" | "powered" | "fire") => void;
+  // Test/dev hook: render a lossless authoritative wire state through the
+  // normal local BootScene without advancing its own simulation. This permits
+  // an exact local-vs-server canvas comparison at a named server frame.
+  readonly renderMultiplayerWireStateForDebug: (
+    state: MultiplayerSimulationWireState,
+  ) => void;
 };
 
 declare global {

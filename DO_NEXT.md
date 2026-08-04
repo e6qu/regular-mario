@@ -4,13 +4,14 @@
 
 ### Visual parity closure (2026-08-05)
 
-- Complete. Multiplayer uses the authored local `BootScene` in
-  authoritative-render mode. The server transports full JSON-safe simulation
-  state; no separate placeholder canvas remains.
+- Complete. Multiplayer requires the same authored local skin bundle and
+  `BootScene` in authoritative-render mode; Docker and browser QA use the
+  static-content release build, so placeholder art cannot silently ship.
 - Complete. `game-runner.test.ts` proves a 12-frame two-player local/core
   simulation trace equals every authoritative server state. The real-server
-  Playwright parity journey connects two distinct avatars, pauses a shared
-  frame, and compares every raw 1280×720 canvas pixel with zero tolerance.
+  Playwright journey freezes an actual local `BootScene` on a named paused
+  server frame and compares every gameplay-canvas pixel (1280×720) with zero
+  tolerance; it also compares two selected multiplayer avatars exactly.
 - Complete. Admin pause/step/resume now immediately broadcast the changed
   authoritative snapshot, so debug controls and parity capture observe the
   same frame. The production browser journey passes at 100 ms and 3,000 ms.

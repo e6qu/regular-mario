@@ -144,14 +144,15 @@ driven by Playwright in two isolated browsers, including semantic layout,
 normal input, game chat, retained screenshots, admin boot/expiry/pause/step,
 and injected 100 ms/3 s snapshot delay. `pnpm run check` is green.
 
-The multiplayer canvas is now the same authored `BootScene` as local play in
-authoritative-render mode, not a separate simplified snapshot painter. A
-lossless wire codec carries complete simulation state (including map-backed
-state) to that scene. The proof suite deep-compares a 12-frame two-player
-local-engine trace against each server state, and independently connects two
-different avatars, pauses one named authoritative frame, then requires all
-921,600 raw canvas pixels (1280×720) to match exactly between the clients.
-No crop, scale, mask, or pixel tolerance is used.
+The multiplayer canvas is now the same authored `BootScene` and default skin
+bundle as local play, not a separate simplified snapshot painter. A lossless
+wire codec carries complete simulation state (including map-backed state) to
+that scene. The proof suite deep-compares a 12-frame two-player local-engine
+trace against each server state; compares a local `BootScene` supplied a named
+paused server frame against multiplayer at all 921,600 raw canvas pixels; and
+independently requires two different multiplayer avatars to match exactly. The
+comparison hides only the local route's non-game ESC navigation hint and uses
+no crop, scale, mask, or pixel tolerance for gameplay pixels.
 
 ## Target
 
