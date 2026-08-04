@@ -47,7 +47,10 @@ import {
 } from "./shell/user-asset-loader";
 import { validateDefaultVglcSmbSpriteCoverage } from "./shell/default-vglc-smb-sprite-coverage";
 import { parseContentSetIndex } from "./shell/content-set-index";
-import { renderMultiplayerUi } from "./shell/multiplayer-ui";
+import {
+  renderMultiplayerAdminUi,
+  renderMultiplayerUi,
+} from "./shell/multiplayer-ui";
 
 const appElement = document.querySelector<HTMLElement>("#app");
 
@@ -3039,6 +3042,11 @@ function applyRoute(): void {
   if (raw === "multiplayer") {
     clearApp();
     void renderMultiplayerUi(appElement!);
+    return;
+  }
+  if (raw === "multiplayer-admin") {
+    clearApp();
+    void renderMultiplayerAdminUi(appElement!);
     return;
   }
   const shared = sharedLevelFromHash();

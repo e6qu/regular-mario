@@ -393,3 +393,109 @@ export async function renderMultiplayerUi(mount: HTMLElement): Promise<void> {
     mount.append(panel);
   }
 }
+
+export async function renderMultiplayerAdminUi(
+  mount: HTMLElement,
+): Promise<void> {
+  async function renderDashboard(): Promise<void> {
+    const debug = await requestJson<{
+      readonly activeSessionCount: number;
+      readonly games: readonly GameSummary[];
+      readonly snapshots: readonly GameSnapshot[];
+    }>("/admin/debug");
+    mount.replaceChildren();
+    const panel = makePanel();
+    panel.append(
+      Object.assign(document.createElement("h1"), {
+        textContent: "Multiplayer administration",
+      }),
+    );
+    panel.append(
+      Object.assign(document.createElement("p"), {
+        textContent: `Active sessions: ${debug.activeSessionCount}`,
+      }),
+    );
+    panel.append(
+      makeButton("Expire all player sessions", async () => {
+        await requestJson("/admin/expire-sessions", { method: "POST" });
+        await renderDashboard();
+      }),
+    );
+    for (const game of debug.games) {
+      const section = document.createElement("section");
+      section.append(
+        Object.assign(document.createElement("h2"), {
+          textContent: `${game.gameId} · ${game.phase}`,
+        }),
+      );
+      for (const action of ["pause", "step", "resume"] as const) {
+        section.append(
+          makeButton(action, async () => {
+            await requestJson(`/admin/games/${game.gameId}/${action}`, {
+              method: "POST",
+            });
+            await renderDashboard();
+          }),
+        );
+      }
+      const snapshot = debug.snapshots.find(
+        (candidate) => candidate.gameId === game.gameId,
+      );
+      for (const player of snapshot?.players ?? []) {
+        section.append(
+          makeButton(`Boot ${player.nickname}`, async () => {
+            await requestJson("/admin/boot-player", {
+              method: "POST",
+              body: JSON.stringify({ playerId: player.playerId }),
+            });
+            await renderDashboard();
+          }),
+        );
+      }
+      const screenshot = document.createElement("img");
+      screenshot.alt = `Latest screenshot for ${game.gameId}`;
+      const screenshotResponse = await requestJson<{
+        readonly pngDataUrl?: string;
+      }>(`/admin/games/${game.gameId}/screenshot`);
+      if (screenshotResponse.pngDataUrl !== undefined) {
+        screenshot.src = screenshotResponse.pngDataUrl;
+        screenshot.style.maxWidth = "100%";
+        section.append(screenshot);
+      }
+      panel.append(section);
+    }
+    mount.append(panel);
+  }
+  try {
+    await renderDashboard();
+  } catch {
+    mount.replaceChildren();
+    const panel = makePanel();
+    const password = document.createElement("input");
+    password.type = "password";
+    password.setAttribute("aria-label", "Administrator password");
+    const error = document.createElement("p");
+    panel.append(
+      Object.assign(document.createElement("h1"), {
+        textContent: "Administrator login",
+      }),
+      password,
+      error,
+      makeButton("Enter administration", async () => {
+        try {
+          await requestJson("/admin/login", {
+            method: "POST",
+            body: JSON.stringify({ password: password.value }),
+          });
+          await renderDashboard();
+        } catch (reason) {
+          error.textContent =
+            reason instanceof Error
+              ? reason.message
+              : "Administrator login failed.";
+        }
+      }),
+    );
+    mount.append(panel);
+  }
+}
