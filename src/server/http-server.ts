@@ -42,6 +42,7 @@ export type MakeMultiplayerHttpServerConfig = {
   readonly service: MakeMultiplayerServiceConfig;
   readonly staticRoot?: string;
   readonly secureCookies: boolean;
+  readonly snapshotDelayMilliseconds?: number;
 };
 
 function now(): number {
@@ -189,13 +190,28 @@ export function makeMultiplayerHttpServer(
     maxPayload: 64 * 1024,
   });
   let lastSnapshotBroadcastMilliseconds = 0;
+  const snapshotDelayMilliseconds = config.snapshotDelayMilliseconds ?? 0;
+  if (
+    !Number.isSafeInteger(snapshotDelayMilliseconds) ||
+    snapshotDelayMilliseconds < 0
+  ) {
+    throw new Error("Snapshot delay must be a non-negative safe integer.");
+  }
 
-  function broadcast(value: unknown): void {
+  function broadcast(value: unknown, delayMilliseconds = 0): void {
     const encoded = JSON.stringify(value);
     for (const sockets of socketsByPlayerId.values()) {
       for (const socket of sockets) {
         if (socket.readyState === WebSocket.OPEN) {
-          socket.send(encoded);
+          if (delayMilliseconds === 0) {
+            socket.send(encoded);
+          } else {
+            setTimeout(() => {
+              if (socket.readyState === WebSocket.OPEN) {
+                socket.send(encoded);
+              }
+            }, delayMilliseconds).unref();
+          }
         }
       }
     }
@@ -212,7 +228,7 @@ export function makeMultiplayerHttpServer(
         nowMilliseconds - lastSnapshotBroadcastMilliseconds >=
           snapshotBroadcastIntervalMilliseconds)
     ) {
-      broadcast({ type: "snapshots", snapshots });
+      broadcast({ type: "snapshots", snapshots }, snapshotDelayMilliseconds);
       lastSnapshotBroadcastMilliseconds = nowMilliseconds;
     }
   }

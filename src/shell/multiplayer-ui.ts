@@ -366,6 +366,15 @@ function renderGame(
       window.clearInterval(interval);
       window.setTimeout(() => void renderLobby(mount), 1500);
     }
+    if (socket.readyState === WebSocket.OPEN) {
+      socket.send(
+        JSON.stringify({
+          type: "screenshot",
+          gameId,
+          pngDataUrl: canvas.toDataURL("image/png"),
+        }),
+      );
+    }
   }
   socket.addEventListener("message", (event) => {
     const message: unknown = JSON.parse(String(event.data));
@@ -458,19 +467,13 @@ function renderGame(
   const interval = window.setInterval(() => void update(), 50);
   async function update(): Promise<void> {
     try {
+      if (socket.readyState === WebSocket.OPEN) {
+        return;
+      }
       const snapshot = await requestJson<GameSnapshot>(
         `/games/${gameId}/snapshot`,
       );
       displaySnapshot(snapshot);
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(
-          JSON.stringify({
-            type: "screenshot",
-            gameId,
-            pngDataUrl: canvas.toDataURL("image/png"),
-          }),
-        );
-      }
     } catch (error) {
       status.textContent =
         error instanceof Error ? error.message : "Game connection failed.";

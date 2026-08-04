@@ -18,6 +18,18 @@ const port = Number(portValue);
 if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) {
   throw new Error("PORT must be a valid TCP port.");
 }
+const snapshotDelayValue = process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"];
+const snapshotDelayMilliseconds =
+  snapshotDelayValue === undefined ? undefined : Number(snapshotDelayValue);
+if (
+  snapshotDelayMilliseconds !== undefined &&
+  (!Number.isSafeInteger(snapshotDelayMilliseconds) ||
+    snapshotDelayMilliseconds < 0)
+) {
+  throw new Error(
+    "MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS must be a non-negative integer.",
+  );
+}
 const app = makeMultiplayerHttpServer({
   service: makeProductionServiceConfig(
     requireEnvironment("SERVER_PASSWORD"),
@@ -26,6 +38,9 @@ const app = makeMultiplayerHttpServer({
   ),
   staticRoot: resolve(process.cwd(), "dist"),
   secureCookies: process.env["NODE_ENV"] === "production",
+  ...(snapshotDelayMilliseconds === undefined
+    ? {}
+    : { snapshotDelayMilliseconds }),
 });
 
 setInterval(() => app.tick(Date.now()), 1000 / 60).unref();

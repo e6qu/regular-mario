@@ -78,6 +78,11 @@ What exists now:
   contexts can create/join/start/input/chat and inspect semantic game layout;
   it also proves admin pause/step/resume and captures desktop/mobile screens.
 
+- **Lag proof (2026-08-04).** The live client renders pushed WebSocket snapshots
+  after connection, retaining HTTP only until connection establishment. The
+  two-browser journey passes with explicit server snapshot delays of both
+  100 ms and 3 s.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

@@ -14,6 +14,14 @@ committed — only numeric metadata, code, docs, and scripts.
   The administrator journey logs in separately, pauses/steps/resumes that game,
   and captures a 390×844 mobile view. Both journeys pass.
 
+## 2026-08-04 — delayed multiplayer transport proof
+
+- Added a validated test-only standalone-server snapshot-delay switch and ran
+  the same two-browser journey at 100 ms and 3,000 ms. Once the WebSocket
+  connects, the client renders that pushed stream rather than masking delay
+  through polling; polling remains only the connection-establishment fallback.
+  Both delayed journeys pass.
+
 ## 2026-08-04 — multiplayer leave lifecycle
 
 - Added a deliberate Leave game operation through browser, HTTP, service,

@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const injectedSnapshotDelayMilliseconds = Number(
+  process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"] ?? "0",
+);
+
 async function login(page: Page): Promise<void> {
   await page.goto("/#multiplayer");
   await page.getByLabel("Server password").fill("friends");
@@ -38,6 +42,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await creator.keyboard.down("ArrowRight");
   await creator.waitForTimeout(120);
   await creator.keyboard.up("ArrowRight");
+  await creator.waitForTimeout(injectedSnapshotDelayMilliseconds + 200);
   await expect(creator.getByText(/playing · frame [1-9]/)).toBeVisible();
 
   const layout = await creator.request.get("/api/layout");
