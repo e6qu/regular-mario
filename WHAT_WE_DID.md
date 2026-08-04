@@ -49,6 +49,14 @@ committed — only numeric metadata, code, docs, and scripts.
   The server never receives, stores, or streams audio. Existing audio and
   prediction tests, lint, typecheck, and production build pass.
 
+## 2026-08-04 — shared bundled multiplayer catalogue
+
+- Added three validated, original authored multiplayer levels: Shoreline
+  Sprint, Cavern Route, and Coinbox Crossing. Production server configuration
+  advertises this catalogue and the browser resolves the selected ID to the
+  same deterministic level before creating its local predictor. Catalogue and
+  service tests, lint, typecheck, and client/server builds pass.
+
 ## 2026-08-04 — dependency security maintenance
 
 - Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,

@@ -69,6 +69,10 @@ What exists now:
   effects derive from local predicted simulation transitions, with a local
   completion cue; audio is never transported or retained by the server.
 
+- **Bundled multiplayer catalogue (2026-08-04).** The server and browser share
+  three validated authored levels—Shoreline Sprint, Cavern Route, and Coinbox
+  Crossing—so the selected level is also the exact level used for prediction.
+
 - **Multiplayer leave lifecycle (2026-08-04).** A deliberate leave now removes
   the member from the authoritative simulation, frees their one-game slot, and
   removes a game when its final member leaves. The browser exposes this as an

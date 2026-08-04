@@ -40,9 +40,9 @@
   local audio derivation, and browser-level multi-client proof of this handoff.
 
 - Live keyboard prediction, pushed snapshots, 100 ms remote interpolation, and
-  local-only synthesized audio are now connected to the supported first
-  authored server level. Next grow the server catalogue and write two-client
-  Playwright journeys with injected network delay.
+  local-only synthesized audio now support the shared three-level bundled
+  catalogue. Next write two-client Playwright journeys with injected 100 ms–3 s
+  network delay, including debug layout/screenshots and admin controls.
 
 - Security maintenance is current as of 2026-08-04: Vite 8.2.0, ESLint 10.8.0,
   and a lockfile-scoped `brace-expansion` 5.0.9 override leave the dependency

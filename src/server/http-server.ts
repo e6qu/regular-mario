@@ -9,8 +9,8 @@ import { resolve, sep } from "node:path";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
-import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
+import { bundledMultiplayerLevels } from "../multiplayer/bundled-levels";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 import { makeAdminLayout, makeLobbyLayout, makeLoginLayout } from "./layout";
 import {
@@ -590,13 +590,7 @@ export function makeProductionServiceConfig(
   let gameNumber = 0;
   return {
     session: { serverPassword, adminPassword, signingSecret },
-    levels: [
-      {
-        id: "first-authored",
-        label: "First Authored Level",
-        levelSpec: firstAuthoredLevelSpec(),
-      },
-    ],
+    levels: bundledMultiplayerLevels,
     movementConstants: initialMovementConstants,
     nextGameId: () => `game-${++gameNumber}`,
   };

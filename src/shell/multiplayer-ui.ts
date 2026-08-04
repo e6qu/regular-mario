@@ -211,8 +211,16 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
     row.textContent = `${game.creator.nickname} · ${game.levelId} · ${game.mode} · ${game.phase} · ${game.playerCount}/${game.maximumPlayerCount}`;
     row.append(
       makeButton("Join", async () => {
-        await requestJson(`/games/${game.gameId}/join`, { method: "POST" });
-        renderGame(mount, lobby.profile, game.gameId);
+        const joined = await requestJson<{ readonly game: GameSummary }>(
+          `/games/${game.gameId}/join`,
+          { method: "POST" },
+        );
+        renderGame(
+          mount,
+          lobby.profile,
+          joined.game.gameId,
+          joined.game.levelId,
+        );
       }),
     );
     if (
@@ -221,8 +229,16 @@ async function renderLobby(mount: HTMLElement): Promise<void> {
     ) {
       row.append(
         makeButton("Start", async () => {
-          await requestJson(`/games/${game.gameId}/start`, { method: "POST" });
-          renderGame(mount, lobby.profile, game.gameId);
+          const started = await requestJson<{ readonly game: GameSummary }>(
+            `/games/${game.gameId}/start`,
+            { method: "POST" },
+          );
+          renderGame(
+            mount,
+            lobby.profile,
+            started.game.gameId,
+            started.game.levelId,
+          );
         }),
       );
     }
@@ -255,6 +271,7 @@ function renderGame(
   mount: HTMLElement,
   profile: PlayerProfile,
   gameId: string,
+  levelId: string,
 ): void {
   mount.replaceChildren();
   const panel = makePanel();
@@ -295,7 +312,7 @@ function renderGame(
   const held = new Set<string>();
   const initialPredictionState = makeInitialSimulationState(
     nominalSixtyHertzFrameDurationMilliseconds,
-    firstAuthoredLevelSpec(),
+    requireBundledMultiplayerLevel(levelId).levelSpec,
     initialMovementConstants,
   );
   if (!initialPredictionState.ok) {
@@ -303,7 +320,7 @@ function renderGame(
   }
   const prediction = makeClientPrediction(
     initialPredictionState.value,
-    firstAuthoredLevelSpec(),
+    requireBundledMultiplayerLevel(levelId).levelSpec,
     initialMovementConstants,
   );
   const audio = new GameAudio();
@@ -611,7 +628,6 @@ export async function renderMultiplayerAdminUi(
     mount.append(panel);
   }
 }
-import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
@@ -621,5 +637,6 @@ import {
   SoundEvent,
 } from "../engine/simulation/sound-events";
 import { makeClientPrediction } from "../multiplayer/client-prediction";
+import { requireBundledMultiplayerLevel } from "../multiplayer/bundled-levels";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
 import { GameAudio } from "./game-audio";
