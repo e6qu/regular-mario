@@ -47,6 +47,7 @@ import {
 } from "./shell/user-asset-loader";
 import { validateDefaultVglcSmbSpriteCoverage } from "./shell/default-vglc-smb-sprite-coverage";
 import { parseContentSetIndex } from "./shell/content-set-index";
+import { renderMultiplayerUi } from "./shell/multiplayer-ui";
 
 const appElement = document.querySelector<HTMLElement>("#app");
 
@@ -359,7 +360,7 @@ appElement.append(gameLayer, sessionBar, keymapOverlay, keymapHint);
 renderDeployInfoFooter();
 
 // ----- Routing: each area is a shareable URL hash --------------------------
-// #menu · #design · #play?skin=&map=&level=&mode=&sound= · #level=<code>
+// #menu · #design · #multiplayer · #play?skin=&map=&level=&mode=&sound= · #level=<code>
 type PlayRoute = {
   readonly skin: string;
   readonly map: string;
@@ -3033,6 +3034,11 @@ function applyRoute(): void {
   }
   if (raw === "design") {
     renderEditor();
+    return;
+  }
+  if (raw === "multiplayer") {
+    clearApp();
+    void renderMultiplayerUi(appElement!);
     return;
   }
   const shared = sharedLevelFromHash();

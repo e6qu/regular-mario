@@ -50,6 +50,17 @@ committed — only numeric metadata, code, docs, and scripts.
   exposes the initial authored bundled level while browser/client integration
   and full bundled-level catalogue remain in progress.
 
+## 2026-08-04 — multiplayer browser route and prediction checkpoint
+
+- Added `#multiplayer`: password entry, profile/avatar picker, public game
+  cards, create/join/start controls, lobby/game chat, keyboard WebSocket input,
+  a live common-screen canvas, and client PNG screenshot reporting for the
+  authenticated admin debug endpoint.
+- Added a pure same-core client predictor that applies local commands
+  immediately, keeps sequence-numbered pending input, drops acknowledged input,
+  corrects from authoritative position, and replays the remaining history.
+  Focused unit tests plus lint/typecheck/client production build pass.
+
 ## 2026-07-19 — fluid character animation: the drifting princess + Elvis koopa
 
 - The princess (revenge mode) is redrawn at 32x32 (2x detail at the same

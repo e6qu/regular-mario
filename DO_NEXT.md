@@ -29,6 +29,12 @@
   an admin browser debug screen. Then expand the server level catalogue from
   the initial authored bundled level to the supported authored bundle.
 
+- The `#multiplayer` route and basic live canvas are now present. Next make
+  regular/revenge and every supported bundled level selectable, replace the
+  simple shared canvas with Phaser snapshot rendering plus remote-player
+  interpolation/local prediction, add admin UI controls, and write two-client
+  Playwright journeys (including screenshots and injected network delay).
+
 ## Landed: playability audit (2026-07-17)
 
 - Water solidity per the ROM's lower-bound rule (exits enforced by the end

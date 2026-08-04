@@ -316,6 +316,11 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   reporting. Do not present multiplayer as playable until the browser and
   multi-client QA work in `DO_NEXT.md` lands.
 
+  Follow-up: a functional `#multiplayer` canvas client now exists, but it is a
+  deliberately simple common-screen renderer rather than Phaser render parity;
+  level/mode selector breadth, remote interpolation polish, and multi-browser
+  Playwright evidence still remain.
+
 - **Content-policy boundary (hard rule).** ROM bytes, ROM URLs, ROM-extracted
   pixel/audio outputs, and reference captures must **never** be committed — they
   stay under ignored `.cache/user-levels/`. Committed metadata is numeric-only;

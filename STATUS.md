@@ -43,9 +43,17 @@ What exists now:
   runner/20 Hz protocol contract, bounded 3-second expiring input queues,
   ephemeral chats, anonymous/admin signed sessions, public-game lobby service,
   semantic layout JSON, admin pause/step/resume/debug interfaces, a standalone
-  HTTP/WebSocket server, and one-container deployment artifacts. The browser
-  multiplayer client, local prediction rendering, all bundled-level selection,
-  and end-to-end multi-browser QA remain to be implemented.
+  HTTP/WebSocket server, and one-container deployment artifacts. Broader
+  bundled-level selection, Phaser render parity, and end-to-end multi-browser
+  QA remain to be implemented.
+
+- **Browser multiplayer route landed (in progress).** `#multiplayer` provides
+  password login, profile/avatar editing, public-game create/join/start,
+  lobby/game chat, keyboard WebSocket input, a live shared canvas, and client
+  screenshot reporting. A pure client predictor immediately simulates local
+  commands and replays unacknowledged history after server correction. Full
+  Phaser rendering parity, selectable level/mode UI, and browser journeys are
+  still pending.
 
 - **God mode** (start-menu toggle, off by default; `god=1` in play links):
   undamageable player for practice/testing — pit falls still reset.
