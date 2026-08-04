@@ -5,12 +5,12 @@ import type { SimulationState } from "../engine/simulation/simulation-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
 import { requireSimulationPixelPosition } from "../engine/simulation/simulation-units";
 
-export type PendingPredictedInput = {
+type PendingPredictedInput = {
   readonly sequence: number;
   readonly command: SimulationInputCommand;
 };
 
-export type LocalPredictionSnapshot = {
+type LocalPredictionSnapshot = {
   readonly state: SimulationState;
   readonly pendingInputs: readonly PendingPredictedInput[];
 };

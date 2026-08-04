@@ -48,7 +48,7 @@ type AuthoritativePlayer = MultiplayerPlayerProfile & {
   readonly slot: number;
 };
 
-export type AuthoritativePlayerSnapshot = MultiplayerPlayerProfile & {
+type AuthoritativePlayerSnapshot = MultiplayerPlayerProfile & {
   readonly slot: number;
   readonly spectator: boolean;
   readonly x: number;

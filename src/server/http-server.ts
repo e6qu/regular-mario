@@ -11,6 +11,7 @@ import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { bundledMultiplayerLevels } from "../multiplayer/bundled-levels";
+import { multiplayerSnapshotFramesPerSecond } from "../multiplayer/domain";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 import {
   makeAdminLayout,
@@ -25,7 +26,8 @@ import {
 } from "./service";
 
 const jsonBodyMaximumBytes = 64 * 1024;
-const snapshotBroadcastIntervalMilliseconds = 1000 / 20;
+const snapshotBroadcastIntervalMilliseconds =
+  1000 / multiplayerSnapshotFramesPerSecond;
 const sessionCookieName = "platformer_session";
 const adminCookieName = "platformer_admin_session";
 

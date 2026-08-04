@@ -1,4 +1,4 @@
-export type RemotePlayerPosition = {
+type RemotePlayerPosition = {
   readonly playerId: string;
   readonly x: number;
   readonly y: number;

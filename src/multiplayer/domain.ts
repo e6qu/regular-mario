@@ -10,8 +10,8 @@ const identifierPattern = /^[a-z][a-z0-9-]*$/;
 const nicknameControlCharacterPattern = /[\p{Cc}\p{Cf}]/u;
 
 export const multiplayerMaximumPlayers = 16;
-export const multiplayerNicknameMinimumCharacters = 3;
-export const multiplayerNicknameMaximumCharacters = 24;
+const multiplayerNicknameMinimumCharacters = 3;
+const multiplayerNicknameMaximumCharacters = 24;
 export const multiplayerChatMaximumCharacters = 256;
 export const multiplayerChatMessagesPerSecond = 3;
 export const multiplayerInputExpiryMilliseconds = 3000;

@@ -4,6 +4,7 @@ import {
   makeMultiplayerHttpServer,
   makeProductionServiceConfig,
 } from "./http-server";
+import { multiplayerAuthoritativeFramesPerSecond } from "../multiplayer/domain";
 
 function requireEnvironment(name: string): string {
   const value = process.env[name];
@@ -43,7 +44,10 @@ const app = makeMultiplayerHttpServer({
     : { snapshotDelayMilliseconds }),
 });
 
-setInterval(() => app.tick(Date.now()), 1000 / 60).unref();
+setInterval(
+  () => app.tick(Date.now()),
+  1000 / multiplayerAuthoritativeFramesPerSecond,
+).unref();
 app.server.listen(port, "0.0.0.0", () => {
   process.stdout.write(
     `Trusted-friends multiplayer server listening on ${port}.\n`,

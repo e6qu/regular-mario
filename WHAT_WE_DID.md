@@ -22,6 +22,14 @@ committed — only numeric metadata, code, docs, and scripts.
   through polling; polling remains only the connection-establishment fallback.
   Both delayed journeys pass.
 
+## 2026-08-04 — full quality gate restored
+
+- Registered the standalone server and multiplayer browser test entrypoints in
+  dead-code analysis, used the multiplayer frame-rate constants at their real
+  scheduler/broadcast boundaries, and made implementation-only public types
+  private. Refactored an existing duplicated spectator test setup into one
+  helper. `pnpm run check` now passes end to end.
+
 ## 2026-08-04 — multiplayer leave lifecycle
 
 - Added a deliberate Leave game operation through browser, HTTP, service,
