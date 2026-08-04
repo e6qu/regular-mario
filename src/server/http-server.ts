@@ -381,6 +381,19 @@ export function makeMultiplayerHttpServer(
         json(response, 200, { ok: true });
         return;
       }
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/admin/boot-player"
+      ) {
+        const body = await readJsonBody(request);
+        service.adminBootPlayer(
+          adminToken,
+          requireString(body, "playerId"),
+          now(),
+        );
+        json(response, 200, { ok: true });
+        return;
+      }
       if (config.staticRoot !== undefined && request.method === "GET") {
         const relativePath =
           url.pathname === "/" ? "index.html" : url.pathname.slice(1);
