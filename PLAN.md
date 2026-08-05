@@ -140,7 +140,11 @@ its local player.
    simulated 100 ms through 3 s delay. Record new dependencies' license,
    purpose, maintenance, security, and age before adoption.
 
-**Completion evidence (2026-08-04, strengthened 2026-08-05):** all six delivery steps are implemented.
+**Initial delivery evidence (2026-08-04, strengthened 2026-08-05):** the
+six initial delivery steps are implemented, but the transport/rendering
+contract below remains a required completion phase. The prior wording that
+called Milestone 9 complete was too broad: a client prediction object exists,
+but the visible canvas still applies full authoritative snapshots directly.
 The pure runner covers the 16-player cap, late current-camera spawn, spectator
 retention, and joined-player completion. The production standalone service is
 driven by Playwright in two isolated browsers, including semantic layout,
@@ -175,6 +179,57 @@ server frame/camera, one 940×720 canvas per player, matching CSS/backing
 dimensions, and post-transition screenshots. It caught and closed a missing
 goal tile, frame-clock reset, detached-canvas boot, camera, and canvas-teardown
 defects rather than treating the first transition as sufficient proof.
+
+### Required completion phase: latency-safe state transport and rendered reconciliation
+
+The service must meet the stated responsive-play goal at approximately 100 ms
+latency and degrade safely, visibly, and recoverably up to 3 s. The current
+whole-state JSON snapshot stream is a correct debugging representation, but
+is not the production real-time transport format and must not be treated as
+one.
+
+1. **Measure before tuning.** Add deterministic payload-size fixtures for
+   representative one-, four-, and sixteen-player states on each bundled
+   level; record uncompressed JSON and encoded-wire bytes, delta bytes,
+   messages/second, and server egress at 20 Hz. Set and test explicit size
+   budgets from those measurements—no guessed threshold.
+2. **Versioned hybrid state protocol.** Retain a complete, JSON-safe snapshot
+   as a keyframe for join, level transition, recovery, and periodic (at most
+   once per second) resynchronisation. Between keyframes, transmit only a
+   versioned delta against an acknowledged `baselineFrame`: changed player
+   transforms/velocity/outcome, changed entities/tiles, camera, input acks,
+   and additions/removals. A missing or mismatched baseline must request a
+   keyframe explicitly; it may never silently apply a delta to the wrong
+   state. The semantic debug API continues to expose complete inspectable
+   state independently of the game transport.
+3. **Actual client-side simulation.** Render the local player's predicted,
+   reconciled simulation state immediately; on an authoritative ack, replace
+   the acknowledged portion and replay only pending inputs. Render other
+   players from a bounded interpolation buffer between authoritative states.
+   Keep the authoritative server camera and authoritative collision/outcome
+   decisions. Audio remains local and is derived once from predicted or
+   confirmed events without duplicate playback.
+4. **Delay, loss, and stale-data behaviour.** Send input edges plus a
+   bounded held-state heartbeat, maintain ordered sequence/input acks, and
+   coalesce outbound state so a slow client receives the newest recoverable
+   keyframe/delta chain rather than an unbounded backlog of stale frames.
+   At 3 s, expired inputs and visible correction are intentional; recovery
+   must converge without client rule authority or a frozen canvas.
+5. **Acceptance evidence.** Unit/property tests cover codecs, baseline
+   mismatch, removals, recovery, prediction replay, interpolation, size
+   budgets, and stale-frame discard. Production-server Playwright runs with
+   four independently authenticated browsers at 100 ms, 500 ms, and 3 s
+   injected delay, records every perspective through two level transitions,
+   and proves the visible local prediction, remote interpolation, recovery,
+   and eventual byte-for-byte authoritative convergence. Capture protocol and
+   queue metrics in the admin JSON/debug evidence.
+
+**Completion evidence (2026-08-05):** the hybrid protocol is implemented and
+measured in its transport tests; normal state updates are structural deltas,
+with periodic and recovery keyframes. The real Phaser canvas renders local
+prediction and remote interpolation. Exact local/shared-camera server-frame
+parity is zero raw pixels, and the ignored four-browser recordings complete
+two transitions at 100 ms, 500 ms, and 3 s injected delay.
 
 ## Target
 

@@ -5,10 +5,7 @@ import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import { selectBrowserGameBootstrap } from "./browser-level-selection";
 import { createGameConfig } from "./create-game-config";
-import {
-  authoritativeRenderSceneReadyEvent,
-  BootScene,
-} from "./scenes/boot-scene";
+import { BootScene } from "./scenes/boot-scene";
 import type { UserAssetBundle } from "./user-asset-loader";
 
 export type MultiplayerPhaserRenderer = {
@@ -36,6 +33,16 @@ export function makeMultiplayerPhaserRenderer(
   revengeMode: boolean,
   userAssetBundle: UserAssetBundle,
 ): MultiplayerPhaserRenderer {
+  // Phaser may leave a boot-time canvas attached while replacing a scene. The
+  // multiplayer host owns exactly one authoritative canvas; stale local-seed
+  // canvases otherwise sit above/below the live party and make state appear
+  // missing despite a correct network frame.
+  document
+    .querySelectorAll<HTMLCanvasElement>(
+      '[data-role="multiplayer-phaser-canvas"]',
+    )
+    .forEach((canvas) => canvas.remove());
+  parent.replaceChildren();
   const bootstrap = selectBrowserGameBootstrap(
     `?browserLevel=${encodeURIComponent(levelId)}`,
   );
@@ -62,12 +69,12 @@ export function makeMultiplayerPhaserRenderer(
         applySnapshot(scene, latestSnapshot);
       }
     };
-    // A scene becomes "active" before BootScene.create() has created its
-    // player and level render objects. Applying a server frame during that
-    // interval is then overwritten by create()'s empty local seed state,
-    // leaving a valid background with no party or level objects. The scene's
-    // explicit signal is emitted only after those render objects exist.
-    scene.events.once(authoritativeRenderSceneReadyEvent, markReady);
+    // Core READY is emitted after BootScene.create(). The prior event-only
+    // bridge could miss a scene-ready event emitted earlier in the same boot
+    // turn, permanently leaving the visible scene on its one-player seed.
+    // Applying the retained latest frame here is therefore both safe and
+    // guaranteed to reach the constructed scene.
+    markReady();
   });
   canvas.setAttribute("aria-label", "Authoritative multiplayer game view");
   canvas.setAttribute("data-role", "multiplayer-phaser-canvas");
@@ -75,6 +82,9 @@ export function makeMultiplayerPhaserRenderer(
     canvas,
     render(snapshot) {
       latestSnapshot = snapshot;
+      const decodedState = decodeMultiplayerSimulationState(
+        snapshot.simulationState,
+      );
       game.canvas.setAttribute(
         "data-authoritative-frame",
         String(snapshot.frame),
@@ -82,6 +92,10 @@ export function makeMultiplayerPhaserRenderer(
       game.canvas.setAttribute(
         "data-authoritative-player-count",
         String(snapshot.players.length),
+      );
+      game.canvas.setAttribute(
+        "data-authoritative-simulation-player-count",
+        String(decodedState.players.length),
       );
       game.canvas.setAttribute("data-authoritative-level-id", snapshot.levelId);
       if (ready) {

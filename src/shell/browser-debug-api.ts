@@ -359,6 +359,7 @@ export type BrowserPlatformerDebugApi = {
   // an exact local-vs-server canvas comparison at a named server frame.
   readonly renderMultiplayerWireStateForDebug: (
     state: MultiplayerSimulationWireState,
+    cameraLeftPixels: number,
   ) => void;
 };
 

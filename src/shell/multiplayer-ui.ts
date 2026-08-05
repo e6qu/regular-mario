@@ -16,6 +16,10 @@ type GameSummary = {
 
 type GameSnapshot = MultiplayerRenderedSnapshot;
 
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function isGameSnapshot(value: unknown): value is GameSnapshot {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
@@ -477,6 +481,9 @@ function renderGame(
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
   let completedAudioPlayed = false;
   let latestAuthoritativeFrame = 0;
+  let latestAuthoritativeSnapshot: GameSnapshot | undefined;
+  const snapshotsByGameId = new Map<string, GameSnapshot>();
+  let presentationAnimationFrame: number | undefined;
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -491,12 +498,85 @@ function renderGame(
     disposed = true;
     window.clearInterval(snapshotInterval);
     window.clearInterval(chatInterval);
+    if (presentationAnimationFrame !== undefined) {
+      window.cancelAnimationFrame(presentationAnimationFrame);
+    }
     socket.close();
     renderer.destroy();
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
   }
   disposeView = dispose;
+  function renderPresentation(): void {
+    const snapshot = latestAuthoritativeSnapshot;
+    if (snapshot === undefined || disposed) {
+      return;
+    }
+    const predictedPlayer = prediction.snapshot().state.players[0].player;
+    const interpolatedRemotePlayers = remoteInterpolator.positions(
+      performance.now(),
+    );
+    const state = decodeMultiplayerSimulationState(snapshot.simulationState);
+    const players = state.players.map((runtime, slot) => {
+      const player = snapshot.players[slot];
+      if (player === undefined) {
+        throw new Error(
+          "Authoritative player metadata is missing a simulation slot.",
+        );
+      }
+      const position =
+        player.playerId === profile.playerId
+          ? predictedPlayer.position
+          : interpolatedRemotePlayers.get(player.playerId);
+      if (position === undefined) {
+        return runtime;
+      }
+      return {
+        ...runtime,
+        player: {
+          ...runtime.player,
+          position: {
+            x: requireSimulationPixelPosition(
+              Number(position.x),
+              "multiplayer.presentation.player.x",
+            ),
+            y: requireSimulationPixelPosition(
+              Number(position.y),
+              "multiplayer.presentation.player.y",
+            ),
+          },
+        },
+      };
+    });
+    const renderedPlayers = snapshot.players.map((player) => {
+      const position =
+        player.playerId === profile.playerId
+          ? predictedPlayer.position
+          : interpolatedRemotePlayers.get(player.playerId);
+      return position === undefined
+        ? player
+        : { ...player, x: Number(position.x), y: Number(position.y) };
+    });
+    const primaryRuntime = players[0];
+    if (primaryRuntime === undefined) {
+      throw new Error("Authoritative multiplayer state has no primary player.");
+    }
+    renderer.render({
+      ...snapshot,
+      players: renderedPlayers,
+      simulationState: encodeMultiplayerSimulationState({
+        ...state,
+        players: [primaryRuntime, ...players.slice(1)],
+      }),
+    });
+  }
+  function animatePresentation(): void {
+    renderPresentation();
+    if (!disposed) {
+      presentationAnimationFrame =
+        window.requestAnimationFrame(animatePresentation);
+    }
+  }
   async function refreshGameChat(): Promise<void> {
     const response = await requestJson<{
       readonly messages: readonly {
@@ -511,6 +591,15 @@ function renderGame(
     }
   }
   function displaySnapshot(snapshot: GameSnapshot): void {
+    const known = snapshotsByGameId.get(snapshot.gameId);
+    if (
+      known !== undefined &&
+      known.levelId === snapshot.levelId &&
+      snapshot.frame < known.frame
+    ) {
+      return;
+    }
+    snapshotsByGameId.set(snapshot.gameId, snapshot);
     if (snapshot.levelId !== currentLevelId) {
       currentLevelId = snapshot.levelId;
       // A newly advanced course owns a fresh frame clock. Retaining the prior
@@ -544,7 +633,8 @@ function renderGame(
     }
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
     startGameButton?.toggleAttribute("hidden", snapshot.phase !== "waiting");
-    renderer.render(snapshot);
+    latestAuthoritativeSnapshot = snapshot;
+    renderPresentation();
     if (snapshot.phase === "finished") {
       if (!completedAudioPlayed) {
         audio.playEvents([SoundEvent.LevelComplete]);
@@ -584,19 +674,78 @@ function renderGame(
       void refreshGameChat();
       return;
     }
-    if (
-      message.type !== "snapshots" ||
-      !("snapshots" in message) ||
-      !Array.isArray(message.snapshots)
-    ) {
+    if (message.type === "state-keyframes") {
+      if (!("snapshots" in message) || !Array.isArray(message.snapshots)) {
+        return;
+      }
+      for (const candidate of message.snapshots) {
+        if (!isGameSnapshot(candidate)) {
+          continue;
+        }
+        snapshotsByGameId.set(candidate.gameId, candidate);
+        if (candidate.gameId === gameId) {
+          displaySnapshot(candidate);
+        }
+      }
       return;
     }
-    const snapshot = message.snapshots.find(
-      (candidate): candidate is GameSnapshot =>
-        isGameSnapshot(candidate) && candidate.gameId === gameId,
-    );
-    if (snapshot !== undefined) {
-      displaySnapshot(snapshot);
+    if (message.type !== "state-deltas" || !("deltas" in message)) {
+      return;
+    }
+    if (!Array.isArray(message.deltas)) {
+      return;
+    }
+    for (const candidate of message.deltas) {
+      if (!isRecord(candidate)) {
+        continue;
+      }
+      const deltaGameId = candidate["gameId"];
+      const baselineFrame = candidate["baselineFrame"];
+      const delta = candidate["delta"];
+      if (
+        typeof deltaGameId !== "string" ||
+        typeof baselineFrame !== "number" ||
+        !isRecord(delta) ||
+        !Array.isArray(delta["changes"])
+      ) {
+        continue;
+      }
+      const baseline = snapshotsByGameId.get(deltaGameId);
+      if (baseline === undefined || baseline.frame !== baselineFrame) {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(
+            JSON.stringify({
+              type: "resync",
+              protocolVersion: multiplayerProtocolVersion,
+              gameId: deltaGameId,
+            }),
+          );
+        }
+        continue;
+      }
+      try {
+        const snapshot = applyStateDelta(
+          baseline,
+          delta as unknown as StateDelta,
+        );
+        if (!isGameSnapshot(snapshot)) {
+          throw new Error("State delta did not produce a game snapshot.");
+        }
+        snapshotsByGameId.set(deltaGameId, snapshot);
+        if (deltaGameId === gameId) {
+          displaySnapshot(snapshot);
+        }
+      } catch {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(
+            JSON.stringify({
+              type: "resync",
+              protocolVersion: multiplayerProtocolVersion,
+              gameId: deltaGameId,
+            }),
+          );
+        }
+      }
     }
   });
   function sendInput(): void {
@@ -644,6 +793,7 @@ function renderGame(
         downHeld: commandResult.value.downHeld,
       }),
     );
+    renderPresentation();
   }
   const keydown = (event: KeyboardEvent) => {
     if (
@@ -672,6 +822,8 @@ function renderGame(
   };
   window.addEventListener("keydown", keydown);
   window.addEventListener("keyup", keyup);
+  presentationAnimationFrame =
+    window.requestAnimationFrame(animatePresentation);
   const snapshotInterval = window.setInterval(() => void update(), 50);
   const chatInterval = window.setInterval(() => void refreshGameChat(), 1000);
   async function update(): Promise<void> {
@@ -858,7 +1010,10 @@ export async function renderMultiplayerAdminUi(
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
-import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
+import {
+  nominalSixtyHertzFrameDurationMilliseconds,
+  requireSimulationPixelPosition,
+} from "../engine/simulation/simulation-units";
 import {
   resolveSoundEvents,
   SoundEvent,
@@ -869,6 +1024,14 @@ import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolatio
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";
+import {
+  applyStateDelta,
+  type StateDelta,
+} from "../multiplayer/state-transport";
+import {
+  decodeMultiplayerSimulationState,
+  encodeMultiplayerSimulationState,
+} from "../multiplayer/simulation-wire";
 import { makeMultiplayerPhaserRenderer } from "./multiplayer-phaser-renderer";
 import { GameAudio } from "./game-audio";
 import type { UserAssetBundle } from "./user-asset-loader";

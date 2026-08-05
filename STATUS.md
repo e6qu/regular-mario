@@ -2,6 +2,27 @@
 
 ## Current State
 
+**Multiplayer transport/reconciliation remains incomplete (identified
+2026-08-05).** The server is authoritative and advances the deterministic
+simulation at 60 Hz, and clients send sequenced input through the expiring
+queue. However, normal WebSocket traffic still carries complete JSON
+simulation snapshots and the visible Phaser canvas renders those snapshots
+directly. The existing client-prediction object reconciles input internally
+but is not the state rendered to the player. The next required milestone is
+the measured hybrid keyframe/delta protocol plus rendered prediction and
+remote interpolation, with 100 ms–3 s delay proof; `PLAN.md` is the source of
+truth. Earlier “completion” claims describe the initial service feature set,
+not this required latency contract.
+
+**Multiplayer transport/reconciliation completed and verified (2026-08-05).**
+Normal WebSocket traffic now uses versioned structural deltas between periodic
+full keyframes; clients reject stale frames, explicitly resynchronise a
+missing baseline, render their predicted/reconciled local player immediately,
+and interpolate remote players continuously. Server debug reports keyframe and
+delta byte totals. Exact local/server raw canvas parity is again zero pixels,
+and four independent recorded browsers complete two course transitions at
+100 ms, 500 ms, and 3 s injected delay.
+
 **Live multiplayer first-frame rendering corrected (2026-08-05).** The
 production create/join/start route now waits for BootScene's post-create
 render-ready event before applying the first authoritative snapshot. This

@@ -168,12 +168,18 @@ test("the actual local BootScene and a paused server frame render every pixel id
     },
   );
   const body = (await snapshot.json()) as {
+    readonly frame: number;
+    readonly cameraLeftPixels: number;
     readonly simulationState: Parameters<
       NonNullable<
         Window["__originalBrowserPlatformerDebug"]
       >["renderMultiplayerWireStateForDebug"]
     >[0];
   };
+
+  await expect(
+    player.getByLabel("Authoritative multiplayer game view"),
+  ).toHaveAttribute("data-authoritative-frame", String(body.frame));
 
   // The lobby's default public course is Party Runway. Keep the exact-pixel
   // comparison on that real create/start path so a level-selection or
@@ -191,11 +197,12 @@ test("the actual local BootScene and a paused server frame render every pixel id
       ),
     )
     .toBe("ready");
-  await local.evaluate((simulationState) => {
+  await local.evaluate(({ simulationState, cameraLeftPixels }) => {
     window.__originalBrowserPlatformerDebug?.renderMultiplayerWireStateForDebug(
       simulationState,
+      cameraLeftPixels,
     );
-  }, body.simulationState);
+  }, body);
 
   await Promise.all([
     local.screenshot({ path: "screenshots/local-server-parity-local.png" }),

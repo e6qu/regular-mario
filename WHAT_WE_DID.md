@@ -5,6 +5,32 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — corrected the multiplayer completion scope
+
+- Audited the live protocol rather than relying on its intended architecture:
+  the server is authoritative and clients submit sequenced, expiring queued
+  input, but the regular stream still sends full JSON simulation snapshots.
+- Found that client prediction reconciles internally but is not applied to the
+  canvas; the visible renderer uses the authoritative snapshot directly and
+  the remote interpolation buffer is not rendered.
+- Recorded the resulting required completion phase in `PLAN.md`: payload
+  measurement, versioned keyframe/delta transport, explicit resync/coalescing,
+  rendered prediction/interpolation, and recorded four-browser proof at
+  100 ms, 500 ms, and 3 s delay. Prior documentation now distinguishes the
+  initial feature delivery from this unfinished latency contract.
+
+## 2026-08-05 — completed hybrid multiplayer transport and presentation
+
+- Replaced routine complete-state WebSocket broadcasts with structural deltas
+  between periodic full keyframes, plus baseline mismatch resync and stale
+  frame rejection; complete snapshots remain available for debug/API use.
+- Wired the reconciled deterministic local prediction and remote interpolation
+  into the actual Phaser presentation loop, repaired the post-create snapshot
+  handoff, eliminated stale multiplayer canvases, and used the server's shared
+  camera in the exact-parity reference.
+- Proved zero-pixel local/server canvas parity and recorded real four-browser,
+  two-transition runs at 100 ms, 500 ms, and 3 s injected delay.
+
 ## 2026-08-05 — restored active multiplayer games after refresh
 
 - Added the authenticated active-game summary to the lobby response and route

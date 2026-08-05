@@ -18,6 +18,11 @@ import {
 import type { QueuedSimulationInput } from "../multiplayer/input-queue";
 import { requireMultiplayerProtocolVersion } from "../multiplayer/protocol";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
+import type { AuthoritativeGameSnapshot } from "../multiplayer/game-runner";
+import {
+  makeStateDelta,
+  stateTransportEncodedBytes,
+} from "../multiplayer/state-transport";
 import {
   makeAdminLayout,
   makeAdminLoginLayout,
@@ -38,11 +43,16 @@ const loginAttemptWindowMilliseconds = 60_000;
 const maximumLoginAttemptsPerWindow = 5;
 const snapshotBroadcastIntervalMilliseconds =
   1000 / multiplayerSnapshotFramesPerSecond;
+const stateKeyframeIntervalMilliseconds = 1000;
 const sessionCookieName = "platformer_session";
 const adminCookieName = "platformer_admin_session";
 
 type TransportDebugMetrics = {
   readonly snapshotBroadcastCount: number;
+  readonly keyframeBroadcastCount: number;
+  readonly deltaBroadcastCount: number;
+  readonly keyframeBytes: number;
+  readonly deltaBytes: number;
   readonly lastSnapshotBroadcastMilliseconds: number | undefined;
   readonly configuredSnapshotDelayMilliseconds: number;
   readonly protocolErrorCount: number;
@@ -251,8 +261,15 @@ export function makeMultiplayerHttpServer(
     maxPayload: 64 * 1024,
   });
   let lastSnapshotBroadcastMilliseconds = 0;
+  let lastKeyframeBroadcastMilliseconds = Number.NEGATIVE_INFINITY;
   let snapshotBroadcastCount = 0;
+  let keyframeBroadcastCount = 0;
+  let deltaBroadcastCount = 0;
+  let keyframeBytes = 0;
+  let deltaBytes = 0;
   let protocolErrorCount = 0;
+  const latestSnapshotByGameId = new Map<string, AuthoritativeGameSnapshot>();
+  const lastSentSnapshotByGameId = new Map<string, AuthoritativeGameSnapshot>();
   const snapshotDelayMilliseconds = config.snapshotDelayMilliseconds ?? 0;
   if (
     !Number.isSafeInteger(snapshotDelayMilliseconds) ||
@@ -280,6 +297,79 @@ export function makeMultiplayerHttpServer(
     }
   }
 
+  function sendStateKeyframes(
+    sockets: Iterable<WebSocket>,
+    snapshots: readonly AuthoritativeGameSnapshot[],
+    delayMilliseconds = 0,
+  ): void {
+    const message = { type: "state-keyframes", snapshots };
+    const encoded = JSON.stringify(message);
+    keyframeBroadcastCount += 1;
+    keyframeBytes += stateTransportEncodedBytes(message);
+    for (const socket of sockets) {
+      if (socket.readyState !== WebSocket.OPEN) {
+        continue;
+      }
+      if (delayMilliseconds === 0) {
+        socket.send(encoded);
+      } else {
+        setTimeout(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(encoded);
+          }
+        }, delayMilliseconds).unref();
+      }
+    }
+  }
+
+  function broadcastTransportState(
+    snapshots: readonly AuthoritativeGameSnapshot[],
+    nowMilliseconds: number,
+    forceKeyframe = false,
+  ): void {
+    for (const snapshot of snapshots) {
+      latestSnapshotByGameId.set(snapshot.gameId, snapshot);
+    }
+    const sockets = [...socketsByPlayerId.values()].flatMap((set) => [...set]);
+    const keyframeDue =
+      forceKeyframe ||
+      nowMilliseconds - lastKeyframeBroadcastMilliseconds >=
+        stateKeyframeIntervalMilliseconds ||
+      snapshots.some(
+        (snapshot) => !lastSentSnapshotByGameId.has(snapshot.gameId),
+      );
+    if (keyframeDue) {
+      sendStateKeyframes(sockets, snapshots, snapshotDelayMilliseconds);
+      for (const snapshot of snapshots) {
+        lastSentSnapshotByGameId.set(snapshot.gameId, snapshot);
+      }
+      lastKeyframeBroadcastMilliseconds = nowMilliseconds;
+      return;
+    }
+    const deltas = snapshots.flatMap((snapshot) => {
+      const baseline = lastSentSnapshotByGameId.get(snapshot.gameId);
+      if (baseline === undefined) {
+        return [];
+      }
+      lastSentSnapshotByGameId.set(snapshot.gameId, snapshot);
+      return [
+        {
+          gameId: snapshot.gameId,
+          baselineFrame: baseline.frame,
+          frame: snapshot.frame,
+          delta: makeStateDelta(baseline, snapshot),
+        },
+      ];
+    });
+    if (deltas.length === 0) {
+      return;
+    }
+    const message = { type: "state-deltas", deltas };
+    deltaBroadcastCount += 1;
+    deltaBytes += stateTransportEncodedBytes(message);
+    broadcast(message, snapshotDelayMilliseconds);
+  }
+
   function broadcastSnapshots(nowMilliseconds: number): void {
     const snapshots = service.tick(nowMilliseconds);
     const containsFinishedGame = snapshots.some(
@@ -291,7 +381,7 @@ export function makeMultiplayerHttpServer(
         nowMilliseconds - lastSnapshotBroadcastMilliseconds >=
           snapshotBroadcastIntervalMilliseconds)
     ) {
-      broadcast({ type: "snapshots", snapshots }, snapshotDelayMilliseconds);
+      broadcastTransportState(snapshots, nowMilliseconds, containsFinishedGame);
       lastSnapshotBroadcastMilliseconds = nowMilliseconds;
       snapshotBroadcastCount += 1;
     }
@@ -300,6 +390,10 @@ export function makeMultiplayerHttpServer(
   function transportDebugMetrics(): TransportDebugMetrics {
     return {
       snapshotBroadcastCount,
+      keyframeBroadcastCount,
+      deltaBroadcastCount,
+      keyframeBytes,
+      deltaBytes,
       lastSnapshotBroadcastMilliseconds:
         snapshotBroadcastCount === 0
           ? undefined
@@ -531,19 +625,19 @@ export function makeMultiplayerHttpServer(
         if (request.method === "POST" && action === "pause") {
           const snapshot = service.adminPause(adminToken, gameId, now());
           json(response, 200, snapshot);
-          broadcast({ type: "snapshots", snapshots: [snapshot] });
+          broadcastTransportState([snapshot], now(), true);
           return;
         }
         if (request.method === "POST" && action === "resume") {
           const snapshot = service.adminResume(adminToken, gameId, now());
           json(response, 200, snapshot);
-          broadcast({ type: "snapshots", snapshots: [snapshot] });
+          broadcastTransportState([snapshot], now(), true);
           return;
         }
         if (request.method === "POST" && action === "step") {
           const snapshot = service.adminStep(adminToken, gameId, now());
           json(response, 200, snapshot);
-          broadcast({ type: "snapshots", snapshots: [snapshot] });
+          broadcastTransportState([snapshot], now(), true);
           return;
         }
         if (request.method === "POST" && action === "input") {
@@ -712,6 +806,15 @@ export function makeMultiplayerHttpServer(
             type: "game-chat",
             gameId: requireString(message, "gameId"),
           });
+        } else if (type === "resync") {
+          const gameId = requireString(message, "gameId");
+          const snapshot = latestSnapshotByGameId.get(gameId);
+          if (snapshot === undefined) {
+            throw new Error(
+              "No authoritative keyframe is available for this game.",
+            );
+          }
+          sendStateKeyframes([socket], [snapshot]);
         } else if (type === "screenshot") {
           service.recordScreenshot(
             token,

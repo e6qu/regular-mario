@@ -98,7 +98,7 @@ function makeRunner() {
 
 function runCreatorRightToFinish(runner: AuthoritativeGameRunner) {
   let snapshot = runner.snapshot();
-  for (let frame = 1; frame <= 900; frame += 1) {
+  for (let frame = 1; frame <= 1_200; frame += 1) {
     runner.submitInput(
       {
         playerId: requireMultiplayerPlayerId("mira"),
@@ -144,7 +144,7 @@ describe("authoritative multiplayer game runner", () => {
           player: {
             ...initial.players[0].player,
             position: {
-              x: requireSimulationPixelPosition(270, "test.player.x"),
+              x: requireSimulationPixelPosition(560, "test.player.x"),
               y: initial.players[0].player.position.y,
             },
           },

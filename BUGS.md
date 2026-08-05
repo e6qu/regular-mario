@@ -2,6 +2,18 @@
 
 ## Known Bugs
 
+### Multiplayer real-time transport was not latency-safe — fixed 2026-08-05
+
+The authoritative server, bounded input queue, and client prediction module
+exist, but the normal game WebSocket currently broadcasts complete simulation
+state and the visible Phaser canvas renders that authoritative state directly.
+The predictor is therefore not the player-visible local simulation, and the
+remote interpolation buffer is not applied to the scene. This is inadequate
+for the approved 100 ms–3 s latency goal. It now uses a measured, versioned
+full-keyframe plus baseline-delta protocol, rendered local reconciliation,
+remote interpolation, explicit resync, and real four-browser delay proof at
+100 ms, 500 ms, and 3 s; see `PLAN.md`.
+
 ### Refresh showed impossible multiplayer lobby actions — fixed 2026-08-05
 
 After a browser refresh, a valid session with an active game was rendered as a

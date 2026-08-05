@@ -108,6 +108,39 @@ test("four separate browser sessions complete two courses back to back", async (
         ).toBeVisible(),
       ),
     );
+    await expect(
+      creator.page.getByLabel("Authoritative multiplayer game view"),
+    ).toHaveAttribute("data-authoritative-level-id", "multiplayer-onboarding");
+    await Promise.all(
+      players.map(async (player) => {
+        const canvas = player.page.getByLabel(
+          "Authoritative multiplayer game view",
+        );
+        await expect(canvas).toHaveAttribute(
+          "data-authoritative-player-count",
+          String(playerCount),
+        );
+        await expect(canvas).toHaveAttribute(
+          "data-authoritative-simulation-player-count",
+          String(playerCount),
+        );
+        await expect(canvas).toHaveAttribute(
+          "data-rendered-coop-player-count",
+          String(playerCount - 1),
+        );
+      }),
+    );
+    await creator.page.waitForTimeout(300);
+    await Promise.all(
+      players.map((player, index) =>
+        player.page.screenshot({
+          path: join(
+            recordingDirectory,
+            `player-${String(index + 1)}-party-runway.png`,
+          ),
+        }),
+      ),
+    );
     const panel = creator.page.locator(".multiplayer-game-panel");
     const canvas = creator.page.getByLabel(
       "Authoritative multiplayer game view",

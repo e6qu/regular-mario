@@ -1322,16 +1322,18 @@ export class BootScene extends Phaser.Scene {
     // Every online client must render the server's shared screen, never the
     // transient local follow position from its own Phaser boot timing.
     this.cameras.main.stopFollow();
-    this.setCameraWorldBottom(
-      cameraLeftPixels,
-      this.levelSpec.heightTiles * this.levelSpec.tileSizePixels,
-    );
+    // BootScene has already configured the vertical viewport/zoom for this
+    // exact level. The network protocol owns the shared horizontal camera;
+    // recomputing its vertical bottom from the resized canvas here introduced
+    // a second, incompatible framing transform and broke local/remote parity.
+    this.cameras.main.setScroll(cameraLeftPixels, this.cameras.main.scrollY);
     this.renderSimulationState();
   }
 
   /** Test/dev bridge for comparing a local BootScene against a server frame. */
   public renderMultiplayerWireStateForDebug(
     state: MultiplayerSimulationWireState,
+    cameraLeftPixels: number,
   ): void {
     // Freeze before rendering so the ordinary local update loop cannot advance
     // between receiving the named server frame and the canvas readback.
@@ -1340,6 +1342,8 @@ export class BootScene extends Phaser.Scene {
     // exposes its leave control in the semantic shell instead.
     this.exitHintText.setVisible(false);
     this.simulationState = decodeMultiplayerSimulationState(state);
+    this.cameras.main.stopFollow();
+    this.cameras.main.setScroll(cameraLeftPixels, this.cameras.main.scrollY);
     this.renderSimulationState();
   }
 
@@ -6103,10 +6107,25 @@ export class BootScene extends Phaser.Scene {
   // and positioning each from its own kinematics.
   private renderCoopPlayers(): void {
     const coopRuntimes = this.simulationState.players.slice(1);
+    this.game.canvas.setAttribute(
+      "data-rendered-coop-player-count",
+      String(coopRuntimes.length),
+    );
     while (this.coopPlayerImages.length < coopRuntimes.length) {
       this.coopPlayerImages.push(
-        renderPlayerImage(this, this.userAssetBundle?.playerImage) ??
-          this.add.rectangle(0, 0, 1, 1).setOrigin(0).setDepth(57),
+        // A remote player must always have an independently owned display
+        // object. Reusing an authored source image here can leave the pooled
+        // object invisible after a texture/crop update in Phaser; the crisp
+        // body is a reliable base and is recoloured per selected avatar below.
+        this.add
+          .rectangle(
+            0,
+            0,
+            initialPlayerSimulationStateConfig.colliderWidth,
+            initialPlayerSimulationStateConfig.colliderHeight,
+          )
+          .setOrigin(0)
+          .setDepth(59),
       );
     }
     while (this.coopPlayerImages.length > coopRuntimes.length) {
@@ -6747,8 +6766,8 @@ export class BootScene extends Phaser.Scene {
 
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
-      renderMultiplayerWireStateForDebug: (state) => {
-        this.renderMultiplayerWireStateForDebug(state);
+      renderMultiplayerWireStateForDebug: (state, cameraLeftPixels) => {
+        this.renderMultiplayerWireStateForDebug(state, cameraLeftPixels);
       },
       teleportPlayer: (xPixels: number, yPixels: number) => {
         // Fail loudly on states a teleport cannot meaningfully change, instead
