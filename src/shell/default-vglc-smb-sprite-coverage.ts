@@ -94,15 +94,12 @@ export function validateDefaultVglcSmbSpriteCoverage(
   return messages;
 }
 
-// The "empty" tile is the transparent sky sentinel and "goal-reach" is the
-// invisible finish trigger above a flagpole's authored art; both render as
-// nothing via the authored fallback, so an asset set need not provide sprites.
+// The "empty" tile is transparent sky and "goal-reach" is an invisible finish
+// trigger; neither has visible art.
 const nonRenderedTileIds = new Set(["empty", "goal-reach"]);
-// Hidden blocks are invisible until bumped (the reveal shows the shared used-
-// block art), and Empty-collision tiles are decorative scenery drawn by the
-// authored fallback shapes — neither needs a skin sprite.
+// Hidden blocks are invisible until bumped; their reveal uses the explicit
+// shared used-block image. All visible Empty-collision scenery is raster art.
 const hiddenTileCollisionValue = "hidden";
-const emptyTileCollisionValue = "empty";
 
 function findMissingTileSpriteIds(
   manifest: UserAssetManifest,
@@ -111,9 +108,7 @@ function findMissingTileSpriteIds(
   const hiddenTileIds = new Set(
     levelInput.tileDefinitions
       .filter(
-        (tile) =>
-          tile.collision === hiddenTileCollisionValue ||
-          tile.collision === emptyTileCollisionValue,
+        (tile) => tile.collision === hiddenTileCollisionValue,
       )
       .map((tile) => tile.tileId),
   );
