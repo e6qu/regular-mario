@@ -18,6 +18,9 @@ committed — only numeric metadata, code, docs, and scripts.
   from World 1-1 to World 1-2. The screenshots/videos remain ignored in
   `playwright_adhoc/multiplayer-full-run/`; 100 ms and 3 s browser parity
   checks also pass.
+- Ran the complete `test:multiplayer-lag` production browser suite at both
+  configured delays, covering journeys, administration, stress, visual parity,
+  and recordings rather than only the focused replay test.
 
 ## 2026-08-05 — restored the complete repository quality gate
 

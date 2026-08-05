@@ -10,6 +10,12 @@ zero rollbacks. A four-player authoritative-runner regression, four separate
 recorded Chromium sessions through World 1-2, and 100 ms/3 s delayed-browser
 pixel-parity tests now pass.
 
+**Complete delayed browser acceptance passes (2026-08-05).**
+`pnpm run test:multiplayer-lag` passes the entire real production browser suite
+at both 100 ms and 3 s injected snapshot delay: authenticated journeys,
+semantic layout/admin controls, stress, lockstep/parity, and the four-player
+recording.
+
 **Repository quality gate restored (2026-08-05).** The checked-in physical
 replay trace is correctly excluded from copy-paste analysis, and the unused
 catalogue export is internal. Dependency, content, license, vulnerability,
