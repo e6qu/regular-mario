@@ -653,6 +653,16 @@ export function makeMultiplayerHttpServer(
         json(response, 200, snapshot);
         return;
       }
+      if (request.method === "POST" && url.pathname === "/api/game/resume") {
+        const resumedAtMilliseconds = now();
+        const snapshot = service.resumeGameByPlayer(
+          playerToken,
+          resumedAtMilliseconds,
+        );
+        broadcastTransportState([snapshot], resumedAtMilliseconds, true);
+        json(response, 200, snapshot);
+        return;
+      }
       const adminMatch =
         /^\/api\/admin\/games\/([a-z][a-z0-9-]*)\/(pause|resume|step|input|screenshot)$/.exec(
           url.pathname,

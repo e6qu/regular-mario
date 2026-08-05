@@ -51,6 +51,7 @@ export type MultiplayerPlayerProfile = {
 
 type AuthoritativePlayer = MultiplayerPlayerProfile & {
   readonly slot: number;
+  readonly connected: boolean;
 };
 
 type AuthoritativePlayerSnapshot = MultiplayerPlayerProfile & {
@@ -89,6 +90,7 @@ export type AuthoritativeGameRunner = {
   pause(): AuthoritativeGameSnapshot;
   pauseByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   resume(): AuthoritativeGameSnapshot;
+  resumeByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   revive(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   submitInput(
     input: QueuedSimulationInput,
@@ -133,7 +135,9 @@ export function makeAuthoritativeGameRunner(
   // This is a party checkpoint, not a rendered camera target: it advances
   // only from an active member, and a revive never rewinds the shared world.
   let partyCheckpoint = config.initialState.players[0].player.position;
-  let players: AuthoritativePlayer[] = [{ ...config.creator, slot: 0 }];
+  let players: AuthoritativePlayer[] = [
+    { ...config.creator, slot: 0, connected: true },
+  ];
   const commandByPlayerId = new Map<
     MultiplayerPlayerId,
     SimulationInputCommand
@@ -149,7 +153,9 @@ export function makeAuthoritativeGameRunner(
   );
 
   function requirePlayer(playerId: MultiplayerPlayerId): AuthoritativePlayer {
-    const player = players.find((candidate) => candidate.playerId === playerId);
+    const player = players.find(
+      (candidate) => candidate.playerId === playerId && candidate.connected,
+    );
     if (player === undefined) {
       throw new Error("Player is not a member of this game.");
     }
@@ -160,11 +166,22 @@ export function makeAuthoritativeGameRunner(
     // The shared camera follows the party's forward progress, not the creator
     // slot. An idle creator must never pin every remote browser at the start
     // while another active player legitimately leads the run.
-    const cameraTarget = state.players
-      .filter((runtime) => runtime.outcome.kind === PlayerOutcomeKind.Active)
-      .reduce<
-        SimulationState["players"][number] | undefined
-      >((leading, runtime) => (leading === undefined || runtime.player.position.x > leading.player.position.x ? runtime : leading), undefined);
+    const cameraTarget = players
+      .filter((player) => player.connected)
+      .map((player) => state.players[player.slot])
+      .filter(
+        (runtime): runtime is SimulationState["players"][number] =>
+          runtime !== undefined &&
+          runtime.outcome.kind === PlayerOutcomeKind.Active,
+      )
+      .reduce<SimulationState["players"][number] | undefined>(
+        (leading, runtime) =>
+          leading === undefined ||
+          runtime.player.position.x > leading.player.position.x
+            ? runtime
+            : leading,
+        undefined,
+      );
     if (cameraTarget === undefined) {
       return;
     }
@@ -187,34 +204,36 @@ export function makeAuthoritativeGameRunner(
       frame: Number(state.clock.frameIndex),
       cameraLeftPixels,
       simulationState: encodeMultiplayerSimulationState(state),
-      players: players.map((player) => {
-        const runtime = state.players[player.slot];
-        if (runtime === undefined) {
-          throw new Error(
-            "Player slot is missing from authoritative simulation.",
-          );
-        }
-        return {
-          playerId: player.playerId,
-          nickname: player.nickname,
-          avatarId: player.avatarId,
-          slot: player.slot,
-          spectator: runtime.outcome.kind !== PlayerOutcomeKind.Active,
-          x: Number(runtime.player.position.x),
-          y: Number(runtime.player.position.y),
-          acknowledgedInputSequence:
-            acknowledgedInputSequenceByPlayerId.get(player.playerId) ?? 0,
-          inputAcknowledgementLagMilliseconds:
-            acknowledgementLagByPlayerId.get(player.playerId) ?? 0,
-        };
-      }),
+      players: players
+        .filter((player) => player.connected)
+        .map((player) => {
+          const runtime = state.players[player.slot];
+          if (runtime === undefined) {
+            throw new Error(
+              "Player slot is missing from authoritative simulation.",
+            );
+          }
+          return {
+            playerId: player.playerId,
+            nickname: player.nickname,
+            avatarId: player.avatarId,
+            slot: player.slot,
+            spectator: runtime.outcome.kind !== PlayerOutcomeKind.Active,
+            x: Number(runtime.player.position.x),
+            y: Number(runtime.player.position.y),
+            acknowledgedInputSequence:
+              acknowledgedInputSequenceByPlayerId.get(player.playerId) ?? 0,
+            inputAcknowledgementLagMilliseconds:
+              acknowledgementLagByPlayerId.get(player.playerId) ?? 0,
+          };
+        }),
       queue: inputQueue.metrics(),
     };
   }
 
   function advance(nowMilliseconds: number): AuthoritativeGameSnapshot {
     const nextFrame = Number(state.clock.frameIndex) + 1;
-    for (const player of players) {
+    for (const player of players.filter((candidate) => candidate.connected)) {
       const messages = inputQueue.drainThroughFrame(
         player.playerId,
         nextFrame,
@@ -260,10 +279,31 @@ export function makeAuthoritativeGameRunner(
       if (phase === MultiplayerGamePhase.Finished) {
         throw new Error("Finished games cannot accept new players.");
       }
-      if (players.some((candidate) => candidate.playerId === player.playerId)) {
+      const knownPlayer = players.find(
+        (candidate) => candidate.playerId === player.playerId,
+      );
+      if (knownPlayer?.connected === true) {
         return this.updateProfile(player);
       }
-      if (players.length >= multiplayerMaximumPlayers) {
+      const dormantSlot = players.find((candidate) => !candidate.connected);
+      if (dormantSlot !== undefined) {
+        state = reviveSimulationPlayerAt(
+          state,
+          dormantSlot.slot,
+          partyCheckpoint,
+        );
+        players = players.map((candidate) =>
+          candidate === dormantSlot
+            ? { ...player, slot: dormantSlot.slot, connected: true }
+            : candidate,
+        );
+        commandByPlayerId.set(player.playerId, neutralCommand);
+        return makeSnapshot();
+      }
+      if (
+        players.filter((candidate) => candidate.connected).length >=
+        multiplayerMaximumPlayers
+      ) {
         throw new Error(
           `Games cannot exceed ${multiplayerMaximumPlayers} players.`,
         );
@@ -274,19 +314,33 @@ export function makeAuthoritativeGameRunner(
         "multiplayer.join.spawn.x",
       );
       state = appendSimulationPlayerAt(state, { x: spawnX, y: spawnY });
-      players = [...players, { ...player, slot: players.length }];
+      players = [
+        ...players,
+        { ...player, slot: players.length, connected: true },
+      ];
       commandByPlayerId.set(player.playerId, neutralCommand);
       return makeSnapshot();
     },
     leave(playerId) {
       const leaving = requirePlayer(playerId);
-      if (players.length <= 1) {
-        throw new Error("The final player must end the game instead.");
+      if (players.filter((candidate) => candidate.connected).length <= 1) {
+        players = players.map((candidate) =>
+          candidate.playerId === playerId
+            ? { ...candidate, connected: false }
+            : candidate,
+        );
+        commandByPlayerId.delete(playerId);
+        acknowledgedInputSequenceByPlayerId.delete(playerId);
+        acknowledgementLagByPlayerId.delete(playerId);
+        if (phase === MultiplayerGamePhase.Playing) {
+          phase = MultiplayerGamePhase.Paused;
+        }
+        return makeSnapshot();
       }
       state = removeSimulationPlayerAt(state, leaving.slot);
       players = players
         .filter((candidate) => candidate.playerId !== playerId)
-        .map((candidate, slot) => ({ ...candidate, slot }));
+        .map((candidate, slot) => ({ ...candidate, slot, connected: true }));
       commandByPlayerId.delete(playerId);
       acknowledgedInputSequenceByPlayerId.delete(playerId);
       acknowledgementLagByPlayerId.delete(playerId);
@@ -296,7 +350,7 @@ export function makeAuthoritativeGameRunner(
       requirePlayer(player.playerId);
       players = players.map((candidate) =>
         candidate.playerId === player.playerId
-          ? { ...player, slot: candidate.slot }
+          ? { ...player, slot: candidate.slot, connected: candidate.connected }
           : candidate,
       );
       return makeSnapshot();
@@ -328,6 +382,10 @@ export function makeAuthoritativeGameRunner(
       }
       phase = MultiplayerGamePhase.Playing;
       return makeSnapshot();
+    },
+    resumeByPlayer(playerId) {
+      requirePlayer(playerId);
+      return this.resume();
     },
     revive(playerId) {
       const player = requirePlayer(playerId);

@@ -89,6 +89,16 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
       .evaluate((canvas) => (canvas as HTMLCanvasElement).toDataURL().length),
   ).toBeGreaterThan(1_000);
 
+  // P is a server-authoritative toggle available to every current member.
+  await creator.keyboard.press("KeyP");
+  await expect(
+    creator.locator(".multiplayer-play-controls-only p").first(),
+  ).toHaveText(/paused · frame/);
+  await guest.keyboard.press("KeyP");
+  await expect(
+    guest.locator(".multiplayer-play-controls-only p").first(),
+  ).toHaveText(/playing · frame/);
+
   const layout = await creator.request.get("/api/layout", {
     headers: { "x-multiplayer-protocol-version": "1" },
   });
@@ -101,19 +111,23 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
       '[data-semantic-role="main"][data-semantic-label="Multiplayer game"]',
     ),
   ).toBeAttached();
-  // Playing uses the complete canvas. Open the optional control drawer before
-  // exercising chat and leave actions just as a real player would.
+  // Chat is a gameplay overlay: T opens the composer, and it must not require
+  // opening the menu drawer or stop the other player from seeing the message.
+  await guest.keyboard.press("KeyT");
+  const guestChat = guest
+    .locator(".multiplayer-game-chat-overlay")
+    .getByLabel("Game chat message");
+  await guestChat.fill("hello from Ren");
+  await guestChat.press("Enter");
+  await creator.keyboard.press("KeyT");
+  await expect(creator.getByRole("log", { name: "Game chat" })).toContainText(
+    "Ren: hello from Ren",
+  );
+  await creator.keyboard.press("Escape");
+  await guest.keyboard.press("Escape");
   await guest.keyboard.press("KeyM");
   await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();
   const guestControls = guest.locator(".multiplayer-play-controls-only");
-  await guestControls.getByLabel("Game chat message").fill("hello from Ren");
-  await guestControls.getByRole("button", { name: "Send game chat" }).click();
-  await creator.keyboard.press("KeyM");
-  await expect(
-    creator
-      .locator(".multiplayer-play-controls-only")
-      .getByRole("log", { name: "Game chat" }),
-  ).toContainText("Ren: hello from Ren");
   // The control must be actionable, not merely present. A guest leaving a
   // playing game returns to the lobby and frees their only active-game slot.
   await guestControls.getByRole("button", { name: "Leave game" }).click();
@@ -133,6 +147,23 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
     ((await afterGuestLeave.json()) as { readonly players: readonly unknown[] })
       .players,
   ).toHaveLength(1);
+  // The final departure must leave a paused, joinable public game rather than
+  // deleting its authoritative world. A later Escape follows the same leave
+  // lifecycle and must not be interpreted as closing the game itself.
+  await creator.keyboard.press("Escape");
+  await expect(
+    creator.getByRole("heading", { name: "Trusted friends lobby" }),
+  ).toBeVisible();
+  await expect(creator.getByText(/paused · 0\/16/)).toBeVisible();
+  await guest.getByRole("button", { name: "Join" }).click();
+  await expect(
+    guest.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+  await guest.keyboard.press("Escape");
+  await expect(
+    guest.getByRole("heading", { name: "Trusted friends lobby" }),
+  ).toBeVisible();
+  await expect(guest.getByText(/paused · 0\/16/)).toBeVisible();
   await creator.screenshot({ path: "test-results/multiplayer-desktop.png" });
   await creatorContext.close();
   await guestContext.close();

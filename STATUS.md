@@ -7,6 +7,12 @@ member can request a server-authoritative revive at the party's furthest active
 position; any game member can pause. The browser exposes revive only to a live
 spectator and supplies a usable multiline in-game chat composer.
 
+**Leave preserves a paused public game (2026-08-05).** The final departure,
+including Escape from gameplay, leaves a zero-member paused game rather than
+deleting it. `P` is the server-authoritative pause/resume toggle for every
+current member; `T` opens in-game chat, and received messages display above
+gameplay for ten seconds.
+
 **Standalone multiplayer build-path mismatch fixed (2026-08-05).** The
 ordinary production build now enables static release content, just like the
 standalone server build. A routine build can no longer replace the client with

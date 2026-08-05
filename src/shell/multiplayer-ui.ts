@@ -107,6 +107,11 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-room__chat [role=log] { min-height: 7em; max-height: 30vh; overflow-y: auto; white-space: pre-wrap; padding: 10px; border: 2px solid #172033; background: #fffef6; line-height: 1.45; }
     .multiplayer-game-room__chat-row { display: flex; gap: 8px; align-items: center; }
     .multiplayer-game-room__chat-row textarea { flex: 1; min-width: 0; min-height: 2.8em; resize: vertical; font: inherit; }
+    .multiplayer-game-chat-overlay { position: absolute; z-index: 3; left: 18px; bottom: 18px; width: min(430px, calc(100vw - 36px)); margin: 0; visibility: hidden; transform: translateY(12px); transition: opacity 100ms ease-out, transform 100ms ease-out; opacity: 0; }
+    .multiplayer-game-shell[data-chat-open=true] .multiplayer-game-chat-overlay { visibility: visible; transform: translateY(0); opacity: 1; }
+    .multiplayer-game-chat-feed { position: absolute; z-index: 2; left: 18px; bottom: 18px; width: min(430px, calc(100vw - 36px)); display: grid; gap: 6px; pointer-events: none; }
+    .multiplayer-game-chat-feed p { margin: 0; padding: 7px 10px; color: #fffef6; background: rgb(23 32 51 / 72%); border-left: 3px solid #ffd54a; font: 700 14px/1.35 monospace; text-shadow: 1px 1px #172033; }
+    .multiplayer-game-shell[data-chat-open=true] .multiplayer-game-chat-feed { visibility: hidden; }
     .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-room-only { display: none; }
     .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-play-controls-only { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
@@ -443,6 +448,7 @@ function renderGame(
   gameShell.setAttribute("aria-label", "Multiplayer game layout");
   gameShell.setAttribute("data-controls-open", "true");
   gameShell.setAttribute("data-game-phase", "waiting");
+  gameShell.setAttribute("data-chat-open", "false");
   let controlsOpen = true;
   const setControlsOpen = (next: boolean): void => {
     controlsOpen = next;
@@ -457,6 +463,12 @@ function renderGame(
   gameHost.className = "multiplayer-game-host";
   let currentLevelId = levelId;
   const chatLogs: HTMLDivElement[] = [];
+  const chatInputs: HTMLTextAreaElement[] = [];
+  const seenGameChatMessages = new Set<string>();
+  const gameChatFeed = document.createElement("div");
+  gameChatFeed.className = "multiplayer-game-chat-feed";
+  gameChatFeed.setAttribute("aria-live", "polite");
+  let chatEditing = false;
   const makeChat = (inputLabel: string): HTMLElement => {
     const chat = document.createElement("section");
     chat.className = "multiplayer-game-room__chat";
@@ -472,6 +484,15 @@ function renderGame(
     input.rows = 2;
     input.placeholder = "Write a message…";
     input.setAttribute("aria-label", inputLabel);
+    chatInputs.push(input);
+    input.addEventListener("focus", () => {
+      chatEditing = true;
+      gameShell.setAttribute("data-chat-open", "true");
+    });
+    input.addEventListener("blur", () => {
+      chatEditing = false;
+      gameShell.setAttribute("data-chat-open", "false");
+    });
     const row = document.createElement("form");
     row.className = "multiplayer-game-room__chat-row";
     const send = async (): Promise<void> => {
@@ -569,7 +590,6 @@ function renderGame(
     playControlsTitle,
     playStatus,
     playHint,
-    makeChat("Game chat message"),
     reviveButton,
     pauseButton,
     leaveGame(),
@@ -578,7 +598,9 @@ function renderGame(
     playControls.append(endGame());
   }
   panel.append(playControls);
-  gameShell.append(gameHost, panel);
+  const gameChatOverlay = makeChat("Game chat message");
+  gameChatOverlay.classList.add("multiplayer-game-chat-overlay");
+  gameShell.append(gameHost, gameChatFeed, panel, gameChatOverlay);
   mount.append(gameShell);
   // Phaser measures its parent during boot. Mount first so every browser
   // session sees the real viewport instead of a detached, zero-sized host.
@@ -674,8 +696,29 @@ function renderGame(
     renderer.destroy();
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
+    window.removeEventListener("keydown", escapeLeave);
   }
   disposeView = dispose;
+  async function leaveCurrentGame(): Promise<void> {
+    await requestJson("/game/leave", { method: "POST" });
+    dispose();
+    await renderLobby(mount, userAssetBundle);
+  }
+  const escapeLeave = (event: KeyboardEvent): void => {
+    if (event.key !== "Escape" || disposed) {
+      return;
+    }
+    event.preventDefault();
+    if (chatEditing) {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) {
+        active.blur();
+      }
+      return;
+    }
+    void leaveCurrentGame();
+  };
+  window.addEventListener("keydown", escapeLeave);
   function renderPresentation(): void {
     const snapshot = latestAuthoritativeSnapshot;
     if (snapshot === undefined || disposed) {
@@ -774,6 +817,17 @@ function renderGame(
       for (const chatLog of chatLogs) {
         chatLog.textContent = rendered === "" ? "No messages yet." : rendered;
       }
+      response.messages.forEach((message, index) => {
+        const messageKey = `${String(index)}:${message.nickname}:${message.text}`;
+        if (seenGameChatMessages.has(messageKey)) {
+          return;
+        }
+        seenGameChatMessages.add(messageKey);
+        const line = document.createElement("p");
+        line.textContent = `${message.nickname}: ${message.text}`;
+        gameChatFeed.append(line);
+        window.setTimeout(() => line.remove(), 10_000);
+      });
     }
   }
   function displaySnapshot(snapshot: GameSnapshot): void {
@@ -1136,6 +1190,34 @@ function renderGame(
     recordSocketLifecycle();
   });
   const keydown = (event: KeyboardEvent) => {
+    if (
+      event.code === "KeyP" &&
+      !chatEditing &&
+      (latestAuthoritativeSnapshot?.phase === "playing" ||
+        latestAuthoritativeSnapshot?.phase === "paused")
+    ) {
+      event.preventDefault();
+      void requestJson(
+        latestAuthoritativeSnapshot.phase === "playing"
+          ? "/game/pause"
+          : "/game/resume",
+        { method: "POST" },
+      );
+      return;
+    }
+    if (
+      event.code === "KeyT" &&
+      !chatEditing &&
+      latestAuthoritativeSnapshot?.phase === "playing"
+    ) {
+      event.preventDefault();
+      gameShell.setAttribute("data-chat-open", "true");
+      chatInputs.at(-1)?.focus();
+      return;
+    }
+    if (chatEditing) {
+      return;
+    }
     if (event.code === "KeyM") {
       event.preventDefault();
       setControlsOpen(!controlsOpen);

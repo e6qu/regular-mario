@@ -2,14 +2,13 @@
 
 ## Known Bugs
 
-### Empty active games are still removed instead of paused — open (2026-08-05)
+### Empty active games were removed instead of paused — fixed (2026-08-05)
 
-The final-member leave path currently removes the in-memory game because the
-simulation requires at least one runtime slot. The product behavior now
-requires the game to persist in a paused, resumable state after everybody
-leaves. This needs explicit dormant-game membership state and an end-to-end
-browser journey; it must not be disguised as an active player or a renderer
-fallback.
+The final-member leave path used to delete the in-memory game. It now retains
+one disconnected simulation slot, exposes zero public members, and pauses a
+live game when its final player leaves. The next member reclaims that retained
+slot without resetting the shared world. The browser journey covers ordinary
+leave and Escape leave through a visible `paused · 0/16` public game.
 
 ### Remote co-op movement still visibly desynchronizes — open (2026-08-05)
 

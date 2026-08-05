@@ -99,7 +99,7 @@ describe("public multiplayer lobby", () => {
     );
   });
 
-  it("lets a player leave to join another game and removes an empty game", () => {
+  it("keeps a final-player departure as a paused public game", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
     const ren = profile("ren", "Ren");
@@ -110,7 +110,34 @@ describe("public multiplayer lobby", () => {
     const second = createRegularGame(lobby, ren);
     expect(second.playerCount).toBe(1);
     lobby.leaveGame(mira.playerId);
-    expect(lobby.games().map((game) => game.gameId)).toEqual([second.gameId]);
+    expect(lobby.games()).toMatchObject([
+      {
+        gameId: first.gameId,
+        playerCount: 0,
+        phase: MultiplayerGamePhase.Waiting,
+      },
+      { gameId: second.gameId, playerCount: 1 },
+    ]);
+  });
+
+  it("pauses an empty running game and lets a new member reclaim its slot", () => {
+    const lobby = makeLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const game = createRegularGame(lobby, mira);
+    lobby.startGame(mira.playerId, game.gameId);
+    lobby.leaveGame(mira.playerId);
+    expect(lobby.games()).toMatchObject([
+      {
+        gameId: game.gameId,
+        playerCount: 0,
+        phase: MultiplayerGamePhase.Paused,
+      },
+    ]);
+    expect(lobby.joinGame(ren, game.gameId)).toMatchObject({
+      playerCount: 1,
+      phase: MultiplayerGamePhase.Paused,
+    });
   });
 
   it("lets a spectator-sized slot leave and rejoin the same running party", () => {

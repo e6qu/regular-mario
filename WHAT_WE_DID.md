@@ -18,6 +18,18 @@ committed — only numeric metadata, code, docs, and scripts.
   multiplayer journey. The all-left game persistence and measurable remote
   desync journeys remain explicitly open rather than claimed complete.
 
+## 2026-08-05 — preserved games on leave and added gameplay shortcuts
+
+- A final departure no longer deletes a running party. The runner keeps a
+  disconnected dormant slot, reports zero public members, pauses the game,
+  and lets the next joiner reclaim the authoritative world state.
+- Escape leaves gameplay unless chat is active; T opens the in-world composer;
+  P pauses/resumes for any current member. Received messages appear in a
+  translucent gameplay feed for ten seconds.
+- Extended the real browser journey to cover T chat, Escape's chat-first and
+  leave-second behavior, shared P pause/resume, final-member persistence, and
+  a new player's join of the paused public game.
+
 ## 2026-08-05 — fixed standalone multiplayer content loading
 
 - Found the actual browser request behind `not found (HTTP 400)`: a normal

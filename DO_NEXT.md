@@ -22,8 +22,9 @@ sort per 20 Hz receipt.
 
 Keep defeat recovery explicit: a spectator must be able to open game controls,
 revive at the server-owned party checkpoint, leave, and join the still-running
-party as a fresh active current-screen spawn. Complete the remaining all-left
-paused-game persistence and remote-player visible-desync browser journeys.
+party as a fresh active current-screen spawn. Preserve Escape's chat-first,
+leave-second behavior and the all-left paused-game journey; complete the
+remaining remote-player visible-desync browser journey.
 
 Keep complete predicted simulation presentation on the browser frame loop:
 rendering only the predicted local player while waiting for 20 Hz authoritative
