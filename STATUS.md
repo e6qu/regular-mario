@@ -2,6 +2,16 @@
 
 ## Current State
 
+**Multiplayer raster presentation is live under lockstep input (fixed
+2026-08-05).** The production Playwright harness starts isolated local and
+authenticated multiplayer games, mirrors actual keyboard edges to both, and
+captures before/after images under ignored
+`playwright_adhoc/side-by-side-lockstep/`. It found that the server's
+world-left camera coordinate was being passed directly to Phaser's
+centered-scroll coordinate at zoom 7, moving the actual view 403 world pixels
+right and hiding the player. The renderer now converts the coordinate; the
+authoritative object and actual multiplayer pixels both move (x=16 to x≈90).
+
 **Multiplayer transport/reconciliation remains incomplete (identified
 2026-08-05).** The server is authoritative and advances the deterministic
 simulation at 60 Hz, and clients send sequenced input through the expiring
@@ -39,7 +49,7 @@ create/join request was correctly rejected because the session already owned a
 game slot.
 
 **Multiplayer real-play acceptance (2026-08-05).** The shared game canvas now
-uses the full browser viewport left of a non-overlapping control sidebar.
+uses the browser viewport left of a non-overlapping control sidebar.
 The introductory course has a safe runway and transitions the same public game
 to the next bundled course when any player reaches its goal. Online players
 can pass through idle party members, preventing a shared-screen deadlock. A

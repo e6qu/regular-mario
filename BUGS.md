@@ -2,6 +2,16 @@
 
 ## Known Bugs
 
+### Multiplayer canvas could stay visually frozen while its server-driven BootScene advanced — fixed (2026-08-05)
+
+The actual fault was a coordinate-space mix-up, not frozen rendering: the
+authoritative protocol sends the world-left camera position, whereas Phaser's
+zoomed `scrollX` is centered on the native viewport. Passing 0 directly to
+Phaser selected a world view beginning at x=403. Conversion now preserves the
+protocol left edge; the real production lockstep PNG changes after movement
+and visibly contains the player. Regression:
+`tests/multiplayer-browser/side-by-side-lockstep.spec.ts`.
+
 ### Multiplayer real-time transport was not latency-safe — fixed 2026-08-05
 
 The authoritative server, bounded input queue, and client prediction module

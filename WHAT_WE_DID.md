@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — added and closed an honest single-player/multiplayer lockstep harness
+
+- Added a production Playwright harness that opens isolated local and
+  authenticated multiplayer browser sessions at the same viewport, mirrors
+  actual Shift/Right/Space keyboard edges, and writes before/after screenshots
+  plus renderer receipts to ignored `playwright_adhoc/side-by-side-lockstep/`.
+- It checks server movement and the remote BootScene's applied player object
+  before comparing the actual canvas PNGs, so state-only success cannot hide a
+  frozen or wrong canvas.
+- The first honest run exposed a camera-coordinate defect: direct use of the
+  protocol's world-left value as zoomed Phaser scroll started the actual
+  viewport 403 pixels right. Converting that coordinate makes the real canvas
+  change, and inspected captures show the player moving and jumping.
+
 ## 2026-08-05 — corrected the multiplayer completion scope
 
 - Audited the live protocol rather than relying on its intended architecture:

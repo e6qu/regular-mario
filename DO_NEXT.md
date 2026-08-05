@@ -2,6 +2,19 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Verified: live multiplayer canvas paints its applied state (2026-08-05)
+
+- Start from `tests/multiplayer-browser/side-by-side-lockstep.spec.ts`, not a
+  mock or a debug-only route. It launches isolated real local/multiplayer
+  browsers, mirrors Shift/Right/Space edges, asserts the authoritative player
+  and BootScene object move, and then requires each canvas PNG to change.
+- The failure was a camera-space conversion: Phaser's `scrollX` is not the
+  zoomed camera's world-left edge. Convert the protocol's left edge using the
+  viewport inset before `setScroll`; otherwise frame receipts move while the
+  visible world is shifted 403 pixels right at the standard 940px canvas.
+- Keep the before/after PNG assertion. It now passes, and inspected captures
+  show the authored player moving and jumping in the multiplayer canvas.
+
 ### Highest priority: complete the real-time transport contract (2026-08-05)
 
 - Complete: the measured hybrid keyframe/delta stream, baseline recovery,

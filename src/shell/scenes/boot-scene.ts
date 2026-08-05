@@ -1039,6 +1039,10 @@ export class BootScene extends Phaser.Scene {
   // frame behind a prompt until the player presses a key, so a slow first load
   // never means missing the start of the level.
   private awaitingStart = false;
+  // Phaser's core-ready signal fires before a scene has necessarily completed
+  // create(). Remote renderers use this durable receipt to avoid applying a
+  // network frame into the half-constructed seed scene.
+  private authoritativeRenderSceneReady = false;
   private reactionText!: Phaser.GameObjects.Text;
   private stompReactionBurst!: Phaser.GameObjects.Text;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
@@ -1326,8 +1330,25 @@ export class BootScene extends Phaser.Scene {
     // exact level. The network protocol owns the shared horizontal camera;
     // recomputing its vertical bottom from the resized canvas here introduced
     // a second, incompatible framing transform and broke local/remote parity.
-    this.cameras.main.setScroll(cameraLeftPixels, this.cameras.main.scrollY);
+    this.setAuthoritativeCameraLeft(cameraLeftPixels);
+    this.game.canvas.setAttribute(
+      "data-rendered-camera-left",
+      String(cameraLeftPixels),
+    );
     this.renderSimulationState();
+  }
+
+  public isAuthoritativeRenderSceneReady(): boolean {
+    return this.authoritativeRenderSceneReady;
+  }
+
+  /** Narrow paint receipt for production browser diagnostics. */
+  public primaryObjectsWereQueuedForRender(): boolean {
+    return (
+      this.cameras.main.renderList.includes(this.playerRectangle) ||
+      (this.playerImageObject !== undefined &&
+        this.cameras.main.renderList.includes(this.playerImageObject))
+    );
   }
 
   /** Test/dev bridge for comparing a local BootScene against a server frame. */
@@ -1343,8 +1364,23 @@ export class BootScene extends Phaser.Scene {
     this.exitHintText.setVisible(false);
     this.simulationState = decodeMultiplayerSimulationState(state);
     this.cameras.main.stopFollow();
-    this.cameras.main.setScroll(cameraLeftPixels, this.cameras.main.scrollY);
+    this.setAuthoritativeCameraLeft(cameraLeftPixels);
     this.renderSimulationState();
+  }
+
+  /**
+   * The multiplayer protocol expresses the shared camera in world-left
+   * pixels. Phaser stores scroll around its unzoomed viewport centre, so using
+   * that value directly makes a zoomed 940px canvas look hundreds of world
+   * pixels to the right of the supplied screen.
+   */
+  private setAuthoritativeCameraLeft(cameraLeftPixels: number): void {
+    const camera = this.cameras.main;
+    const horizontalViewportInset = (camera.width - camera.displayWidth) / 2;
+    camera.setScroll(
+      cameraLeftPixels - horizontalViewportInset,
+      camera.scrollY,
+    );
   }
 
   /**
@@ -1402,14 +1438,18 @@ export class BootScene extends Phaser.Scene {
         initialPlayerSimulationStateConfig.colliderHeight,
       )
       .setOrigin(0)
-      .setDepth(57);
+      .setDepth(59);
     this.playerImageObject = renderPlayerImage(
       this,
       this.userAssetBundle?.playerImage,
     );
+    this.playerImageObject?.setDepth(59);
     this.playerRectangle
       .setFillStyle(playerFallbackColor(this.playerCharacter))
-      .setVisible(this.playerImageObject === undefined);
+      // Keep the original pixel body directly beneath its authored sprite.
+      // If a texture is late or malformed, an online player remains visible
+      // instead of silently disappearing from an otherwise valid game frame.
+      .setVisible(true);
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -1551,6 +1591,7 @@ export class BootScene extends Phaser.Scene {
 
     this.publishDebugApi();
     this.renderSimulationState();
+    this.authoritativeRenderSceneReady = true;
     this.events.emit(authoritativeRenderSceneReadyEvent);
 
     // Freeze on frame 0 until the first key, so a slow load doesn't eat the run.
@@ -5172,6 +5213,22 @@ export class BootScene extends Phaser.Scene {
   }
 
   private renderSimulationState(): void {
+    // This is a render receipt, not a transport receipt: browser QA uses it to
+    // prove that Phaser has consumed the state that is about to be painted.
+    // Keeping it on the canvas makes a frozen scene distinguishable from a
+    // healthy WebSocket that merely updates its own bookkeeping attributes.
+    this.game.canvas.setAttribute(
+      "data-rendered-simulation-frame",
+      String(this.simulationState.clock.frameIndex),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-x",
+      String(this.simulationState.players[0].player.position.x),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-y",
+      String(this.simulationState.players[0].player.position.y),
+    );
     const currentVertical =
       this.simulationState.players[0].player.movement.vertical;
     const currentWorldY = this.simulationState.players[0].player.position.y;
@@ -5270,6 +5327,27 @@ export class BootScene extends Phaser.Scene {
         )
         .setDisplaySize(displayWidth, collider.height);
     }
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-visible",
+      String(this.playerImageObject?.visible ?? this.playerRectangle.visible),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-rectangle",
+      JSON.stringify({
+        active: this.playerRectangle.active,
+        alpha: this.playerRectangle.alpha,
+        depth: this.playerRectangle.depth,
+        isFilled: this.playerRectangle.isFilled,
+        renderFlags: this.playerRectangle.renderFlags,
+        visible: this.playerRectangle.visible,
+        x: this.playerRectangle.x,
+        y: this.playerRectangle.y,
+      }),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-cullable",
+      String(this.playerRectangle.willRender(this.cameras.main)),
+    );
 
     const isRecoveringVitality =
       this.simulationState.players[0].vitality.kind ===
@@ -5457,6 +5535,16 @@ export class BootScene extends Phaser.Scene {
     this.renderAerialFrenzyEntities();
     this.renderHatchedSpinies();
     this.renderPipes();
+    // Network frames can be applied after the level's asynchronous authored
+    // art has rebuilt its display objects. Keep every primary representation
+    // explicitly above that world layer instead of relying on insertion order.
+    this.playerRectangle.setDepth(59);
+    this.playerImageObject?.setDepth(59);
+    this.bringPlayerObjectsToTop();
+    // Local scenes flush this through their normal update pass. An
+    // authoritative-render scene intentionally has no local simulation update,
+    // so make the display-list ordering observable to the renderer now.
+    this.children.depthSort();
   }
 
   // Rotating firebar orbs and leaping podoboos are pure functions of the
