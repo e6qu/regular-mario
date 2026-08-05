@@ -2,6 +2,12 @@
 
 ## Known Bugs
 
+### Strict quality gate found duplicate multiplayer test setup — fixed (2026-08-05)
+
+The new death-rejoin test repeated the regular-game setup verbatim, which
+correctly tripped the repository's zero-tolerance copy-paste check. The setup
+is now one test helper; the focused lobby test and copy-paste gate pass.
+
 ### The 3 s cadence check observed before delayed state could arrive — fixed (2026-08-05)
 
 The browser cadence gate sampled a fixed two seconds even when the configured

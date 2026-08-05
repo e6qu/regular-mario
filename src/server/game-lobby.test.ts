@@ -36,16 +36,23 @@ function makeLobby() {
   });
 }
 
+function createRegularGame(
+  lobby: ReturnType<typeof makeLobby>,
+  creator: ReturnType<typeof profile>,
+) {
+  return lobby.createGame(
+    creator,
+    "first-authored",
+    MultiplayerGameMode.Regular,
+  );
+}
+
 describe("public multiplayer lobby", () => {
   it("lists public games and limits each player to one active game", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
     const ren = profile("ren", "Ren");
-    const game = lobby.createGame(
-      mira,
-      "first-authored",
-      MultiplayerGameMode.Regular,
-    );
+    const game = createRegularGame(lobby, mira);
     expect(lobby.games()).toEqual([game]);
     expect(lobby.joinGame(ren, game.gameId).playerCount).toBe(2);
     expect(() =>
@@ -96,19 +103,11 @@ describe("public multiplayer lobby", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
     const ren = profile("ren", "Ren");
-    const first = lobby.createGame(
-      mira,
-      "first-authored",
-      MultiplayerGameMode.Regular,
-    );
+    const first = createRegularGame(lobby, mira);
     lobby.joinGame(ren, first.gameId);
     lobby.leaveGame(ren.playerId);
     expect(lobby.gameForPlayer(ren.playerId)).toBeUndefined();
-    const second = lobby.createGame(
-      ren,
-      "first-authored",
-      MultiplayerGameMode.Regular,
-    );
+    const second = createRegularGame(lobby, ren);
     expect(second.playerCount).toBe(1);
     lobby.leaveGame(mira.playerId);
     expect(lobby.games().map((game) => game.gameId)).toEqual([second.gameId]);
@@ -118,11 +117,7 @@ describe("public multiplayer lobby", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
     const ren = profile("ren", "Ren");
-    const game = lobby.createGame(
-      mira,
-      "first-authored",
-      MultiplayerGameMode.Regular,
-    );
+    const game = createRegularGame(lobby, mira);
     lobby.joinGame(ren, game.gameId);
     lobby.startGame(mira.playerId, game.gameId);
 

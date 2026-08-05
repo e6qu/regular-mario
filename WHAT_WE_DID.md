@@ -49,6 +49,13 @@ committed — only numeric metadata, code, docs, and scripts.
   snapshot delay. All scenarios pass, including recordings, stress, visual
   parity, local prediction and transport cadence.
 
+## 2026-08-05 — restored strict repository quality checks
+
+- Rebuilt missing lockfile-pinned pnpm store metadata so the transitive-license
+  check could execute again, without changing dependencies.
+- Extracted repeated multiplayer test setup after the zero-tolerance
+  copy-paste gate reported it. The focused test and copy-paste check pass.
+
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
 - Kept server simulation authoritative but moved viewport presentation to each
