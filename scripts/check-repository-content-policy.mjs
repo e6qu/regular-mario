@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 
 const forbiddenPathFragments = [
   "/node_modules/",
@@ -102,10 +102,16 @@ function trackedAndUntrackedFiles() {
     { encoding: "utf8" },
   );
 
-  return output
-    .split("\n")
-    .filter((line) => line.length > 0)
-    .sort();
+  return (
+    output
+      .split("\n")
+      .filter((line) => line.length > 0)
+      // `git ls-files --cached` includes a tracked path until its deletion is
+      // staged. Repository checks must validate the working tree we are about
+      // to commit, not attempt to scan a file that no longer exists there.
+      .filter((filePath) => existsSync(filePath))
+      .sort()
+  );
 }
 
 function normalizedPath(filePath) {

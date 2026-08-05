@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -36,6 +39,7 @@ import {
   type MultiplayerPlayerProfile,
 } from "./game-runner";
 import { decodeMultiplayerSimulationState } from "./simulation-wire";
+import { loadOfficialSmbPack } from "../engine/levels/import/official-smb-pack.test-support";
 
 const neutral: SimulationInputCommand = {
   horizontal: HorizontalInput.Neutral,
@@ -45,6 +49,24 @@ const neutral: SimulationInputCommand = {
   upHeld: false,
   downHeld: false,
 };
+
+type RecordedWorld11Input = {
+  readonly count: number;
+  readonly horizontal: HorizontalInput;
+  readonly jump: boolean;
+  readonly down: boolean;
+  readonly run: boolean;
+};
+
+function readWorld11SmallInputTrace(): readonly RecordedWorld11Input[] {
+  const encoded = readFileSync(
+    "tests/multiplayer-browser/world11-small-input-trace.json.gz.base64",
+    "utf8",
+  ).trim();
+  return JSON.parse(
+    gunzipSync(Buffer.from(encoded, "base64")).toString("utf8"),
+  ) as readonly RecordedWorld11Input[];
+}
 
 function profile(id: string, nickname = "Mira"): MultiplayerPlayerProfile {
   return {
@@ -221,6 +243,68 @@ describe("authoritative multiplayer game runner", () => {
     runner.join(profile("ivy", "Ivy"));
     runner.start(requireMultiplayerPlayerId("mira"));
     const snapshot = runCreatorRightToFinish(runner);
+    expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
+  });
+
+  it("keeps the World 1-1 completion trace valid with four online players", () => {
+    const world11 = loadOfficialSmbPack().get("smb-1-1");
+    if (world11 === undefined) {
+      throw new Error("World 1-1 is missing from the bundled level pack.");
+    }
+    const initial = makeInitialSimulationState(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      world11.levelSpec,
+      initialMovementConstants,
+    );
+    if (!initial.ok) {
+      throw new Error("World 1-1 initial state is invalid.");
+    }
+    const runner = makeAuthoritativeGameRunner({
+      gameId: requireMultiplayerGameId("world11-trace"),
+      levelId: "smb-1-1",
+      creator: profile("mira"),
+      mode: MultiplayerGameMode.Regular,
+      initialState: initial.value,
+      levelSpec: world11.levelSpec,
+      movementConstants: initialMovementConstants,
+    });
+    runner.join(profile("ren", "Ren"));
+    runner.join(profile("sol", "Sol"));
+    runner.join(profile("ivy", "Ivy"));
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    let sequence = 0;
+    let frame = 0;
+    let snapshot = runner.snapshot();
+    for (const input of readWorld11SmallInputTrace()) {
+      sequence += 1;
+      runner.submitInput(
+        {
+          playerId: requireMultiplayerPlayerId("mira"),
+          sequence,
+          intendedFrame: frame + 1,
+          receivedAtMilliseconds: frame,
+          command: {
+            ...neutral,
+            horizontal: input.horizontal,
+            jumpPressed: input.jump,
+            downHeld: input.down,
+            runHeld: input.run,
+          },
+        },
+        frame,
+      );
+      for (let repeat = 0; repeat < input.count; repeat += 1) {
+        frame += 1;
+        snapshot = runner.step(frame);
+        if (snapshot.phase === MultiplayerGamePhase.Finished) {
+          break;
+        }
+      }
+      if (snapshot.phase === MultiplayerGamePhase.Finished) {
+        break;
+      }
+    }
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
   });
 

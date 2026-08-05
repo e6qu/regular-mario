@@ -1,5 +1,6 @@
 import { readFile, rename } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { gunzipSync } from "node:zlib";
 
 import {
   chromium,
@@ -37,11 +38,13 @@ async function readWorld11SmallInputTrace(): Promise<
   const serialized = await readFile(
     resolve(
       process.cwd(),
-      "tests/multiplayer-browser/world11-small-input-trace.json",
+      "tests/multiplayer-browser/world11-small-input-trace.json.gz.base64",
     ),
     "utf8",
   );
-  return JSON.parse(serialized) as readonly RecordedInputRun[];
+  return JSON.parse(
+    gunzipSync(Buffer.from(serialized.trim(), "base64")).toString("utf8"),
+  ) as readonly RecordedInputRun[];
 }
 
 async function replayRecordedWorld11Input(

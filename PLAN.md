@@ -169,6 +169,10 @@ input, demonstrate movement with idle party members present, complete the
 safe introductory course, and remain four authoritative members after the
 game advances to the next bundled course. The ignored recordings and
 per-player screenshots are written under `playwright_adhoc/multiplayer-full-run/`.
+The World 1-1 recording input is derived from a small-player core run with
+zero restarts and zero checkpoint rollbacks, then replayed solely as physical
+browser key edges; a four-member authoritative-runner test rejects traces that
+cannot complete from frame zero.
 
 **Two-level real-play acceptance (2026-08-05):** four separate Chromium
 processes, each with its own recorded authenticated player session, complete

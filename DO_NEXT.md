@@ -2,12 +2,15 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
-### Blocking acceptance defect (2026-08-05)
+### Fresh four-player recording proof (2026-08-05)
 
-- Re-derive the World 1-1 completion physical-key trace against the current
-  deterministic game, then run `full-run-recording.spec.ts` until it produces
-  four real World 1-1 and World 1-2 screenshots/videos. The current trace
-  stalls or dies and the fresh recording fails; old artifacts are insufficient.
+- Preserve the checked-in compressed World 1-1 trace as a continuous,
+  small-player, zero-restart **and zero-rollback** simulation run. A rollback
+  is not representable as ordinary physical browser input and must therefore
+  never qualify a trace for `full-run-recording.spec.ts`.
+- `game-runner.test.ts` replays it with four authoritative online members;
+  `full-run-recording.spec.ts` then sends only its physical keyboard edges to
+  four recorded real WebSocket browsers and requires World 1-2 in every view.
 
 ### Raster-only rendering boundary (2026-08-05)
 

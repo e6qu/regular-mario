@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — repaired the real four-player World 1-1 recording evidence
+
+- Found that the prior trace had a controller checkpoint rollback hidden inside
+  its recorded commands. That is invalid for a physical-key browser replay:
+  playback cannot restore a simulation checkpoint.
+- Re-derived a seed-56, small-player World 1-1 run with zero restarts and zero
+  rollbacks, stored it compactly, and made the recorder decode that exact
+  sequence. Added an authoritative four-player runner regression before the
+  recorded browser test.
+- Fresh separate Chromium recordings now move four real authenticated players
+  from World 1-1 to World 1-2. The screenshots/videos remain ignored in
+  `playwright_adhoc/multiplayer-full-run/`; 100 ms and 3 s browser parity
+  checks also pass.
+
 ## 2026-08-05 — restored the complete repository quality gate
 
 - Formatted the reported tracked files, made the catalogue list internal behind
