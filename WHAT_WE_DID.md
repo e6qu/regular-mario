@@ -5,6 +5,14 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — removed generic co-op reaction substitute art
+
+- Co-op robot explosions now require the corresponding robot's head, torso,
+  arm, and leg rasters; they no longer borrow generic body-part art. Burst art
+  is required as well.
+- Passed release build, eight independently connected real-browser players,
+  and local/server plus two-client raw-pixel parity.
+
 ## 2026-08-05 — removed primary reaction-art substitutes
 
 - Made rescue, burn, explode body-parts, husk, and smoke use required authored

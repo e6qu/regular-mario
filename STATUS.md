@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Co-op reaction fallback removed (2026-08-05).** A bot explosion now requires
+its own robot-part rasters rather than substituting generic parts; the bot
+burst asset is required too. Production eight-player WebSocket stress and
+raw-pixel parity tests pass.
+
 **Primary reaction-art substitutes removed (2026-08-05).** The primary
 explode-to-launch and burned-husk-to-tinted-player fallbacks are gone; required
 authored reaction sprites render instead. Production build, multiplayer

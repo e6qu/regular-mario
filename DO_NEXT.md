@@ -9,7 +9,7 @@
   boundary through reaction effects; level tiles and both obsolete procedural
   actor/tile implementations are deleted. Complete the remaining bot and
   death-overlay reaction image requirements under a dedicated browser effect
-  journey.
+  journey; character-specific bot explosion art now has no generic substitute.
   Missing art must throw a specific error, never select substitute vector art.
 
 ### Current recorded acceptance evidence (2026-08-05)

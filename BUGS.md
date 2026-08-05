@@ -2,6 +2,12 @@
 
 ## Known Bugs
 
+### Co-op bots could explode into generic body-part art — fixed (2026-08-05)
+
+The per-robot reaction lookup silently borrowed generic part images when a
+robot-specific image was absent. It now requires the correct robot part and
+burst rasters. Eight real connected browser players and parity checks pass.
+
 ### Primary reaction effects could substitute different art — fixed (2026-08-05)
 
 Explode could become a launch death and burn could display a tinted player crop

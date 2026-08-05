@@ -5895,13 +5895,8 @@ export class BootScene extends Phaser.Scene {
     height: number,
     character: PlayerCharacter,
   ): void {
-    const bundle = this.userAssetBundle;
-    const partSprite = (part: string): LoadedImageAsset | undefined =>
-      bundle?.reactionImages.get(`${character}-part-${part}`) ??
-      bundle?.reactionImages.get(`part-${part}`);
-    if (partSprite("torso") === undefined) {
-      return;
-    }
+    const partSprite = (part: string): LoadedImageAsset =>
+      this.requireReactionImage(`${character}-part-${part}`);
     // Body parts collide with the level's blocks as they fall — build the
     // lookup lazily (a bot can explode with no primary death in flight).
     this.deathPartCollisionLookup ??= makeTileCollisionLookup(this.levelSpec);
@@ -5922,9 +5917,6 @@ export class BootScene extends Phaser.Scene {
     ];
     parts.forEach((part, index) => {
       const asset = partSprite(part.part);
-      if (asset === undefined) {
-        return;
-      }
       this.pushFlyingDeathPart(this.botDeathPieces, {
         asset,
         x: x + part.fx * width,
@@ -5941,11 +5933,7 @@ export class BootScene extends Phaser.Scene {
   // A short expanding flash at a bot's blast, self-destructing via a tween so
   // several bots can burst at once (unlike the primary's single tracked burst).
   private spawnBotExplosionBurst(x: number, y: number): void {
-    const burstAsset =
-      this.userAssetBundle?.reactionImages.get("explosion-burst");
-    if (burstAsset === undefined) {
-      return;
-    }
+    const burstAsset = this.requireReactionImage("explosion-burst");
     const image = addUserFrameImage(this, 0, 0, burstAsset)
       .setOrigin(0.5)
       .setPosition(x, y)
