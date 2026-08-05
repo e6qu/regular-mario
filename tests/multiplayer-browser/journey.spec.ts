@@ -41,7 +41,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   const guest = await guestContext.newPage();
   await login(creator);
   await saveProfile(creator, "Mira");
-  await creator.getByLabel("Bundled level").selectOption("cavern-route");
+  await creator.getByLabel("Bundled level").selectOption("pipe-route");
   await creator.getByRole("button", { name: "Create game" }).click();
   // Creation is also entry. The creator must never be left in the lobby with
   // impossible Create/Join actions after claiming their only game slot.
@@ -66,11 +66,11 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await login(guest);
   await saveProfile(guest, "Ren");
   await expect(guest.getByLabel("Bundled level")).toHaveText(
-    /Party Runway.*Coinbox Crossing.*Cavern Route/,
+    /First Authored Route.*Pipe Route.*Enemy Stomp Route/,
   );
   await guest
     .locator("section > div")
-    .filter({ hasText: /^Mira · cavern-route · regular · waiting/ })
+    .filter({ hasText: /^Mira · pipe-route · regular · waiting/ })
     .getByRole("button", { name: "Join" })
     .click();
   await expect(guest.getByLabel("Game room")).toBeVisible();

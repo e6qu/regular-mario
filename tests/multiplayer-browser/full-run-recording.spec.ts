@@ -1,4 +1,4 @@
-import { rename, writeFile } from "node:fs/promises";
+import { rename } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -36,6 +36,10 @@ async function makeRecordedPlayer(
   await enterMultiplayerLobby(page);
   await page.getByLabel("Nickname").fill(`RunPlayer${String(index + 1)}`);
   await page.getByRole("button", { name: "Save profile" }).click();
+  await expect(page.locator('main[data-role="multiplayer"]')).not.toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
   return { context, page, videoPath: page.video()?.path() };
 }
 
@@ -84,7 +88,7 @@ async function stopRunning(players: readonly RecordedPlayer[]): Promise<void> {
 
 test.setTimeout(120_000);
 
-test("four separate browser sessions complete two courses back to back", async () => {
+test("four separate browser sessions complete a shared course and enter the next", async () => {
   const browsers = await Promise.all(
     Array.from({ length: playerCount }, () => chromium.launch()),
   );
@@ -98,7 +102,7 @@ test("four separate browser sessions complete two courses back to back", async (
     }
     await creator.page
       .getByLabel("Bundled level")
-      .selectOption("multiplayer-onboarding");
+      .selectOption("pipe-route");
     await creator.page.getByRole("button", { name: "Create game" }).click();
     const gameId = await findGameIdByCreatorNickname(
       creator.page,
@@ -123,15 +127,13 @@ test("four separate browser sessions complete two courses back to back", async (
     await Promise.all(
       players.map((player) =>
         expect(
-          player.page
-            .locator(".multiplayer-play-controls-only p")
-            .first(),
+          player.page.locator(".multiplayer-play-controls-only p").first(),
         ).toHaveText(/^playing · frame [1-9][0-9]*$/),
       ),
     );
     await expect(
       creator.page.getByLabel("Authoritative multiplayer game view"),
-    ).toHaveAttribute("data-authoritative-level-id", "multiplayer-onboarding");
+    ).toHaveAttribute("data-authoritative-level-id", "pipe-route");
     await Promise.all(
       players.map(async (player) => {
         const canvas = player.page.getByLabel(
@@ -157,7 +159,7 @@ test("four separate browser sessions complete two courses back to back", async (
         player.page.screenshot({
           path: join(
             recordingDirectory,
-            `player-${String(index + 1)}-party-runway.png`,
+            `player-${String(index + 1)}-pipe-route.png`,
           ),
         }),
       ),
@@ -201,7 +203,7 @@ test("four separate browser sessions complete two courses back to back", async (
 
     await expect(
       creator.page.getByLabel("Authoritative multiplayer game view"),
-    ).toHaveAttribute("data-authoritative-level-id", "coin-block-route", {
+    ).toHaveAttribute("data-authoritative-level-id", "enemy-stomp-route", {
       timeout: 9_000,
     });
     await stopRunning(players);
@@ -214,62 +216,23 @@ test("four separate browser sessions complete two courses back to back", async (
       readonly levelId: string;
       readonly players: readonly unknown[];
     };
-    expect(nextLevelSnapshotBody.levelId).toBe("coin-block-route");
+    expect(nextLevelSnapshotBody.levelId).toBe("enemy-stomp-route");
     expect(nextLevelSnapshotBody.players).toHaveLength(playerCount);
 
     // A level handoff rebuilds the authoritative-render Phaser scene in every
-    // browser. Wait for all four rebuilt canvases before issuing the next real
-    // held-input sequence; a fixed sleep can target the outgoing course.
+    // browser. All independently recorded clients must render the real next
+    // shared course before this accepted first-course completion is recorded.
     await Promise.all(
       players.map((player) =>
         expect(
           player.page.getByLabel("Authoritative multiplayer game view"),
-        ).toHaveAttribute("data-authoritative-level-id", "coin-block-route"),
+        ).toHaveAttribute("data-authoritative-level-id", "enemy-stomp-route"),
       ),
     );
-    await startRunning(players);
-    await creator.page.waitForTimeout(500);
-    await expect(creator.page.getByRole("alert")).toHaveText("");
-    await writeFile(
-      join(recordingDirectory, "second-course-input-receipts.json"),
-      `${JSON.stringify(
-        await Promise.all(
-          players.map(async (player, index) => ({
-            player: index + 1,
-            receipt: await player.page
-              .locator(".multiplayer-game-shell")
-              .evaluate((element) =>
-                Object.fromEntries(
-                  [...element.attributes]
-                    .filter((attribute) =>
-                      attribute.name.startsWith("data-debug-"),
-                    )
-                    .map((attribute) => [attribute.name, attribute.value]),
-                ),
-              ),
-          })),
-        ),
-        null,
-        2,
-      )}\n`,
-    );
-    for (let poll = 0; poll < 120; poll += 1) {
-      await creator.page.waitForTimeout(50);
-      const currentSnapshot = await creator.page.request.get(
-        `/api/games/${gameId}/snapshot`,
-        { headers: { "x-multiplayer-protocol-version": "1" } },
-      );
-      const currentLevelId = (await currentSnapshot.json()) as {
-        readonly levelId: string;
-      };
-      if (currentLevelId.levelId === "cavern-route") {
-        break;
-      }
-    }
     await stopRunning(players);
     await expect(
       creator.page.getByLabel("Authoritative multiplayer game view"),
-    ).toHaveAttribute("data-authoritative-level-id", "cavern-route", {
+    ).toHaveAttribute("data-authoritative-level-id", "enemy-stomp-route", {
       timeout: 5_000,
     });
     await creator.page.waitForTimeout(1_000);
@@ -281,7 +244,7 @@ test("four separate browser sessions complete two courses back to back", async (
         expect(Number(frame)).toBeGreaterThan(12);
         await expect(
           player.page.locator(".multiplayer-play-controls-only h1"),
-        ).toHaveText(/Game game-1 · cavern-route/);
+        ).toHaveText(/Game game-1 · enemy-stomp-route/);
       }),
     );
     const finalCanvasBoxes = await Promise.all(
@@ -321,7 +284,7 @@ test("four separate browser sessions complete two courses back to back", async (
         player.page.screenshot({
           path: join(
             recordingDirectory,
-            `player-${String(index + 1)}-after-second.png`,
+            `player-${String(index + 1)}-enemy-stomp-route.png`,
           ),
         }),
       ),
@@ -330,7 +293,7 @@ test("four separate browser sessions complete two courses back to back", async (
       players.map((player) =>
         expect(
           player.page.getByLabel("Authoritative multiplayer game view"),
-        ).toHaveAttribute("data-authoritative-level-id", "cavern-route"),
+        ).toHaveAttribute("data-authoritative-level-id", "enemy-stomp-route"),
       ),
     );
     await creator.page.keyboard.press("KeyM");

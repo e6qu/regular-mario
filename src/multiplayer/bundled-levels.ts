@@ -1,7 +1,5 @@
 import { makeLevelSpec, type LevelSpec } from "../engine/domain/level-spec";
-import { cavernRouteLevelInput } from "../engine/levels/cavern-route-level";
-import { coinBlockRouteLevelInput } from "../engine/levels/coin-block-route-level";
-import { multiplayerOnboardingLevelInput } from "../engine/levels/multiplayer-onboarding-level";
+import { publicOriginalLevels } from "../engine/levels/public-level-catalog";
 
 export type BundledMultiplayerLevel = {
   readonly id: string;
@@ -19,23 +17,12 @@ function requireBundledLevelSpec(
   return parsed.value;
 }
 
-export const bundledMultiplayerLevels: readonly BundledMultiplayerLevel[] = [
-  {
-    id: "multiplayer-onboarding",
-    label: "Party Runway",
-    levelSpec: requireBundledLevelSpec(multiplayerOnboardingLevelInput),
-  },
-  {
-    id: "coin-block-route",
-    label: "Coinbox Crossing",
-    levelSpec: requireBundledLevelSpec(coinBlockRouteLevelInput),
-  },
-  {
-    id: "cavern-route",
-    label: "Cavern Route",
-    levelSpec: requireBundledLevelSpec(cavernRouteLevelInput),
-  },
-];
+export const bundledMultiplayerLevels: readonly BundledMultiplayerLevel[] =
+  publicOriginalLevels.map((level) => ({
+    id: level.id,
+    label: level.label,
+    levelSpec: requireBundledLevelSpec(level.levelInput),
+  }));
 
 export function requireBundledMultiplayerLevel(
   levelId: string,

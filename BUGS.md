@@ -2,6 +2,21 @@
 
 ## Known Bugs
 
+### Shared `pipe-route` could not complete — fixed (2026-08-05)
+
+The route had only an exit actor. The deterministic simulation correctly
+requires an overlapping goal tile, so a player could run off its map without
+finishing. The original shared source now supplies that goal tile; local and
+authoritative multiplayer play use the same input. A four-browser recorded
+journey completes the route and renders the next shared course.
+
+### Profile refresh could reset the selected public course — fixed (2026-08-05)
+
+Saving a profile asynchronously rebuilt the lobby while old controls remained
+interactive. A fast select/create could therefore send the rebuilt selector's
+default instead of the visible choice. The lobby is now inert during the
+authoritative refresh, and browser QA asserts the real create request body.
+
 ### Public multiplayer exit rendered as a castle axe — fixed (2026-08-05)
 
 The default asset bundle mapped the generic `open-gate` simulation actor to a

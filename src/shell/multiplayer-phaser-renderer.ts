@@ -11,6 +11,9 @@ import type { UserAssetBundle } from "./user-asset-loader";
 export type MultiplayerPhaserRenderer = {
   readonly canvas: HTMLCanvasElement;
   render(snapshot: MultiplayerRenderedSnapshot): void;
+  presentPlayerPositions(
+    positions: readonly { readonly x: number; readonly y: number }[],
+  ): void;
   destroy(): void;
 };
 
@@ -57,6 +60,9 @@ export function makeMultiplayerPhaserRenderer(
   );
   const canvas = game.canvas;
   let latestSnapshot: MultiplayerRenderedSnapshot | undefined;
+  let latestPlayerPositions:
+    | readonly { readonly x: number; readonly y: number }[]
+    | undefined;
   let ready = false;
   let destroyed = false;
   const waitForSceneReadiness = (): void => {
@@ -73,6 +79,9 @@ export function makeMultiplayerPhaserRenderer(
       canvas.focus();
       if (latestSnapshot !== undefined) {
         applySnapshot(candidate, latestSnapshot);
+      }
+      if (latestPlayerPositions !== undefined) {
+        candidate.applyAuthoritativePlayerPositions(latestPlayerPositions);
       }
       return;
     }
@@ -110,6 +119,12 @@ export function makeMultiplayerPhaserRenderer(
       );
       if (ready) {
         applySnapshot(requireRemoteScene(game), snapshot);
+      }
+    },
+    presentPlayerPositions(positions) {
+      latestPlayerPositions = positions;
+      if (ready) {
+        requireRemoteScene(game).applyAuthoritativePlayerPositions(positions);
       }
     },
     destroy() {

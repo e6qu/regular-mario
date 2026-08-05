@@ -2,6 +2,19 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Current verified baseline (2026-08-05)
+
+- Preserve `src/engine/levels/public-level-catalog.ts` as the only public
+  course catalogue. Local selection and `bundledMultiplayerLevels` must use
+  the exact same `LevelSpecInput`; do not add a multiplayer-only map.
+- The normal WebSocket path is authoritative server simulation plus 60 Hz
+  client prediction/reconciliation, baseline deltas/keyframes and explicit
+  resync. Keep the side-by-side harness and raw canvas parity checks as
+  release gates.
+- Fresh acceptance evidence is four independently recorded browsers completing
+  `pipe-route` and entering `enemy-stomp-route`, plus eight WebSocket clients
+  in one game. Artifacts are ignored in `playwright_adhoc/`.
+
 ### Verified: visual acceptance must use the live journey (2026-08-05)
 
 - Preserve `side-by-side-lockstep.spec.ts` as a full-viewport gate: it checks

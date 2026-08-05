@@ -2,6 +2,19 @@
 
 ## Current State
 
+**Shared catalogue and real-browser verification (2026-08-05).** Multiplayer
+and local play now consume the same engine-level `publicOriginalLevels` inputs;
+the retired multiplayer-only onboarding map has been removed. A profile-save
+refresh can no longer race level selection and silently create the default
+course. The source `pipe-route` now has a deterministic goal tile, so real
+keyboard play completes it locally and on the authoritative server. Fresh
+checks pass: shared-level unit/core tests, exact 1280×720 local/server raw
+canvas parity, two-client parity, the mirrored local/online input harness,
+four separately recorded browsers through `pipe-route` into
+`enemy-stomp-route`, and eight independent WebSocket players. Old references
+below to Party Runway, Coinbox Crossing, Cavern Route, or a code-1005 handoff
+are historical and are not current acceptance evidence.
+
 **Multiplayer frame-stall and sparse-course correction (2026-08-05).** The
 authoritative renderer no longer forces a second Phaser frame, reads back the
 full GPU canvas every frame, or repeatedly PNG-encodes it during play; these

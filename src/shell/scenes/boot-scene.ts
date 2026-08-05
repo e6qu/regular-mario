@@ -1042,6 +1042,24 @@ export class BootScene extends Phaser.Scene {
   // create(). Remote renderers use this durable receipt to avoid applying a
   // network frame into the half-constructed seed scene.
   private authoritativeRenderSceneReady = false;
+  // Browser network callbacks and Phaser's renderer have separate scheduling.
+  // Keep remote state and inexpensive predicted transforms queued so one
+  // Phaser update consumes them immediately before paint.
+  private pendingAuthoritativeState:
+    | { readonly state: SimulationState; readonly cameraLeftPixels: number }
+    | undefined;
+  private pendingAuthoritativePlayerPresentation:
+    | {
+        readonly primaryCharacter: PlayerCharacter;
+        readonly coopPlayers: readonly {
+          readonly character: PlayerCharacter;
+          readonly nickname: string;
+        }[];
+      }
+    | undefined;
+  private pendingAuthoritativePlayerPositions:
+    | readonly { readonly x: number; readonly y: number }[]
+    | undefined;
   private reactionText!: Phaser.GameObjects.Text;
   private stompReactionBurst!: Phaser.GameObjects.Text;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
@@ -1321,20 +1339,7 @@ export class BootScene extends Phaser.Scene {
         "Only an authoritative-render scene can accept remote state.",
       );
     }
-    this.simulationState = state;
-    // Every online client must render the server's shared screen, never the
-    // transient local follow position from its own Phaser boot timing.
-    this.cameras.main.stopFollow();
-    // BootScene has already configured the vertical viewport/zoom for this
-    // exact level. The network protocol owns the shared horizontal camera;
-    // recomputing its vertical bottom from the resized canvas here introduced
-    // a second, incompatible framing transform and broke local/remote parity.
-    this.setAuthoritativeCameraLeft(cameraLeftPixels);
-    this.game.canvas.setAttribute(
-      "data-rendered-camera-left",
-      String(cameraLeftPixels),
-    );
-    this.renderSimulationState();
+    this.pendingAuthoritativeState = { state, cameraLeftPixels };
   }
 
   public isAuthoritativeRenderSceneReady(): boolean {
@@ -1398,16 +1403,22 @@ export class BootScene extends Phaser.Scene {
         "Only an authoritative-render scene can accept remote players.",
       );
     }
-    if (coopPlayers.length !== this.simulationState.players.length - 1) {
+    this.pendingAuthoritativePlayerPresentation = {
+      primaryCharacter,
+      coopPlayers,
+    };
+  }
+
+  /** Apply client prediction / remote interpolation without serialising state. */
+  public applyAuthoritativePlayerPositions(
+    positions: readonly { readonly x: number; readonly y: number }[],
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
       throw new Error(
-        "Authoritative player presentation does not match simulation slots.",
+        "Only an authoritative-render scene can accept remote player positions.",
       );
     }
-    this.playerCharacter = primaryCharacter;
-    this.playerRectangle.setFillStyle(playerFallbackColor(primaryCharacter));
-    this.coopBotCharacters = coopPlayers.map((player) => player.character);
-    this.coopBotNames = coopPlayers.map((player) => player.nickname);
-    this.renderSimulationState();
+    this.pendingAuthoritativePlayerPositions = positions;
   }
 
   public create(): void {
@@ -2598,6 +2609,86 @@ export class BootScene extends Phaser.Scene {
       this.beginCastleFlagRise(this.flagpoleWalkOffTargetX);
       this.beginVictoryFireworks();
     }
+  }
+
+  private flushAuthoritativePresentation(): void {
+    const state = this.pendingAuthoritativeState;
+    const playerPresentation = this.pendingAuthoritativePlayerPresentation;
+    const positions = this.pendingAuthoritativePlayerPositions;
+    this.pendingAuthoritativeState = undefined;
+    this.pendingAuthoritativePlayerPresentation = undefined;
+    this.pendingAuthoritativePlayerPositions = undefined;
+    if (state !== undefined) {
+      this.simulationState = state.state;
+      this.cameras.main.stopFollow();
+      this.setAuthoritativeCameraLeft(state.cameraLeftPixels);
+      this.game.canvas.setAttribute(
+        "data-rendered-camera-left",
+        String(state.cameraLeftPixels),
+      );
+    }
+    if (playerPresentation !== undefined) {
+      if (
+        playerPresentation.coopPlayers.length !==
+        this.simulationState.players.length - 1
+      ) {
+        throw new Error(
+          "Authoritative player presentation does not match simulation slots.",
+        );
+      }
+      this.playerCharacter = playerPresentation.primaryCharacter;
+      this.playerRectangle.setFillStyle(
+        playerFallbackColor(playerPresentation.primaryCharacter),
+      );
+      this.coopBotCharacters = playerPresentation.coopPlayers.map(
+        (player) => player.character,
+      );
+      this.coopBotNames = playerPresentation.coopPlayers.map(
+        (player) => player.nickname,
+      );
+    }
+    if (state !== undefined || playerPresentation !== undefined) {
+      this.renderSimulationState();
+    }
+    if (positions !== undefined) {
+      if (positions.length !== this.simulationState.players.length) {
+        throw new Error(
+          "Authoritative player positions do not match simulation slots.",
+        );
+      }
+      this.applyQueuedAuthoritativePlayerPositions(positions);
+    }
+  }
+
+  private applyQueuedAuthoritativePlayerPositions(
+    positions: readonly { readonly x: number; readonly y: number }[],
+  ): void {
+    const primary = positions[0];
+    const primaryRuntime = this.simulationState.players[0];
+    if (primary === undefined || primaryRuntime === undefined) {
+      throw new Error(
+        "Authoritative player presentation has no primary player.",
+      );
+    }
+    this.playerRectangle.setPosition(primary.x, primary.y);
+    this.playerImageObject?.setPosition(primary.x, primary.y);
+    this.game.canvas.setAttribute("data-rendered-primary-x", String(primary.x));
+    this.game.canvas.setAttribute("data-rendered-primary-y", String(primary.y));
+    positions.slice(1).forEach((position, index) => {
+      const image = this.coopPlayerImages[index];
+      const runtime = this.simulationState.players[index + 1];
+      if (image === undefined || runtime === undefined) {
+        return;
+      }
+      image.setPosition(position.x, position.y);
+      const label = this.coopPlayerNameLabels[index];
+      if (label !== undefined) {
+        label.setPosition(
+          position.x + Number(runtime.player.collider.width) / 2,
+          position.y - (5 + index * 8),
+        );
+      }
+    });
   }
 
   // The column of a goal tile inside the player's current tile span (the tile
@@ -3922,6 +4013,7 @@ export class BootScene extends Phaser.Scene {
 
   public override update(): void {
     if (this.browserGameBootstrap.authoritativeRenderOnly === true) {
+      this.flushAuthoritativePresentation();
       return;
     }
     assertValidPlayerVitalityState(this.simulationState.players[0].vitality);

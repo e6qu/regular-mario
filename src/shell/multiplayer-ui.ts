@@ -90,6 +90,9 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-host { visibility: hidden; pointer-events: none; }
     .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel { inset: 0; width: 100%; max-width: none; height: 100%; border: 0; display: grid; align-content: center; justify-items: center; text-align: left; background: transparent; }
     .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel > * { width: min(760px, calc(100vw - 40px)); box-sizing: border-box; }
+    .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-room-only,
+    .multiplayer-game-shell[data-game-phase=paused] .multiplayer-game-room-only,
+    .multiplayer-game-shell[data-game-phase=finished] .multiplayer-game-room-only { display: none; }
     .multiplayer-game-room { padding: clamp(20px, 5vw, 52px); border: 5px solid #172033; background: #f5f7fb; box-shadow: 9px 9px 0 #285a37; }
     .multiplayer-game-room__eyebrow { margin: 0 0 8px; color: #285a37; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .multiplayer-game-room__title { margin-bottom: 4px; }
@@ -285,14 +288,27 @@ async function renderLobby(
     " Avatar ",
     avatar,
     makeButton("Save profile", async () => {
-      await requestJson("/profile", {
-        method: "PATCH",
-        body: JSON.stringify({
-          nickname: nickname.value,
-          avatarId: avatar.value,
-        }),
-      });
-      await renderLobby(mount, userAssetBundle);
+      // The profile mutation refreshes all lobby data. Do not leave the old
+      // level selector live during that refresh: otherwise a quick select and
+      // create can target a newly-mounted selector whose default differs from
+      // the one the player saw. The server remains authoritative, while this
+      // makes the browser action boundary atomic and visible.
+      panel.setAttribute("aria-busy", "true");
+      panel.style.pointerEvents = "none";
+      try {
+        await requestJson("/profile", {
+          method: "PATCH",
+          body: JSON.stringify({
+            nickname: nickname.value,
+            avatarId: avatar.value,
+          }),
+        });
+        await renderLobby(mount, userAssetBundle);
+      } catch (reason) {
+        panel.removeAttribute("aria-busy");
+        panel.style.removeProperty("pointer-events");
+        throw reason;
+      }
     }),
   );
   panel.append(profileForm);
@@ -510,17 +526,27 @@ function renderGame(
   roomActions.className = "multiplayer-game-room__actions";
   let startGameButton: HTMLButtonElement | undefined;
   panel.classList.add("multiplayer-game-panel");
-  const leaveGame = (): HTMLButtonElement => makeButton("Leave game", async () => {
+  const leaveGame = (): HTMLButtonElement =>
+    makeButton("Leave game", async () => {
       await requestJson("/game/leave", { method: "POST" });
       disposeView();
       await renderLobby(mount, userAssetBundle);
     });
-  const endGame = (): HTMLButtonElement => makeButton("End game", async () => {
+  const endGame = (): HTMLButtonElement =>
+    makeButton("End game", async () => {
       await requestJson(`/games/${gameId}/end`, { method: "POST" });
       disposeView();
       await renderLobby(mount, userAssetBundle);
     });
-  waitingRoom.append(eyebrow, title, status, waitingDescription, roomActions, gameActionError, makeChat("Game chat message"));
+  waitingRoom.append(
+    eyebrow,
+    title,
+    status,
+    waitingDescription,
+    roomActions,
+    gameActionError,
+    makeChat("Game chat message"),
+  );
   panel.append(waitingRoom);
   if (creatorPlayerId === profile.playerId) {
     startGameButton = makeButton("Start game", async () => {
@@ -531,10 +557,7 @@ function renderGame(
           reason instanceof Error ? reason.message : "Could not start game.";
       }
     });
-    roomActions.append(
-      startGameButton,
-      endGame(),
-    );
+    roomActions.append(startGameButton, endGame());
   }
   roomActions.append(leaveGame());
   const playControls = document.createElement("section");
@@ -652,59 +675,16 @@ function renderGame(
     const interpolatedRemotePlayers = remoteInterpolator.positions(
       performance.now(),
     );
-    const state = decodeMultiplayerSimulationState(snapshot.simulationState);
-    const players = state.players.map((runtime, slot) => {
-      const player = snapshot.players[slot];
-      if (player === undefined) {
-        throw new Error(
-          "Authoritative player metadata is missing a simulation slot.",
-        );
-      }
-      const position =
-        player.playerId === profile.playerId
-          ? predictedPlayer.position
-          : interpolatedRemotePlayers.get(player.playerId);
-      if (position === undefined) {
-        return runtime;
-      }
-      return {
-        ...runtime,
-        player: {
-          ...runtime.player,
-          position: {
-            x: requireSimulationPixelPosition(
-              Number(position.x),
-              "multiplayer.presentation.player.x",
-            ),
-            y: requireSimulationPixelPosition(
-              Number(position.y),
-              "multiplayer.presentation.player.y",
-            ),
-          },
-        },
-      };
-    });
-    const renderedPlayers = snapshot.players.map((player) => {
+    const positions = snapshot.players.map((player) => {
       const position =
         player.playerId === profile.playerId
           ? predictedPlayer.position
           : interpolatedRemotePlayers.get(player.playerId);
       return position === undefined
-        ? player
-        : { ...player, x: Number(position.x), y: Number(position.y) };
+        ? { x: player.x, y: player.y }
+        : { x: Number(position.x), y: Number(position.y) };
     });
-    const primaryRuntime = players[0];
-    if (primaryRuntime === undefined) {
-      throw new Error("Authoritative multiplayer state has no primary player.");
-    }
-    renderer.render({
-      ...snapshot,
-      players: renderedPlayers,
-      simulationState: encodeMultiplayerSimulationState({
-        ...state,
-        players: [primaryRuntime, ...players.slice(1)],
-      }),
-    });
+    renderer.presentPlayerPositions(positions);
   }
   function animatePresentation(nowMilliseconds: number): void {
     const elapsedMilliseconds = Math.min(
@@ -757,10 +737,7 @@ function renderGame(
     // A course handoff emits a new-level frame with a fresh frame clock. A
     // delayed `finished` state for the prior course must never dispose this
     // client after it has already entered that new course.
-    if (
-      snapshot.levelId !== currentLevelId &&
-      snapshot.phase === "finished"
-    ) {
+    if (snapshot.levelId !== currentLevelId && snapshot.phase === "finished") {
       return;
     }
     const known = snapshotsByGameId.get(snapshot.gameId);
@@ -838,6 +815,10 @@ function renderGame(
     }
     startGameButton?.toggleAttribute("hidden", snapshot.phase !== "waiting");
     latestAuthoritativeSnapshot = snapshot;
+    // Complete map/entity state is authoritative and changes at the network
+    // cadence. Apply it once here; the animation loop below only supplies the
+    // lightweight predicted/interpolated player transforms.
+    renderer.render(snapshot);
     renderPresentation();
     if (snapshot.phase === "finished" && !completionConfirmationInFlight) {
       completionConfirmationInFlight = true;
@@ -862,12 +843,17 @@ function renderGame(
       );
     }
   }
-  async function confirmCompletedGame(finishedSnapshot: GameSnapshot): Promise<void> {
+  async function confirmCompletedGame(
+    finishedSnapshot: GameSnapshot,
+  ): Promise<void> {
     try {
-      const current = await requestJson<GameSnapshot>(`/games/${gameId}/snapshot`);
+      const current = await requestJson<GameSnapshot>(
+        `/games/${gameId}/snapshot`,
+      );
       if (
         !disposed &&
-        (current.phase !== "finished" || current.levelId !== finishedSnapshot.levelId)
+        (current.phase !== "finished" ||
+          current.levelId !== finishedSnapshot.levelId)
       ) {
         completionConfirmationInFlight = false;
         displaySnapshot(current);
@@ -1303,10 +1289,7 @@ import {
 } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
-import {
-  nominalSixtyHertzFrameDurationMilliseconds,
-  requireSimulationPixelPosition,
-} from "../engine/simulation/simulation-units";
+import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
 import {
   resolveSoundEvents,
   SoundEvent,
@@ -1321,10 +1304,7 @@ import {
   applyStateDelta,
   type StateDelta,
 } from "../multiplayer/state-transport";
-import {
-  decodeMultiplayerSimulationState,
-  encodeMultiplayerSimulationState,
-} from "../multiplayer/simulation-wire";
+import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import { makeMultiplayerPhaserRenderer } from "./multiplayer-phaser-renderer";
 import { GameAudio } from "./game-audio";
 import type { UserAssetBundle } from "./user-asset-loader";

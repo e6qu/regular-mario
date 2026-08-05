@@ -36,10 +36,7 @@ async function requireSameAuthoritativeFrame(
   await expect
     .poll(async () => {
       const [leftText, rightText] = await Promise.all([
-        left
-          .locator(".multiplayer-play-controls-only p")
-          .first()
-          .textContent(),
+        left.locator(".multiplayer-play-controls-only p").first().textContent(),
         right
           .locator(".multiplayer-play-controls-only p")
           .first()
@@ -166,10 +163,7 @@ test("the actual local BootScene and a paused server frame render every pixel id
   await pauseGameAsAdministrator(admin, game.gameId);
   await expect
     .poll(() =>
-      player
-        .locator(".multiplayer-play-controls-only p")
-        .first()
-        .textContent(),
+      player.locator(".multiplayer-play-controls-only p").first().textContent(),
     )
     .toMatch(/^paused · frame [0-9]+$/);
   const snapshot = await player.request.get(
@@ -195,7 +189,7 @@ test("the actual local BootScene and a paused server frame render every pixel id
   // The lobby's default public course is Party Runway. Keep the exact-pixel
   // comparison on that real create/start path so a level-selection or
   // pre-create lifecycle regression cannot hide behind the old fixture.
-  await local.goto("/?browserLevel=multiplayer-onboarding");
+  await local.goto("/?browserLevel=first-authored");
   await expect(
     local.getByLabel("Original platformer game canvas"),
   ).toBeVisible();
@@ -259,7 +253,7 @@ test("two independently connected avatars render every server-driven pixel ident
   await guest
     .locator("section > div")
     .filter({
-      hasText: /^PixelMira · multiplayer-onboarding · regular · waiting/,
+      hasText: /^PixelMira · first-authored · regular · waiting/,
     })
     .getByRole("button", { name: "Join" })
     .click();

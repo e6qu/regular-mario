@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — unified local and multiplayer course sources
+
+- Added `publicOriginalLevels`, an engine catalogue whose exact source inputs
+  are used by both local browser selection and multiplayer server validation;
+  removed the parallel multiplayer onboarding map.
+- Made profile-save lobby refreshes atomic so a newly selected course cannot be
+  replaced by the old default between selection and Create. The side-by-side
+  real browser test asserts the outgoing POST body and authoritative snapshot.
+- Repaired the shared `pipe-route` source with its required goal tile. Four
+  separately recorded browser processes now complete it with real keyboard
+  input and all render `enemy-stomp-route`; exact raw canvas parity and the
+  eight-client WebSocket stress journey also pass. Artifacts remain ignored
+  under `playwright_adhoc/`.
+
 ## 2026-08-05 — removed castle-only exit art from the public opening route
 
 - Prevented the generic simulation exit from consuming the bundle's legacy

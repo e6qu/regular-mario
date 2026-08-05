@@ -182,6 +182,22 @@ defects rather than treating the first transition as sufficient proof.
 
 ### Required completion phase: latency-safe state transport and rendered reconciliation
 
+**Shared-level implementation correction (2026-08-05):** multiplayer no
+longer owns a parallel course catalogue. `publicOriginalLevels` is the single
+engine catalogue: local browser selection and the server derive their
+`LevelSpec`s from the exact same `LevelSpecInput` object. Public-game creation,
+server snapshots, and the browser renderer must carry the selected catalogue
+ID unchanged. A Playwright request assertion guards this path. `pipe-route`
+also now carries the goal tile required by the deterministic completion rule;
+that source-level correction applies equally to local and multiplayer play.
+
+The acceptance sequence is: one authenticated browser selects a shared course
+and its POST body/server snapshot must agree; a local and online browser
+receive mirrored real keyboard edges; four separately recorded browser
+processes complete `pipe-route` and render `enemy-stomp-route`; and eight
+independent WebSocket clients join one authoritative game. The ignored videos
+and screenshots live under `playwright_adhoc/`.
+
 The service must meet the stated responsive-play goal at approximately 100 ms
 latency and degrade safely, visibly, and recoverably up to 3 s. The current
 whole-state JSON snapshot stream is a correct debugging representation, but

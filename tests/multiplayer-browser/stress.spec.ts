@@ -59,7 +59,7 @@ test("eight independent browser players can share one authoritative game", async
     await page
       .locator("section > div")
       .filter({
-        hasText: /^LoadPilot0 · multiplayer-onboarding · regular · waiting/,
+        hasText: /^LoadPilot0 · first-authored · regular · waiting/,
       })
       .getByRole("button", { name: "Join" })
       .click();

@@ -9,13 +9,11 @@ import { enemyStompRouteLevelInput } from "../engine/levels/enemy-stomp-route-le
 import { finishRouteLevelInput } from "../engine/levels/finish-route-level";
 import { runtimeLevelTimerId } from "../engine/simulation/level-timer-state";
 import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
-import { multiplayerOnboardingLevelInput } from "../engine/levels/multiplayer-onboarding-level";
 import { flyingEnemyRouteLevelInput } from "../engine/levels/flying-enemy-route-level";
 import { hardLandingRouteLevelInput } from "../engine/levels/hard-landing-route-level";
 import { hazardOnlyFeedbackLevelInput } from "../engine/levels/hazard-only-feedback-level";
 import { importedVglcRouteLevelInput } from "../engine/levels/imported-vglc-route-level";
 import { multiLevelRouteSequence } from "../engine/levels/multi-level-route-level";
-import { pipeRouteLevelInput } from "../engine/levels/pipe-route-level";
 import {
   warpRouteLevelInput,
   warpRouteUndergroundLevelInput,
@@ -24,6 +22,7 @@ import {
 import { warpZoneRouteLevelInput } from "../engine/levels/warp-zone-route-level";
 import { powerUpRouteLevelInput } from "../engine/levels/power-up-route-level";
 import { projectileRouteLevelInput } from "../engine/levels/projectile-route-level";
+import { requirePublicOriginalLevel } from "../engine/levels/public-level-catalog";
 import { showcaseSequence } from "../engine/levels/showcase-level";
 import {
   makeFirePlayerVitalityState,
@@ -45,7 +44,6 @@ enum BrowserLevelKey {
   FinishRoute = "finish-route",
   TimedFinishRoute = "timed-finish-route",
   FirstAuthored = "first-authored",
-  MultiplayerOnboarding = "multiplayer-onboarding",
   FlyingEnemyRoute = "flying-enemy-route",
   HardLandingRoute = "hard-landing-route",
   HazardOnlyFeedback = "hazard-only-feedback",
@@ -281,12 +279,7 @@ function makeBrowserGameBootstrap(
       );
     case BrowserLevelKey.FirstAuthored:
       return makeSingleLevelBootstrap(
-        firstAuthoredLevelInput,
-        makeInitialPlayerVitalityState(),
-      );
-    case BrowserLevelKey.MultiplayerOnboarding:
-      return makeSingleLevelBootstrap(
-        multiplayerOnboardingLevelInput,
+        requirePublicOriginalLevel(BrowserLevelKey.FirstAuthored).levelInput,
         makeInitialPlayerVitalityState(),
       );
     case BrowserLevelKey.HardLandingRoute:
@@ -338,7 +331,7 @@ function makeBrowserGameBootstrap(
       );
     case BrowserLevelKey.PipeRoute:
       return makeSingleLevelBootstrap(
-        pipeRouteLevelInput,
+        requirePublicOriginalLevel(BrowserLevelKey.PipeRoute).levelInput,
         makeInitialPlayerVitalityState(),
       );
     case BrowserLevelKey.ProjectileRoute:

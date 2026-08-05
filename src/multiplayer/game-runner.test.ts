@@ -5,7 +5,8 @@ import {
   type SimulationInputCommand,
 } from "../engine/simulation/input-command";
 import { makeLevelSpec } from "../engine/domain/level-spec";
-import { multiplayerOnboardingLevelInput } from "../engine/levels/multiplayer-onboarding-level";
+import { finishRouteLevelInput } from "../engine/levels/finish-route-level";
+import { firstAuthoredLevelInput } from "../engine/levels/first-authored-level";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import {
   makeInitialSimulationState,
@@ -66,9 +67,9 @@ function makeInitialState(): SimulationState {
 }
 
 function multiplayerLevelSpec() {
-  const result = makeLevelSpec(multiplayerOnboardingLevelInput);
+  const result = makeLevelSpec(finishRouteLevelInput);
   if (!result.ok) {
-    throw new Error("Expected a valid multiplayer onboarding level.");
+    throw new Error("Expected a valid authored multiplayer level.");
   }
   return result.value;
 }
@@ -79,7 +80,7 @@ function makeRunnerForMode(
 ) {
   return makeAuthoritativeGameRunner({
     gameId: requireMultiplayerGameId("game-1"),
-    levelId: "multiplayer-onboarding",
+    levelId: "finish-route",
     creator: profile("mira"),
     mode,
     initialState,
@@ -130,7 +131,7 @@ describe("authoritative multiplayer game runner", () => {
       playerId: "ren",
       slot: 1,
       x: 144,
-      y: 208,
+      y: 64,
     });
   });
 
@@ -201,7 +202,27 @@ describe("authoritative multiplayer game runner", () => {
   });
 
   it("is bit-for-bit state-equivalent to a local two-player engine trace", () => {
-    const runner = makeRunner();
+    const traceLevelResult = makeLevelSpec(firstAuthoredLevelInput);
+    if (!traceLevelResult.ok) {
+      throw new Error("Expected a valid authored trace level.");
+    }
+    const traceInitial = makeInitialSimulationState(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      traceLevelResult.value,
+      initialMovementConstants,
+    );
+    if (!traceInitial.ok) {
+      throw new Error("Expected a valid authored trace state.");
+    }
+    const runner = makeAuthoritativeGameRunner({
+      gameId: requireMultiplayerGameId("game-trace"),
+      levelId: "first-authored",
+      creator: profile("mira"),
+      mode: MultiplayerGameMode.Regular,
+      initialState: traceInitial.value,
+      levelSpec: traceLevelResult.value,
+      movementConstants: initialMovementConstants,
+    });
     const joined = runner.join(profile("ren", "Ren"));
     let localState = decodeMultiplayerSimulationState(joined.simulationState);
     runner.start(requireMultiplayerPlayerId("mira"));
@@ -256,7 +277,7 @@ describe("authoritative multiplayer game runner", () => {
         localState,
         creatorCommand,
         initialMovementConstants,
-        multiplayerLevelSpec(),
+        traceLevelResult.value,
         [currentGuestCommand],
         false,
       );
@@ -344,10 +365,10 @@ describe("authoritative multiplayer game runner", () => {
 
   it("finishes the whole game when a joined player reaches the goal", () => {
     const levelResult = makeLevelSpec({
-      ...multiplayerOnboardingLevelInput,
-      tiles: multiplayerOnboardingLevelInput.tiles.map((row, rowIndex) =>
+      ...finishRouteLevelInput,
+      tiles: finishRouteLevelInput.tiles.map((row, rowIndex) =>
         row.map((tile, columnIndex) =>
-          rowIndex === 13 && columnIndex === 9 ? "gate" : tile,
+          rowIndex === 4 && columnIndex === 9 ? "gate" : tile,
         ),
       ),
     });

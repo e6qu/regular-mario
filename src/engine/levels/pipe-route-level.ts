@@ -3,7 +3,7 @@ import { ActorRole } from "../domain/level-spec";
 import {
   makeRouteActorDefinitions,
   makeTileRun,
-  standardSkyGrassTileDefinitions,
+  standardSurfaceTileDefinitions,
 } from "./level-builder";
 
 const pipeRouteWidthTiles = 10;
@@ -13,7 +13,10 @@ export const pipeRouteLevelInput: LevelSpecInput = {
   widthTiles: pipeRouteWidthTiles,
   heightTiles: pipeRouteHeightTiles,
   tileSizePixels: 16,
-  tileDefinitions: standardSkyGrassTileDefinitions,
+  // The exit mechanic is tile-driven in the deterministic core. Keeping the
+  // goal tile in this source definition makes the same route completable in
+  // local play and on the authoritative multiplayer server.
+  tileDefinitions: standardSurfaceTileDefinitions,
   actorDefinitions: [
     ...makeRouteActorDefinitions(),
     {
@@ -26,7 +29,11 @@ export const pipeRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", pipeRouteWidthTiles),
     makeTileRun("sky", pipeRouteWidthTiles),
     makeTileRun("sky", pipeRouteWidthTiles),
-    makeTileRun("sky", pipeRouteWidthTiles),
+    [
+      ...makeTileRun("sky", 8),
+      "gate",
+      "sky",
+    ],
     makeTileRun("grass", pipeRouteWidthTiles),
   ],
   actors: [
