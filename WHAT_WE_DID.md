@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — made authored skins mandatory at startup
+
+- Corrected local server startup to build the release-static client before
+  serving it. The normal development bundle refers to a cache-only asset URL
+  and cannot serve the required authored skin through the standalone server.
+- Removed the silent default/custom boot paths that continued with an absent
+  asset bundle. They now fail visibly instead of selecting placeholder/vector
+  rendering.
+- Rebuilt and restarted the standalone server; the real production
+  multiplayer login/create/join/admin browser journey passes.
+
 ## 2026-08-05 — restored damage-tier test coverage after actor-spawn migration
 
 - Replaced the hazard test's obsolete hard-coded spawn coordinate with the

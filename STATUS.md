@@ -2,6 +2,14 @@
 
 ## Current State
 
+**Authored-skin startup hardened (2026-08-05).** The standalone server must
+serve a release build: a normal Vite build points asset requests at the dev-only
+cache and causes the authored-skin load failure. `start:server` now builds the
+release static client and server first. Default singleplayer and custom play
+both require an authored asset bundle rather than silently booting with a
+missing bundle. A real production multiplayer login/create/join/admin journey
+passes after the release restart.
+
 **Game-wide quality gate restored (2026-08-05).** The hazard damage-tier test
 now derives its contact location from the authored `player-start` actor rather
 than a retired fixed spawn coordinate. No simulation behavior changed. The
