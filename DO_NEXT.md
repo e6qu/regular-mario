@@ -104,20 +104,9 @@
   four recorded players through two transitions pass at 100 ms, 500 ms, and
   3 s injected delay.
 
-- Do not claim multiplayer complete while the canvas renders whole
-  authoritative JSON snapshots directly. The server/queue/authoritative
-  runner are real, but the predictor is not yet wired into rendering and
-  remote interpolation is not yet applied to the visible scene.
-- First add payload measurement fixtures for one, four, and sixteen players;
-  use those results to set protocol budgets for the 20 Hz stream.
-- Replace normal full-state broadcasts with a versioned hybrid: full keyframe
-  on join/transition/recovery and no more than once per second, plus
-  baseline-frame deltas for normal updates. Missing baselines must explicitly
-  resynchronise; coalesce slow-client delivery to the newest recoverable
-  chain.
-- Render the local reconciled prediction and buffered remote interpolation,
-  while retaining server authority for camera, collision, damage, completion,
-  and the inspectable debug snapshot.
+- The hybrid delta/keyframe transport, baseline recovery, rendered local
+  prediction, and remote interpolation are complete. Maintain their existing
+  100 ms–3 s delayed-WebSocket browser gates and per-player byte diagnostics.
 - Require codecs/recovery/prediction/interpolation/byte-budget tests and
   four separate recorded browser sessions at 100 ms, 500 ms, and 3 s delay
   through two course transitions before closing this work.

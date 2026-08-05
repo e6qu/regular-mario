@@ -66,16 +66,12 @@ fails if recurring `toDataURL()` capture resumes. The opening route now has
 visible original pipe scenery and enemies on elevated platforms while retaining
 a safe shared run lane.
 
-### Four-player WebSocket handoff closes during a rapid course transition — open (2026-08-05)
+### Four-player WebSocket handoff close — fixed (2026-08-05)
 
-The focused journey and lockstep browser flows stay connected, but the required
-four-browser recording still reports every gameplay WebSocket closing with
-code 1005 around the Coinbox-to-Cavern handoff. Completion now confirms against
-the current server snapshot, diagnostic PNGs are downscaled, and the server
-accepts an explicit 8 MiB keyframe ceiling; those changes have not yet closed
-the recording failure. Do not treat the current full-run recording as passing
-evidence. Measure server close/error codes and keyframe bytes before further
-transport changes.
+The earlier code-1005 report predates the bounded screenshot channel and the
+current released-map run. The fresh four-browser World 1-1-to-1-2 recording
+keeps all gameplay sockets live through the authoritative handoff, and the
+broader production stress/journey/parity suite passes afterwards.
 
 ### Multiplayer could render a reduced, backplated, falling game — fixed (2026-08-05)
 

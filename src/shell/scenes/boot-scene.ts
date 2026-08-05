@@ -166,12 +166,6 @@ const initialFrameDurationMilliseconds =
 const outcomeFeedbackPositionX = 300;
 const outcomeFeedbackPositionY = 54;
 const scoreTextPositionX = 8;
-const fallbackCastawayColor = 0x0f766e;
-const fallbackTidekeeperColor = 0x2563eb;
-const fallbackBrassScoutColor = 0xd97706;
-const fallbackMossRunnerColor = 0x4d7c0f;
-const fallbackCloudSailorColor = 0x7c3aed;
-const fallbackEmberWardenColor = 0xdc2626;
 // How long a floating "+points" score popup rises and fades.
 const scorePopupFrames = 36;
 // Victory-firework tuning: frames between successive bursts and how long each
@@ -1013,15 +1007,11 @@ export class BootScene extends Phaser.Scene {
   // sit strictly above it instead of the strip overlapping the play field.
   private reservedBottomPixels = 0;
   // An invisible anchor for the player's position (camera follow, death arc,
-  // flagpole slide). It is also a crisp fallback body when optional sprites
-  // are unavailable, so no local or remote player disappears.
+  // flagpole slide). Visual presentation is always authored sprite art.
   private playerRectangle!: Phaser.GameObjects.Rectangle;
   private playerImageObject: Phaser.GameObjects.Image | undefined;
-  // Authored sprites or crisp fallback bodies for additional co-op players.
-  private readonly coopPlayerImages: (
-    | Phaser.GameObjects.Image
-    | Phaser.GameObjects.Rectangle
-  )[] = [];
+  // Authored sprites for additional co-op players.
+  private readonly coopPlayerImages: Phaser.GameObjects.Image[] = [];
   // Last non-trivial horizontal travel direction, so the water merman can face
   // the way he swims.
   private facingRight = true;
@@ -1437,8 +1427,8 @@ export class BootScene extends Phaser.Scene {
       this.gameAudio.setLavaSizzle(false);
     });
 
-    // Prefer the authored sprite, but retain a pixel fallback body when no
-    // optional sprite bundle was loaded.
+    // Player presentation requires the authored bundle; there is no vector
+    // substitute for missing art.
     this.playerRectangle = this.add
       .rectangle(
         0,
@@ -1454,11 +1444,7 @@ export class BootScene extends Phaser.Scene {
     );
     this.playerImageObject?.setDepth(59);
     this.playerRectangle
-      .setFillStyle(playerFallbackColor(this.playerCharacter))
-      // This is an actual fallback, never a backdrop. Leaving it visible
-      // beneath a transparent authored sprite creates a solid coloured box
-      // around the player in multiplayer and local play alike.
-      .setVisible(this.playerImageObject === undefined);
+      .setVisible(false);
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -2634,9 +2620,6 @@ export class BootScene extends Phaser.Scene {
         );
       }
       this.playerCharacter = playerPresentation.primaryCharacter;
-      this.playerRectangle.setFillStyle(
-        playerFallbackColor(playerPresentation.primaryCharacter),
-      );
       this.coopBotCharacters = playerPresentation.coopPlayers.map(
         (player) => player.character,
       );
@@ -6290,22 +6273,11 @@ export class BootScene extends Phaser.Scene {
       String(coopRuntimes.length),
     );
     while (this.coopPlayerImages.length < coopRuntimes.length) {
-      // Each remote player owns an independent authored image. A rectangle is
-      // only a loud fallback when the authored bundle is genuinely absent; it
-      // must never sit behind a transparent sprite as a coloured backdrop.
       const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
-      this.coopPlayerImages.push(
-        image?.setDepth(59) ??
-          this.add
-            .rectangle(
-              0,
-              0,
-              initialPlayerSimulationStateConfig.colliderWidth,
-              initialPlayerSimulationStateConfig.colliderHeight,
-            )
-            .setOrigin(0)
-            .setDepth(59),
-      );
+      if (image === undefined) {
+        throw new Error("Authored player art is required for every co-op player.");
+      }
+      this.coopPlayerImages.push(image.setDepth(59));
     }
     while (this.coopPlayerImages.length > coopRuntimes.length) {
       this.coopPlayerImages.pop()?.destroy();
@@ -6336,17 +6308,9 @@ export class BootScene extends Phaser.Scene {
       if (sprite !== undefined && image instanceof Phaser.GameObjects.Image) {
         setUserFrameImage(this, image, sprite);
       }
-      if (image instanceof Phaser.GameObjects.Image) {
-        image.setFlipX(
-          this.currentTheme === "water" && coopPlayer.velocity.x < -4,
-        );
-      } else {
-        image.setFillStyle(
-          playerFallbackColor(
-            this.coopBotCharacters[index] ?? robotCharacterForBotIndex(index),
-          ),
-        );
-      }
+      image.setFlipX(
+        this.currentTheme === "water" && coopPlayer.velocity.x < -4,
+      );
       image
         .setPosition(coopPlayer.position.x, coopPlayer.position.y)
         .setDisplaySize(coopPlayer.collider.width, coopPlayer.collider.height);
@@ -9479,31 +9443,6 @@ function renderUserActorImage(
     container: scene.add.container(pixelPosition.x, pixelPosition.y, [image]),
     image,
   };
-}
-
-function playerFallbackColor(character: PlayerCharacter): number {
-  switch (character) {
-    case "castaway":
-      return fallbackCastawayColor;
-    case "luigi":
-      return fallbackTidekeeperColor;
-    case "robot1":
-      return fallbackBrassScoutColor;
-    case "robot2":
-      return fallbackMossRunnerColor;
-    case "robot3":
-      return fallbackCloudSailorColor;
-    case "robot4":
-    case "goomba":
-    case "princess":
-      return fallbackEmberWardenColor;
-    default: {
-      const exhaustive: never = character;
-      throw new Error(
-        `Unsupported fallback player character: ${String(exhaustive)}`,
-      );
-    }
-  }
 }
 
 function renderPlayerImage(

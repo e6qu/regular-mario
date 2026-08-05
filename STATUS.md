@@ -12,6 +12,13 @@ stress, journey, visual-parity, and side-by-side lockstep suites pass. Ignored
 videos and per-perspective World 1-1/World 1-2 screenshots are in
 `playwright_adhoc/multiplayer-full-run/`.
 
+**Player-art substitute removal verified (2026-08-05).** Local and multiplayer
+players no longer render coloured rectangle substitutes when authored artwork
+is missing. The rectangle remains only as an invisible simulation/camera
+anchor; every visible primary or co-op player now requires authored image art.
+Production local/server raw-pixel parity and real two-player journey checks
+pass after the removal.
+
 **Authoritative party-camera correction (2026-08-05).** The shared camera now
 follows the leading active player rather than treating the creator's slot as
 privileged. This fixes a genuine four-browser capture defect where an idle
@@ -132,18 +139,6 @@ world-left camera coordinate was being passed directly to Phaser's
 centered-scroll coordinate at zoom 7, moving the actual view 403 world pixels
 right and hiding the player. The renderer now converts the coordinate; the
 authoritative object and actual multiplayer pixels both move (x=16 to x≈90).
-
-**Multiplayer transport/reconciliation remains incomplete (identified
-2026-08-05).** The server is authoritative and advances the deterministic
-simulation at 60 Hz, and clients send sequenced input through the expiring
-queue. However, normal WebSocket traffic still carries complete JSON
-simulation snapshots and the visible Phaser canvas renders those snapshots
-directly. The existing client-prediction object reconciles input internally
-but is not the state rendered to the player. The next required milestone is
-the measured hybrid keyframe/delta protocol plus rendered prediction and
-remote interpolation, with 100 ms–3 s delay proof; `PLAN.md` is the source of
-truth. Earlier “completion” claims describe the initial service feature set,
-not this required latency contract.
 
 **Multiplayer transport/reconciliation completed and verified (2026-08-05).**
 Normal WebSocket traffic now uses versioned structural deltas between periodic

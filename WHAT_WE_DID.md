@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — removed player-art rectangle substitutes
+
+- Removed the coloured primary and co-op player rectangle presentation path.
+  The existing rectangle is now invisible and serves only as the scene's
+  physics/camera anchor; visible gameplay requires authored player sprites and
+  fails loudly if they are unavailable.
+- Re-ran the production two-player journey plus exact local/server and
+  two-client raw-pixel parity checks after the removal.
+
 ## 2026-08-05 — completed the real four-player World 1-1 recording
 
 - Replaced the fragile relative-delay course driver with a checked-in,
