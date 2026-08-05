@@ -321,7 +321,6 @@ const pitDefeatedOutcomeFeedbackText = "Fell into a pit — Press R";
 const timeUpDefeatedOutcomeFeedbackText = "Time up — Press R";
 const finishedOutcomeFeedbackText = "Gate reached — Press R";
 const simultaneousOutcomeFeedbackText = "Run ended at the gate — Press R";
-const tileStrokeColor = 0x172033;
 const skyTileColor = 0x8fd3e8;
 const grassTileColor = 0x6f4e37;
 const grassTopColor = 0x75a743;
@@ -423,81 +422,11 @@ function resolveMovementConstants(
   }
   return { ...base, bloodyBonks, godMode };
 }
-const thornTileColor = 0x355e3b;
-const thornPointColor = 0xf97316;
-const cannonTileColor = 0x293241;
-const cannonMouthColor = 0x111827;
-const cannonBandColor = 0x64748b;
-const cannonWarningColor = 0xf97316;
-const gateTileColor = 0xf4c542;
-const gateFrameColor = 0x374151;
-const gateShineColor = 0xfef3c7;
-const gateGemColor = 0x2dd4bf;
-const itemCoreColor = 0x2dd4bf;
-const itemShineColor = 0xccfbf1;
+
 const actorRenderOffsetPixels = 2;
 const tileStrokeWidth = 1;
-const grassBladeOffsetX = 1;
-const grassBladeOffsetY = 2;
-const grassBladeInsetPixels = 2;
-const grassBladeHeightPixels = 3;
-const grassTopHeightPixels = 5;
-const grassDirtStoneWidthPixels = 4;
-const grassDirtStoneHeightPixels = 2;
-const grassDirtStoneOffsetX = 3;
-const grassDirtStoneOffsetY = 10;
-const stoneHighlightOffsetX = 3;
-const stoneHighlightOffsetY = 3;
-const stoneHighlightInsetPixels = 6;
-const stoneHighlightHeightPixels = 2;
-const gateShineOffsetX = 1;
-const gateShineOffsetY = 3;
-const gateShineWidthPixels = 1;
-const gateShineInsetPixels = 6;
-const gateGemSizePixels = 4;
-const hazardPointBaseOffsetX = 8;
-const hazardPointBaseOffsetY = 4;
-const hazardPointBaseX1 = 0;
-const hazardPointBaseY1 = 8;
-const hazardPointBaseX2 = 8;
-const hazardPointBaseY2 = 0;
-const hazardPointBaseX3 = 16;
-const hazardPointBaseY3 = 8;
-const springBaseColor = 0x0f766e;
-const springCoilColor = 0xfacc15;
-const springTopColor = 0xfef3c7;
-const springInsetPixels = 3;
-const springTopHeightPixels = 3;
-const springBaseHeightPixels = 4;
-const springCoilWidthPixels = 10;
-const springCoilHeightPixels = 2;
-const springCoilOffsetX = 3;
-const springFirstCoilOffsetY = 6;
-const springSecondCoilOffsetY = 10;
-const cannonMouthOffsetX = 3;
-const cannonMouthOffsetY = 1;
-const cannonMouthWidthPixels = 10;
-const cannonMouthHeightPixels = 4;
-const cannonBandOffsetY = 8;
-const cannonBandHeightPixels = 3;
-const cannonWarningWidthPixels = 2;
-const cannonWarningHeightPixels = 5;
-const cannonWarningLeftOffsetX = 4;
-const cannonWarningRightOffsetX = 10;
-const cannonWarningOffsetY = 5;
-const interactiveBoxColor = 0xd97706;
-const interactiveBoxShineColor = 0xfef3c7;
-const usedBoxColor = 0x78350f;
-const interactiveBoxQuestionOffsetX = 4;
-const interactiveBoxQuestionOffsetY = 2;
-const pipeColor = 0x0f766e;
-const pipeLipColor = 0x14b8a6;
-const pipeShadowColor = 0x115e59;
-const pipeHighlightColor = 0x5eead4;
-const pipeLipHeightPixels = 4;
-const pipeHighlightWidthPixels = 2;
-const pipeHighlightOffsetX = 3;
-const pipeHighlightOffsetY = 5;
+const itemCoreColor = 0x2dd4bf;
+const itemShineColor = 0xccfbf1;
 // Castle-clear cinematic pacing and the bridge tile it chops.
 const castleBridgeTileId = "castle-bridge";
 const castleBridgeChopFrames = 5;
@@ -509,14 +438,6 @@ const castleClearFriendLeadPixels = 56;
 const castleClearMessageHoldFrames = 90;
 const platformRopeColor = 0xd6c4a0;
 const platformRopePulleyRowY = 2 * 16;
-// The enterable-pipe cue: a dark opening inside the two-tile mouth ring.
-const pipeMouthWidthTiles = 2;
-const pipeMouthOpeningColor = 0x233a20;
-const pipeMouthOpeningDepthColor = 0x111d10;
-const pipeMouthOpeningInsetPixels = 3;
-const pipeMouthOpeningTopPixels = 2;
-const pipeMouthOpeningHeightPixels = 3;
-const pipeMouthOpeningDepthHeightPixels = 1;
 // Frames between air bubbles rising from the swimmer in the water world.
 const swimBubbleIntervalFrames = 20;
 // Behind the tile layer (depth 0) but in front of the parallax background, so a
@@ -6269,13 +6190,11 @@ export class BootScene extends Phaser.Scene {
       this.revealedHiddenTiles.add(key);
       // A revealed hidden block shows the spent "used" block art (its own
       // "hidden-block" id has no art — it was invisible until now).
-      renderAuthoredTile(
+      renderUserTileImage(
         this,
         hiddenTile.pixelX,
         hiddenTile.pixelY,
-        hiddenTile.sizePixels,
-        "empty-question-block",
-        TileCollisionKind.Solid,
+        this.requireTileImage("empty-question-block"),
       );
     }
   }
@@ -6376,6 +6295,16 @@ export class BootScene extends Phaser.Scene {
     if (image === undefined) {
       throw new Error(
         `The authored asset bundle is missing runtime actor art for ${actorId}.`,
+      );
+    }
+    return image;
+  }
+
+  private requireTileImage(tileId: string): LoadedImageAsset {
+    const image = this.userAssetBundle?.tileImages.get(tileId);
+    if (image === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing tile art for ${tileId}.`,
       );
     }
     return image;
@@ -7677,6 +7606,11 @@ function renderLevelTiles(
   userAssetBundle: UserAssetBundle | undefined,
   suppressTileArt: boolean,
 ): RenderedLevelSummary {
+  if (userAssetBundle === undefined) {
+    throw new Error(
+      "The authored asset bundle is required to render level tiles.",
+    );
+  }
   const collisionLookup = makeTileCollisionLookup(levelSpec);
   const collisionCounts = makeEmptyCollisionCounts();
   const castleBridgeTilesByColumn = new Map<
@@ -7688,9 +7622,7 @@ function renderLevelTiles(
     readonly Phaser.GameObjects.GameObject[]
   >();
   const usedBlockSwaps = new Map<string, UsedBlockSwap>();
-  const usedBlockImage = userAssetBundle?.tileImages.get(
-    "empty-question-block",
-  );
+  const usedBlockImage = userAssetBundle.tileImages.get("empty-question-block");
   // Hidden blocks are drawn nothing until bumped; remember where they are so a
   // solid block can be materialised when they are revealed.
   const hiddenBlockTiles = new Map<string, HiddenBlockTile>();
@@ -7699,7 +7631,7 @@ function renderLevelTiles(
   for (const [rowIndex, row] of levelSpec.tiles.entries()) {
     for (const [columnIndex, tileId] of row.entries()) {
       const collision = requireTileCollision(collisionLookup, tileId);
-      const userImage = userAssetBundle?.tileImages.get(tileId);
+      const userImage = userAssetBundle.tileImages.get(tileId);
       const childrenBeforeTileRender = new Set(scene.children.list);
 
       if (collision === TileCollisionKind.Hidden) {
@@ -7717,24 +7649,18 @@ function renderLevelTiles(
               decorativeSceneryTileIds.has(candidate),
           );
           if (neighborSceneryId !== undefined) {
-            const sceneryImage =
-              userAssetBundle?.tileImages.get(neighborSceneryId);
-            if (sceneryImage !== undefined) {
-              renderUserTileImage(
-                scene,
-                columnIndex * levelSpec.tileSizePixels,
-                rowIndex * levelSpec.tileSizePixels,
-                sceneryImage,
-              );
-            } else {
-              renderDecorativeSceneryTile(
-                scene,
-                columnIndex * levelSpec.tileSizePixels,
-                rowIndex * levelSpec.tileSizePixels,
-                levelSpec.tileSizePixels,
-                neighborSceneryId,
+            const sceneryImage = userAssetBundle.tileImages.get(neighborSceneryId);
+            if (sceneryImage === undefined) {
+              throw new Error(
+                `The authored asset bundle is missing scenery art for ${neighborSceneryId}.`,
               );
             }
+            renderUserTileImage(
+              scene,
+              columnIndex * levelSpec.tileSizePixels,
+              rowIndex * levelSpec.tileSizePixels,
+              sceneryImage,
+            );
           }
         }
         hiddenBlockTiles.set(makeTileRenderKey(columnIndex, rowIndex), {
@@ -7745,7 +7671,14 @@ function renderLevelTiles(
       } else if (suppressTileArt) {
         // Collision/debug accounting still comes from LevelSpec. A full-level
         // visual layer supplies the imported level art for this mode.
-      } else if (userImage !== undefined) {
+      } else if (isIntentionallyInvisibleTile(tileId)) {
+        // These collision cells intentionally have no display object.
+      } else {
+        if (userImage === undefined) {
+          throw new Error(
+            `The authored asset bundle is missing visible tile art for ${tileId}.`,
+          );
+        }
         const tileImage = renderUserTileImage(
           scene,
           columnIndex * levelSpec.tileSizePixels,
@@ -7761,24 +7694,19 @@ function renderLevelTiles(
             )
           : undefined;
         if (
-          singleUseQuestionBlockTileIds.has(tileId) &&
-          usedBlockImage !== undefined
+          singleUseQuestionBlockTileIds.has(tileId)
         ) {
+          if (usedBlockImage === undefined) {
+            throw new Error(
+              "The authored asset bundle is missing tile art for empty-question-block.",
+            );
+          }
           usedBlockSwaps.set(makeTileRenderKey(columnIndex, rowIndex), {
             image: tileImage,
             usedImage: usedBlockImage,
             glyph: questionGlyph,
           });
         }
-      } else {
-        renderAuthoredTile(
-          scene,
-          columnIndex * levelSpec.tileSizePixels,
-          rowIndex * levelSpec.tileSizePixels,
-          levelSpec.tileSizePixels,
-          tileId,
-          collision,
-        );
       }
 
       if (collision === TileCollisionKind.Breakable) {
@@ -7804,10 +7732,6 @@ function renderLevelTiles(
       collisionCounts[collision] += 1;
       renderedTileCount += 1;
     }
-  }
-
-  if (!suppressTileArt) {
-    renderPipeMouths(scene, levelSpec);
   }
 
   return {
@@ -8180,41 +8104,6 @@ function setGameObjectVisible(
 // a single teal one-tile box that looked like an unrelated block.) Only pipes
 // anchored on a top-mouth tile get the cue: side-entry warp shafts (anchored
 // on body tiles, entered walking left/right) have no top opening to mark.
-function renderPipeMouths(scene: Phaser.Scene, levelSpec: LevelSpec): void {
-  for (const pipe of levelSpec.pipes) {
-    const anchorTileId = levelSpec.tiles[pipe.position.y]?.[pipe.position.x];
-    let mouthColumn: number;
-    if (anchorTileId === "pipe-top-left") {
-      mouthColumn = pipe.position.x;
-    } else if (anchorTileId === "pipe-top-right") {
-      mouthColumn = pipe.position.x - 1;
-    } else {
-      continue;
-    }
-    const x = mouthColumn * levelSpec.tileSizePixels;
-    const y = pipe.position.y * levelSpec.tileSizePixels;
-    const size = levelSpec.tileSizePixels;
-
-    scene.add
-      .rectangle(
-        x + pipeMouthOpeningInsetPixels,
-        y + pipeMouthOpeningTopPixels,
-        size * pipeMouthWidthTiles - pipeMouthOpeningInsetPixels * 2,
-        pipeMouthOpeningHeightPixels,
-        pipeMouthOpeningColor,
-      )
-      .setOrigin(0);
-    scene.add
-      .rectangle(
-        x + pipeMouthOpeningInsetPixels * 2,
-        y + pipeMouthOpeningTopPixels + 1,
-        size * pipeMouthWidthTiles - pipeMouthOpeningInsetPixels * 4,
-        pipeMouthOpeningDepthHeightPixels,
-        pipeMouthOpeningDepthColor,
-      )
-      .setOrigin(0);
-  }
-}
 
 function renderNonPlayerActors(
   scene: Phaser.Scene,
@@ -8293,162 +8182,10 @@ function renderNonPlayerActors(
   };
 }
 
-function renderAuthoredTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-  collision: BrowserLevelCollisionKind,
-): void {
-  // Coin holders are authored as coin-block-<N> / coin-brick-<N> (hold N coins).
-  // The bump/dispense machinery is collision-based, so it already handles them
-  // without a per-id case; only the look differs — a "?" block, or a brick that
-  // keeps its brick appearance.
-  const coinHolder = /^coin-(block|brick)-\d+$/.exec(tileId);
-  if (coinHolder !== null) {
-    requireTileAssetCollision(tileId, collision, TileCollisionKind.Interactive);
-    if (coinHolder[1] === "brick") {
-      renderBrickTile(scene, x, y, size);
-    } else {
-      renderInteractiveTile(scene, x, y, size, false);
-    }
-    return;
-  }
-  if (tileId === "power-up-brick") {
-    // A brick with an embedded power-up keeps the plain brick look.
-    requireTileAssetCollision(tileId, collision, TileCollisionKind.Interactive);
-    renderBrickTile(scene, x, y, size);
-    return;
-  }
-  if (decorativeSceneryTileIds.has(tileId)) {
-    requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-    renderDecorativeSceneryTile(scene, x, y, size, tileId);
-    return;
-  }
-  switch (tileId) {
-    case "empty":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-      return;
-    case "sky":
-      // Empty cells paint nothing; the full-world backdrop + parallax layers
-      // behind the tiles supply the themed sky.
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-      return;
-    case "goal-reach":
-      // The invisible finish trigger above a flagpole's authored art: goal
-      // contact with no visual, so the pole renders only where authored.
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
-      return;
-    case "ground":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderSolidTile(scene, x, y, size, "grass");
-      return;
-    case "grass":
-    case "stone":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderSolidTile(scene, x, y, size, tileId);
-      return;
-    case "pipe-top-left":
-    case "pipe-top-right":
-    case "pipe-left":
-    case "pipe-right":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-      renderPipeTile(scene, x, y, size, tileId);
-      return;
-    case "breakable-block":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Breakable);
-      renderBrickTile(scene, x, y, size);
-      return;
-    case "castle-bridge":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderBrickTile(scene, x, y, size);
-      return;
-    case "cracked-stone":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Breakable);
-      renderSolidTile(scene, x, y, size, "stone");
-      return;
-    case "cannon-top":
-      // Editor-authored cannons are hazard-topped (touching hurts); decoded SMB
-      // cannons are safe to stand on — only their Bullet Bills harm.
-      if (
-        collision !== TileCollisionKind.SolidHazard &&
-        collision !== TileCollisionKind.Solid
-      ) {
-        requireTileAssetCollision(
-          tileId,
-          collision,
-          TileCollisionKind.SolidHazard,
-        );
-      }
-      renderCannonTile(scene, x, y, size, true);
-      return;
-    case "cannon-bottom":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderCannonTile(scene, x, y, size, false);
-      return;
-    case "empty-question-block":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderInteractiveTile(scene, x, y, size, true);
-      return;
-    case "thorn":
-    case "plant-hazard":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Hazard);
-      renderHazardTile(scene, x, y, size);
-      return;
-    case "spring-top":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Spring);
-      renderSpringTile(scene, x, y, size, true);
-      return;
-    case "spring-bottom":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderSpringTile(scene, x, y, size, false);
-      return;
-    case "mystery-box":
-    case "full-question-block-coin":
-    case "full-question-block-power-up":
-    case "extra-life-brick":
-    case "star-block":
-    case "beanstalk-block":
-    case "multi-coin-brick":
-      requireTileAssetCollision(
-        tileId,
-        collision,
-        TileCollisionKind.Interactive,
-      );
-      renderInteractiveTile(scene, x, y, size, false);
-      return;
-    case "used-box":
-      requireTileAssetCollision(
-        tileId,
-        collision,
-        TileCollisionKind.Interactive,
-      );
-      renderInteractiveTile(scene, x, y, size, true);
-      return;
-    case "gate":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
-      renderGoalTile(scene, x, y, size);
-      return;
-    case "flagpole":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
-      renderFlagpoleSegment(scene, x, y, size);
-      return;
-    default:
-      throw new Error(`Unsupported authored tile asset id: ${tileId}`);
-  }
-}
 
-function requireTileAssetCollision(
-  tileId: string,
-  actualCollision: BrowserLevelCollisionKind,
-  expectedCollision: BrowserLevelCollisionKind,
-): void {
-  if (actualCollision !== expectedCollision) {
-    throw new Error(
-      `Authored tile asset ${tileId} expected ${expectedCollision} collision but received ${actualCollision}.`,
-    );
-  }
+
+function isIntentionallyInvisibleTile(tileId: string): boolean {
+  return tileId === "empty" || tileId === "sky" || tileId === "goal-reach";
 }
 
 // Decorative scenery tiles (Empty collision): the in-level clouds, bushes,
@@ -8482,510 +8219,7 @@ const decorativeSceneryTileIds: ReadonlySet<string> = new Set([
   "coral",
 ]);
 
-const sceneryCloudColor = 0xf7fbff;
-const sceneryBushColor = 0x2f9e44;
-const sceneryHillColor = 0x37b24d;
-const sceneryHillShadeColor = 0x2b8a3e;
-const sceneryFenceColor = 0xb08968;
-const sceneryTreeColor = 0x2b8a3e;
-const sceneryTrunkColor = 0xb08968;
-const sceneryMushroomStemColor = 0xf1e4d0;
-const sceneryRailColor = 0xd9a066;
-const sceneryCastleWallColor = 0x8d99ae;
-const sceneryCastleShadeColor = 0x5c677d;
-const sceneryCastleDoorColor = 0x1b263b;
-const sceneryWaterColor = 0x4dabf7;
-const sceneryCoralColor = 0x2f9e6e;
-const sceneryCoralGlintColor = 0x63e6be;
-const sceneryWaterDeepColor = 0x339af0;
-const sceneryLavaColor = 0xf03e3e;
-const sceneryLavaDeepColor = 0xc92a2a;
 
-function renderDecorativeSceneryTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-): void {
-  const half = Math.round(size / 2);
-  switch (tileId) {
-    case "scenery-cloud-left":
-    case "scenery-bush-left":
-      scene.add
-        .ellipse(
-          x + size,
-          y + size,
-          size * 2,
-          size * 1.6,
-          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
-        )
-        .setOrigin(1, 1)
-        .setDepth(-20);
-      return;
-    case "scenery-cloud-right":
-    case "scenery-bush-right":
-      scene.add
-        .ellipse(
-          x,
-          y + size,
-          size * 2,
-          size * 1.6,
-          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
-        )
-        .setOrigin(0, 1)
-        .setDepth(-20);
-      return;
-    case "scenery-cloud-middle":
-    case "scenery-bush-middle":
-      scene.add
-        .rectangle(
-          x,
-          y + Math.round(size * 0.2),
-          size,
-          Math.round(size * 0.8),
-          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
-        )
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-left":
-      scene.add
-        .triangle(x, y, 0, size, size, 0, size, size, sceneryHillColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-right":
-      scene.add
-        .triangle(x, y, 0, 0, size, size, 0, size, sceneryHillColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-peak":
-      scene.add
-        .triangle(x, y, half, 0, size, size, 0, size, sceneryHillShadeColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-fill":
-      scene.add
-        .rectangle(x, y, size, size, sceneryHillColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-fence": {
-      for (const postX of [2, 7, 12]) {
-        scene.add
-          .rectangle(x + postX, y + 4, 2, size - 4, sceneryFenceColor)
-          .setOrigin(0)
-          .setDepth(-20);
-      }
-      scene.add
-        .rectangle(x, y + 6, size, 2, sceneryFenceColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    }
-    case "scenery-tree-top":
-    case "scenery-tree-top-small":
-      scene.add
-        .ellipse(x + half, y + half, size * 0.95, size * 1.1, sceneryTreeColor)
-        .setDepth(-20);
-      return;
-    case "scenery-trunk":
-      scene.add
-        .rectangle(x + half - 2, y, 4, size, sceneryTrunkColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-mushroom-stem":
-      scene.add
-        .rectangle(x + 3, y, size - 6, size, sceneryMushroomStemColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-rail":
-      scene.add
-        .rectangle(x, y + size - 4, size, 2, sceneryRailColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "castle-wall":
-      scene.add
-        .rectangle(x, y, size, size, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setStrokeStyle(1, sceneryCastleShadeColor)
-        .setDepth(-19);
-      return;
-    case "castle-battlement": {
-      scene.add
-        .rectangle(x, y + half, size, half, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + 1, y, half - 2, half, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + half + 1, y, half - 2, half, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      return;
-    }
-    case "castle-window":
-      scene.add
-        .rectangle(x, y, size, size, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + 5, y + 3, size - 10, size - 6, sceneryCastleDoorColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      return;
-    case "castle-door":
-      scene.add
-        .rectangle(x, y, size, size, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + 3, y + 2, size - 6, size - 2, sceneryCastleDoorColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      return;
-    case "water-surface":
-    case "lava-surface": {
-      const surfaceColor =
-        tileId === "lava-surface" ? sceneryLavaColor : sceneryWaterColor;
-      const glintColor = tileId === "lava-surface" ? 0xffc078 : 0xd0ebff;
-      scene.add
-        .rectangle(x, y + 4, size, size - 4, surfaceColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      scene.add
-        .rectangle(x, y + 2, size, 2, glintColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      return;
-    }
-    case "water-body":
-    case "lava-body":
-      scene.add
-        .rectangle(
-          x,
-          y,
-          size,
-          size,
-          tileId === "lava-body" ? sceneryLavaDeepColor : sceneryWaterDeepColor,
-        )
-        .setOrigin(0)
-        .setDepth(-18);
-      return;
-    case "coral":
-      // A swim-through coral bank: a solid-looking block the water palette
-      // renders behind the swimmer.
-      scene.add
-        .rectangle(x, y, size, size, sceneryCoralColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      scene.add
-        .rectangle(x + 2, y + 2, size - 4, 2, sceneryCoralGlintColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      return;
-    default:
-      throw new Error(`Unsupported decorative scenery tile: ${tileId}`);
-  }
-}
-
-// A brown SMB brick with mortar lines: a centre course split, offset from the
-// half-height courses above and below.
-function renderBrickTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  const mortar = activeThemePalette.brickMortar;
-  scene.add
-    .rectangle(x, y, size, size, activeThemePalette.brick)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  const half = Math.round(size / 2);
-  scene.add.rectangle(x, y + half, size, 1, mortar).setOrigin(0);
-  scene.add.rectangle(x + half, y, 1, half, mortar).setOrigin(0);
-  scene.add
-    .rectangle(x + Math.round(size / 4), y + half, 1, half, mortar)
-    .setOrigin(0);
-  scene.add
-    .rectangle(x + Math.round((3 * size) / 4), y + half, 1, half, mortar)
-    .setOrigin(0);
-}
-
-function renderSolidTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-) {
-  switch (tileId) {
-    case "grass":
-      scene.add
-        .rectangle(x, y, size, size, activeThemePalette.ground)
-        .setOrigin(0)
-        .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-      if (activeThemePalette.grassyTop) {
-        scene.add
-          .rectangle(
-            x,
-            y,
-            size,
-            grassTopHeightPixels,
-            activeThemePalette.groundTop,
-          )
-          .setOrigin(0);
-        scene.add
-          .rectangle(
-            x + grassBladeOffsetX,
-            y + grassBladeOffsetY,
-            size - grassBladeInsetPixels,
-            grassBladeHeightPixels,
-            activeThemePalette.groundBlade,
-          )
-          .setOrigin(0);
-      }
-      scene.add
-        .rectangle(
-          x + grassDirtStoneOffsetX,
-          y + grassDirtStoneOffsetY,
-          grassDirtStoneWidthPixels,
-          grassDirtStoneHeightPixels,
-          activeThemePalette.groundDirt,
-        )
-        .setOrigin(0);
-      return;
-    case "stone":
-      scene.add
-        .rectangle(x, y, size, size, activeThemePalette.block)
-        .setOrigin(0)
-        .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-      scene.add
-        .rectangle(
-          x + stoneHighlightOffsetX,
-          y + stoneHighlightOffsetY,
-          size - stoneHighlightInsetPixels,
-          stoneHighlightHeightPixels,
-          activeThemePalette.blockHighlight,
-        )
-        .setOrigin(0);
-      return;
-    default:
-      throw new Error(`Unsupported solid tile asset id: ${tileId}`);
-  }
-}
-
-function renderHazardTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  scene.add
-    .rectangle(x, y, size, size, thornTileColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  scene.add.triangle(
-    x + hazardPointBaseOffsetX,
-    y + hazardPointBaseOffsetY,
-    hazardPointBaseX1,
-    hazardPointBaseY1,
-    hazardPointBaseX2,
-    hazardPointBaseY2,
-    hazardPointBaseX3,
-    hazardPointBaseY3,
-    thornPointColor,
-  );
-}
-
-function renderSpringTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  isTop: boolean,
-) {
-  scene.add
-    .rectangle(x, y, size, size, springBaseColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-
-  if (isTop) {
-    scene.add
-      .rectangle(
-        x + springInsetPixels,
-        y + springInsetPixels,
-        size - springInsetPixels * 2,
-        springTopHeightPixels,
-        springTopColor,
-      )
-      .setOrigin(0);
-  }
-
-  scene.add
-    .rectangle(
-      x + springCoilOffsetX,
-      y + springFirstCoilOffsetY,
-      springCoilWidthPixels,
-      springCoilHeightPixels,
-      springCoilColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + springCoilOffsetX,
-      y + springSecondCoilOffsetY,
-      springCoilWidthPixels,
-      springCoilHeightPixels,
-      springCoilColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + springInsetPixels,
-      y + size - springBaseHeightPixels,
-      size - springInsetPixels * 2,
-      springBaseHeightPixels,
-      springTopColor,
-    )
-    .setOrigin(0);
-}
-
-function renderPipeTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-) {
-  scene.add
-    .rectangle(x, y, size, size, pipeColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, pipeShadowColor);
-
-  if (tileId === "pipe-top-left" || tileId === "pipe-top-right") {
-    scene.add
-      .rectangle(x, y, size, pipeLipHeightPixels, pipeLipColor)
-      .setOrigin(0);
-  }
-
-  const highlightX =
-    tileId === "pipe-top-right" || tileId === "pipe-right"
-      ? x + size - pipeHighlightOffsetX
-      : x + pipeHighlightOffsetX;
-
-  scene.add
-    .rectangle(
-      highlightX,
-      y + pipeHighlightOffsetY,
-      pipeHighlightWidthPixels,
-      size - pipeHighlightOffsetY,
-      pipeHighlightColor,
-    )
-    .setOrigin(0);
-}
-
-function renderCannonTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  top: boolean,
-) {
-  scene.add
-    .rectangle(x, y, size, size, cannonTileColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  scene.add
-    .rectangle(
-      x,
-      y + cannonBandOffsetY,
-      size,
-      cannonBandHeightPixels,
-      cannonBandColor,
-    )
-    .setOrigin(0);
-
-  if (!top) {
-    return;
-  }
-
-  scene.add
-    .rectangle(
-      x + cannonMouthOffsetX,
-      y + cannonMouthOffsetY,
-      cannonMouthWidthPixels,
-      cannonMouthHeightPixels,
-      cannonMouthColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + cannonWarningLeftOffsetX,
-      y + cannonWarningOffsetY,
-      cannonWarningWidthPixels,
-      cannonWarningHeightPixels,
-      cannonWarningColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + cannonWarningRightOffsetX,
-      y + cannonWarningOffsetY,
-      cannonWarningWidthPixels,
-      cannonWarningHeightPixels,
-      cannonWarningColor,
-    )
-    .setOrigin(0);
-}
-
-function renderGoalTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  scene.add
-    .rectangle(x, y, size, size, gateFrameColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  scene.add
-    .rectangle(
-      x + tileStrokeWidth,
-      y + tileStrokeWidth,
-      size - tileStrokeWidth * 2,
-      size - tileStrokeWidth * 2,
-      gateTileColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + gateShineOffsetX,
-      y + gateShineOffsetY,
-      gateShineWidthPixels,
-      size - gateShineInsetPixels,
-      gateShineColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + size / 2 - gateGemSizePixels / 2,
-      y + size / 2 - gateGemSizePixels / 2,
-      gateGemSizePixels,
-      gateGemSizePixels,
-      gateGemColor,
-    )
-    .setOrigin(0);
-}
 
 const flagpoleTileId = "flagpole";
 const flagpoleFurnitureDepth = 5;
@@ -9018,71 +8252,13 @@ const blockNudgeFrames = 10;
 const springSquashColor = 0x2dd4bf;
 const castleFlagRisePixelsPerFrame = 0.5;
 const flagpoleWalkOffSpeedPixels = 1.25;
-const flagpolePoleColor = 0xc8d8c8;
 const flagpoleBallColor = 0x60a860;
 const flagFabricColor = 0x18c018;
 
 // The flagpole is a slim pole centred in its (goal-collision) column; a stack of
 // these segments reads as one continuous pole. The ball and flag are added once
 // per column by BootScene.renderFlagpoleFurniture.
-function renderFlagpoleSegment(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  const poleWidth = Math.max(2, Math.round(size * 0.18));
-  scene.add
-    .rectangle(
-      x + size / 2 - poleWidth / 2,
-      y,
-      poleWidth,
-      size,
-      flagpolePoleColor,
-    )
-    .setOrigin(0);
-}
 
-function renderInteractiveTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  used: boolean,
-) {
-  const fillColor = used ? usedBoxColor : interactiveBoxColor;
-
-  scene.add
-    .rectangle(x, y, size, size, fillColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-
-  if (!used) {
-    // Corner rivets, then a centered "?" — the classic question block. Every
-    // live "?" block looks the same in play; its contents are only a surprise.
-    const rivetInset = interactiveBoxQuestionOffsetX;
-    const rivets: readonly [number, number][] = [
-      [rivetInset, interactiveBoxQuestionOffsetY],
-      [size - rivetInset - 1, interactiveBoxQuestionOffsetY],
-      [rivetInset, size - interactiveBoxQuestionOffsetY - 1],
-      [size - rivetInset - 1, size - interactiveBoxQuestionOffsetY - 1],
-    ];
-    for (const [rx, ry] of rivets) {
-      scene.add
-        .rectangle(x + rx, y + ry, 1, 1, interactiveBoxShineColor)
-        .setOrigin(0);
-    }
-    scene.add
-      .text(x + size / 2, y + size / 2 - 1, "?", {
-        fontFamily: "monospace",
-        fontSize: `${String(Math.round(size * 0.72))}px`,
-        fontStyle: "bold",
-        color: "#fef3c7",
-      })
-      .setOrigin(0.5)
-      .setResolution(3);
-  }
-}
 
 function renderUserTileImage(
   scene: Phaser.Scene,

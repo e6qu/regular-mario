@@ -2,6 +2,13 @@
 
 ## Known Bugs
 
+### Visible tiles could choose procedural scenery and pipe art — fixed (2026-08-05)
+
+The level tile renderer still supplied geometric scenery, collision tiles, and
+pipe-mouth overlays if a manifest raster was absent. It now requires visible
+tile rasters and only leaves explicitly invisible gameplay cells unpainted.
+Release coverage, lockstep, and raw-pixel browser parity pass.
+
 ### Dead procedural actor renderer remained after raster migration — fixed (2026-08-05)
 
 After every live call site required manifest art, the old actor-shape renderer

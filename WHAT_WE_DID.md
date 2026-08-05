@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — enforced raster-only tile rendering
+
+- Removed the procedural tile, scenery, and pipe-mouth renderers. All visible
+  level cells now require an explicit authored tile image; only `empty`,
+  `sky`, invisible goal triggers, and hidden-until-revealed cells intentionally
+  paint nothing.
+- Passed release sprite coverage, release/server builds, actual mirrored-input
+  local/multiplayer play, and local/server plus two-client raw-pixel parity.
+
 ## 2026-08-05 — deleted the obsolete procedural actor renderer
 
 - Removed the disconnected geometric actor-renderer implementation and its

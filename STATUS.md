@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Procedural tile renderer removed (2026-08-05).** Every visible level tile,
+including scenery and pipes, now requires its authored release raster. The
+former procedural tile/scenery/pipe-mouth code is deleted. Release coverage,
+build, mirrored local/multiplayer input, and raw-pixel parity browser checks
+pass.
+
 **Procedural actor renderer removed (2026-08-05).** The unused actor-shape
 implementation and its 800+ supporting lines are deleted, rather than merely
 being unreachable. Release build plus production multiplayer journey and
