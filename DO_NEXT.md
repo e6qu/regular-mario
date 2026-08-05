@@ -1,5 +1,10 @@
 # DO_NEXT.md
 
+- Preserve the full-viewport game contract: gameplay controls must remain
+  keyboard/chat overlays and semantic inspection must never affect canvas
+  layout. Keep browser assertions on live state attributes rather than hidden
+  UI text.
+
 ## Trusted-friends multiplayer service — completed implementation evidence
 
 There is no remaining approved implementation task for this milestone. The
@@ -33,6 +38,11 @@ A revive does not imply a new input acknowledgement. Preserve the explicit
 lifecycle-reconciliation check so an authoritative spectator-to-active receipt
 immediately replaces dead client prediction while retaining the same level,
 frame clock, and shared world.
+
+Preserve one active game WebSocket per player session. Replacing a connection
+must close the predecessor and must not let the predecessor's close callback
+remove the successor. Held-input heartbeats maintain server input state only;
+they must never by themselves reset rendered local prediction.
 
 Keep complete predicted simulation presentation on the browser frame loop:
 rendering only the predicted local player while waiting for 20 Hz authoritative

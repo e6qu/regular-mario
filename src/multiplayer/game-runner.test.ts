@@ -538,7 +538,7 @@ describe("authoritative multiplayer game runner", () => {
     expect(revived.players[0]?.spectator).toBe(false);
     expect(
       decodeMultiplayerSimulationState(revived.simulationState).players[0]
-        ?.outcome.kind,
+        .outcome.kind,
     ).toBe(PlayerOutcomeKind.Active);
   });
 

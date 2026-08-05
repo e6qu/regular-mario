@@ -95,6 +95,9 @@ its local player.
   3 seconds late, after which stale input expires and visible correction is an
   intentional, safe degradation. Audio is derived and played locally from
   received/predicted simulation events, never streamed.
+- Each player session has one active game WebSocket. A newer connection
+  explicitly supersedes the old one, preserving one ordered input stream and
+  avoiding duplicate snapshot/heartbeat delivery.
 - Establish a typed protocol schema and version it. HTTP covers health,
   password login/logout/session state, lobby/game discovery and creation, and
   admin controls; WebSocket covers session resume, presence, game join/leave,
@@ -228,6 +231,11 @@ receive mirrored real keyboard edges; four separately recorded browser
 processes complete `pipe-route` and render `enemy-stomp-route`; and eight
 independent WebSocket clients join one authoritative game. The ignored videos
 and screenshots live under `playwright_adhoc/`.
+
+Gameplay presentation remains full-viewport and free of an in-game control
+drawer. The semantic server UI tree is still available through its JSON API
+and inspectable DOM representation, but inspection may never change canvas
+geometry, cover the game, or intercept gameplay input.
 
 The service must meet the stated responsive-play goal at approximately 100 ms
 latency and degrade safely, visibly, and recoverably up to 3 s. The current

@@ -106,10 +106,11 @@ test("eight independent browser players can share one authoritative game", async
   await finalPlayer.screenshot({
     path: "screenshots/multiplayer-stress-player-8.png",
   });
-  await creator.keyboard.press("KeyM");
-  await expect(
-    creator.getByRole("button", { name: "End game", exact: true }),
-  ).toBeVisible();
-  await creator.getByRole("button", { name: "End game", exact: true }).click();
+  // UI gameplay has no menu drawer. End this test's public game through the
+  // same creator-authorized API that deployment/admin tooling uses.
+  const ended = await creator.request.post(`/api/games/${gameId}/end`, {
+    headers: { "x-multiplayer-protocol-version": "1" },
+  });
+  expect(ended.ok()).toBe(true);
   await Promise.all(pages.map((page) => page.context().close()));
 });

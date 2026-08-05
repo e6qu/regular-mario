@@ -841,20 +841,9 @@ function stepActiveSimulation(
   // untouched.
   const currentFrame = nextClock.frameIndex;
   const previousEnemyDamageFrames = state.enemyDamageContactFrameByEntityId;
-  // Recovery ends by returning the player to the vulnerable small state. The
-  // enemy that caused the shrink must re-arm at that boundary: otherwise its
-  // sustained-contact debounce survives indefinitely and a small player can
-  // walk through that enemy after the invulnerability timer has expired.
-  const recoverySourceToRearm =
-    state.players[0].vitality.kind === PlayerVitalityKind.Recovering &&
-    playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Small
-      ? state.players[0].vitality.sourceEnemyEntityId
-      : undefined;
   const contactedEnemySet = new Set(enemies.contactedEnemyEntityIds);
   const freshDamagingEnemyEntityIds = enemies.contactedEnemyEntityIds.filter(
-    (entityId) =>
-      entityId === recoverySourceToRearm ||
-      !previousEnemyDamageFrames.has(entityId),
+    (entityId) => !previousEnemyDamageFrames.has(entityId),
   );
   const damagingEnemies: EnemyInteractionState = {
     ...enemies,
@@ -866,7 +855,7 @@ function stepActiveSimulation(
   // This frame's fresh hits (re)start a debounce.
   const nextEnemyDamageFrames = new Map<EntityId, FrameIndex>();
   for (const [entityId, lastFrame] of previousEnemyDamageFrames) {
-    if (entityId !== recoverySourceToRearm && contactedEnemySet.has(entityId)) {
+    if (contactedEnemySet.has(entityId)) {
       nextEnemyDamageFrames.set(entityId, lastFrame);
     }
   }

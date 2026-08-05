@@ -141,7 +141,6 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
       mode: "regular",
     });
     const multiplayerShell = multiplayer.locator(".multiplayer-game-shell");
-    const multiplayerPanel = multiplayer.locator(".multiplayer-game-panel");
     // A lobby Create starts and enters the real shared course in one action;
     // it must not leave the owner on a waiting-room intermediate screen.
     await expect(multiplayerShell).toHaveAttribute(
@@ -155,14 +154,17 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     await expect(
       multiplayer.getByRole("button", { name: "Resume game" }),
     ).toHaveCount(0);
+    await expect(multiplayerShell).toHaveAttribute(
+      "data-game-phase",
+      "playing",
+    );
     await expect
-      .poll(() =>
-        multiplayer
-          .locator(".multiplayer-play-controls-only p")
-          .first()
-          .textContent(),
+      .poll(async () =>
+        Number(
+          await multiplayerShell.getAttribute("data-debug-authoritative-frame"),
+        ),
       )
-      .toMatch(/^playing · frame [1-9][0-9]*$/);
+      .toBeGreaterThan(0);
 
     // Do not boot the local run while signing in and assembling the online
     // party: this exact authored course starts live, so it can otherwise die
@@ -193,7 +195,6 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     );
     await expect(multiplayerCanvas).toHaveJSProperty("clientWidth", 1280);
     await expect(multiplayerCanvas).toHaveJSProperty("clientHeight", 720);
-    await expect(multiplayerPanel).not.toBeVisible();
     // This hair colour belongs to the authored castaway sprite and is absent
     // from the Party Runway tiles. A state receipt alone is insufficient: the
     // visible multiplayer canvas must paint the player before capture/input

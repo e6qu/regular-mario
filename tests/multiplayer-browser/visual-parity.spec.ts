@@ -35,16 +35,25 @@ async function requireSameAuthoritativeFrame(
 ): Promise<void> {
   await expect
     .poll(async () => {
-      const [leftText, rightText] = await Promise.all([
-        left.locator(".multiplayer-play-controls-only p").first().textContent(),
+      const [leftPhase, rightPhase, leftFrame, rightFrame] = await Promise.all([
+        left.locator(".multiplayer-game-shell").getAttribute("data-game-phase"),
         right
-          .locator(".multiplayer-play-controls-only p")
-          .first()
-          .textContent(),
+          .locator(".multiplayer-game-shell")
+          .getAttribute("data-game-phase"),
+        left
+          .getByLabel("Authoritative multiplayer game view")
+          .getAttribute("data-authoritative-frame"),
+        right
+          .getByLabel("Authoritative multiplayer game view")
+          .getAttribute("data-authoritative-frame"),
       ]);
-      return leftText === rightText ? leftText : undefined;
+      return leftPhase === "paused" &&
+        rightPhase === "paused" &&
+        leftFrame === rightFrame
+        ? leftFrame
+        : undefined;
     })
-    .toMatch(/^paused · frame [0-9]+$/);
+    .toMatch(/^[0-9]+$/);
 }
 
 async function expectExactCanvasParity(
@@ -161,10 +170,18 @@ test("the actual local BootScene and a paused server frame render every pixel id
 
   await pauseGameAsAdministrator(admin, game.gameId);
   await expect
-    .poll(() =>
-      player.locator(".multiplayer-play-controls-only p").first().textContent(),
-    )
-    .toMatch(/^paused · frame [0-9]+$/);
+    .poll(async () => ({
+      phase: await player
+        .locator(".multiplayer-game-shell")
+        .getAttribute("data-game-phase"),
+      frame: await player
+        .getByLabel("Authoritative multiplayer game view")
+        .getAttribute("data-authoritative-frame"),
+    }))
+    .toMatchObject({
+      phase: "paused",
+      frame: expect.stringMatching(/^[0-9]+$/),
+    });
   const snapshot = await player.request.get(
     `/api/games/${game.gameId}/snapshot`,
     {
@@ -226,7 +243,10 @@ test("the actual local BootScene and a paused server frame render every pixel id
     player,
     "Original platformer game canvas",
   );
-  await player.getByRole("button", { name: "End game", exact: true }).click();
+  const ended = await player.request.post(`/api/games/${game.gameId}/end`, {
+    headers: { "x-multiplayer-protocol-version": "1" },
+  });
+  expect(ended.ok()).toBe(true);
   await Promise.all([
     playerContext.close(),
     localContext.close(),
@@ -299,7 +319,10 @@ test("two independently connected avatars render every server-driven pixel ident
     );
   }
   await expectExactCanvasParity(creator, guest);
-  await creator.getByRole("button", { name: "End game", exact: true }).click();
+  const ended = await creator.request.post(`/api/games/${gameId}/end`, {
+    headers: { "x-multiplayer-protocol-version": "1" },
+  });
+  expect(ended.ok()).toBe(true);
 
   await Promise.all([
     creatorContext.close(),

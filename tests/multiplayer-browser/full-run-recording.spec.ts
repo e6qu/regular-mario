@@ -196,9 +196,23 @@ test("four separate browser sessions complete a shared course and enter the next
     // has received the authoritative playing state after its join.
     await Promise.all(
       players.map((player) =>
-        expect(
-          player.page.locator(".multiplayer-play-controls-only p").first(),
-        ).toHaveText(/^playing · frame [1-9][0-9]*$/),
+        expect(player.page.locator(".multiplayer-game-shell")).toHaveAttribute(
+          "data-game-phase",
+          "playing",
+        ),
+      ),
+    );
+    await Promise.all(
+      players.map((player) =>
+        expect
+          .poll(async () =>
+            Number(
+              await player.page
+                .getByLabel("Authoritative multiplayer game view")
+                .getAttribute("data-authoritative-frame"),
+            ),
+          )
+          .toBeGreaterThan(0),
       ),
     );
     await expect(
@@ -233,7 +247,6 @@ test("four separate browser sessions complete a shared course and enter the next
         }),
       ),
     );
-    const gameShell = creator.page.locator(".multiplayer-game-shell");
     const canvas = creator.page.getByLabel(
       "Authoritative multiplayer game view",
     );
@@ -241,7 +254,6 @@ test("four separate browser sessions complete a shared course and enter the next
     if (canvasBox === null) {
       throw new Error("Multiplayer canvas layout box is unavailable.");
     }
-    await expect(gameShell).toHaveAttribute("data-controls-open", "false");
     expect(canvasBox).toMatchObject({ x: 0, y: 0, width: 1280, height: 720 });
 
     await runAndJumpToExit(players);
@@ -288,8 +300,8 @@ test("four separate browser sessions complete a shared course and enter the next
           .getAttribute("data-authoritative-frame");
         expect(Number(frame)).toBeGreaterThan(12);
         await expect(
-          player.page.locator(".multiplayer-play-controls-only h1"),
-        ).toHaveText(/Game game-1 · smb-1-2/);
+          player.page.getByLabel("Authoritative multiplayer game view"),
+        ).toHaveAttribute("data-authoritative-level-id", "smb-1-2");
       }),
     );
     const finalCanvasBoxes = await Promise.all(
@@ -341,13 +353,13 @@ test("four separate browser sessions complete a shared course and enter the next
         ).toHaveAttribute("data-authoritative-level-id", "smb-1-2"),
       ),
     );
-    await creator.page.keyboard.press("KeyM");
-    await expect(
-      creator.page.getByRole("button", { name: "End game", exact: true }),
-    ).toBeVisible();
-    await creator.page
-      .getByRole("button", { name: "End game", exact: true })
-      .click();
+    // Ending is deliberately not an in-game menu action. Clean this
+    // integration fixture through the creator-authorized API so the next
+    // isolated journey does not inherit an unrelated public game.
+    const ended = await creator.page.request.post(`/api/games/${gameId}/end`, {
+      headers: { "x-multiplayer-protocol-version": "1" },
+    });
+    expect(ended.ok()).toBe(true);
   } finally {
     await Promise.all(players.map(closeAndNameRecording));
     await Promise.all(browsers.map((browser) => browser.close()));

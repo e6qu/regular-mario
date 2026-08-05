@@ -83,22 +83,6 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-shell { position: relative; height: 100vh; min-height: 0; overflow: hidden; background: #172033; }
     .multiplayer-game-host { position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
     .multiplayer-game-host canvas { display: block; }
-    .multiplayer-game-panel { position: absolute; z-index: 2; top: 0; right: 0; width: min(340px, 92vw); height: 100vh; box-sizing: border-box;
-      overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; transition: transform 120ms ease-out; }
-    .multiplayer-game-shell[data-controls-open=false] .multiplayer-game-panel { visibility: hidden; transform: translateX(100%); pointer-events: none; }
-    .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-panel,
-    .multiplayer-game-shell[data-game-phase=paused] .multiplayer-game-panel,
-    .multiplayer-game-shell[data-game-phase=finished] .multiplayer-game-panel { display: none; }
-    /* Waiting is a game room, not a covered or empty game canvas. The renderer
-       stays mounted for the authoritative transition, but is hidden until the
-       server actually starts play. */
-    .multiplayer-game-shell[data-game-phase=waiting] { min-height: 100vh; background: linear-gradient(#8ed4ea 0 22%, #dff4ee 22% 100%); }
-    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-host { visibility: hidden; pointer-events: none; }
-    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel { inset: 0; width: 100%; max-width: none; height: 100%; border: 0; display: grid; align-content: center; justify-items: center; text-align: left; background: transparent; }
-    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel > * { width: min(760px, calc(100vw - 40px)); box-sizing: border-box; }
-    .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-room-only,
-    .multiplayer-game-shell[data-game-phase=paused] .multiplayer-game-room-only,
-    .multiplayer-game-shell[data-game-phase=finished] .multiplayer-game-room-only { display: none; }
     .multiplayer-game-room { padding: clamp(20px, 5vw, 52px); border: 5px solid #172033; background: #f5f7fb; box-shadow: 9px 9px 0 #285a37; }
     .multiplayer-game-room__eyebrow { margin: 0 0 8px; color: #285a37; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .multiplayer-game-room__title { margin-bottom: 4px; }
@@ -115,11 +99,10 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-chat-feed { position: absolute; z-index: 2; left: 18px; bottom: 18px; width: min(430px, calc(100vw - 36px)); display: grid; gap: 6px; pointer-events: none; }
     .multiplayer-game-chat-feed p { margin: 0; padding: 7px 10px; color: #fffef6; background: rgb(23 32 51 / 72%); border-left: 3px solid #ffd54a; font: 700 14px/1.35 monospace; text-shadow: 1px 1px #172033; }
     .multiplayer-game-shell[data-chat-open=true] .multiplayer-game-chat-feed { visibility: hidden; }
-    .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-room-only { display: none; }
-    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-play-controls-only { display: none; }
+    .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
+    .multiplayer-game-error:empty { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
-      .multiplayer-game-shell { height: 100vh; min-height: 0; }
-      .multiplayer-game-panel { width: min(100%, 420px); border-width: 0 0 0 5px; } }
+      .multiplayer-game-shell { height: 100vh; min-height: 0; } }
   `;
   document.head.append(style);
 }
@@ -257,16 +240,12 @@ async function renderLobby(
       lobby.profile,
       lobby.activeGame.gameId,
       lobby.activeGame.levelId,
-      lobby.activeGame.creator.playerId,
       userAssetBundle,
     );
     return;
   }
   mount.replaceChildren();
   const panel = makePanel();
-  const gameShell = document.createElement("section");
-  gameShell.className = "multiplayer-game-shell";
-  gameShell.setAttribute("aria-label", "Multiplayer game layout");
   const heading = document.createElement("h1");
   heading.textContent = "Trusted friends lobby";
   panel.append(heading);
@@ -363,7 +342,6 @@ async function renderLobby(
         currentLobby.profile,
         started.game.gameId,
         started.game.levelId,
-        started.game.creator.playerId,
         userAssetBundle,
       );
     } catch (reason) {
@@ -401,7 +379,6 @@ async function renderLobby(
             currentLobby.profile,
             joined.game.gameId,
             joined.game.levelId,
-            joined.game.creator.playerId,
             userAssetBundle,
           );
         } catch (reason) {
@@ -441,25 +418,14 @@ function renderGame(
   profile: PlayerProfile,
   gameId: string,
   levelId: string,
-  creatorPlayerId: string,
   userAssetBundle: UserAssetBundle,
 ): void {
   mount.replaceChildren();
-  const panel = makePanel();
   const gameShell = document.createElement("section");
   gameShell.className = "multiplayer-game-shell";
   gameShell.setAttribute("aria-label", "Multiplayer game layout");
-  gameShell.setAttribute("data-controls-open", "true");
   gameShell.setAttribute("data-game-phase", "waiting");
   gameShell.setAttribute("data-chat-open", "false");
-  const setControlsOpen = (next: boolean): void => {
-    gameShell.setAttribute("data-controls-open", String(next));
-  };
-  const title = document.createElement("h1");
-  title.textContent = `Game ${gameId}`;
-  title.className = "multiplayer-game-room__title";
-  const status = document.createElement("p");
-  status.className = "multiplayer-game-room__status";
   const gameHost = document.createElement("div");
   gameHost.className = "multiplayer-game-host";
   let currentLevelId = levelId;
@@ -469,6 +435,9 @@ function renderGame(
   const gameChatFeed = document.createElement("div");
   gameChatFeed.className = "multiplayer-game-chat-feed";
   gameChatFeed.setAttribute("aria-live", "polite");
+  const gameError = document.createElement("p");
+  gameError.className = "multiplayer-game-error";
+  gameError.setAttribute("role", "alert");
   let chatEditing = false;
   const makeChat = (inputLabel: string): HTMLElement => {
     const chat = document.createElement("section");
@@ -521,88 +490,20 @@ function renderGame(
     chat.append(heading, log, row);
     return chat;
   };
-  const gameActionError = document.createElement("div");
-  gameActionError.setAttribute("role", "alert");
-  const waitingRoom = document.createElement("section");
-  waitingRoom.className = "multiplayer-game-room multiplayer-game-room-only";
-  waitingRoom.setAttribute("aria-label", "Game room");
-  const eyebrow = document.createElement("p");
-  eyebrow.className = "multiplayer-game-room__eyebrow";
-  eyebrow.textContent = "Game room";
-  const waitingDescription = document.createElement("p");
-  waitingDescription.textContent =
-    "Invite friends, chat, then begin when the party is ready.";
-  const roomActions = document.createElement("div");
-  roomActions.className = "multiplayer-game-room__actions";
-  let startGameButton: HTMLButtonElement | undefined;
-  panel.classList.add("multiplayer-game-panel");
-  const leaveGame = (): HTMLButtonElement =>
-    makeButton("Leave game", async () => {
-      await requestJson("/game/leave", { method: "POST" });
-      disposeView();
-      await renderLobby(mount, userAssetBundle);
-    });
-  const revive = (): HTMLButtonElement =>
-    makeButton("Revive at party checkpoint", async () => {
-      await requestJson(`/game/revive`, { method: "POST" });
-    });
-  const pause = (): HTMLButtonElement =>
-    makeButton("Pause game", async () => {
-      await requestJson(`/game/pause`, { method: "POST" });
-    });
-  const endGame = (): HTMLButtonElement =>
-    makeButton("End game", async () => {
-      await requestJson(`/games/${gameId}/end`, { method: "POST" });
-      disposeView();
-      await renderLobby(mount, userAssetBundle);
-    });
-  waitingRoom.append(
-    eyebrow,
-    title,
-    status,
-    waitingDescription,
-    roomActions,
-    gameActionError,
-    makeChat("Game chat message"),
-  );
-  panel.append(waitingRoom);
-  if (creatorPlayerId === profile.playerId) {
-    startGameButton = makeButton("Start game", async () => {
-      try {
-        await requestJson(`/games/${gameId}/start`, { method: "POST" });
-      } catch (reason) {
-        gameActionError.textContent =
-          reason instanceof Error ? reason.message : "Could not start game.";
-      }
-    });
-    roomActions.append(startGameButton, endGame());
-  }
-  roomActions.append(leaveGame());
-  const playControls = document.createElement("section");
-  playControls.className = "multiplayer-play-controls-only";
-  const playControlsTitle = document.createElement("h1");
-  playControlsTitle.textContent = `Game ${gameId}`;
-  const playStatus = document.createElement("p");
-  const playHint = document.createElement("p");
-  playHint.textContent = "Press M during play to close these controls.";
-  const reviveButton = revive();
-  const pauseButton = pause();
-  playControls.append(
-    playControlsTitle,
-    playStatus,
-    playHint,
-    reviveButton,
-    pauseButton,
-    leaveGame(),
-  );
-  if (creatorPlayerId === profile.playerId) {
-    playControls.append(endGame());
-  }
-  // Gameplay never mounts a menu drawer. Keyboard actions own the compact
-  // multiplayer controls: Escape leave, P pause/resume, T chat, R revive.
+  // Gameplay intentionally has no menu drawer. Escape leaves, P toggles
+  // pause, T opens chat, and R requests revival. Keep the semantic tree in
+  // the DOM for inspection without giving it layout space over the canvas.
+  const semanticInspector = document.createElement("div");
+  semanticInspector.hidden = true;
   const gameChatOverlay = makeChat("Game chat message");
   gameChatOverlay.classList.add("multiplayer-game-chat-overlay");
-  gameShell.append(gameHost, gameChatFeed, panel, gameChatOverlay);
+  gameShell.append(
+    gameHost,
+    gameChatFeed,
+    gameChatOverlay,
+    gameError,
+    semanticInspector,
+  );
   mount.append(gameShell);
   // Phaser measures its parent during boot. Mount first so every browser
   // session sees the real viewport instead of a detached, zero-sized host.
@@ -612,8 +513,7 @@ function renderGame(
     false,
     userAssetBundle,
   );
-  let disposeView: () => void = () => renderer.destroy();
-  void appendSemanticLayout(panel);
+  void appendSemanticLayout(semanticInspector);
 
   let sequence = 0;
   const held = new Set<string>();
@@ -651,13 +551,14 @@ function renderGame(
   // server has consumed this browser's newest input. Reconciliation is safe
   // only when its acknowledgement advances; otherwise rewinding to each old
   // snapshot defeats the client-side fixed-step simulation.
-  let lastReconciledInputSequence = -1;
+  let latestImmediatelyPredictedInputSequence = -1;
+  let lastReconciledImmediatelyPredictedInputSequence = -1;
+  let predictionReconcileCount = 0;
   const audio = new GameAudio();
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
   let completedAudioPlayed = false;
   let latestAuthoritativeFrame = 0;
   let latestAuthoritativeSnapshot: GameSnapshot | undefined;
-  let lastPresentedPhase: GameSnapshot["phase"] | undefined;
   let completionConfirmationInFlight = false;
   let initialDebugScreenshotSubmitted = false;
   let sentInputCount = 0;
@@ -700,7 +601,6 @@ function renderGame(
     window.removeEventListener("keyup", keyup);
     window.removeEventListener("keydown", escapeLeave);
   }
-  disposeView = dispose;
   async function leaveCurrentGame(): Promise<void> {
     await requestJson("/game/leave", { method: "POST" });
     dispose();
@@ -862,9 +762,8 @@ function renderGame(
       );
       prediction = undefined;
       localPlayerSlot = undefined;
-      lastReconciledInputSequence = -1;
-      title.textContent = `Game ${gameId} · ${currentLevelId}`;
-      playControlsTitle.textContent = `Game ${gameId} · ${currentLevelId}`;
+      latestImmediatelyPredictedInputSequence = -1;
+      lastReconciledImmediatelyPredictedInputSequence = -1;
     } else {
       latestAuthoritativeFrame = Math.max(
         latestAuthoritativeFrame,
@@ -894,20 +793,33 @@ function renderGame(
       const authoritativeState = decodeMultiplayerSimulationState(
         snapshot.simulationState,
       );
-      if (
-        requiresPredictionBaseline ||
+      const requiresLifecycleReconcile =
+        !requiresPredictionBaseline &&
         predictionRequiresLifecycleReconcile(
           activePrediction.snapshot().state,
           authoritativeState,
           local.slot,
-        ) ||
-        local.acknowledgedInputSequence > lastReconciledInputSequence
+        );
+      if (
+        shouldReconcilePrediction(
+          requiresPredictionBaseline,
+          requiresLifecycleReconcile,
+          local.acknowledgedInputSequence,
+          latestImmediatelyPredictedInputSequence,
+          lastReconciledImmediatelyPredictedInputSequence,
+        )
       ) {
         activePrediction.reconcileState(
           local.acknowledgedInputSequence,
           authoritativeState,
         );
-        lastReconciledInputSequence = local.acknowledgedInputSequence;
+        lastReconciledImmediatelyPredictedInputSequence =
+          latestImmediatelyPredictedInputSequence;
+        predictionReconcileCount += 1;
+        gameShell.setAttribute(
+          "data-debug-prediction-reconcile-count",
+          String(predictionReconcileCount),
+        );
         // The next animation-frame prediction begins from this exact server
         // state. It is then stepped locally at the same 60 Hz as the engine,
         // instead of visibly moving only at the 20 Hz snapshot cadence.
@@ -923,32 +835,11 @@ function renderGame(
       "data-debug-authoritative-frame",
       String(snapshot.frame),
     );
-    const phaseText =
-      snapshot.phase === "waiting"
-        ? `Waiting for friends · ${snapshot.players.length}/16 players`
-        : `${snapshot.phase} · frame ${snapshot.frame}`;
-    status.textContent = phaseText;
-    playStatus.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
-    if (local?.spectator && snapshot.phase === "playing") {
-      // Death must never trap a player behind the hidden game drawer. Leave
-      // returns to the lobby, where the same running game can be joined again;
-      // the authoritative runner places that new active player in the party's
-      // current screen.
-      setControlsOpen(true);
-      playStatus.textContent =
-        "spectating · revive at the party checkpoint or leave";
-    }
-    reviveButton.toggleAttribute(
-      "hidden",
-      !(local?.spectator === true && snapshot.phase === "playing"),
-    );
-    pauseButton.toggleAttribute("hidden", snapshot.phase !== "playing");
     gameShell.setAttribute("data-game-phase", snapshot.phase);
-    if (snapshot.phase !== lastPresentedPhase) {
-      setControlsOpen(snapshot.phase !== "playing");
-      lastPresentedPhase = snapshot.phase;
-    }
-    startGameButton?.toggleAttribute("hidden", snapshot.phase !== "waiting");
+    gameShell.setAttribute(
+      "data-local-player-spectator",
+      String(local?.spectator === true),
+    );
     latestAuthoritativeSnapshot = snapshot;
     // Complete map/entity state is authoritative and changes at the network
     // cadence. Apply it once here; the animation loop below only supplies the
@@ -1021,7 +912,7 @@ function renderGame(
       return;
     }
     if (message.type === "error" && "error" in message) {
-      gameActionError.textContent =
+      gameError.textContent =
         typeof message.error === "string"
           ? message.error
           : "Multiplayer protocol rejected a message.";
@@ -1150,6 +1041,7 @@ function renderGame(
       audio.playEvents(
         resolveSoundEvents(priorPrediction.state, predicted.state),
       );
+      latestImmediatelyPredictedInputSequence = sequence;
     }
     socket.send(
       JSON.stringify({
@@ -1289,8 +1181,10 @@ function renderGame(
       );
       displaySnapshot(snapshot);
     } catch (error) {
-      status.textContent =
-        error instanceof Error ? error.message : "Game connection failed.";
+      gameShell.setAttribute(
+        "data-game-error",
+        error instanceof Error ? error.message : "Game connection failed.",
+      );
       dispose();
     }
   }
@@ -1479,6 +1373,7 @@ import {
   predictionRequiresLifecycleReconcile,
 } from "../multiplayer/client-prediction";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
+import { shouldReconcilePrediction } from "../multiplayer/reconciliation-policy";
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";

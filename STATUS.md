@@ -2,6 +2,27 @@
 
 ## Current State
 
+**Multiplayer UI and browser proof sweep is clean (2026-08-06).** Gameplay no
+longer constructs the retired in-game drawer at all: the canvas owns the full
+viewport, chat remains the T overlay, and semantic layout data remains
+inspectable without occupying the rendered play surface. The 11-test real
+browser suite passed after converting its tests to the live canvas/state
+contract and making each admin/recording/stress fixture clean up its own game.
+
+**Prediction no longer hitches on held-input heartbeats (2026-08-05).** The
+browser still sends 100 ms held-state heartbeats to the authoritative server,
+but only reconciles a locally predicted input edge once it is acknowledged.
+Baselines and lifecycle changes remain immediate reconciliation points. The
+server also now supersedes an older game WebSocket when the same player opens
+a newer connection. Joining a live game also emits an immediate authoritative
+keyframe, so its browser never waits in a hidden waiting-state shell for a
+later delta baseline.
+
+**Shrink/recovery now requires a new enemy contact to defeat small form
+(2026-08-05).** The first enemy hit demotes enlarged form and the original
+enemy remains debounced through blinking/recovery. It must lose overlap and
+make a genuine re-contact before it can defeat the now-small player.
+
 **Revive now restores the existing live game on the client (2026-08-05).**
 The server already retained the shared level and frame, but a revive does not
 advance an input acknowledgement. The browser now treats the authoritative

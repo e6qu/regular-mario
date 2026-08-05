@@ -255,7 +255,9 @@ export function makeMultiplayerHttpServer(
   const service = makeMultiplayerService(
     makeDefaultServiceConfig(config.service),
   );
-  const socketsByPlayerId = new Map<string, Set<WebSocket>>();
+  // A session has one authoritative input stream. A reconnect supersedes its
+  // predecessor rather than duplicating heartbeat/input traffic and snapshots.
+  const socketByPlayerId = new Map<string, WebSocket>();
   const loginAttemptLimiter = makeLoginAttemptLimiter(
     maximumLoginAttemptsPerWindow,
     loginAttemptWindowMilliseconds,
@@ -307,10 +309,8 @@ export function makeMultiplayerHttpServer(
 
   function broadcast(value: unknown, delayMilliseconds = 0): void {
     const encoded = JSON.stringify(value);
-    for (const sockets of socketsByPlayerId.values()) {
-      for (const socket of sockets) {
-        sendEncodedWebSocketMessage(socket, encoded, delayMilliseconds);
-      }
+    for (const socket of socketByPlayerId.values()) {
+      sendEncodedWebSocketMessage(socket, encoded, delayMilliseconds);
     }
   }
 
@@ -336,7 +336,7 @@ export function makeMultiplayerHttpServer(
     for (const snapshot of snapshots) {
       latestSnapshotByGameId.set(snapshot.gameId, snapshot);
     }
-    const sockets = [...socketsByPlayerId.values()].flatMap((set) => [...set]);
+    const sockets = [...socketByPlayerId.values()];
     const keyframeDue =
       forceKeyframe ||
       nowMilliseconds - lastKeyframeBroadcastMilliseconds >=
@@ -572,8 +572,22 @@ export function makeMultiplayerHttpServer(
           throw new Error("Game route is incomplete.");
         }
         if (request.method === "POST" && action === "join") {
+          const joinedAtMilliseconds = now();
+          const game = service.joinGame(
+            playerToken,
+            gameId,
+            joinedAtMilliseconds,
+          );
+          // Joining changes player slots and the complete prediction baseline.
+          // Send a keyframe immediately, rather than leaving the new browser to
+          // infer a baseline from a later delta intended for existing members.
+          broadcastTransportState(
+            [service.gameSnapshot(playerToken, gameId, joinedAtMilliseconds)],
+            joinedAtMilliseconds,
+            true,
+          );
           json(response, 200, {
-            game: service.joinGame(playerToken, gameId, now()),
+            game,
           });
           broadcast({ type: "games-changed" });
           return;
@@ -815,9 +829,11 @@ export function makeMultiplayerHttpServer(
     }
     const playerId = profile.playerId as string;
     config.logger?.("websocket_connected", { playerId });
-    const sockets = socketsByPlayerId.get(playerId) ?? new Set<WebSocket>();
-    sockets.add(socket);
-    socketsByPlayerId.set(playerId, sockets);
+    const predecessor = socketByPlayerId.get(playerId);
+    if (predecessor !== undefined && predecessor !== socket) {
+      predecessor.close(4001, "Superseded by a newer player connection.");
+    }
+    socketByPlayerId.set(playerId, socket);
     socket.send(
       JSON.stringify({
         type: "connected",
@@ -896,10 +912,8 @@ export function makeMultiplayerHttpServer(
     });
     socket.on("close", () => {
       config.logger?.("websocket_closed", { playerId });
-      const remaining = socketsByPlayerId.get(playerId);
-      remaining?.delete(socket);
-      if (remaining?.size === 0) {
-        socketsByPlayerId.delete(playerId);
+      if (socketByPlayerId.get(playerId) === socket) {
+        socketByPlayerId.delete(playerId);
       }
     });
   });
@@ -911,10 +925,8 @@ export function makeMultiplayerHttpServer(
       broadcastSnapshots(nowMilliseconds);
     },
     close() {
-      for (const sockets of socketsByPlayerId.values()) {
-        for (const socket of sockets) {
-          socket.close();
-        }
+      for (const socket of socketByPlayerId.values()) {
+        socket.close();
       }
       return new Promise((resolveClose, rejectClose) => {
         server.close((error) =>

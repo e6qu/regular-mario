@@ -69,6 +69,10 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
     .filter({ hasText: /^Mira · smb-1-1 · regular · playing/ })
     .getByRole("button", { name: "Join" })
     .click();
+  await expect(guest.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-game-phase",
+    "playing",
+  );
   await expect(
     guest.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
@@ -186,41 +190,58 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await guestContext.close();
 });
 
-test("administrator can inspect and step a paused game", async ({ page }) => {
+test("administrator can inspect and step a paused game", async ({
+  page,
+  browser,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/#multiplayer-admin");
-  await page.getByLabel("Administrator password").fill("administrator");
-  await page.getByRole("button", { name: "Enter administration" }).click();
+  // Keep this admin journey self-contained. It must not depend on the player
+  // names or public games left by an earlier browser journey.
+  await login(page);
+  await saveProfile(page, "AdminProbe");
+  await page.getByLabel("Bundled level").selectOption("smb-1-1");
+  await page.getByRole("button", { name: "Create game" }).click();
+  const gameId = await findGameIdByCreatorNickname(page, "AdminProbe");
+  const adminContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+  });
+  const adminPage = await adminContext.newPage();
+  await adminPage.goto("/#multiplayer-admin");
+  await adminPage.getByLabel("Administrator password").fill("administrator");
+  await adminPage.getByRole("button", { name: "Enter administration" }).click();
   await expect(
-    page.getByRole("heading", { name: "Multiplayer administration" }),
+    adminPage.getByRole("heading", { name: "Multiplayer administration" }),
   ).toBeVisible();
   await expect(
-    page.locator(
+    adminPage.locator(
       '[data-semantic-role="main"][data-semantic-label="Multiplayer administration"]',
     ),
   ).toBeAttached();
   await expect(
-    page.getByText(
+    adminPage.getByText(
       new RegExp(
         `Snapshots: [0-9]+ · delay ${injectedSnapshotDelayMilliseconds} ms`,
       ),
     ),
   ).toBeVisible();
-  const miraGame = page.locator("section").filter({ hasText: /Mira/ });
-  await miraGame.getByRole("button", { name: "pause" }).click();
-  await miraGame.getByRole("button", { name: "step" }).click();
-  await miraGame.getByRole("button", { name: "resume" }).click();
+  const adminGame = adminPage.locator("section").filter({ hasText: gameId });
+  await adminGame.getByRole("button", { name: "pause" }).click();
+  await adminGame.getByRole("button", { name: "step" }).click();
+  await adminGame.getByRole("button", { name: "resume" }).click();
   await expect(
-    miraGame.getByAltText(/Latest screenshot for game-/),
+    adminGame.getByAltText(/Latest screenshot for game-/),
   ).toBeVisible();
-  await page
-    .getByRole("button", { name: /Boot (Mira|Ren)/ })
+  await adminPage
+    .getByRole("button", { name: "Boot AdminProbe" })
     .first()
     .click();
-  await page
+  await adminPage
     .getByRole("button", { name: "Expire all player sessions" })
     .click();
-  await page.screenshot({ path: "test-results/multiplayer-admin-mobile.png" });
+  await adminPage.screenshot({
+    path: "test-results/multiplayer-admin-mobile.png",
+  });
+  await adminContext.close();
 });
 
 test("a live game maintains render and snapshot cadence", async ({ page }) => {
@@ -292,4 +313,67 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
   // live stream traffic rather than mistaking the configured network condition
   // for a stopped server.
   expect(stateFrames.length).toBeGreaterThanOrEqual(15);
+});
+
+test("held-input heartbeats do not repeatedly reset local prediction", async ({
+  page,
+}) => {
+  await login(page);
+  await saveProfile(page, "Prediction");
+  await page.getByLabel("Bundled level").selectOption("smb-1-1");
+  await page.getByRole("button", { name: "Create game" }).click();
+  const shell = page.locator(".multiplayer-game-shell");
+  await expect(shell).toHaveAttribute("data-debug-socket-lifecycle", "open");
+  await expect
+    .poll(async () =>
+      Number(await shell.getAttribute("data-debug-authoritative-frame")),
+    )
+    .toBeGreaterThan(1);
+  const reconciliationCount = async () =>
+    Number(
+      (await shell.getAttribute("data-debug-prediction-reconcile-count")) ??
+        "0",
+    );
+  const before = await reconciliationCount();
+
+  await page.keyboard.down("ArrowRight");
+  await page.waitForTimeout(650);
+  await page.keyboard.up("ArrowRight");
+  const after = await reconciliationCount();
+  const sent = Number(await shell.getAttribute("data-debug-input-send-count"));
+
+  // One edge reconciliation is expected. The six held-state heartbeats that
+  // keep the server input alive must not produce six visual correction resets.
+  expect(sent).toBeGreaterThanOrEqual(4);
+  expect(after - before).toBeLessThanOrEqual(2);
+});
+
+test("a newer game connection supersedes the previous socket for one player", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  const first = await context.newPage();
+  const second = await context.newPage();
+  await login(first);
+  await saveProfile(first, "Socket");
+  await first.getByLabel("Bundled level").selectOption("smb-1-1");
+  await first.getByRole("button", { name: "Create game" }).click();
+  await expect(first.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-debug-socket-lifecycle",
+    "open",
+  );
+
+  await second.goto("/#multiplayer");
+  await expect(
+    second.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+  await expect(second.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-debug-socket-lifecycle",
+    "open",
+  );
+  await expect(first.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-debug-socket-lifecycle",
+    "closed:4001",
+  );
+  await context.close();
 });

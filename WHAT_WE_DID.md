@@ -5,6 +5,37 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-06 — completed a multiplayer UI and browser-proof sweep
+
+- Deleted the unmounted legacy game drawer and its obsolete waiting-room
+  controls; no gameplay path can construct a menu over the full-viewport
+  canvas. The only gameplay interaction surfaces are the T chat overlay and a
+  concise network-error notice.
+- Retained the typed server semantic tree as hidden, inspectable DOM data, so
+  JSON/debug automation survives without affecting rendering or input.
+- Rebased real browser assertions on authoritative canvas attributes and
+  semantic state rather than retired drawer text. Recording, stress, and
+  visual-parity fixtures now creator-end their own games, and the
+  administrator journey creates its own target game in an isolated browser
+  context.
+- Passed the full eleven-test production multiplayer browser suite, focused
+  pure multiplayer/server mechanics tests, type checking, formatting, lint,
+  and release/server builds.
+
+## 2026-08-05 — corrected multiplayer prediction and recovery contact semantics
+
+- Adopted the standard local-prediction/server-reconciliation split: input
+  edges, lifecycle transitions, and state baselines reconcile; held-key
+  heartbeats maintain server input without periodically resetting local paint.
+- Enforced one active game WebSocket per player session; a replacement socket
+  supersedes its predecessor rather than duplicating ordered input traffic.
+- Made live-game joining a transport lifecycle edge: it broadcasts the new
+  player-slot keyframe immediately rather than relying on a later delta.
+- Kept the damage source debounced through enlarged-to-small blinking. Small
+  form only dies after it has separated and makes a fresh damaging contact.
+- Added pure reconciliation/contact regressions plus real-browser checks for
+  heartbeat stability and superseded socket lifecycle.
+
 ## 2026-08-05 — fixed stale client prediction after revive
 
 - Confirmed revival was already server-authoritative and preserved the shared

@@ -1,6 +1,48 @@
 # BUGS.md
 
+### Retired game drawer remained as dead UI/test code — fixed (2026-08-06)
+
+Gameplay already hid the drawer, but still constructed its controls and a
+number of browser tests read its hidden text or used its End-game button for
+fixture cleanup. The drawer construction and styling are now deleted. Browser
+proof reads the real game shell/canvas state, while fixtures use the
+creator-authorized API to end only their own public game.
+
+### Administrator browser proof depended on an earlier user's game — fixed (2026-08-06)
+
+The admin journey searched for `Mira`, making its result dependent on a
+previous test's retained game. It now creates `AdminProbe` and inspects that
+exact game ID from a separate admin browser session.
+
 ## Known Bugs
+
+### Held-input acknowledgements visibly reset local prediction — fixed (2026-08-05)
+
+The 100 ms held-state heartbeat advanced the server acknowledgement and the
+browser reconciled on every such acknowledgement, repeatedly discarding local
+movement prediction. It now reconciles only after an immediately predicted
+input edge is acknowledged, or for required baseline/lifecycle changes. A real
+browser test proves the heartbeats are sent without repeated resets.
+
+### Shrink recovery could kill small form without a new enemy contact — fixed (2026-08-05)
+
+The enemy that caused an enlarged player's shrink was forcefully re-armed when
+the blink timer ended, treating the original contact as another hit. Its damage
+debounce now persists until overlap genuinely breaks; the pure simulation test
+requires a separate re-contact before small form is defeated.
+
+### One player could retain multiple game WebSockets — fixed (2026-08-05)
+
+The service held a set of sockets per player, allowing a refresh or second page
+to duplicate input heartbeats and snapshot delivery. A newer connection now
+closes and replaces its predecessor; browser coverage verifies close code 4001.
+
+### A player joining a live game could remain on the hidden waiting shell — fixed (2026-08-05)
+
+Join previously broadcast only lobby metadata, leaving the new socket to await
+a later delta with an unavailable baseline. Join now broadcasts an immediate
+authoritative keyframe after the slot change; the two-player browser journey
+requires the joined canvas to become visible in the playing phase.
 
 ### Revived client could keep painting its defeated prediction — fixed (2026-08-05)
 
