@@ -2,6 +2,10 @@
 
 ## Current State
 
+**Manual-server lifecycle rechecked (2026-08-05).** The local server was
+restarted from an empty ephemeral state after a stale process was found on port 8080. The real browser journey now proves that Leave game is actionable, takes
+the guest back to the lobby, and releases that player's sole game membership.
+
 **Fresh four-player completion recording is restored (2026-08-05).** The old
 physical-key World 1-1 trace contained an unrecorded controller rollback, so
 it could never be replayed as one continuous real browser run. It is replaced

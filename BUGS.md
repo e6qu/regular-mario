@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Local server could retain a stale ephemeral game between manual starts — fixed (2026-08-05)
+
+The process listening on port 8080 predated the requested manual start and
+still held a `Guest` game in memory. A new browser therefore resumed that
+server's old membership. The stale process was stopped and the fresh server
+has no inherited games/sessions. Browser QA now clicks the actual `Leave game`
+control and asserts that the guest returns to the lobby with the creator's game
+reduced to one member.
+
 ### World 1-1 physical recording trace contained a hidden rollback — fixed (2026-08-05)
 
 The old trace was emitted by a completion controller that restored a checkpoint

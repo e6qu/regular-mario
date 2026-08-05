@@ -6,6 +6,10 @@ There is no remaining approved implementation task for this milestone. The
 items below are preserved constraints and historical verification notes for
 future maintenance, not an instruction to add a second implementation.
 
+Manual local starts must use an empty process. If a browser unexpectedly
+resumes a game, inspect `/api/admin/debug`; only restart the confirmed local
+server process, since games and sessions are deliberately ephemeral.
+
 ### Fresh four-player recording proof (2026-08-05)
 
 - Preserve the checked-in compressed World 1-1 trace as a continuous,

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { enterMultiplayerLobby } from "./support";
+import { enterMultiplayerLobby, findGameIdByCreatorNickname } from "./support";
 
 const injectedSnapshotDelayMilliseconds = Number(
   process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"] ?? "0",
@@ -43,6 +43,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await saveProfile(creator, "Mira");
   await creator.getByLabel("Bundled level").selectOption("smb-1-1");
   await creator.getByRole("button", { name: "Create game" }).click();
+  const gameId = await findGameIdByCreatorNickname(creator, "Mira");
   // Creation is also entry. The creator must never be left in the lobby with
   // impossible Create/Join actions after claiming their only game slot.
   await expect(creator.getByLabel("Game room")).toBeVisible();
@@ -120,7 +121,25 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
       .locator(".multiplayer-play-controls-only")
       .getByRole("log", { name: "Game chat" }),
   ).toContainText("Ren: hello from Ren");
-  await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();
+  // The control must be actionable, not merely present. A guest leaving a
+  // playing game returns to the lobby and frees their only active-game slot.
+  await guestControls.getByRole("button", { name: "Leave game" }).click();
+  await expect(
+    guest.getByRole("heading", { name: "Trusted friends lobby" }),
+  ).toBeVisible();
+  await expect(
+    guest.getByRole("button", { name: "Create game" }),
+  ).toBeVisible();
+  const afterGuestLeave = await creator.request.get(
+    `/api/games/${gameId}/snapshot`,
+    {
+      headers: { "x-multiplayer-protocol-version": "1" },
+    },
+  );
+  expect(
+    ((await afterGuestLeave.json()) as { readonly players: readonly unknown[] })
+      .players,
+  ).toHaveLength(1);
   await creator.screenshot({ path: "test-results/multiplayer-desktop.png" });
   await creatorContext.close();
   await guestContext.close();

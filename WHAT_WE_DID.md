@@ -5,6 +5,14 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — verified Leave game in the live browser journey
+
+- Identified a stale local server process as the source of an inherited Guest
+  game after a manual start request; restarted it cleanly with no games.
+- Strengthened the production browser journey so a guest actually leaves a
+  running game, returns to the lobby, regains Create game, and leaves one
+  authoritative member in the creator's game.
+
 ## 2026-08-05 — repaired the real four-player World 1-1 recording evidence
 
 - Found that the prior trace had a controller checkpoint rollback hidden inside
