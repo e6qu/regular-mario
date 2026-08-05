@@ -12,6 +12,7 @@ import {
   makeInitialSimulationState,
   makeInitialSimulationStateWithPlayerVitality,
   maxSimulationPlayers,
+  reviveSimulationPlayerAt,
   type SimulationState,
 } from "./simulation-state";
 import { stepSimulation } from "./step-simulation";
@@ -97,6 +98,28 @@ describe("simulation players array", () => {
     const joined = appendSimulationPlayerAt(base, spawnPosition);
     expect(joined.players).toHaveLength(3);
     expect(joined.players[2]!.player.position).toEqual(spawnPosition);
+  });
+
+  it("revives a retained slot at an authoritative checkpoint without resetting the world", () => {
+    const base = twoPlayerState();
+    const checkpoint = {
+      x: requireSimulationPixelPosition(192, "checkpoint.x"),
+      y: requireSimulationPixelPosition(64, "checkpoint.y"),
+    };
+    const defeated = {
+      ...base,
+      players: [
+        base.players[0],
+        {
+          ...base.players[1]!,
+          outcome: { kind: "defeated", reason: "pit-contact" },
+        },
+      ] as SimulationState["players"],
+    };
+    const revived = reviveSimulationPlayerAt(defeated, 1, checkpoint);
+    expect(revived.players[0]).toBe(defeated.players[0]);
+    expect(revived.players[1]!.player.position).toEqual(checkpoint);
+    expect(revived.players[1]!.outcome).toEqual({ kind: "active" });
   });
 
   it("seeds additional co-op players beside the primary from the player count", () => {

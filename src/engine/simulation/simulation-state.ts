@@ -176,6 +176,32 @@ export function removeSimulationPlayerAt(
   };
 }
 
+/** Restore a retained co-op slot without rewinding the shared world. */
+export function reviveSimulationPlayerAt(
+  state: SimulationState,
+  playerIndex: number,
+  spawnPosition: PlayerSimulationState["position"],
+): SimulationState {
+  if (!Number.isInteger(playerIndex) || playerIndex < 0) {
+    throw new Error("Simulation player index must be a non-negative integer.");
+  }
+  if (playerIndex >= state.players.length) {
+    throw new Error("Simulation player index is outside the player list.");
+  }
+  const resetPlayer: PlayerSimulationState = {
+    ...makeInitialPlayerSimulationState(),
+    position: spawnPosition,
+  };
+  const players = state.players.map((runtime, index) =>
+    index === playerIndex ? makeCoopPlayerRuntime(resetPlayer) : runtime,
+  );
+  const firstPlayer = players[0];
+  if (firstPlayer === undefined) {
+    throw new Error("Simulation must retain at least one player.");
+  }
+  return { ...state, players: [firstPlayer, ...players.slice(1)] };
+}
+
 // Build a runtime for an additional co-op player from its kinematics. Co-op
 // players currently carry only kinematics; their vitality/outcome/reaction are
 // neutral (they use only the shared movement + the death/goal rules so far).

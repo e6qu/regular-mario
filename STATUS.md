@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Player-initiated revive and pause are available (2026-08-05).** A defeated
+member can request a server-authoritative revive at the party's furthest active
+position; any game member can pause. The browser exposes revive only to a live
+spectator and supplies a usable multiline in-game chat composer.
+
 **Standalone multiplayer build-path mismatch fixed (2026-08-05).** The
 ordinary production build now enables static release content, just like the
 standalone server build. A routine build can no longer replace the client with

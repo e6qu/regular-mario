@@ -43,8 +43,10 @@ its local player.
   or original avatar at any time, including while in the lobby.
 - Any player completing the selected level completes the game for everybody.
   A dead player remains connected as a spectator and sees the surviving
-  players until completion. Completing, creator-ending, or everybody leaving
-  ends the game and returns participants to the lobby.
+  players until completion. A spectator may revive at the furthest party
+  checkpoint reached by an active player, without rewinding the shared world.
+  Any current member may pause a live game. Completing or creator-ending ends
+  the game; when everybody leaves, it must remain resumable and pause itself.
 - Games, chats, queues, and sessions are deliberately ephemeral: a service
   restart ends active games and clears them. This avoids a database and
   recovery rules in the first trusted-friends release.
@@ -185,6 +187,22 @@ goal tile, frame-clock reset, detached-canvas boot, camera, and canvas-teardown
 defects rather than treating the first transition as sufficient proof.
 
 ### Required completion phase: latency-safe state transport and rendered reconciliation
+
+### Multiplayer lifecycle and co-op acceptance extension (2026-08-05)
+
+- Add real browser journeys for: death → spectator → party-checkpoint revive;
+  leaving and rejoining a live game; the last player leaving an active game
+  (game persists and pauses); any member pausing/resuming; and both players
+  observing each other's movement under normal and injected-delay transport.
+- Retain server authority for collectible acquisition, power-up state and
+  deterministic power-up movement, enemy state and movement, collisions, and
+  score/outcome. Browser presentation alone owns animation phase, particles,
+  death effects, and locally derived sound. Regression tests must prove that
+  client effects cannot alter the authoritative state.
+- Treat visible remote-player correction as a gameplay regression: measure
+  player-to-player motion and correction distance, not merely snapshot arrival
+  or animation-frame cadence. The existing remote interpolation must reconcile
+  each client from the same ordered authoritative state.
 
 **Shared-level implementation correction (2026-08-05):** multiplayer no
 longer owns a parallel course catalogue. `publicOriginalLevels` is the single

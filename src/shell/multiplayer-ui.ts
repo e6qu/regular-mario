@@ -102,11 +102,11 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-room__status { margin: 0 0 20px; font-weight: 800; }
     .multiplayer-game-room__actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
     .multiplayer-game-room__actions button { margin: 0; }
-    .multiplayer-game-room__chat { margin: 18px 0 0; padding-top: 16px; border-top: 3px solid #172033; }
+    .multiplayer-game-room__chat { margin: 18px 0 0; padding: 14px; border: 3px solid #172033; background: #eaf0f7; }
     .multiplayer-game-room__chat h2 { margin: 0 0 8px; font-size: 1.05rem; }
-    .multiplayer-game-room__chat [role=log] { min-height: 2.5em; max-height: 9em; overflow: auto; white-space: pre-wrap; }
+    .multiplayer-game-room__chat [role=log] { min-height: 7em; max-height: 30vh; overflow-y: auto; white-space: pre-wrap; padding: 10px; border: 2px solid #172033; background: #fffef6; line-height: 1.45; }
     .multiplayer-game-room__chat-row { display: flex; gap: 8px; align-items: center; }
-    .multiplayer-game-room__chat-row input { flex: 1; min-width: 0; }
+    .multiplayer-game-room__chat-row textarea { flex: 1; min-width: 0; min-height: 2.8em; resize: vertical; font: inherit; }
     .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-room-only { display: none; }
     .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-play-controls-only { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
@@ -467,22 +467,35 @@ function renderGame(
     log.setAttribute("aria-label", "Game chat");
     log.textContent = "No messages yet.";
     chatLogs.push(log);
-    const input = document.createElement("input");
+    const input = document.createElement("textarea");
     input.maxLength = 256;
+    input.rows = 2;
+    input.placeholder = "Write a message…";
     input.setAttribute("aria-label", inputLabel);
-    const row = document.createElement("div");
+    const row = document.createElement("form");
     row.className = "multiplayer-game-room__chat-row";
-    row.append(
-      input,
-      makeButton("Send game chat", async () => {
-        await requestJson(`/games/${gameId}/chat`, {
-          method: "POST",
-          body: JSON.stringify({ text: input.value }),
-        });
-        input.value = "";
-        await refreshGameChat();
-      }),
-    );
+    const send = async (): Promise<void> => {
+      if (input.value.trim().length === 0) {
+        return;
+      }
+      await requestJson(`/games/${gameId}/chat`, {
+        method: "POST",
+        body: JSON.stringify({ text: input.value }),
+      });
+      input.value = "";
+      await refreshGameChat();
+    };
+    row.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void send();
+    });
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        void send();
+      }
+    });
+    row.append(input, makeButton("Send game chat", send));
     chat.append(heading, log, row);
     return chat;
   };
@@ -506,6 +519,14 @@ function renderGame(
       await requestJson("/game/leave", { method: "POST" });
       disposeView();
       await renderLobby(mount, userAssetBundle);
+    });
+  const revive = (): HTMLButtonElement =>
+    makeButton("Revive at party checkpoint", async () => {
+      await requestJson(`/game/revive`, { method: "POST" });
+    });
+  const pause = (): HTMLButtonElement =>
+    makeButton("Pause game", async () => {
+      await requestJson(`/game/pause`, { method: "POST" });
     });
   const endGame = (): HTMLButtonElement =>
     makeButton("End game", async () => {
@@ -542,11 +563,15 @@ function renderGame(
   const playStatus = document.createElement("p");
   const playHint = document.createElement("p");
   playHint.textContent = "Press M during play to close these controls.";
+  const reviveButton = revive();
+  const pauseButton = pause();
   playControls.append(
     playControlsTitle,
     playStatus,
     playHint,
     makeChat("Game chat message"),
+    reviveButton,
+    pauseButton,
     leaveGame(),
   );
   if (creatorPlayerId === profile.playerId) {
@@ -846,8 +871,14 @@ function renderGame(
       // the authoritative runner places that new active player in the party's
       // current screen.
       setControlsOpen(true);
-      playStatus.textContent = "spectating · leave to rejoin the party";
+      playStatus.textContent =
+        "spectating · revive at the party checkpoint or leave";
     }
+    reviveButton.toggleAttribute(
+      "hidden",
+      !(local?.spectator === true && snapshot.phase === "playing"),
+    );
+    pauseButton.toggleAttribute("hidden", snapshot.phase !== "playing");
     gameShell.setAttribute("data-game-phase", snapshot.phase);
     if (snapshot.phase !== lastPresentedPhase) {
       setControlsOpen(snapshot.phase !== "playing");

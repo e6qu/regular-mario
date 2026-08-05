@@ -8,6 +8,7 @@ import {
 import {
   appendSimulationPlayerAt,
   removeSimulationPlayerAt,
+  reviveSimulationPlayerAt,
   type SimulationState,
 } from "../engine/simulation/simulation-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
@@ -86,7 +87,9 @@ export type AuthoritativeGameRunner = {
   updateProfile(player: MultiplayerPlayerProfile): AuthoritativeGameSnapshot;
   start(requestedBy: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   pause(): AuthoritativeGameSnapshot;
+  pauseByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   resume(): AuthoritativeGameSnapshot;
+  revive(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   submitInput(
     input: QueuedSimulationInput,
     nowMilliseconds: number,
@@ -127,6 +130,9 @@ export function makeAuthoritativeGameRunner(
   let phase = MultiplayerGamePhase.Waiting;
   let cameraLeftPixels = 0;
   let snapshotSequence = 0;
+  // This is a party checkpoint, not a rendered camera target: it advances
+  // only from an active member, and a revive never rewinds the shared world.
+  let partyCheckpoint = config.initialState.players[0].player.position;
   let players: AuthoritativePlayer[] = [{ ...config.creator, slot: 0 }];
   const commandByPlayerId = new Map<
     MultiplayerPlayerId,
@@ -161,6 +167,9 @@ export function makeAuthoritativeGameRunner(
       >((leading, runtime) => (leading === undefined || runtime.player.position.x > leading.player.position.x ? runtime : leading), undefined);
     if (cameraTarget === undefined) {
       return;
+    }
+    if (cameraTarget.player.position.x > partyCheckpoint.x) {
+      partyCheckpoint = cameraTarget.player.position;
     }
     cameraLeftPixels = Math.max(
       0,
@@ -309,11 +318,33 @@ export function makeAuthoritativeGameRunner(
       phase = MultiplayerGamePhase.Paused;
       return makeSnapshot();
     },
+    pauseByPlayer(playerId) {
+      requirePlayer(playerId);
+      return this.pause();
+    },
     resume() {
       if (phase !== MultiplayerGamePhase.Paused) {
         throw new Error("Only paused games can be resumed.");
       }
       phase = MultiplayerGamePhase.Playing;
+      return makeSnapshot();
+    },
+    revive(playerId) {
+      const player = requirePlayer(playerId);
+      if (phase !== MultiplayerGamePhase.Playing) {
+        throw new Error("Only playing games can revive a player.");
+      }
+      const runtime = state.players[player.slot];
+      if (runtime === undefined) {
+        throw new Error(
+          "Player slot is missing from authoritative simulation.",
+        );
+      }
+      if (runtime.outcome.kind !== PlayerOutcomeKind.Defeated) {
+        throw new Error("Only defeated players can revive.");
+      }
+      state = reviveSimulationPlayerAt(state, player.slot, partyCheckpoint);
+      commandByPlayerId.set(playerId, neutralCommand);
       return makeSnapshot();
     },
     submitInput(input, nowMilliseconds) {

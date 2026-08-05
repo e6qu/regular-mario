@@ -21,7 +21,9 @@ arrivals, and remote state application must not force a display-list-wide depth
 sort per 20 Hz receipt.
 
 Keep defeat recovery explicit: a spectator must be able to open game controls,
-leave, and join the still-running party as a fresh active current-screen spawn.
+revive at the server-owned party checkpoint, leave, and join the still-running
+party as a fresh active current-screen spawn. Complete the remaining all-left
+paused-game persistence and remote-player visible-desync browser journeys.
 
 Keep complete predicted simulation presentation on the browser frame loop:
 rendering only the predicted local player while waiting for 20 Hz authoritative

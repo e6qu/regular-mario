@@ -2,6 +2,22 @@
 
 ## Known Bugs
 
+### Empty active games are still removed instead of paused — open (2026-08-05)
+
+The final-member leave path currently removes the in-memory game because the
+simulation requires at least one runtime slot. The product behavior now
+requires the game to persist in a paused, resumable state after everybody
+leaves. This needs explicit dormant-game membership state and an end-to-end
+browser journey; it must not be disguised as an active player or a renderer
+fallback.
+
+### Remote co-op movement still visibly desynchronizes — open (2026-08-05)
+
+The browser currently predicts a complete local world and interpolates remote
+positions from 20 Hz receipts, but no journey yet bounds the perceived remote
+correction distance. Add an observable two-browser motion test and fix the
+reconciliation/presentation boundary from its measurements.
+
 ### Standalone multiplayer could load development-only asset URLs — fixed (2026-08-05)
 
 A plain production build did not set `VITE_STATIC_CONTENT`, so it could replace

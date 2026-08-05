@@ -5,6 +5,19 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — added server-authoritative revive, pause, and usable game chat
+
+- Added a core retained-slot revival operation: it resets only the defeated
+  player's runtime at the furthest active party position while preserving the
+  shared world. The server exposes it as a player action and sends an ordered
+  keyframe to every connected client.
+- Added a game-member pause endpoint; it is not restricted to the creator or
+  admin. In-game chat is now a readable scrollable log and multiline composer;
+  Enter sends and Shift+Enter creates a newline.
+- Passed focused core tests, type checking, and the real three-browser
+  multiplayer journey. The all-left game persistence and measurable remote
+  desync journeys remain explicitly open rather than claimed complete.
+
 ## 2026-08-05 — fixed standalone multiplayer content loading
 
 - Found the actual browser request behind `not found (HTTP 400)`: a normal

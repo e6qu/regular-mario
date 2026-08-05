@@ -633,6 +633,26 @@ export function makeMultiplayerHttpServer(
         broadcast({ type: "games-changed" });
         return;
       }
+      if (request.method === "POST" && url.pathname === "/api/game/revive") {
+        const revivedAtMilliseconds = now();
+        const snapshot = service.revivePlayer(
+          playerToken,
+          revivedAtMilliseconds,
+        );
+        broadcastTransportState([snapshot], revivedAtMilliseconds, true);
+        json(response, 200, snapshot);
+        return;
+      }
+      if (request.method === "POST" && url.pathname === "/api/game/pause") {
+        const pausedAtMilliseconds = now();
+        const snapshot = service.pauseGameByPlayer(
+          playerToken,
+          pausedAtMilliseconds,
+        );
+        broadcastTransportState([snapshot], pausedAtMilliseconds, true);
+        json(response, 200, snapshot);
+        return;
+      }
       const adminMatch =
         /^\/api\/admin\/games\/([a-z][a-z0-9-]*)\/(pause|resume|step|input|screenshot)$/.exec(
           url.pathname,
