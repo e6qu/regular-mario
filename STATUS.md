@@ -19,6 +19,11 @@ anchor; every visible primary or co-op player now requires authored image art.
 Production local/server raw-pixel parity and real two-player journey checks
 pass after the removal.
 
+**Release raster-coverage boundary tightened (2026-08-05).** Visible
+Empty-collision scenery now requires an explicit raster tile entry in the
+release manifest. Only transparent sky, invisible goal triggers, and hidden
+until-revealed blocks are exempt; the coverage unit test passes.
+
 **Authoritative party-camera correction (2026-08-05).** The shared camera now
 follows the leading active player rather than treating the creator's slot as
 privileged. This fixes a genuine four-browser capture defect where an idle

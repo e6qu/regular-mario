@@ -14,6 +14,12 @@ committed — only numeric metadata, code, docs, and scripts.
 - Re-ran the production two-player journey plus exact local/server and
   two-client raw-pixel parity checks after the removal.
 
+## 2026-08-05 — tightened release raster coverage
+
+- Changed release sprite validation so visible decorative Empty-collision tiles
+  cannot silently use the procedural scenery path. The only tile exemptions
+  are intentionally invisible cells.
+
 ## 2026-08-05 — completed the real four-player World 1-1 recording
 
 - Replaced the fragile relative-delay course driver with a checked-in,
