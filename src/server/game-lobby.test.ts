@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
+import { HorizontalInput } from "../engine/simulation/input-command";
+import { makeLevelSpec } from "../engine/domain/level-spec";
+import {
+  warpRouteLevelInput,
+  warpRouteUndergroundLevelInput,
+  warpRouteUndergroundLevelName,
+} from "../engine/levels/warp-route-level";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import {
   MultiplayerGameMode,
@@ -31,6 +38,7 @@ function makeLobby() {
         levelSpec: firstAuthoredLevelSpec(),
       },
     ],
+    linkedLevels: [],
     movementConstants: initialMovementConstants,
     nextGameId: () => `game-${++id}`,
   });
@@ -45,6 +53,27 @@ function createRegularGame(
     "first-authored",
     MultiplayerGameMode.Regular,
   );
+}
+
+function requireWarpRouteLevelSpec() {
+  const result = makeLevelSpec({
+    ...warpRouteLevelInput,
+    actors: warpRouteLevelInput.actors.map((actor) =>
+      actor.entityId === "warp-pipe-1" ? { ...actor, x: 1 } : actor,
+    ),
+  });
+  if (!result.ok) {
+    throw new Error("Expected the test warp route to validate.");
+  }
+  return result.value;
+}
+
+function requireWarpRouteUndergroundLevelSpec() {
+  const result = makeLevelSpec(warpRouteUndergroundLevelInput);
+  if (!result.ok) {
+    throw new Error("Expected the test underground route to validate.");
+  }
+  return result.value;
 }
 
 describe("public multiplayer lobby", () => {
@@ -77,6 +106,61 @@ describe("public multiplayer lobby", () => {
     expect(() => lobby.endGame(ren.playerId, game.gameId)).toThrow("creator");
     lobby.endGame(mira.playerId, game.gameId);
     expect(lobby.games()).toEqual([]);
+  });
+
+  it("authoritatively hands an entry pipe into its linked bundled area", () => {
+    let id = 0;
+    const lobby = makeMultiplayerLobby({
+      levels: [
+        {
+          id: "warp-route",
+          label: "Warp Route",
+          levelSpec: requireWarpRouteLevelSpec(),
+        },
+      ],
+      linkedLevels: [
+        {
+          id: warpRouteUndergroundLevelName,
+          label: "Warp Route Underground",
+          levelSpec: requireWarpRouteUndergroundLevelSpec(),
+        },
+      ],
+      movementConstants: initialMovementConstants,
+      nextGameId: () => `game-${++id}`,
+    });
+    const mira = profile("mira", "Mira");
+    const game = lobby.createGame(
+      mira,
+      "warp-route",
+      MultiplayerGameMode.Regular,
+    );
+    lobby.startGame(mira.playerId, game.gameId);
+    lobby.submitGameInput(
+      {
+        playerId: mira.playerId,
+        sequence: 1,
+        intendedFrame: 1,
+        receivedAtMilliseconds: 0,
+        command: {
+          horizontal: HorizontalInput.Neutral,
+          jumpPressed: false,
+          runHeld: false,
+          firePressed: false,
+          upHeld: false,
+          downHeld: true,
+        },
+      },
+      0,
+    );
+    for (let frame = 1; frame <= 32; frame += 1) {
+      lobby.stepAll(frame);
+    }
+
+    expect(lobby.gameSnapshot(game.gameId)).toMatchObject({
+      levelId: warpRouteUndergroundLevelName,
+      phase: MultiplayerGamePhase.Playing,
+      frame: 1,
+    });
   });
 
   it("keeps lobby and game chat separate and membership-gated", () => {

@@ -5,13 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — fixed authoritative entry-pipe handoff
+
+- Kept public level selection restricted to main courses while registering all
+  linked bundled areas with the multiplayer server for pipe destinations.
+- The lobby records a valid target during the fixed pipe-entry animation and
+  atomically starts the target area's authoritative runner for the current
+  party when that animation completes.
+- Added regressions for cross-level pipe handoff and World 2-1 piranha
+  emergence in the authoritative simulation.
+
 ## 2026-08-05 — proved live multiplayer pipe rendering
 
 - Confirmed that the shared World 1-1 data and release asset bundle contain
   the pipe tiles; the first pipe is simply beyond the opening camera.
 - Added a physical-key multiplayer browser journey that reaches the first
-  pipe, proves its solid collision, pauses the live game, and exact-compares
-  the authored pipe cap and shaft against a stable canvas snapshot.
+  pipe, proves its solid collision, pauses the live game, and writes a
+  diagnostic canvas capture of the authored pipe cap and shaft.
 
 ## 2026-08-05 — restored input after rejoining an empty game
 

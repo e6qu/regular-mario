@@ -184,6 +184,7 @@ export type MultiplayerService = {
 export type MakeMultiplayerServiceConfig = {
   readonly session: MakeSessionStoreConfig;
   readonly levels: readonly ServerLevelOption[];
+  readonly linkedLevels: readonly ServerLevelOption[];
   readonly movementConstants: MovementConstants;
   readonly nextGameId: () => string;
 };
@@ -204,6 +205,7 @@ export function makeMultiplayerService(
   const sessions: SessionStore = makeSessionStore(config.session);
   const lobby: MultiplayerLobby = makeMultiplayerLobby({
     levels: config.levels,
+    linkedLevels: config.linkedLevels,
     movementConstants: config.movementConstants,
     nextGameId: config.nextGameId,
   } satisfies MakeMultiplayerLobbyConfig);

@@ -943,9 +943,8 @@ export function makeProductionServiceConfig(
       readonly importMetadataSource: { readonly url: string };
     }[];
   };
-  const levels: readonly ServerLevelOption[] = manifest.levels
-    .filter((entry) => /^smb-\d-\d$/.test(entry.name))
-    .map((entry) => {
+  const bundledLevels: readonly ServerLevelOption[] = manifest.levels.map(
+    (entry) => {
       const input = parseVglcSmbMultiLayerLevel(
         readFileSync(resolve(bundleDirectory, entry.source.url), "utf8"),
         JSON.parse(
@@ -971,7 +970,9 @@ export function makeProductionServiceConfig(
         label: entry.name.replace("smb-", "World "),
         levelSpec: spec.value,
       };
-    });
+    },
+  );
+  const levels = bundledLevels.filter((level) => /^smb-\d-\d$/.test(level.id));
   if (levels.length === 0) {
     throw new Error(
       "Release content bundle contains no selectable multiplayer levels.",
@@ -981,6 +982,9 @@ export function makeProductionServiceConfig(
   return {
     session: { serverPassword, adminPassword, signingSecret },
     levels,
+    linkedLevels: bundledLevels.filter(
+      (level) => !/^smb-\d-\d$/.test(level.id),
+    ),
     movementConstants: initialMovementConstants,
     nextGameId: () => `game-${++gameNumber}`,
   };

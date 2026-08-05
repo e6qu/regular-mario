@@ -49,6 +49,11 @@ its local player.
   the game; when everybody leaves, it must remain resumable and pause itself.
   The first later member to join automatically resumes that empty-party pause;
   a deliberate member pause remains paused until a member toggles it with P.
+- A valid entry pipe is resolved by the authoritative game after its fixed
+  entry animation. The server switches the whole party into the pipe's linked
+  bundled area; internal warp areas are available to the runner but are not
+  selectable from the public lobby. Piranha movement is server-simulated and
+  client-rendered from the synchronized actor state.
 - Games, chats, queues, and sessions are deliberately ephemeral: a service
   restart ends active games and clears them. This avoids a database and
   recovery rules in the first trusted-friends release.

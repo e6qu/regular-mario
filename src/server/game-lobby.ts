@@ -2,6 +2,7 @@ import type { LevelSpec } from "../engine/domain/level-spec";
 import type { MovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
+import { PipeEntryPhase } from "../engine/simulation/pipe-state";
 import {
   requireMultiplayerGameId,
   type MultiplayerGameId,
@@ -15,6 +16,7 @@ import {
   type AuthoritativeGameSnapshot,
   type MultiplayerPlayerProfile,
 } from "../multiplayer/game-runner";
+import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import type { QueuedSimulationInput } from "../multiplayer/input-queue";
 import {
   makeEphemeralChatRoom,
@@ -44,6 +46,7 @@ type HostedGame = {
   levelId: string;
   runner: AuthoritativeGameRunner;
   readonly chat: EphemeralChatRoom;
+  pendingWarpTargetLevelId: string | undefined;
 };
 
 export type MultiplayerLobby = {
@@ -97,6 +100,8 @@ export type MultiplayerLobby = {
 
 export type MakeMultiplayerLobbyConfig = {
   readonly levels: readonly ServerLevelOption[];
+  /** Non-selectable bundled areas that an entry pipe may target. */
+  readonly linkedLevels: readonly ServerLevelOption[];
   readonly movementConstants: MovementConstants;
   readonly nextGameId: () => string;
 };
@@ -108,6 +113,12 @@ export function makeMultiplayerLobby(
     throw new Error("Multiplayer lobby requires at least one bundled level.");
   }
   const levelById = new Map(config.levels.map((level) => [level.id, level]));
+  for (const linkedLevel of config.linkedLevels) {
+    if (levelById.has(linkedLevel.id)) {
+      throw new Error(`Bundled level ${linkedLevel.id} was registered twice.`);
+    }
+    levelById.set(linkedLevel.id, linkedLevel);
+  }
   const gamesById = new Map<MultiplayerGameId, HostedGame>();
   const gameIdByPlayerId = new Map<MultiplayerPlayerId, MultiplayerGameId>();
   const lobbyChat = makeEphemeralChatRoom();
@@ -212,6 +223,53 @@ export function makeMultiplayerLobby(
     return game.runner.snapshot();
   }
 
+  function advancePipeWarp(
+    gameId: MultiplayerGameId,
+    game: HostedGame,
+    snapshot: AuthoritativeGameSnapshot,
+  ): AuthoritativeGameSnapshot | undefined {
+    const state = decodeMultiplayerSimulationState(snapshot.simulationState);
+    if (
+      state.pipeEntry.phase === PipeEntryPhase.Entering &&
+      state.pipeEntry.targetLevelName !== undefined
+    ) {
+      if (!levelById.has(state.pipeEntry.targetLevelName)) {
+        throw new Error(
+          `Entry pipe targets unavailable bundled level ${state.pipeEntry.targetLevelName}.`,
+        );
+      }
+      game.pendingWarpTargetLevelId = state.pipeEntry.targetLevelName;
+      return undefined;
+    }
+    const targetLevelId = game.pendingWarpTargetLevelId;
+    if (
+      targetLevelId === undefined ||
+      state.pipeEntry.phase !== PipeEntryPhase.None
+    ) {
+      return undefined;
+    }
+    const members = snapshot.players.map((player) => ({
+      playerId: player.playerId,
+      nickname: player.nickname,
+      avatarId: player.avatarId,
+    }));
+    const firstMember = members[0];
+    if (firstMember === undefined) {
+      throw new Error("A running entry pipe cannot warp an empty party.");
+    }
+    game.levelId = targetLevelId;
+    game.runner = makeRunner(
+      gameId,
+      firstMember,
+      targetLevelId,
+      snapshot.mode,
+      members,
+    );
+    game.runner.start(firstMember.playerId);
+    game.pendingWarpTargetLevelId = undefined;
+    return game.runner.snapshot();
+  }
+
   return {
     createGame(creator, levelId, mode) {
       assertPlayerHasNoOtherGame(creator.playerId);
@@ -225,6 +283,7 @@ export function makeMultiplayerLobby(
         levelId,
         runner: makeRunner(gameId, creator, levelId, mode, [creator]),
         chat: makeEphemeralChatRoom(),
+        pendingWarpTargetLevelId: undefined,
       };
       gamesById.set(gameId, game);
       gameIdByPlayerId.set(creator.playerId, gameId);
@@ -322,6 +381,11 @@ export function makeMultiplayerLobby(
         if (game.runner.snapshot().phase === MultiplayerGamePhase.Playing) {
           const snapshot = game.runner.step(nowMilliseconds);
           snapshots.push(snapshot);
+          const warped = advancePipeWarp(gameId, game, snapshot);
+          if (warped !== undefined) {
+            snapshots[snapshots.length - 1] = warped;
+            continue;
+          }
           if (snapshot.phase === MultiplayerGamePhase.Finished) {
             const advanced = advanceCompletedGame(gameId, game);
             if (advanced === undefined) {

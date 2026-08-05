@@ -308,6 +308,64 @@ describe("authoritative multiplayer game runner", () => {
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
   });
 
+  it("advances an activated World 2-1 piranha plant on the authoritative server", () => {
+    const world21 = loadOfficialSmbPack().get("smb-2-1");
+    if (world21 === undefined) {
+      throw new Error("World 2-1 is missing from the bundled level pack.");
+    }
+    const initial = makeInitialSimulationState(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      world21.levelSpec,
+      initialMovementConstants,
+    );
+    if (!initial.ok) {
+      throw new Error("World 2-1 initial state is invalid.");
+    }
+    const plant = initial.value.enemyMotion.piranhaPlantActors[0];
+    if (plant === undefined) {
+      throw new Error("World 2-1 must contain a piranha plant.");
+    }
+    const activationPosition = requireSimulationPixelPosition(
+      Number(plant.position.x) - 220,
+      "test.world21.piranha.activation-position",
+    );
+    const runner = makeAuthoritativeGameRunner({
+      gameId: requireMultiplayerGameId("world21-piranha"),
+      levelId: "smb-2-1",
+      creator: profile("mira"),
+      mode: MultiplayerGameMode.Regular,
+      initialState: {
+        ...initial.value,
+        players: [
+          {
+            ...initial.value.players[0],
+            player: {
+              ...initial.value.players[0].player,
+              position: {
+                x: activationPosition,
+                y: initial.value.players[0].player.position.y,
+              },
+            },
+          },
+        ],
+      },
+      levelSpec: world21.levelSpec,
+      movementConstants: initialMovementConstants,
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+    let snapshot = runner.snapshot();
+    for (let frame = 1; frame <= 28; frame += 1) {
+      snapshot = runner.step(frame);
+    }
+    const advancedPlant = decodeMultiplayerSimulationState(
+      snapshot.simulationState,
+    ).enemyMotion.piranhaPlantActors.find(
+      (candidate) => candidate.entityId === plant.entityId,
+    );
+
+    expect(advancedPlant?.position.y).toBeLessThan(Number(plant.baseY));
+  });
+
   it("is bit-for-bit state-equivalent to a local two-player engine trace", () => {
     const traceLevelResult = makeLevelSpec(firstAuthoredLevelInput);
     if (!traceLevelResult.ok) {

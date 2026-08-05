@@ -39,6 +39,12 @@ the first World 1-1 pipe with physical key edges, confirms its collision, and
 compares the paused multiplayer canvas. Do not replace pipe geometry with a
 separate multiplayer-only representation.
 
+Keep cross-level entry-pipe handoff on the server. Public lobby selection is
+limited to main courses, but the service must retain every bundled linked area
+needed by pipe destinations. The entry animation is server-timed; a handoff
+must create the target area for the whole current party. Piranha motion stays
+authoritative actor state, while its animation is browser presentation.
+
 Keep the two render lanes distinct: ordered server receipts own persistent map
 tile commits, while the client prediction lane owns moving-world paint. A paused
 or finished receipt must block any stale queued prediction; two-client raw

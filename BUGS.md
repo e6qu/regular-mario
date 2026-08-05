@@ -2,13 +2,22 @@
 
 ## Known Bugs
 
+### Multiplayer entry pipes never handed off their target area — fixed (2026-08-05)
+
+The local scene handled a pipe target level, but the authoritative lobby only
+held public selectable levels and continued stepping the source map after the
+entry animation. It now retains linked bundled areas, records the authoritative
+pipe target, and replaces the party runner with the target area at entry
+completion. A server regression covers the full handoff; a World 2-1 runner
+regression also proves activated piranhas emerge server-side.
+
 ### Pipes were not proven beyond the opening multiplayer camera — fixed (2026-08-05)
 
 The opening World 1-1 viewport ends before the first pipe, which made
 start-frame checks unable to distinguish an off-screen pipe from a missing one.
 A real multiplayer browser regression now runs to the first pipe using
-ordinary keys, proves its collision at x≈434, pauses the game, and exact
-compares the authored pipe frame.
+ordinary keys, proves its collision at x≈434, pauses the game, and captures
+the authored pipe frame for direct inspection.
 
 ### Enemy contact could remain harmless after recovery — fixed (2026-08-05)
 

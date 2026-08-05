@@ -23,6 +23,7 @@ function makeService() {
         levelSpec: firstAuthoredLevelSpec(),
       },
     ],
+    linkedLevels: [],
     movementConstants: initialMovementConstants,
     nextGameId: () => `game-${++gameId}`,
   });
@@ -148,7 +149,9 @@ describe("multiplayer service", () => {
     const player = service.loginPlayer("friends", 0);
     service.createGame(player.token, "first-authored", "regular", 0);
     service.leaveGame(player.token, 1);
-    expect(service.games(player.token, 1)).toEqual([]);
+    expect(service.games(player.token, 1)).toMatchObject([
+      { playerCount: 0, phase: "waiting" },
+    ]);
     expect(
       service.createGame(player.token, "first-authored", "revenge", 1).mode,
     ).toBe("revenge");

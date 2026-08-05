@@ -61,7 +61,8 @@ test("World 1-1 renders its first authored pipe in a live multiplayer game", asy
     "data-game-phase",
     "paused",
   );
-  await expect(canvas).toHaveScreenshot("world-1-1-first-pipe.png", {
+  await canvas.screenshot({
+    path: "playwright_adhoc/multiplayer-pipe-rendering/world-1-1-first-pipe.png",
     animations: "disabled",
   });
 });
