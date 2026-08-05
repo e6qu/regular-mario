@@ -2,6 +2,12 @@
 
 ## Known Bugs
 
+### Primary reaction effects could substitute different art — fixed (2026-08-05)
+
+Explode could become a launch death and burn could display a tinted player crop
+if authored images were absent. These primary paths now require their exact
+reaction rasters; production journey and pixel-parity checks pass.
+
 ### Visible tiles could choose procedural scenery and pipe art — fixed (2026-08-05)
 
 The level tile renderer still supplied geometric scenery, collision tiles, and

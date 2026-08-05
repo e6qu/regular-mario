@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Primary reaction-art substitutes removed (2026-08-05).** The primary
+explode-to-launch and burned-husk-to-tinted-player fallbacks are gone; required
+authored reaction sprites render instead. Production build, multiplayer
+journey, and raw-pixel parity checks pass.
+
 **Procedural tile renderer removed (2026-08-05).** Every visible level tile,
 including scenery and pipes, now requires its authored release raster. The
 former procedural tile/scenery/pipe-mouth code is deleted. Release coverage,

@@ -5,6 +5,13 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — removed primary reaction-art substitutes
+
+- Made rescue, burn, explode body-parts, husk, and smoke use required authored
+  reaction images. Explosion no longer silently changes to a launch animation,
+  and a missing husk no longer draws a tinted player texture.
+- Production build, real multiplayer journey, and raw-pixel parity pass.
+
 ## 2026-08-05 — enforced raster-only tile rendering
 
 - Removed the procedural tile, scenery, and pipe-mouth renderers. All visible

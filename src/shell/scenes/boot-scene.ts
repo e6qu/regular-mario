@@ -2090,13 +2090,9 @@ export class BootScene extends Phaser.Scene {
     feetPixelY: number,
     finalCastle: boolean,
   ): void {
-    const friendAsset = finalCastle
-      ? this.userAssetBundle?.reactionImages.get("rescued-friend")
-      : (this.userAssetBundle?.reactionImages.get("freed-attendant") ??
-        this.userAssetBundle?.reactionImages.get("rescued-friend"));
-    if (friendAsset === undefined) {
-      return;
-    }
+    const friendAsset = this.requireReactionImage(
+      finalCastle ? "rescued-friend" : "freed-attendant",
+    );
     const image = addUserFrameImage(this, 0, 0, friendAsset);
     image
       .setOrigin(0.5, 1)
@@ -2119,18 +2115,13 @@ export class BootScene extends Phaser.Scene {
   // Castle-clear cinematic pacing: one plank chopped per interval, then the
   // boss falls and the rescue message shows.
 
-  // Builds a hidden image for an asset set's reaction sprite (e.g. the parody
-  // skin's "ouch" pose or squashed-enemy frame) when the bundle provides it, so
-  // the reaction renders as authored art instead of the fallback text overlay.
+  // Builds a hidden authored reaction image (e.g. an ouch pose or a squashed
+  // enemy frame). Release presentation has no geometric substitute path.
   private makeReactionImage(
     reactionId: string,
     originY: number,
-  ): Phaser.GameObjects.Image | undefined {
-    const imageAsset = this.userAssetBundle?.reactionImages.get(reactionId);
-    if (imageAsset === undefined) {
-      return undefined;
-    }
-
+  ): Phaser.GameObjects.Image {
+    const imageAsset = this.requireReactionImage(reactionId);
     const image = addUserFrameImage(this, 0, 0, imageAsset);
     image.setOrigin(0.5, originY).setDepth(51).setVisible(false);
     return image;
@@ -3015,10 +3006,7 @@ export class BootScene extends Phaser.Scene {
     if (!this.suppressDeathSounds) {
       this.gameAudio.playScream();
     }
-    const flameAsset = this.userAssetBundle?.reactionImages.get("burn-flame");
-    if (flameAsset === undefined) {
-      return;
-    }
+    const flameAsset = this.requireReactionImage("burn-flame");
     const width = this.simulationState.players[0].player.collider.width;
     const height = this.simulationState.players[0].player.collider.height;
     for (let index = 0; index < deathBurnFlameCount; index += 1) {
@@ -3039,15 +3027,8 @@ export class BootScene extends Phaser.Scene {
   // sprites — head, torso, two arms, two legs (severed parts, not crops of the
   // body). Each part is flung only slightly outward from the body centre, spins,
   // and then falls under gravity like a projectile. The head carries the X-ed
-  // eyes. Falls back to the launch arc only if the part sprites are unavailable.
+  // eyes. Every part is required authored art.
   private beginExplodeEffect(): void {
-    const partAsset = this.userAssetBundle?.reactionImages.get("part-torso");
-    if (partAsset === undefined) {
-      this.deathEffectStyle = "launch";
-      this.deathArcActive = true;
-      this.deathArcVelocityY = -deathArcPopSpeedPixels;
-      return;
-    }
     const width = this.simulationState.players[0].player.collider.width;
     const height = this.simulationState.players[0].player.collider.height;
     if (this.playerImageObject !== undefined) {
@@ -3083,10 +3064,7 @@ export class BootScene extends Phaser.Scene {
       { id: "part-leg", fx: 0.66, fy: 0.82, flip: false, fling: 1.8 },
     ];
     parts.forEach((part, index) => {
-      const asset = this.userAssetBundle?.reactionImages.get(part.id);
-      if (asset === undefined) {
-        return;
-      }
+      const asset = this.requireReactionImage(part.id);
       const partX = this.deathArcX + part.fx * width;
       const partY = this.deathArcY + part.fy * height;
       const eyes =
@@ -3528,14 +3506,12 @@ export class BootScene extends Phaser.Scene {
     }
     const width = this.simulationState.players[0].player.collider.width;
     const height = this.simulationState.players[0].player.collider.height;
-    const huskAsset = this.userAssetBundle?.reactionImages.get("burned-husk");
-    const image =
-      huskAsset !== undefined
-        ? addUserFrameImage(this, 0, 0, huskAsset).setDisplaySize(width, height)
-        : this.add
-            .image(0, 0, this.playerImageObject?.texture.key ?? "")
-            .setDisplaySize(width, height)
-            .setTint(0x161616);
+    const image = addUserFrameImage(
+      this,
+      0,
+      0,
+      this.requireReactionImage("burned-husk"),
+    ).setDisplaySize(width, height);
     image
       .setOrigin(0.5)
       .setPosition(this.deathArcX + width / 2, this.deathArcY + height / 2)
@@ -3574,10 +3550,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   private spawnSmokePuff(): void {
-    const smokeAsset = this.userAssetBundle?.reactionImages.get("smoke-puff");
-    if (smokeAsset === undefined) {
-      return;
-    }
+    const smokeAsset = this.requireReactionImage("smoke-puff");
     const image = addUserFrameImage(this, 0, 0, smokeAsset);
     const jitter = ((this.deathEffectFrame * 7) % 9) - 4;
     image
@@ -6305,6 +6278,16 @@ export class BootScene extends Phaser.Scene {
     if (image === undefined) {
       throw new Error(
         `The authored asset bundle is missing tile art for ${tileId}.`,
+      );
+    }
+    return image;
+  }
+
+  private requireReactionImage(reactionId: string): LoadedImageAsset {
+    const image = this.userAssetBundle?.reactionImages.get(reactionId);
+    if (image === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing reaction art for ${reactionId}.`,
       );
     }
     return image;
