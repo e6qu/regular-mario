@@ -28,6 +28,10 @@ tile commits, while the client prediction lane owns moving-world paint. A paused
 or finished receipt must block any stale queued prediction; two-client raw
 canvas parity asserts both the authoritative frame and camera were painted.
 
+Transient visuals must remain client-owned. The server may establish gameplay
+outcomes, but browser effect positions and durations must be derived locally
+from presented actors, never replay server reaction coordinates or countdowns.
+
 Server state remains authoritative, but camera is client presentation. Do not
 reintroduce direct 20 Hz server camera transforms; follow the locally predicted
 player with smoothing instead.

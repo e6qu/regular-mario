@@ -25,6 +25,13 @@ committed — only numeric metadata, code, docs, and scripts.
   actually rendered the paused authoritative frame, not merely received its
   WebSocket metadata.
 
+## 2026-08-05 — made stomp presentation client-owned
+
+- Kept the deterministic stomp outcome authoritative, but removed server
+  reaction coordinates and remaining-frame values from the painted effect.
+  Each browser now derives the effect position from its rendered actor and
+  advances an independent fixed-duration visual timeline.
+
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
 - Kept server simulation authoritative but moved viewport presentation to each

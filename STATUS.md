@@ -32,6 +32,12 @@ paused or finished receipt suppresses queued prediction so all clients paint
 the same canonical frame. Rebuilt browser journey, mirrored-input, local/server
 and two-client exact-pixel parity tests pass.
 
+**Stomp reaction presentation is client-owned (2026-08-05).** The simulation
+still proves whether an enemy was stomped, but the browser derives the effect
+from its locally presented defeated actor and starts a fresh local duration.
+Network-provided reaction coordinates and remaining-frame counters no longer
+control the visible pop.
+
 **Multiplayer presentation cadence corrected (2026-08-05).** Stomp/score
 effects now consume authoritative 60 Hz simulation-frame deltas rather than
 20 Hz WebSocket arrivals, and remote-state application no longer forces a

@@ -94,6 +94,7 @@ import {
   resolveSoundEvents,
   SoundEvent,
 } from "../../engine/simulation/sound-events";
+import { stompReactionFrames } from "../../engine/simulation/stomp-reaction";
 import { stepSimulation } from "../../engine/simulation/step-simulation";
 import {
   decodeMultiplayerSimulationState,
@@ -841,6 +842,15 @@ export class BootScene extends Phaser.Scene {
   }[] = [];
   private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
   private previousEnemyKillScore = 0;
+  // Network state proves a stomp happened; this visual state deliberately does
+  // not reuse its position or remaining-frame counter. Each browser starts
+  // and advances the pop locally, so delivery cadence cannot stretch it.
+  private clientStompReaction = {
+    active: false,
+    remainingFrames: 0,
+    x: 0,
+    y: 0,
+  };
   // The renderer may receive server state at 20 Hz while the deterministic
   // simulation advances at 60 Hz. Presentation effects are specified in
   // simulation frames, so retain the previously consumed frame and advance
@@ -4418,6 +4428,12 @@ export class BootScene extends Phaser.Scene {
     this.resetCoopBotState();
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
+    this.clientStompReaction = {
+      active: false,
+      remainingFrames: 0,
+      x: 0,
+      y: 0,
+    };
     this.previousRenderedSimulationFrame = undefined;
     this.flattenedEnemyTimers.clear();
     this.entityIdSetCache.clear();
@@ -5095,6 +5111,46 @@ export class BootScene extends Phaser.Scene {
     this.previousDefeatedEnemyIds = new Set(defeatedEnemyIds);
   }
 
+  private stepClientStompReaction(
+    defeatedEnemyIds: ReadonlySet<string>,
+    elapsedSimulationFrames: number,
+  ): void {
+    if (this.clientStompReaction.active) {
+      this.clientStompReaction.remainingFrames = Math.max(
+        0,
+        this.clientStompReaction.remainingFrames - elapsedSimulationFrames,
+      );
+      this.clientStompReaction.active =
+        this.clientStompReaction.remainingFrames > 0;
+    }
+    const newlyDefeated = [...defeatedEnemyIds].find(
+      (entityId) => !this.previousDefeatedEnemyIds.has(entityId),
+    );
+    // The simulation's reaction flag distinguishes a stomp from a projectile
+    // kill. Its short-lived coordinates/timer are never rendered directly;
+    // use the locally presented actor position and a fresh client timeline.
+    if (
+      newlyDefeated !== undefined &&
+      this.simulationState.enemyStompReaction.active
+    ) {
+      const actor = this.renderedActors.find(
+        (candidate) => candidate.entityId === newlyDefeated,
+      );
+      if (actor !== undefined) {
+        const position = makeRuntimeRenderedActorPixelPosition(
+          actor,
+          this.simulationState,
+        );
+        this.clientStompReaction = {
+          active: true,
+          remainingFrames: stompReactionFrames,
+          x: position.x,
+          y: position.y,
+        };
+      }
+    }
+  }
+
   // Return a cached string Set of the given entity-id array, rebuilding only
   // when its length changes. Safe because these arrays only ever grow (you
   // cannot un-collect a coin or un-defeat an enemy) or reset to empty on a
@@ -5325,18 +5381,6 @@ export class BootScene extends Phaser.Scene {
       .setVisible(headBonking);
     this.renderPlayerBloodiness();
 
-    const stompReaction = this.simulationState.enemyStompReaction;
-    const stompActive = this.exaggeratedReactions && stompReaction.active;
-    if (this.enemyStompReactionImage !== undefined) {
-      this.enemyStompReactionImage
-        .setPosition(stompReaction.x + 8, stompReaction.y + 8)
-        .setVisible(stompActive);
-      this.stompReactionBurst.setVisible(false);
-    } else {
-      this.stompReactionBurst
-        .setPosition(stompReaction.x + 8, stompReaction.y + 4)
-        .setVisible(stompActive);
-    }
     this.updateScoreHud(
       this.sessionScore(),
       this.simulationState.levelTimer.remainingFrames,
@@ -5432,6 +5476,28 @@ export class BootScene extends Phaser.Scene {
       actor.renderObject.setVisible(collectibleUncollected && enemyVisible);
     }
 
+    this.stepClientStompReaction(
+      defeatedEnemyEntityIdStrings,
+      elapsedSimulationFrames,
+    );
+    const stompActive =
+      this.exaggeratedReactions && this.clientStompReaction.active;
+    if (this.enemyStompReactionImage !== undefined) {
+      this.enemyStompReactionImage
+        .setPosition(
+          this.clientStompReaction.x + 8,
+          this.clientStompReaction.y + 8,
+        )
+        .setVisible(stompActive);
+      this.stompReactionBurst.setVisible(false);
+    } else {
+      this.stompReactionBurst
+        .setPosition(
+          this.clientStompReaction.x + 8,
+          this.clientStompReaction.y + 4,
+        )
+        .setVisible(stompActive);
+    }
     this.stepScorePopups(defeatedEnemyEntityIdStrings, elapsedSimulationFrames);
 
     this.renderSpawnedActors(

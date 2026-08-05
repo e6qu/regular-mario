@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Stomp visual timing could inherit server reaction state — fixed (2026-08-05)
+
+The server's gameplay state includes a stomp event, but the renderer also used
+its x/y/timer directly. That made a visual effect depend on receipt timing.
+The client now uses that state only to identify a stomp, finds the locally
+presented defeated actor, and runs its own fixed-duration pop. Core stomp and
+rebuilt multiplayer browser/parity suites pass.
+
 ### Predicted frames could reprocess static map work or overwrite a paused frame — fixed (2026-08-05)
 
 The same scene receipt path handled both server corrections and every 60 Hz
