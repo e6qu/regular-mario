@@ -32,6 +32,13 @@ committed — only numeric metadata, code, docs, and scripts.
   Each browser now derives the effect position from its rendered actor and
   advances an independent fixed-duration visual timeline.
 
+## 2026-08-05 — reran real multi-client acceptance after presentation work
+
+- Ran the four independent, recorded browser journey and eight-client stress
+  journey against the rebuilt production client/server. Both passed; the
+  recorded first-level and post-handoff frames remain ignored under
+  `playwright_adhoc/multiplayer-full-run/`.
+
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
 - Kept server simulation authoritative but moved viewport presentation to each

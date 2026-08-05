@@ -32,6 +32,11 @@ Transient visuals must remain client-owned. The server may establish gameplay
 outcomes, but browser effect positions and durations must be derived locally
 from presented actors, never replay server reaction coordinates or countdowns.
 
+The post-presentation-change acceptance baseline is a passed four-player,
+recorded World 1-1-to-1-2 run plus eight live WebSocket clients. Keep the
+recording artifacts ignored beneath `playwright_adhoc/` and inspect a real
+post-handoff frame when altering rendering or input reconciliation.
+
 Server state remains authoritative, but camera is client presentation. Do not
 reintroduce direct 20 Hz server camera transforms; follow the locally predicted
 player with smoothing instead.
