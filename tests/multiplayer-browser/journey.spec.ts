@@ -80,9 +80,10 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await creator.waitForTimeout(120);
   await creator.keyboard.up("ArrowRight");
   await creator.waitForTimeout(injectedSnapshotDelayMilliseconds + 200);
-  await expect(
-    creator.locator(".multiplayer-play-controls-only p").first(),
-  ).toHaveText(/playing · frame [1-9]/);
+  await expect(creator.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-game-phase",
+    "playing",
+  );
   expect(
     await creator
       .getByLabel("Authoritative multiplayer game view")
@@ -91,13 +92,15 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
 
   // P is a server-authoritative toggle available to every current member.
   await creator.keyboard.press("KeyP");
-  await expect(
-    creator.locator(".multiplayer-play-controls-only p").first(),
-  ).toHaveText(/paused · frame/);
+  await expect(creator.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-game-phase",
+    "paused",
+  );
   await guest.keyboard.press("KeyP");
-  await expect(
-    guest.locator(".multiplayer-play-controls-only p").first(),
-  ).toHaveText(/playing · frame/);
+  await expect(guest.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-game-phase",
+    "playing",
+  );
 
   const layout = await creator.request.get("/api/layout", {
     headers: { "x-multiplayer-protocol-version": "1" },
@@ -125,12 +128,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   );
   await creator.keyboard.press("Escape");
   await guest.keyboard.press("Escape");
-  await guest.keyboard.press("KeyM");
-  await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();
-  const guestControls = guest.locator(".multiplayer-play-controls-only");
   // The control must be actionable, not merely present. A guest leaving a
   // playing game returns to the lobby and frees their only active-game slot.
-  await guestControls.getByRole("button", { name: "Leave game" }).click();
+  await guest.keyboard.press("Escape");
   await expect(
     guest.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toBeVisible();

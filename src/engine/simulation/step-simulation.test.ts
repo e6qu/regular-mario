@@ -1961,6 +1961,31 @@ describe("simulation primitives", () => {
     });
   });
 
+  it("re-arms the shrinking enemy when recovery ends", () => {
+    const recoveringState = withPlayerOverrides(
+      stateWithPlayerAt({ x: 96, y: 64 }),
+      {
+        playerVitality: recoveringVitalityState(
+          EnemySideContactSide.Right,
+          0,
+          1,
+        ),
+      },
+    );
+    const nextState = stepRightSideEnemyContactWithoutHazard({
+      ...recoveringState,
+      enemyDamageContactFrameByEntityId: new Map([
+        [testEnemyEntityId("beetle-1"), testFrameIndex(0)],
+      ]),
+    });
+
+    expect(nextState.players[0].vitality).toEqual({ kind: "small" });
+    expect(nextState.players[0].outcome).toEqual({
+      kind: "defeated",
+      reason: PlayerDefeatReason.EnemyContact,
+    });
+  });
+
   it("gives a full-jump bounce off a stomp while jump is held, a small hop otherwise", () => {
     // SMB parity: holding A through the stomp rises with the held-jump
     // gravity (a full ~6-tile bounce — how 1-3's gaps are crossed off

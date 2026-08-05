@@ -86,6 +86,9 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-panel { position: absolute; z-index: 2; top: 0; right: 0; width: min(340px, 92vw); height: 100vh; box-sizing: border-box;
       overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; transition: transform 120ms ease-out; }
     .multiplayer-game-shell[data-controls-open=false] .multiplayer-game-panel { visibility: hidden; transform: translateX(100%); pointer-events: none; }
+    .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-panel,
+    .multiplayer-game-shell[data-game-phase=paused] .multiplayer-game-panel,
+    .multiplayer-game-shell[data-game-phase=finished] .multiplayer-game-panel { display: none; }
     /* Waiting is a game room, not a covered or empty game canvas. The renderer
        stays mounted for the authoritative transition, but is hidden until the
        server actually starts play. */
@@ -449,9 +452,7 @@ function renderGame(
   gameShell.setAttribute("data-controls-open", "true");
   gameShell.setAttribute("data-game-phase", "waiting");
   gameShell.setAttribute("data-chat-open", "false");
-  let controlsOpen = true;
   const setControlsOpen = (next: boolean): void => {
-    controlsOpen = next;
     gameShell.setAttribute("data-controls-open", String(next));
   };
   const title = document.createElement("h1");
@@ -597,7 +598,8 @@ function renderGame(
   if (creatorPlayerId === profile.playerId) {
     playControls.append(endGame());
   }
-  panel.append(playControls);
+  // Gameplay never mounts a menu drawer. Keyboard actions own the compact
+  // multiplayer controls: Escape leave, P pause/resume, T chat, R revive.
   const gameChatOverlay = makeChat("Game chat message");
   gameChatOverlay.classList.add("multiplayer-game-chat-overlay");
   gameShell.append(gameHost, gameChatFeed, panel, gameChatOverlay);
@@ -1206,6 +1208,18 @@ function renderGame(
       return;
     }
     if (
+      event.code === "KeyR" &&
+      !chatEditing &&
+      latestAuthoritativeSnapshot?.phase === "playing" &&
+      latestAuthoritativeSnapshot.players.some(
+        (player) => player.playerId === profile.playerId && player.spectator,
+      )
+    ) {
+      event.preventDefault();
+      void requestJson("/game/revive", { method: "POST" });
+      return;
+    }
+    if (
       event.code === "KeyT" &&
       !chatEditing &&
       latestAuthoritativeSnapshot?.phase === "playing"
@@ -1216,11 +1230,6 @@ function renderGame(
       return;
     }
     if (chatEditing) {
-      return;
-    }
-    if (event.code === "KeyM") {
-      event.preventDefault();
-      setControlsOpen(!controlsOpen);
       return;
     }
     if (

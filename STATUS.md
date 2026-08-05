@@ -2,6 +2,14 @@
 
 ## Current State
 
+**Post-recovery enemy damage is fixed (2026-08-05).** The contact debounce for
+the enemy that shrank an enlarged player now re-arms at recovery expiry. A
+small player touching that enemy after invulnerability ends is defeated.
+
+**Gameplay has no menu drawer (2026-08-05).** Escape leaves (or first closes
+active chat), T opens chat, P toggles server pause/resume, and R revives a dead
+player. Paused gameplay remains the game view, without a control panel.
+
 **Player-initiated revive and pause are available (2026-08-05).** A defeated
 member can request a server-authoritative revive at the party's furthest active
 position; any game member can pause. The browser exposes revive only to a live

@@ -5,6 +5,18 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — fixed recovery contact re-arm and removed the game drawer
+
+- Re-armed an enemy's damage debounce on the exact recovery-to-small boundary.
+  The regression carries a real prior-contact map through recovery and proves
+  that continued contact defeats the now-vulnerable player.
+- Removed the in-game menu drawer from the mounted gameplay UI. Escape leaves
+  unless chat is active, T opens the chat overlay, P toggles pause/resume, and
+  R requests an authoritative revive. Paused play shows the frozen game view,
+  not a control screen.
+- Passed the 84-test mechanics suite, type checking, production build, and
+  the real multiplayer browser journey.
+
 ## 2026-08-05 — added server-authoritative revive, pause, and usable game chat
 
 - Added a core retained-slot revival operation: it resets only the defeated

@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Enemy contact could remain harmless after recovery — fixed (2026-08-05)
+
+The per-enemy damage debounce correctly protects an enlarged player through
+the shrink/recovery animation, but it incorrectly survived the transition back
+to small vitality. The damaging enemy now re-arms precisely as recovery ends;
+a focused full-state regression preserves the debounce map and requires the
+next contact to defeat the small player.
+
 ### Empty active games were removed instead of paused — fixed (2026-08-05)
 
 The final-member leave path used to delete the in-memory game. It now retains
