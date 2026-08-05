@@ -13,6 +13,8 @@ type MultiplayerRenderedPlayer = {
 
 export type MultiplayerRenderedSnapshot = {
   readonly gameId: string;
+  /** Server-monotonic ordering token; unlike `frame`, it never resets. */
+  readonly snapshotSequence: number;
   readonly levelId: string;
   readonly phase: string;
   readonly frame: number;

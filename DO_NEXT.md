@@ -4,6 +4,15 @@
 
 ### Current verified baseline (2026-08-05)
 
+- Preserve `snapshotSequence` as the transport ordering identity. A simulation
+  frame is not a valid delta baseline on its own: lifecycle changes share frame
+  zero and course handoff resets its clock. Browser reconciliation may replace
+  the predicted state only for the initial baseline or an increasing local
+  input acknowledgement; otherwise delayed 20 Hz snapshots rewind live input.
+- Start/transition/pause/resume edges must broadcast an authoritative keyframe,
+  not only a lobby metadata notification. Keep the 100 ms and 3 s production
+  WebSocket suites as release gates.
+
 - Preserve `src/engine/levels/public-level-catalog.ts` as the only public
   course catalogue. Local selection and `bundledMultiplayerLevels` must use
   the exact same `LevelSpecInput`; do not add a multiplayer-only map.

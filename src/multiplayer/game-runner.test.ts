@@ -315,6 +315,19 @@ describe("authoritative multiplayer game runner", () => {
     });
   });
 
+  it("issues a strictly increasing snapshot sequence across same-frame lifecycle changes", () => {
+    const runner = makeRunner();
+    const waiting = runner.snapshot();
+    const playing = runner.start(requireMultiplayerPlayerId("mira"));
+    const paused = runner.pause();
+
+    expect(waiting.frame).toBe(0);
+    expect(playing.frame).toBe(0);
+    expect(paused.frame).toBe(0);
+    expect(waiting.snapshotSequence).toBeLessThan(playing.snapshotSequence);
+    expect(playing.snapshotSequence).toBeLessThan(paused.snapshotSequence);
+  });
+
   it("retains defeated members as spectators while active players continue", () => {
     const initial = makeInitialState();
     const runner = makeRunnerWithInitialState({

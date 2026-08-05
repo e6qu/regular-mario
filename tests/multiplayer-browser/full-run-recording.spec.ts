@@ -36,10 +36,9 @@ async function makeRecordedPlayer(
   await enterMultiplayerLobby(page);
   await page.getByLabel("Nickname").fill(`RunPlayer${String(index + 1)}`);
   await page.getByRole("button", { name: "Save profile" }).click();
-  await expect(page.locator('main[data-role="multiplayer"]')).not.toHaveAttribute(
-    "aria-busy",
-    "true",
-  );
+  await expect(
+    page.locator('main[data-role="multiplayer"]'),
+  ).not.toHaveAttribute("aria-busy", "true");
   return { context, page, videoPath: page.video()?.path() };
 }
 
@@ -100,9 +99,7 @@ test("four separate browser sessions complete a shared course and enter the next
     if (creator === undefined) {
       throw new Error("Recorded creator is missing.");
     }
-    await creator.page
-      .getByLabel("Bundled level")
-      .selectOption("pipe-route");
+    await creator.page.getByLabel("Bundled level").selectOption("pipe-route");
     await creator.page.getByRole("button", { name: "Create game" }).click();
     const gameId = await findGameIdByCreatorNickname(
       creator.page,

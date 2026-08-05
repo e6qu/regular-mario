@@ -2,6 +2,18 @@
 
 ## Current State
 
+**Ordered delayed-snapshot reconciliation (2026-08-05).** Every authoritative
+snapshot now carries a monotonic `snapshotSequence`, because a simulation frame
+can be reused by lifecycle transitions and resets on a course handoff. Deltas
+name that exact sequence as their baseline; the browser rejects any older
+keyframe/delta and requests recovery for a mismatched chain. Start now emits
+an authoritative lifecycle keyframe immediately. Client prediction reconciles
+only on input-acknowledgement progress, preventing a 3-second-old 20 Hz stream
+from repeatedly rewinding visible local movement. The actual full production
+WebSocket suite passes with injected 100 ms and 3 s snapshot delay, including
+the mirrored input-to-paint, four-browser recording, visual-parity, journey,
+admin, and eight-client stress checks.
+
 **Shared catalogue and real-browser verification (2026-08-05).** Multiplayer
 and local play now consume the same engine-level `publicOriginalLevels` inputs;
 the retired multiplayer-only onboarding map has been removed. A profile-save

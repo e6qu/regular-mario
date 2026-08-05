@@ -359,6 +359,7 @@ export function makeMultiplayerHttpServer(
         {
           gameId: snapshot.gameId,
           baselineFrame: baseline.frame,
+          baselineSnapshotSequence: baseline.snapshotSequence,
           frame: snapshot.frame,
           delta: makeStateDelta(baseline, snapshot),
         },
@@ -575,9 +576,22 @@ export function makeMultiplayerHttpServer(
           return;
         }
         if (request.method === "POST" && action === "start") {
-          json(response, 200, {
-            game: service.startGame(playerToken, gameId, now()),
-          });
+          const startedAtMilliseconds = now();
+          const game = service.startGame(
+            playerToken,
+            gameId,
+            startedAtMilliseconds,
+          );
+          // A lifecycle edge is not merely lobby metadata. It is the first
+          // state a predictive client can safely simulate from, and it can
+          // share frame zero with the preceding waiting state. Send it as an
+          // ordered keyframe instead of waiting for the next tick cadence.
+          broadcastTransportState(
+            [service.gameSnapshot(playerToken, gameId, startedAtMilliseconds)],
+            startedAtMilliseconds,
+            true,
+          );
+          json(response, 200, { game });
           broadcast({ type: "games-changed" });
           return;
         }

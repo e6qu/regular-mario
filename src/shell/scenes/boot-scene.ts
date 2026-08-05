@@ -2664,8 +2664,7 @@ export class BootScene extends Phaser.Scene {
     positions: readonly { readonly x: number; readonly y: number }[],
   ): void {
     const primary = positions[0];
-    const primaryRuntime = this.simulationState.players[0];
-    if (primary === undefined || primaryRuntime === undefined) {
+    if (primary === undefined) {
       throw new Error(
         "Authoritative player presentation has no primary player.",
       );

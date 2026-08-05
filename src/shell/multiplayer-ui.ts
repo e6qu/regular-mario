@@ -27,6 +27,7 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
   const record = value as Readonly<Record<string, unknown>>;
   return (
     typeof record["gameId"] === "string" &&
+    typeof record["snapshotSequence"] === "number" &&
     typeof record["levelId"] === "string" &&
     typeof record["cameraLeftPixels"] === "number"
   );
@@ -611,6 +612,11 @@ function renderGame(
   }
   let localPlayerSlot: number | undefined;
   let prediction: ReturnType<typeof makePrediction> | undefined;
+  // A delayed stream can contain many new authoritative frames before the
+  // server has consumed this browser's newest input. Reconciliation is safe
+  // only when its acknowledgement advances; otherwise rewinding to each old
+  // snapshot defeats the client-side fixed-step simulation.
+  let lastReconciledInputSequence = -1;
   const audio = new GameAudio();
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
   let completedAudioPlayed = false;
@@ -743,8 +749,7 @@ function renderGame(
     const known = snapshotsByGameId.get(snapshot.gameId);
     if (
       known !== undefined &&
-      known.levelId === snapshot.levelId &&
-      snapshot.frame < known.frame
+      snapshot.snapshotSequence <= known.snapshotSequence
     ) {
       return;
     }
@@ -764,6 +769,7 @@ function renderGame(
       );
       prediction = undefined;
       localPlayerSlot = undefined;
+      lastReconciledInputSequence = -1;
       title.textContent = `Game ${gameId} · ${currentLevelId}`;
       playControlsTitle.textContent = `Game ${gameId} · ${currentLevelId}`;
     } else {
@@ -780,19 +786,31 @@ function renderGame(
       (player) => player.playerId === profile.playerId,
     );
     if (local !== undefined) {
-      if (localPlayerSlot !== local.slot || prediction === undefined) {
+      const requiresPredictionBaseline =
+        localPlayerSlot !== local.slot || prediction === undefined;
+      if (requiresPredictionBaseline) {
         localPlayerSlot = local.slot;
         prediction = makePrediction(currentLevelId, local.slot);
       }
-      prediction.reconcileState(
-        local.acknowledgedInputSequence,
-        decodeMultiplayerSimulationState(snapshot.simulationState),
-      );
-      // The next animation-frame prediction begins from this exact server
-      // state. It is then stepped locally at the same 60 Hz as the engine,
-      // instead of visibly moving only at the 20 Hz snapshot cadence.
-      predictionFrameRemainderMilliseconds = 0;
-      lastPredictionAnimationMilliseconds = performance.now();
+      const activePrediction = prediction;
+      if (activePrediction === undefined) {
+        throw new Error("Multiplayer prediction was not initialised.");
+      }
+      if (
+        requiresPredictionBaseline ||
+        local.acknowledgedInputSequence > lastReconciledInputSequence
+      ) {
+        activePrediction.reconcileState(
+          local.acknowledgedInputSequence,
+          decodeMultiplayerSimulationState(snapshot.simulationState),
+        );
+        lastReconciledInputSequence = local.acknowledgedInputSequence;
+        // The next animation-frame prediction begins from this exact server
+        // state. It is then stepped locally at the same 60 Hz as the engine,
+        // instead of visibly moving only at the 20 Hz snapshot cadence.
+        predictionFrameRemainderMilliseconds = 0;
+        lastPredictionAnimationMilliseconds = performance.now();
+      }
       gameShell.setAttribute(
         "data-debug-last-acknowledged-input-sequence",
         String(local.acknowledgedInputSequence),
@@ -908,9 +926,10 @@ function renderGame(
         if (!isGameSnapshot(candidate)) {
           continue;
         }
-        snapshotsByGameId.set(candidate.gameId, candidate);
         if (candidate.gameId === gameId) {
           displaySnapshot(candidate);
+        } else {
+          snapshotsByGameId.set(candidate.gameId, candidate);
         }
       }
       return;
@@ -927,17 +946,23 @@ function renderGame(
       }
       const deltaGameId = candidate["gameId"];
       const baselineFrame = candidate["baselineFrame"];
+      const baselineSnapshotSequence = candidate["baselineSnapshotSequence"];
       const delta = candidate["delta"];
       if (
         typeof deltaGameId !== "string" ||
         typeof baselineFrame !== "number" ||
+        typeof baselineSnapshotSequence !== "number" ||
         !isRecord(delta) ||
         !Array.isArray(delta["changes"])
       ) {
         continue;
       }
       const baseline = snapshotsByGameId.get(deltaGameId);
-      if (baseline === undefined || baseline.frame !== baselineFrame) {
+      if (
+        baseline === undefined ||
+        baseline.frame !== baselineFrame ||
+        baseline.snapshotSequence !== baselineSnapshotSequence
+      ) {
         if (socket.readyState === WebSocket.OPEN) {
           socket.send(
             JSON.stringify({

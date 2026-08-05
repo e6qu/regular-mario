@@ -5,6 +5,21 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — made delayed WebSocket prediction ordered and visible
+
+- Added a server-monotonic snapshot sequence to the real authoritative
+  protocol and to delta baselines. Frame numbers cannot order `waiting` versus
+  `playing` at frame zero or a new course after a frame-clock reset.
+- Broadcast an ordered state keyframe when an owner starts a game; a lifecycle
+  notification alone is not a simulation baseline.
+- Changed browser reconciliation to wait for acknowledgement progress. This
+  preserves the actual local 60 Hz simulation during a delayed stream instead
+  of rewinding it to a three-second-old server state every 50 ms.
+- Strengthened the production side-by-side test to require at least two pixels
+  of local predicted motion as well as a changed raw canvas. Full real-browser
+  suites pass at injected 100 ms and 3 s delay; recordings remain ignored in
+  `playwright_adhoc/`.
+
 ## 2026-08-05 — unified local and multiplayer course sources
 
 - Added `publicOriginalLevels`, an engine catalogue whose exact source inputs

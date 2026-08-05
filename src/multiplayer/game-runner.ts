@@ -63,6 +63,12 @@ type AuthoritativePlayerSnapshot = MultiplayerPlayerProfile & {
 
 export type AuthoritativeGameSnapshot = {
   readonly gameId: MultiplayerGameId;
+  /**
+   * Monotonic transport ordering token. Simulation frames reset on a course
+   * handoff and lifecycle changes may share a frame, so `frame` alone cannot
+   * identify a snapshot or a delta baseline.
+   */
+  readonly snapshotSequence: number;
   readonly levelId: string;
   readonly mode: MultiplayerGameMode;
   readonly phase: MultiplayerGamePhase;
@@ -120,6 +126,7 @@ export function makeAuthoritativeGameRunner(
   let state = config.initialState;
   let phase = MultiplayerGamePhase.Waiting;
   let cameraLeftPixels = 0;
+  let snapshotSequence = 0;
   let players: AuthoritativePlayer[] = [{ ...config.creator, slot: 0 }];
   const commandByPlayerId = new Map<
     MultiplayerPlayerId,
@@ -159,6 +166,7 @@ export function makeAuthoritativeGameRunner(
   function makeSnapshot(): AuthoritativeGameSnapshot {
     return {
       gameId: config.gameId,
+      snapshotSequence: (snapshotSequence += 1),
       levelId: config.levelId,
       mode: config.mode,
       phase,

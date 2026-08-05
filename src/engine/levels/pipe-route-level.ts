@@ -29,11 +29,7 @@ export const pipeRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", pipeRouteWidthTiles),
     makeTileRun("sky", pipeRouteWidthTiles),
     makeTileRun("sky", pipeRouteWidthTiles),
-    [
-      ...makeTileRun("sky", 8),
-      "gate",
-      "sky",
-    ],
+    [...makeTileRun("sky", 8), "gate", "sky"],
     makeTileRun("grass", pipeRouteWidthTiles),
   ],
   actors: [

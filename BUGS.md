@@ -2,6 +2,28 @@
 
 ## Known Bugs
 
+### Hazard-damage unit regression — open (observed 2026-08-05)
+
+`src/engine/simulation/hazard-damage-tiering.test.ts` currently expects a
+small player to be defeated and a fire player to enter recovery after one
+hazard-contact step, but both remain active/unchanged. This was reproduced in
+the isolated simulation test after the multiplayer transport work and does not
+touch the changed transport files. It blocks the repository-wide `pnpm run
+check`; investigate collision/contact ordering before claiming a fully green
+game-wide gate.
+
+### Delayed snapshots could rewind local prediction at the same simulation frame — fixed (2026-08-05)
+
+`frame` was used to order both snapshots and delta baselines, even though the
+server can change from waiting to playing at frame zero and resets that clock
+on a course handoff. Delayed packets could therefore restore an older waiting
+state, and every 20 Hz old snapshot reconciled the local player before the
+server had acknowledged its new input. The protocol now has monotonic
+`snapshotSequence`/baseline-sequence validation, Start emits a state keyframe,
+and client reconciliation waits for acknowledgement progress. The actual
+side-by-side canvas moves within 750 ms under a 3 s injected WebSocket delay;
+the complete production suite passes at both 100 ms and 3 s.
+
 ### Shared `pipe-route` could not complete — fixed (2026-08-05)
 
 The route had only an exit actor. The deterministic simulation correctly
