@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — restored input after rejoining an empty game
+
+- Distinguished an automatic pause caused by every member leaving from a
+  deliberate member P pause in the authoritative runner.
+- The first member to reclaim a dormant slot now resumes the retained running
+  world and can advance it with ordinary keyboard input; joining never
+  overrides a deliberate pause.
+- Passed focused server lifecycle tests, type checking, production builds, and
+  the real two-browser Playwright journey that leaves, rejoins, and proves the
+  authoritative frame advances after a physical ArrowRight input.
+
 ## 2026-08-05 — fixed recovery contact re-arm and removed the game drawer
 
 - Re-armed an enemy's damage debounce on the exact recovery-to-small boundary.

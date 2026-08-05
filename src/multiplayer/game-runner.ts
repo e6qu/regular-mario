@@ -130,6 +130,10 @@ export function makeAuthoritativeGameRunner(
   }
   let state = config.initialState;
   let phase = MultiplayerGamePhase.Waiting;
+  // An empty party pause is a lifecycle safeguard, not a player choice.  The
+  // next member must be able to resume the existing world simply by joining;
+  // an explicit P pause deliberately remains paused.
+  let pausedBecausePartyIsEmpty = false;
   let cameraLeftPixels = 0;
   let snapshotSequence = 0;
   // This is a party checkpoint, not a rendered camera target: it advances
@@ -298,6 +302,13 @@ export function makeAuthoritativeGameRunner(
             : candidate,
         );
         commandByPlayerId.set(player.playerId, neutralCommand);
+        if (
+          phase === MultiplayerGamePhase.Paused &&
+          pausedBecausePartyIsEmpty
+        ) {
+          phase = MultiplayerGamePhase.Playing;
+          pausedBecausePartyIsEmpty = false;
+        }
         return makeSnapshot();
       }
       if (
@@ -334,6 +345,7 @@ export function makeAuthoritativeGameRunner(
         acknowledgementLagByPlayerId.delete(playerId);
         if (phase === MultiplayerGamePhase.Playing) {
           phase = MultiplayerGamePhase.Paused;
+          pausedBecausePartyIsEmpty = true;
         }
         return makeSnapshot();
       }
@@ -363,6 +375,7 @@ export function makeAuthoritativeGameRunner(
         throw new Error("Only waiting games can be started.");
       }
       phase = MultiplayerGamePhase.Playing;
+      pausedBecausePartyIsEmpty = false;
       return makeSnapshot();
     },
     pause() {
@@ -370,6 +383,7 @@ export function makeAuthoritativeGameRunner(
         throw new Error("Only playing games can be paused.");
       }
       phase = MultiplayerGamePhase.Paused;
+      pausedBecausePartyIsEmpty = false;
       return makeSnapshot();
     },
     pauseByPlayer(playerId) {
@@ -381,6 +395,7 @@ export function makeAuthoritativeGameRunner(
         throw new Error("Only paused games can be resumed.");
       }
       phase = MultiplayerGamePhase.Playing;
+      pausedBecausePartyIsEmpty = false;
       return makeSnapshot();
     },
     resumeByPlayer(playerId) {

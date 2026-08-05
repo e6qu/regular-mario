@@ -10,13 +10,14 @@ to small vitality. The damaging enemy now re-arms precisely as recovery ends;
 a focused full-state regression preserves the debounce map and requires the
 next contact to defeat the small player.
 
-### Empty active games were removed instead of paused — fixed (2026-08-05)
+### Rejoined empty-paused games accepted no input — fixed (2026-08-05)
 
-The final-member leave path used to delete the in-memory game. It now retains
-one disconnected simulation slot, exposes zero public members, and pauses a
-live game when its final player leaves. The next member reclaims that retained
-slot without resetting the shared world. The browser journey covers ordinary
-leave and Escape leave through a visible `paused · 0/16` public game.
+The final-member leave path retains one disconnected simulation slot and pauses
+a live game. Reclaiming that slot previously left the runner paused, so the
+browser showed gameplay but no authoritative frame or input progress. The
+runner now records that this was an automatic empty-party pause and resumes it
+on first rejoin; explicit member pauses still require P. The browser journey
+asserts that a rejoined player advances the authoritative frame after input.
 
 ### Remote co-op movement still visibly desynchronizes — open (2026-08-05)
 

@@ -120,7 +120,7 @@ describe("public multiplayer lobby", () => {
     ]);
   });
 
-  it("pauses an empty running game and lets a new member reclaim its slot", () => {
+  it("resumes an empty-paused running game when a member reclaims its slot", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
     const ren = profile("ren", "Ren");
@@ -136,6 +136,23 @@ describe("public multiplayer lobby", () => {
     ]);
     expect(lobby.joinGame(ren, game.gameId)).toMatchObject({
       playerCount: 1,
+      phase: MultiplayerGamePhase.Playing,
+    });
+    expect(lobby.stepAll(1)).toMatchObject([
+      { gameId: game.gameId, frame: 1, phase: MultiplayerGamePhase.Playing },
+    ]);
+  });
+
+  it("keeps a deliberate player pause paused when another member joins", () => {
+    const lobby = makeLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const game = createRegularGame(lobby, mira);
+    lobby.startGame(mira.playerId, game.gameId);
+    lobby.pauseGameByPlayer(mira.playerId);
+
+    expect(lobby.joinGame(ren, game.gameId)).toMatchObject({
+      playerCount: 2,
       phase: MultiplayerGamePhase.Paused,
     });
   });

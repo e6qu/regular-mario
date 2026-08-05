@@ -47,6 +47,8 @@ its local player.
   checkpoint reached by an active player, without rewinding the shared world.
   Any current member may pause a live game. Completing or creator-ending ends
   the game; when everybody leaves, it must remain resumable and pause itself.
+  The first later member to join automatically resumes that empty-party pause;
+  a deliberate member pause remains paused until a member toggles it with P.
 - Games, chats, queues, and sessions are deliberately ephemeral: a service
   restart ends active games and clears them. This avoids a database and
   recovery rules in the first trusted-friends release.

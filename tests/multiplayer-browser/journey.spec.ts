@@ -159,6 +159,23 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await expect(
     guest.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
+  // This is an automatic empty-party resume, not a user P-resume. The rejoined
+  // browser must be able to drive a newly advancing authoritative game.
+  const rejoinedShell = guest.locator(".multiplayer-game-shell");
+  await expect(rejoinedShell).toHaveAttribute("data-game-phase", "playing");
+  const frameBeforeRejoinInput = Number(
+    await rejoinedShell.getAttribute("data-debug-authoritative-frame"),
+  );
+  await guest.keyboard.down("ArrowRight");
+  await guest.waitForTimeout(150);
+  await guest.keyboard.up("ArrowRight");
+  await expect
+    .poll(async () =>
+      Number(
+        await rejoinedShell.getAttribute("data-debug-authoritative-frame"),
+      ),
+    )
+    .toBeGreaterThan(frameBeforeRejoinInput);
   await guest.keyboard.press("Escape");
   await expect(
     guest.getByRole("heading", { name: "Trusted friends lobby" }),

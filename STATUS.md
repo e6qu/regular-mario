@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Rejoining an empty-paused game now resumes play (2026-08-05).** The server
+marks a final-member departure as an automatic empty-party pause. The first
+member who enters that retained game resumes its authoritative simulation and
+can immediately send input; a deliberate P pause remains paused.
+
 **Post-recovery enemy damage is fixed (2026-08-05).** The contact debounce for
 the enemy that shrank an enlarged player now re-arms at recovery expiry. A
 small player touching that enemy after invulnerability ends is defeated.
