@@ -56,15 +56,15 @@ function installMultiplayerVisualLanguage(): void {
       box-shadow: 3px 3px 0 #b9682f; }
     .multiplayer-panel button:hover, .multiplayer-panel button:focus-visible { background: #ff9d2e; outline: 3px solid #f5f7fb; outline-offset: 2px; }
     .multiplayer-panel input, .multiplayer-panel select { margin: 4px; padding: 8px; border: 2px solid #172033; font: inherit; background: #fffef6; }
-    .multiplayer-game-shell { height: 100vh; min-height: 0; display: flex; align-items: stretch; overflow: hidden; background: #172033; }
-    .multiplayer-game-host { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; height: 100%; overflow: hidden; }
+    .multiplayer-game-shell { position: relative; height: 100vh; min-height: 0; overflow: hidden; background: #172033; }
+    .multiplayer-game-host { position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
     .multiplayer-game-host canvas { display: block; }
-    .multiplayer-game-panel { position: relative; z-index: 1; flex: 0 0 340px; box-sizing: border-box;
-      max-height: 100vh; overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; }
+    .multiplayer-game-panel { position: absolute; z-index: 2; top: 0; right: 0; width: min(340px, 92vw); height: 100vh; box-sizing: border-box;
+      overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; transition: transform 120ms ease-out; }
+    .multiplayer-game-shell[data-controls-open=false] .multiplayer-game-panel { transform: translateX(100%); pointer-events: none; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
-      .multiplayer-game-shell { height: 100vh; min-height: 0; flex-direction: column; }
-      .multiplayer-game-host { flex: 1 1 auto; min-height: 0; }
-      .multiplayer-game-panel { flex: 0 0 auto; max-height: 42vh; border-width: 5px 0 0; } }
+      .multiplayer-game-shell { height: 100vh; min-height: 0; }
+      .multiplayer-game-panel { width: min(100%, 420px); border-width: 0 0 0 5px; } }
   `;
   document.head.append(style);
 }
@@ -393,6 +393,12 @@ function renderGame(
   const gameShell = document.createElement("section");
   gameShell.className = "multiplayer-game-shell";
   gameShell.setAttribute("aria-label", "Multiplayer game layout");
+  gameShell.setAttribute("data-controls-open", "true");
+  let controlsOpen = true;
+  const setControlsOpen = (next: boolean): void => {
+    controlsOpen = next;
+    gameShell.setAttribute("data-controls-open", String(next));
+  };
   const title = document.createElement("h1");
   title.textContent = `Game ${gameId}`;
   const status = document.createElement("p");
@@ -409,7 +415,16 @@ function renderGame(
   gameActionError.setAttribute("role", "alert");
   let startGameButton: HTMLButtonElement | undefined;
   panel.classList.add("multiplayer-game-panel");
-  panel.append(title, status, chatLog, chatInput);
+  panel.append(
+    title,
+    status,
+    makeButton("Resume game", () => setControlsOpen(false)),
+    Object.assign(document.createElement("div"), {
+      textContent: "Press M during play to open these controls.",
+    }),
+    chatLog,
+    chatInput,
+  );
   panel.append(
     makeButton("Send game chat", async () => {
       await requestJson(`/games/${gameId}/chat`, {
@@ -482,6 +497,8 @@ function renderGame(
   let completedAudioPlayed = false;
   let latestAuthoritativeFrame = 0;
   let latestAuthoritativeSnapshot: GameSnapshot | undefined;
+  let lastPresentedPhase: GameSnapshot["phase"] | undefined;
+  let lastScreenshotSentAtMilliseconds = Number.NEGATIVE_INFINITY;
   const snapshotsByGameId = new Map<string, GameSnapshot>();
   let presentationAnimationFrame: number | undefined;
   const socketUrl = new URL(
@@ -498,6 +515,7 @@ function renderGame(
     disposed = true;
     window.clearInterval(snapshotInterval);
     window.clearInterval(chatInterval);
+    window.clearInterval(inputHeartbeatInterval);
     if (presentationAnimationFrame !== undefined) {
       window.cancelAnimationFrame(presentationAnimationFrame);
     }
@@ -632,6 +650,10 @@ function renderGame(
       prediction.reconcile(local.acknowledgedInputSequence, local);
     }
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+    if (snapshot.phase !== lastPresentedPhase) {
+      setControlsOpen(snapshot.phase !== "playing");
+      lastPresentedPhase = snapshot.phase;
+    }
     startGameButton?.toggleAttribute("hidden", snapshot.phase !== "waiting");
     latestAuthoritativeSnapshot = snapshot;
     renderPresentation();
@@ -645,7 +667,15 @@ function renderGame(
         void renderLobby(mount, userAssetBundle);
       }, 1500);
     }
-    if (socket.readyState === WebSocket.OPEN) {
+    // Retain one current agent-debug image without turning the gameplay socket
+    // into a continuous PNG upload channel. At 20 Hz, four browsers would
+    // otherwise send 80 full canvas images per second and delay real input.
+    const nowMilliseconds = performance.now();
+    if (
+      socket.readyState === WebSocket.OPEN &&
+      nowMilliseconds - lastScreenshotSentAtMilliseconds >= 1_000
+    ) {
+      lastScreenshotSentAtMilliseconds = nowMilliseconds;
       socket.send(
         JSON.stringify({
           type: "screenshot",
@@ -664,6 +694,13 @@ function renderGame(
       !("type" in message) ||
       typeof message.type !== "string"
     ) {
+      return;
+    }
+    if (message.type === "error" && "error" in message) {
+      gameActionError.textContent =
+        typeof message.error === "string"
+          ? message.error
+          : "Multiplayer protocol rejected a message.";
       return;
     }
     if (
@@ -795,7 +832,21 @@ function renderGame(
     );
     renderPresentation();
   }
+  socket.addEventListener("open", () => {
+    // A player can hold a key while the initial HTTP snapshot is visible but
+    // before the WebSocket finishes connecting. Send that already-held state
+    // on connect instead of leaving the authoritative game idle until another
+    // physical key edge occurs.
+    if (held.size > 0) {
+      sendInput();
+    }
+  });
   const keydown = (event: KeyboardEvent) => {
+    if (event.code === "KeyM") {
+      event.preventDefault();
+      setControlsOpen(!controlsOpen);
+      return;
+    }
     if (
       [
         "ArrowLeft",
@@ -826,6 +877,14 @@ function renderGame(
     window.requestAnimationFrame(animatePresentation);
   const snapshotInterval = window.setInterval(() => void update(), 50);
   const chatInterval = window.setInterval(() => void refreshGameChat(), 1000);
+  // Input edges make normal play responsive; this bounded heartbeat keeps a
+  // long key hold alive through connection establishment and packet loss while
+  // staying well below the authoritative 60 Hz simulation cadence.
+  const inputHeartbeatInterval = window.setInterval(() => {
+    if (held.size > 0) {
+      sendInput();
+    }
+  }, 100);
   async function update(): Promise<void> {
     try {
       if (socket.readyState === WebSocket.OPEN) {

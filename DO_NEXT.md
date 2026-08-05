@@ -2,6 +2,19 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Immediate blocker: diagnose the four-player level-handoff input loss (2026-08-05)
+
+- `tests/multiplayer-browser/full-run-recording.spec.ts` completes Party
+  Runway with four separate, recorded real browsers but then cannot move the
+  new Coinbox Crossing runner. Do not delete or weaken this assertion.
+- Expose and compare each player's client sequence/intended frame, WebSocket
+  send count, server input acknowledgement, and runner queue metrics before
+  and after `advanceCompletedGame`; then fix the true boundary defect and
+  require the same recording to reach Cavern Route.
+- The full browser viewport/drawer contract is complete: 1280×720 game canvas,
+  no persistent panel overlay, `M` opens controls during play. Keep
+  `side-by-side-lockstep.spec.ts` and exact pixel parity at this size.
+
 ### Verified: live multiplayer canvas paints its applied state (2026-08-05)
 
 - Start from `tests/multiplayer-browser/side-by-side-lockstep.spec.ts`, not a
@@ -11,7 +24,7 @@
 - The failure was a camera-space conversion: Phaser's `scrollX` is not the
   zoomed camera's world-left edge. Convert the protocol's left edge using the
   viewport inset before `setScroll`; otherwise frame receipts move while the
-  visible world is shifted 403 pixels right at the standard 940px canvas.
+  visible world is shifted 403 pixels right at the standard full-width canvas.
 - Keep the before/after PNG assertion. It now passes, and inspected captures
   show the authored player moving and jumping in the multiplayer canvas.
 
@@ -50,7 +63,7 @@
   simulation trace equals every authoritative server state. The real-server
   Playwright journey freezes an actual local `BootScene` on a named paused
   Party Runway server frame and compares every gameplay-canvas pixel
-  (940×720, matching the sidebar layout) with zero tolerance; it also compares
+  (1280×720, matching the full-viewport layout) with zero tolerance; it also compares
   two selected multiplayer avatars exactly.
 - Complete. The multiplayer adapter now waits for BootScene's post-create
   render-ready event; an early snapshot can no longer leave a background-only

@@ -157,7 +157,7 @@ wire codec carries complete simulation state (including map-backed state) to
 that scene. The proof suite deep-compares a 12-frame two-player local-engine
 trace against each server state; compares a local `BootScene` supplied a named
 paused Party Runway server frame against multiplayer at all 676,800 raw canvas
-pixels (940×720, matching the sidebar layout); and
+pixels (1280×720, matching the full-browser gameplay viewport); and
 independently requires two different multiplayer avatars to match exactly. The
 comparison hides only the local route's non-game ESC navigation hint and uses
 no crop, scale, mask, or pixel tolerance for gameplay pixels.
@@ -175,7 +175,7 @@ processes, each with its own recorded authenticated player session, complete
 Party Runway and then Coinbox Crossing in one authoritative public game before
 all four render the opening frame of Cavern Route. The browser test asserts
 input movement, exactly four server members through both transitions, the
-server frame/camera, one 940×720 canvas per player, matching CSS/backing
+server frame/camera, one 1280×720 canvas per player, matching CSS/backing
 dimensions, and post-transition screenshots. It caught and closed a missing
 goal tile, frame-clock reset, detached-canvas boot, camera, and canvas-teardown
 defects rather than treating the first transition as sufficient proof.

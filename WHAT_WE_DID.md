@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — made live local/multiplayer comparison repeatable
+
+- Reworked playing multiplayer so the canvas owns the whole browser viewport;
+  controls are an `M`-opened drawer after start, with no game-pixel overlay.
+- Updated exact raw-canvas parity to 1280×720 and added a real production
+  side-by-side harness that mirrors Shift/Right/Space to isolated local and
+  online sessions, captures before/after images, and asserts server movement,
+  rendered movement, and changed PNGs.
+- Added held-input resend/heartbeat and capped per-client debug screenshot
+  upload at one image per second. Focused production browser checks pass.
+- The four-browser recording still exposes a real post-level-handoff input
+  regression on the second course; it is documented in `BUGS.md` and remains
+  a failing acceptance test rather than a completed claim.
+
 ## 2026-08-05 — added and closed an honest single-player/multiplayer lockstep harness
 
 - Added a production Playwright harness that opens isolated local and
@@ -80,13 +94,13 @@ committed — only numeric metadata, code, docs, and scripts.
 - Made the multiplayer Phaser shell reliable over repeated transitions: mount
   the host before boot, apply snapshots after explicit scene readiness, apply
   server camera position, tear down old canvases, and size from the rendered
-  host rectangle. The acceptance test asserts one 940×720 CSS/backing canvas
+  host rectangle. The acceptance test asserts one 1280×720 CSS/backing canvas
   for every session before taking ignored screenshots and videos.
 
 ## 2026-08-05 — multiplayer real-play, layout, and progression closure
 
-- Reworked the game view into a full-height canvas plus responsive sidebar, so
-  multiplayer controls do not cover gameplay at desktop widths.
+- Reworked the game view into a full-height canvas with an optional controls
+  drawer, so multiplayer controls do not cover or shrink gameplay.
 - Replaced the punishing opening screen with a safe runway and ground-level
   goal. On completion, the same public game advances its existing party and
   chat into the next bundled level rather than tearing down immediately.

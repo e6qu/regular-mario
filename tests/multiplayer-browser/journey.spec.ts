@@ -97,8 +97,15 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
       '[data-semantic-role="main"][data-semantic-label="Multiplayer game"]',
     ),
   ).toBeAttached();
+  // Playing uses the complete canvas. Open the optional control drawer before
+  // exercising chat and leave actions just as a real player would.
+  await guest.keyboard.press("KeyM");
+  await expect(
+    guest.getByRole("button", { name: "Resume game" }),
+  ).toBeVisible();
   await guest.getByLabel("Game chat message").fill("hello from Ren");
   await guest.getByRole("button", { name: "Send game chat" }).click();
+  await creator.keyboard.press("KeyM");
   await expect(creator.getByRole("log", { name: "Game chat" })).toContainText(
     "Ren: hello from Ren",
   );

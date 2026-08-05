@@ -2,6 +2,23 @@
 
 ## Current State
 
+**Full-viewport lockstep harness and control drawer (2026-08-05).** Multiplayer
+now renders its game canvas across the full browser viewport; the semantic
+controls are a drawer (`M` during play), never a permanent sidebar or overlay.
+The production side-by-side Playwright harness mirrors actual Shift/Right/
+Space edges into isolated local and authenticated online browsers, saves four
+screenshots and paint receipts under ignored
+`playwright_adhoc/side-by-side-lockstep/`, and proves both server state and
+real canvas pixels move. Exact paused-frame parity is zero differing pixels at
+1280×720. Held input now has a connect resend/100 ms heartbeat and debug PNG
+capture is bounded to 1 Hz per client.
+
+**Open regression: four-player second course (2026-08-05).** The real recorded
+four-browser run completes the first course, then fresh held input does not
+advance Coinbox Crossing after the authoritative runner is replaced. No
+protocol error is reported. The failing full-run test and the diagnostic plan
+are recorded in `BUGS.md`; do not claim two-course completion until it passes.
+
 **Multiplayer raster presentation is live under lockstep input (fixed
 2026-08-05).** The production Playwright harness starts isolated local and
 authenticated multiplayer games, mirrors actual keyboard edges to both, and
@@ -49,7 +66,7 @@ create/join request was correctly rejected because the session already owned a
 game slot.
 
 **Multiplayer real-play acceptance (2026-08-05).** The shared game canvas now
-uses the browser viewport left of a non-overlapping control sidebar.
+uses the complete browser viewport with an optional control drawer.
 The introductory course has a safe runway and transitions the same public game
 to the next bundled course when any player reaches its goal. Online players
 can pass through idle party members, preventing a shared-screen deadlock. A
@@ -61,9 +78,9 @@ ignored `playwright_adhoc/multiplayer-full-run/`.
 **Two-course multiplayer completion proof (2026-08-05).** Four genuinely
 separate Chromium processes now record the same full journey through Party
 Runway and Coinbox Crossing, then enter Cavern Route together. The test checks
-all four post-transition canvases at exactly 940×720 CSS and backing pixels,
+all four post-transition canvases at exactly 1280×720 CSS and backing pixels,
 and screenshots each player only after its authoritative frame is rendered.
-The inspected captures show the authored game plus sidebar without overlap.
+The inspected captures show the authored game at full browser width.
 
 **Multiplayer visual parity verified (2026-08-05, corrected).** Multiplayer
 now loads the same authored skin bundle and full `BootScene` as local play;

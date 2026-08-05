@@ -111,10 +111,10 @@ async function expectExactCanvasParity(
     { localDataUrl: leftDataUrl, remoteDataUrl: rightDataUrl },
   );
   expect(comparison).toEqual({
-    width: 940,
+    width: 1280,
     height: 720,
     differentPixels: 0,
-    differenceBounds: [940, 720, -1, -1],
+    differenceBounds: [1280, 720, -1, -1],
   });
 }
 
@@ -128,10 +128,10 @@ test("the actual local BootScene and a paused server frame render every pixel id
   const local = await localContext.newPage();
   const admin = await adminContext.newPage();
 
-  // The multiplayer game canvas is the browser viewport minus its semantic
-  // control sidebar (940×720 at the standard desktop test viewport). Match
-  // that exact drawable surface locally before comparing raw canvas pixels.
-  await local.setViewportSize({ width: 940, height: 720 });
+  // Playing multiplayer owns the entire browser viewport. The semantic
+  // controls collapse into an optional drawer after Start, so the local scene
+  // must use the same full drawable surface for the raw canvas comparison.
+  await local.setViewportSize({ width: 1280, height: 720 });
 
   await enterMultiplayerLobby(player);
   await player.getByRole("button", { name: "Create game" }).click();

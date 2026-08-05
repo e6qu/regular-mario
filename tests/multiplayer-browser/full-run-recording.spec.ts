@@ -56,6 +56,11 @@ async function closeAndNameRecording(
 async function startRunning(players: readonly RecordedPlayer[]): Promise<void> {
   await Promise.all(
     players.map(async (player) => {
+      // A course transition can occur while an earlier browser-level key is
+      // still recorded as down. Clear that physical state first so this is a
+      // fresh, real key edge in every independently recorded browser.
+      await player.page.keyboard.up("ArrowRight");
+      await player.page.keyboard.up("Shift");
       await player.page
         .getByLabel("Authoritative multiplayer game view")
         .focus();
@@ -108,6 +113,17 @@ test("four separate browser sessions complete two courses back to back", async (
         ).toBeVisible(),
       ),
     );
+    // The canvas is created while the game is still waiting. Do not send a
+    // real player's first held movement command until every separate browser
+    // has received the authoritative playing state; inputs submitted during
+    // the waiting transition are intentionally not gameplay commands.
+    await Promise.all(
+      players.map((player) =>
+        expect(
+          player.page.getByText(/^playing · frame [1-9][0-9]*$/),
+        ).toBeVisible(),
+      ),
+    );
     await expect(
       creator.page.getByLabel("Authoritative multiplayer game view"),
     ).toHaveAttribute("data-authoritative-level-id", "multiplayer-onboarding");
@@ -141,18 +157,16 @@ test("four separate browser sessions complete two courses back to back", async (
         }),
       ),
     );
-    const panel = creator.page.locator(".multiplayer-game-panel");
+    const gameShell = creator.page.locator(".multiplayer-game-shell");
     const canvas = creator.page.getByLabel(
       "Authoritative multiplayer game view",
     );
-    const [panelBox, canvasBox] = await Promise.all([
-      panel.boundingBox(),
-      canvas.boundingBox(),
-    ]);
-    if (panelBox === null || canvasBox === null) {
-      throw new Error("Multiplayer layout boxes are unavailable.");
+    const canvasBox = await canvas.boundingBox();
+    if (canvasBox === null) {
+      throw new Error("Multiplayer canvas layout box is unavailable.");
     }
-    expect(panelBox.x).toBeGreaterThanOrEqual(canvasBox.x + canvasBox.width);
+    await expect(gameShell).toHaveAttribute("data-controls-open", "false");
+    expect(canvasBox).toMatchObject({ x: 0, y: 0, width: 1280, height: 720 });
 
     const initialSnapshot = await creator.page.request.get(
       `/api/games/${gameId}/snapshot`,
@@ -198,8 +212,20 @@ test("four separate browser sessions complete two courses back to back", async (
     expect(nextLevelSnapshotBody.levelId).toBe("coin-block-route");
     expect(nextLevelSnapshotBody.players).toHaveLength(playerCount);
 
+    // A level handoff rebuilds the authoritative-render Phaser scene in every
+    // browser. Wait for all four rebuilt canvases before issuing the next real
+    // held-input sequence; a fixed sleep can target the outgoing course.
+    await Promise.all(
+      players.map((player) =>
+        expect(
+          player.page.getByLabel("Authoritative multiplayer game view"),
+        ).toHaveAttribute("data-authoritative-level-id", "coin-block-route"),
+      ),
+    );
     await startRunning(players);
-    for (let frameBatch = 0; frameBatch < 20; frameBatch += 1) {
+    await creator.page.waitForTimeout(500);
+    await expect(creator.page.getByRole("alert")).toHaveText("");
+    for (let frameBatch = 0; frameBatch < 40; frameBatch += 1) {
       await creator.page.waitForTimeout(250);
       const levelId = await creator.page
         .getByLabel("Authoritative multiplayer game view")
@@ -212,7 +238,7 @@ test("four separate browser sessions complete two courses back to back", async (
     await expect(
       creator.page.getByLabel("Authoritative multiplayer game view"),
     ).toHaveAttribute("data-authoritative-level-id", "cavern-route", {
-      timeout: 3_000,
+      timeout: 5_000,
     });
     await creator.page.waitForTimeout(1_000);
     await Promise.all(
@@ -239,7 +265,7 @@ test("four separate browser sessions complete two courses back to back", async (
       }
       expect(box.x, `player ${String(index + 1)}`).toBe(0);
       expect(box.y, `player ${String(index + 1)}`).toBe(0);
-      expect(box.width, `player ${String(index + 1)}`).toBe(940);
+      expect(box.width, `player ${String(index + 1)}`).toBe(1280);
       expect(box.height, `player ${String(index + 1)}`).toBe(720);
     }
     await Promise.all(
@@ -250,7 +276,7 @@ test("four separate browser sessions complete two courses back to back", async (
         expect(
           await canvas.getAttribute("width"),
           `player ${String(index + 1)}`,
-        ).toBe("940");
+        ).toBe("1280");
         expect(
           await canvas.getAttribute("height"),
           `player ${String(index + 1)}`,
@@ -275,6 +301,10 @@ test("four separate browser sessions complete two courses back to back", async (
         ).toHaveAttribute("data-authoritative-level-id", "cavern-route"),
       ),
     );
+    await creator.page.keyboard.press("KeyM");
+    await expect(
+      creator.page.getByRole("button", { name: "End game", exact: true }),
+    ).toBeVisible();
     await creator.page
       .getByRole("button", { name: "End game", exact: true })
       .click();

@@ -2,6 +2,28 @@
 
 ## Known Bugs
 
+### Four-player second-course input is lost after an authoritative level handoff (observed 2026-08-05)
+
+`tests/multiplayer-browser/full-run-recording.spec.ts` is intentionally left
+failing as evidence. Four separately recorded, authenticated Chromium players
+complete Party Runway, but after the server advances the same party into
+Coinbox Crossing, fresh Right/Run key edges do not move the server state and
+the expected Cavern Route transition never occurs. The client surfaces no
+protocol error, so this is not a failure that may be hidden by retries or by
+calling the run successful. The focused side-by-side lockstep, exact parity,
+and normal two-player journey pass. Next diagnosis: retain and inspect per
+player input sequence, intended frame, acknowledgement, and queue metrics
+across the runner replacement, then add a regression at that boundary.
+
+### Multiplayer full-viewport drawer and input heartbeat (fixed 2026-08-05)
+
+Playing multiplayer now uses the entire browser canvas at 1280×720 in the
+standard desktop proof; the control drawer is visible while waiting and opens
+with `M` during play, so no persistent panel or button occupies game pixels.
+Held input is resent on WebSocket connect and every 100 ms while pressed, and
+debug PNG upload is bounded to one latest image per client per second. Focused
+production Playwright coverage passes.
+
 ### Multiplayer canvas could stay visually frozen while its server-driven BootScene advanced — fixed (2026-08-05)
 
 The actual fault was a coordinate-space mix-up, not frozen rendering: the
@@ -62,7 +84,7 @@ The first public course could begin with hazards/enemies immediately beside a
 new player, while idle remote players were solid and could form an impassable
 wall. The game controls also overlaid the browser canvas. The opening course
 is now a safe runway, online player bodies intentionally overlap, and the
-controls occupy a responsive sidebar. A four-real-browser recorded journey
+controls are now an optional drawer. A four-real-browser recorded journey
 proves keyboard movement, level completion, and next-level transition.
 
 ### Reported local game-start failure — awaiting logged reproduction (2026-08-05)
