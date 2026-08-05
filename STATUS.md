@@ -7,6 +7,12 @@ Authoritative-render scenes now invoke the same local death-effect start/step
 path as normal play when a reconciled outcome becomes defeated. The server
 owns the outcome; each browser owns dismemberment presentation.
 
+**Death recovery is actionable (2026-08-05).** A defeated spectator in a live
+party automatically opens the game controls with a clear Leave action. Leaving
+returns the player to the lobby and releases their sole game slot; joining that
+same still-running game creates a new active player at the party's current
+screen rather than retaining the defeated spectator state.
+
 **Camera presentation is client-local (2026-08-05).** The authoritative
 server still reconciles gameplay, but it no longer controls the browser's
 painted camera at 20 Hz. Each client smoothly follows its predicted local

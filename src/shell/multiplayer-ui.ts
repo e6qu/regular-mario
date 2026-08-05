@@ -834,6 +834,14 @@ function renderGame(
         : `${snapshot.phase} · frame ${snapshot.frame}`;
     status.textContent = phaseText;
     playStatus.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+    if (local?.spectator && snapshot.phase === "playing") {
+      // Death must never trap a player behind the hidden game drawer. Leave
+      // returns to the lobby, where the same running game can be joined again;
+      // the authoritative runner places that new active player in the party's
+      // current screen.
+      setControlsOpen(true);
+      playStatus.textContent = "spectating · leave to rejoin the party";
+    }
     gameShell.setAttribute("data-game-phase", snapshot.phase);
     if (snapshot.phase !== lastPresentedPhase) {
       setControlsOpen(snapshot.phase !== "playing");

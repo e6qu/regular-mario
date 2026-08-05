@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### A defeated player could be trapped behind the hidden play drawer — fixed (2026-08-05)
+
+Death correctly retained the player as a spectator, but normal playing mode
+hides multiplayer controls. A newly defeated player now gets an opened drawer
+with Leave game. That API path frees the slot and a real running-party lobby
+test proves that the player can immediately join the same game as an active
+current-screen spawn.
+
 ### Multiplayer player dismemberment did not start — fixed (2026-08-05)
 
 The normal scene update starts and advances local death effects, but the

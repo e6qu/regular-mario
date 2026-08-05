@@ -113,4 +113,37 @@ describe("public multiplayer lobby", () => {
     lobby.leaveGame(mira.playerId);
     expect(lobby.games().map((game) => game.gameId)).toEqual([second.gameId]);
   });
+
+  it("lets a spectator-sized slot leave and rejoin the same running party", () => {
+    const lobby = makeLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const game = lobby.createGame(
+      mira,
+      "first-authored",
+      MultiplayerGameMode.Regular,
+    );
+    lobby.joinGame(ren, game.gameId);
+    lobby.startGame(mira.playerId, game.gameId);
+
+    // This is the server operation used by the death-spectator drawer. It
+    // must free the slot even though the game itself keeps running for Mira.
+    lobby.leaveGame(ren.playerId);
+    expect(lobby.gameForPlayer(ren.playerId)).toBeUndefined();
+    expect(lobby.games()).toMatchObject([
+      {
+        gameId: game.gameId,
+        playerCount: 1,
+        phase: MultiplayerGamePhase.Playing,
+      },
+    ]);
+
+    const rejoined = lobby.joinGame(ren, game.gameId);
+    expect(rejoined).toMatchObject({
+      gameId: game.gameId,
+      playerCount: 2,
+      phase: MultiplayerGamePhase.Playing,
+    });
+    expect(lobby.gameForPlayer(ren.playerId)).toBe(game.gameId);
+  });
 });

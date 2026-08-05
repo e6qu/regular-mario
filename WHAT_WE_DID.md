@@ -10,6 +10,9 @@ committed — only numeric metadata, code, docs, and scripts.
 - Wired authoritative-render presentation into the existing client-local
   death-effect lifecycle, so a reconciled defeated player dismembers locally
   instead of remaining without a death sequence.
+- Opened the in-game control drawer automatically for a defeated spectator,
+  exposing Leave game; leaving releases the one-game membership and rejoining
+  the live party creates a fresh active player in its current screen.
 
 ## 2026-08-05 — decoupled camera presentation from server receipts
 

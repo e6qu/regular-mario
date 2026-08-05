@@ -15,6 +15,9 @@ in simulation frames must consume authoritative-frame deltas, never raw packet
 arrivals, and remote state application must not force a display-list-wide depth
 sort per 20 Hz receipt.
 
+Keep defeat recovery explicit: a spectator must be able to open game controls,
+leave, and join the still-running party as a fresh active current-screen spawn.
+
 Keep complete predicted simulation presentation on the browser frame loop:
 rendering only the predicted local player while waiting for 20 Hz authoritative
 receipts makes coins and enemies visibly stutter. The password form must submit
