@@ -1089,31 +1089,33 @@ const fireBloom = [
   ".......ee.......",
 ];
 
-const gateAxePalette = {
+const publicExitArchPalette = {
   ".": [0, 0, 0, 0],
   e: [24, 20, 18, 255],
-  h: [168, 168, 178, 255],
-  w: [235, 235, 242, 255],
-  t: [136, 92, 50, 255],
-  d: [96, 62, 32, 255],
+  t: [36, 104, 102, 255],
+  T: [72, 146, 138, 255],
+  b: [176, 126, 48, 255],
+  B: [238, 192, 80, 255],
+  l: [250, 174, 72, 255],
+  d: [20, 38, 50, 255],
 };
-const gateAxe = [
-  "....ehhe........",
-  "...ehwwhe.......",
-  "..ehwwhhhe......",
-  "..ehwhhhhe......",
-  "..ehhhhhhee.....",
-  "...ehhhheete....",
-  "....eheeetde....",
-  ".....eetdee.....",
-  ".....etdee......",
-  "....etdee.......",
-  "...etdee........",
-  "..etdee.........",
-  ".etdee..........",
-  ".edee...........",
-  ".ee.............",
-  "................",
+const publicExitArch = [
+  "......eBBe......",
+  ".....eBllBe.....",
+  "....eBBttBBe....",
+  "...eBTTTTTTBe...",
+  "..eBTTeeeeTTBe..",
+  ".eBTTeddddeTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTed..deTTBe.",
+  ".eBTTeeeeeeTTBe.",
+  ".eeeeeeeeeeeeee.",
 ];
 
 // A dark finned slug for the bullet volleys.
@@ -2252,9 +2254,9 @@ async function main() {
     ["buzzy-shell.png", snapperShell, buzzyPalette],
     ["warden.png", scaleGridDouble(snapperWalk), wardenPalette],
     // The keep's boss at true 32x32 (fire and hammer-throwing variants).
-    ["gate-axe.png", gateAxe, gateAxePalette],
+    ["public-exit-arch.png", publicExitArch, publicExitArchPalette],
     ["fire-bloom.png", fireBloom, fireBloomPalette],
-    ["tile-none.png", tileNone, gateAxePalette],
+    ["tile-none.png", tileNone, publicExitArchPalette],
     ["warden-boss-1.png", scaleGrid16Double(bossWalk1), bossPalette, 32, 32],
     ["warden-boss-2.png", scaleGrid16Double(bossWalk2), bossPalette, 32, 32],
     [
@@ -2656,7 +2658,7 @@ async function main() {
       "vglc-smb-transition-pipe": spriteEntry("tile-bamboo.png"),
       "vglc-smb-transition-pipe-a": spriteEntry("tile-bamboo.png"),
       "vglc-smb-transition-pipe-b": spriteEntry("tile-bamboo.png"),
-      "open-gate": spriteEntry("gate-axe.png"),
+      "open-gate": spriteEntry("public-exit-arch.png"),
       // Level-editor actor ids — the editor's whole cast renders with this
       // skin's art (no fallback capsules).
       beetle: walkingEnemySprite("grumbler-idle.png"),

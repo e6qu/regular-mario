@@ -20,6 +20,11 @@ committed — only numeric metadata, code, docs, and scripts.
   cannot silently use the procedural scenery path. The only tile exemptions
   are intentionally invisible cells.
 
+## 2026-08-05 — replaced generic exit axe art
+
+- Replaced the generated generic axe grid with an original raster signal-arch
+  sprite and retained the same `open-gate` manifest contract.
+
 ## 2026-08-05 — completed the real four-player World 1-1 recording
 
 - Replaced the fragile relative-delay course driver with a checked-in,

@@ -24,6 +24,11 @@ Empty-collision scenery now requires an explicit raster tile entry in the
 release manifest. Only transparent sky, invisible goal triggers, and hidden
 until-revealed blocks are exempt; the coverage unit test passes.
 
+**Generic exit axe replaced (2026-08-05).** The release asset generator no
+longer emits or maps the generic `open-gate` actor to an axe. It now produces
+an original teal-and-brass raster signal arch. Rebuilt production local/server
+and two-client raw-pixel parity checks pass.
+
 **Authoritative party-camera correction (2026-08-05).** The shared camera now
 follows the leading active player rather than treating the creator's slot as
 privileged. This fixes a genuine four-browser capture defect where an idle
