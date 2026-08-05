@@ -428,6 +428,7 @@ export function makeMultiplayerHttpServer(
         json(response, 200, {
           profile: service.requirePlayer(playerToken, now()),
           games: service.games(playerToken, now()),
+          activeGame: service.activeGame(playerToken, now()),
           messages: service.lobbyMessages(playerToken, now()),
         });
         return;

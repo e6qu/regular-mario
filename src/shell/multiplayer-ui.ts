@@ -175,6 +175,7 @@ async function renderLobby(
     requestJson<{
       readonly profile: PlayerProfile;
       readonly games: readonly GameSummary[];
+      readonly activeGame: GameSummary | undefined;
       readonly messages: readonly {
         readonly nickname: string;
         readonly text: string;
@@ -187,6 +188,21 @@ async function renderLobby(
       }[];
     }>("/levels"),
   ]);
+  // A server restart ends games, but an ordinary browser refresh must resume
+  // the player's one active game. Rendering a lobby in that state presents
+  // actions which the server must reject, making the account look usable while
+  // every create/join attempt fails.
+  if (lobby.activeGame !== undefined) {
+    renderGame(
+      mount,
+      lobby.profile,
+      lobby.activeGame.gameId,
+      lobby.activeGame.levelId,
+      lobby.activeGame.creator.playerId,
+      userAssetBundle,
+    );
+    return;
+  }
   mount.replaceChildren();
   const panel = makePanel();
   const gameShell = document.createElement("section");
@@ -235,6 +251,8 @@ async function renderLobby(
     }),
   );
   panel.append(profileForm);
+  const actionError = document.createElement("p");
+  actionError.setAttribute("role", "alert");
 
   const levelSelect = document.createElement("select");
   levelSelect.setAttribute("aria-label", "Bundled level");
@@ -248,16 +266,28 @@ async function renderLobby(
     new Option("Revenge", "revenge"),
   );
   const create = makeButton("Create game", async () => {
-    await requestJson("/games", {
-      method: "POST",
-      body: JSON.stringify({
-        levelId: levelSelect.value,
-        mode: modeSelect.value,
-      }),
-    });
-    await renderLobby(mount, userAssetBundle);
+    try {
+      await requestJson("/games", {
+        method: "POST",
+        body: JSON.stringify({
+          levelId: levelSelect.value,
+          mode: modeSelect.value,
+        }),
+      });
+      await renderLobby(mount, userAssetBundle);
+    } catch (reason) {
+      actionError.textContent =
+        reason instanceof Error ? reason.message : "Could not create game.";
+    }
   });
-  panel.append("Level ", levelSelect, " Mode ", modeSelect, create);
+  panel.append(
+    "Level ",
+    levelSelect,
+    " Mode ",
+    modeSelect,
+    create,
+    actionError,
+  );
   const games = document.createElement("section");
   const gamesHeading = document.createElement("h2");
   gamesHeading.textContent = "Public games";
@@ -267,31 +297,9 @@ async function renderLobby(
     row.textContent = `${game.creator.nickname} · ${game.levelId} · ${game.mode} · ${game.phase} · ${game.playerCount}/${game.maximumPlayerCount}`;
     row.append(
       makeButton("Join", async () => {
-        const joined = await requestJson<{ readonly game: GameSummary }>(
-          `/games/${game.gameId}/join`,
-          { method: "POST" },
-        );
-        const currentLobby = await requestJson<{
-          readonly profile: PlayerProfile;
-        }>("/lobby");
-        renderGame(
-          mount,
-          currentLobby.profile,
-          joined.game.gameId,
-          joined.game.levelId,
-          joined.game.creator.playerId,
-          userAssetBundle,
-        );
-      }),
-    );
-    if (
-      game.creator.playerId === lobby.profile.playerId &&
-      game.phase === "waiting"
-    ) {
-      row.append(
-        makeButton("Start", async () => {
-          const started = await requestJson<{ readonly game: GameSummary }>(
-            `/games/${game.gameId}/start`,
+        try {
+          const joined = await requestJson<{ readonly game: GameSummary }>(
+            `/games/${game.gameId}/join`,
             { method: "POST" },
           );
           const currentLobby = await requestJson<{
@@ -300,11 +308,45 @@ async function renderLobby(
           renderGame(
             mount,
             currentLobby.profile,
-            started.game.gameId,
-            started.game.levelId,
-            started.game.creator.playerId,
+            joined.game.gameId,
+            joined.game.levelId,
+            joined.game.creator.playerId,
             userAssetBundle,
           );
+        } catch (reason) {
+          actionError.textContent =
+            reason instanceof Error ? reason.message : "Could not join game.";
+        }
+      }),
+    );
+    if (
+      game.creator.playerId === lobby.profile.playerId &&
+      game.phase === "waiting"
+    ) {
+      row.append(
+        makeButton("Start", async () => {
+          try {
+            const started = await requestJson<{ readonly game: GameSummary }>(
+              `/games/${game.gameId}/start`,
+              { method: "POST" },
+            );
+            const currentLobby = await requestJson<{
+              readonly profile: PlayerProfile;
+            }>("/lobby");
+            renderGame(
+              mount,
+              currentLobby.profile,
+              started.game.gameId,
+              started.game.levelId,
+              started.game.creator.playerId,
+              userAssetBundle,
+            );
+          } catch (reason) {
+            actionError.textContent =
+              reason instanceof Error
+                ? reason.message
+                : "Could not start game.";
+          }
         }),
       );
     }
@@ -359,6 +401,9 @@ function renderGame(
   const chatLog = document.createElement("div");
   chatLog.setAttribute("role", "log");
   chatLog.setAttribute("aria-label", "Game chat");
+  const gameActionError = document.createElement("div");
+  gameActionError.setAttribute("role", "alert");
+  let startGameButton: HTMLButtonElement | undefined;
   panel.classList.add("multiplayer-game-panel");
   panel.append(title, status, chatLog, chatInput);
   panel.append(
@@ -379,13 +424,23 @@ function renderGame(
     }),
   );
   if (creatorPlayerId === profile.playerId) {
+    startGameButton = makeButton("Start game", async () => {
+      try {
+        await requestJson(`/games/${gameId}/start`, { method: "POST" });
+      } catch (reason) {
+        gameActionError.textContent =
+          reason instanceof Error ? reason.message : "Could not start game.";
+      }
+    });
     panel.append(
+      startGameButton,
       makeButton("End game", async () => {
         await requestJson(`/games/${gameId}/end`, { method: "POST" });
         disposeView();
         await renderLobby(mount, userAssetBundle);
       }),
     );
+    panel.append(gameActionError);
   }
   gameShell.append(gameHost, panel);
   mount.append(gameShell);
@@ -488,6 +543,7 @@ function renderGame(
       prediction.reconcile(local.acknowledgedInputSequence, local);
     }
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+    startGameButton?.toggleAttribute("hidden", snapshot.phase !== "waiting");
     renderer.render(snapshot);
     if (snapshot.phase === "finished") {
       if (!completedAudioPlayed) {

@@ -48,6 +48,9 @@ its local player.
 - Games, chats, queues, and sessions are deliberately ephemeral: a service
   restart ends active games and clears them. This avoids a database and
   recovery rules in the first trusted-friends release.
+- A normal browser refresh with a valid session resumes that player's active
+  game directly. The lobby must never show create/join controls to a player
+  who already occupies a game slot.
 - Chat is ephemeral, capped at 256 characters, and limited to three messages
   per second per session in both the lobby and each game.
 - Avatar names, artwork, labels, and game UI must be original. Do not ship or

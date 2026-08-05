@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — restored active multiplayer games after refresh
+
+- Added the authenticated active-game summary to the lobby response and route
+  restoration directly to the waiting or playing game instead of exposing
+  impossible create/join lobby controls.
+- Put Start game in the creator's waiting-game panel, which is now the normal
+  post-create and post-refresh location, and surface action failures as alerts.
+- Proved the full production flow with Playwright: create, reload, automatic
+  game resume, second-player join, and creator start.
+
 ## 2026-08-05 — fixed the live first-frame multiplayer rendering race
 
 - Waited for BootScene's explicit post-create render-ready signal instead of

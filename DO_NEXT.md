@@ -16,6 +16,9 @@
 - Complete. The multiplayer adapter now waits for BootScene's post-create
   render-ready event; an early snapshot can no longer leave a background-only
   Party Runway canvas.
+- Complete. Refreshing a valid session resumes its active game instead of
+  showing impossible lobby create/join actions; the creator's waiting-game
+  screen owns the Start game action.
 - Complete. Admin pause/step/resume now immediately broadcast the changed
   authoritative snapshot, so debug controls and parity capture observe the
   same frame. The production browser journey passes at 100 ms and 3,000 ms.

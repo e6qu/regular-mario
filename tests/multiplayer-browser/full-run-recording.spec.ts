@@ -100,7 +100,7 @@ test("four separate browser sessions complete two courses back to back", async (
       await player.page.reload();
       await player.page.getByRole("button", { name: "Join" }).click();
     }
-    await creator.page.getByRole("button", { name: "Start" }).click();
+    await creator.page.getByRole("button", { name: "Start game" }).click();
     await Promise.all(
       players.map((player) =>
         expect(
@@ -242,6 +242,9 @@ test("four separate browser sessions complete two courses back to back", async (
         ).toHaveAttribute("data-authoritative-level-id", "cavern-route"),
       ),
     );
+    await creator.page
+      .getByRole("button", { name: "End game", exact: true })
+      .click();
   } finally {
     await Promise.all(players.map(closeAndNameRecording));
     await Promise.all(browsers.map((browser) => browser.close()));

@@ -2,6 +2,16 @@
 
 ## Known Bugs
 
+### Refresh showed impossible multiplayer lobby actions — fixed 2026-08-05
+
+After a browser refresh, a valid session with an active game was rendered as a
+lobby. The server correctly rejected every Create/Join request because that
+player already occupied one game slot, but the client showed no useful error
+or resume route. The lobby response now includes the active game; the browser
+immediately reopens it, and its creator can start from the waiting-game view.
+The real production browser journey covers create, refresh-resume, guest join,
+and start.
+
 ### First-frame multiplayer canvas could be background-only — fixed 2026-08-05
 
 Phaser reports a scene as active before `BootScene.create()` has built its

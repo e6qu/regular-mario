@@ -18,6 +18,20 @@ async function login(page: Page): Promise<void> {
   await enterMultiplayerLobby(page);
 }
 
+async function saveProfile(page: Page, nickname: string): Promise<void> {
+  await page.getByLabel("Nickname").fill(nickname);
+  const saved = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/profile") &&
+      response.request().method() === "PATCH",
+  );
+  await page.getByRole("button", { name: "Save profile" }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(
+    page.getByRole("heading", { name: "Trusted friends lobby" }),
+  ).toBeVisible();
+}
+
 test("two trusted friends create, join, chat, and inspect a game", async ({
   browser,
 }) => {
@@ -26,21 +40,34 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   const creator = await creatorContext.newPage();
   const guest = await guestContext.newPage();
   await login(creator);
-  await creator.getByLabel("Nickname").fill("Mira");
-  await creator.getByRole("button", { name: "Save profile" }).click();
+  await saveProfile(creator, "Mira");
   await creator.getByLabel("Bundled level").selectOption("cavern-route");
   await creator.getByRole("button", { name: "Create game" }).click();
-  await expect(creator.getByRole("button", { name: "Start" })).toBeVisible();
+  await expect(
+    creator.getByRole("button", { name: "Start game" }),
+  ).toBeVisible();
+  // A refresh must resume the one game this session already owns. Otherwise
+  // the lobby offers create/join controls which the server correctly rejects.
+  await creator.reload();
+  await expect(
+    creator.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+  await expect(
+    creator.getByRole("button", { name: "Start game" }),
+  ).toBeVisible();
 
   await login(guest);
-  await guest.getByLabel("Nickname").fill("Ren");
-  await guest.getByRole("button", { name: "Save profile" }).click();
-  await guest.getByRole("button", { name: "Join" }).click();
+  await saveProfile(guest, "Ren");
+  await guest
+    .locator("section > div")
+    .filter({ hasText: /^Mira · cavern-route · regular · waiting/ })
+    .getByRole("button", { name: "Join" })
+    .click();
   await expect(
     guest.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
 
-  await creator.getByRole("button", { name: "Start" }).click();
+  await creator.getByRole("button", { name: "Start game" }).click();
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
@@ -101,10 +128,13 @@ test("administrator can inspect and step a paused game", async ({ page }) => {
       ),
     ),
   ).toBeVisible();
-  await page.getByRole("button", { name: "pause" }).click();
-  await page.getByRole("button", { name: "step" }).click();
-  await page.getByRole("button", { name: "resume" }).click();
-  await expect(page.getByAltText(/Latest screenshot for game-/)).toBeVisible();
+  const miraGame = page.locator("section").filter({ hasText: /Mira/ });
+  await miraGame.getByRole("button", { name: "pause" }).click();
+  await miraGame.getByRole("button", { name: "step" }).click();
+  await miraGame.getByRole("button", { name: "resume" }).click();
+  await expect(
+    miraGame.getByAltText(/Latest screenshot for game-/),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: /Boot (Mira|Ren)/ })
     .first()

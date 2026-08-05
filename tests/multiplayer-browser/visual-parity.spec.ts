@@ -135,7 +135,7 @@ test("the actual local BootScene and a paused server frame render every pixel id
 
   await enterMultiplayerLobby(player);
   await player.getByRole("button", { name: "Create game" }).click();
-  await player.getByRole("button", { name: "Start" }).click();
+  await player.getByRole("button", { name: "Start game" }).click();
   await expect(
     player.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
@@ -214,6 +214,7 @@ test("the actual local BootScene and a paused server frame render every pixel id
     player,
     "Original platformer game canvas",
   );
+  await player.getByRole("button", { name: "End game", exact: true }).click();
   await Promise.all([
     playerContext.close(),
     localContext.close(),
@@ -244,7 +245,7 @@ test("two independently connected avatars render every server-driven pixel ident
     })
     .getByRole("button", { name: "Join" })
     .click();
-  await creator.getByRole("button", { name: "Start" }).click();
+  await creator.getByRole("button", { name: "Start game" }).click();
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
@@ -265,6 +266,7 @@ test("two independently connected avatars render every server-driven pixel ident
     ],
   });
   await expectExactCanvasParity(creator, guest);
+  await creator.getByRole("button", { name: "End game", exact: true }).click();
 
   await Promise.all([
     creatorContext.close(),

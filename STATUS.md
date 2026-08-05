@@ -10,6 +10,13 @@ construction. A fresh standalone Playwright journey was captured and visually
 inspected with Party Runway's player and collectible visible; the exact-pixel
 parity check now exercises that live default course.
 
+**Active-game refresh resume corrected (2026-08-05).** A valid player session
+now receives its active-game summary with the lobby response and re-enters the
+waiting or live game on refresh. The creator can start from that waiting-game
+screen. This closes the case where the lobby appeared usable but every
+create/join request was correctly rejected because the session already owned a
+game slot.
+
 **Multiplayer real-play acceptance (2026-08-05).** The shared game canvas now
 uses the full browser viewport left of a non-overlapping control sidebar.
 The introductory course has a safe runway and transitions the same public game

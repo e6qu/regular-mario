@@ -58,11 +58,13 @@ test("eight independent browser players can share one authoritative game", async
     await page.reload();
     await page
       .locator("section > div")
-      .filter({ hasText: /^LoadPilot0 · first-authored · regular · waiting/ })
+      .filter({
+        hasText: /^LoadPilot0 · multiplayer-onboarding · regular · waiting/,
+      })
       .getByRole("button", { name: "Join" })
       .click();
   }
-  await creator.getByRole("button", { name: "Start" }).click();
+  await creator.getByRole("button", { name: "Start game" }).click();
   await Promise.all(
     pages.map((page) =>
       expect(
@@ -105,5 +107,6 @@ test("eight independent browser players can share one authoritative game", async
   await finalPlayer.screenshot({
     path: "screenshots/multiplayer-stress-player-8.png",
   });
+  await creator.getByRole("button", { name: "End game", exact: true }).click();
   await Promise.all(pages.map((page) => page.context().close()));
 });
