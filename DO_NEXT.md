@@ -34,6 +34,11 @@ rendering only the predicted local player while waiting for 20 Hz authoritative
 receipts makes coins and enemies visibly stutter. The password form must submit
 on Enter, and lobby Create remains a create-and-enter single action.
 
+Keep `pipe-rendering.spec.ts` as a live content-path regression: it reaches
+the first World 1-1 pipe with physical key edges, confirms its collision, and
+compares the paused multiplayer canvas. Do not replace pipe geometry with a
+separate multiplayer-only representation.
+
 Keep the two render lanes distinct: ordered server receipts own persistent map
 tile commits, while the client prediction lane owns moving-world paint. A paused
 or finished receipt must block any stale queued prediction; two-client raw

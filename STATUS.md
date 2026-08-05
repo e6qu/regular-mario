@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Multiplayer pipe rendering is verified (2026-08-05).** World 1-1's first
+pipe begins immediately beyond the opening camera. A real browser run now
+reaches it with normal keyboard input, confirms the solid stop before its
+mouth, pauses the live game, and exact-compares the rendered authored cap and
+shaft.
+
 **Rejoining an empty-paused game now resumes play (2026-08-05).** The server
 marks a final-member departure as an automatic empty-party pause. The first
 member who enters that retained game resumes its authoritative simulation and

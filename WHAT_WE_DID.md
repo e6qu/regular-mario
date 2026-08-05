@@ -5,6 +5,14 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — proved live multiplayer pipe rendering
+
+- Confirmed that the shared World 1-1 data and release asset bundle contain
+  the pipe tiles; the first pipe is simply beyond the opening camera.
+- Added a physical-key multiplayer browser journey that reaches the first
+  pipe, proves its solid collision, pauses the live game, and exact-compares
+  the authored pipe cap and shaft against a stable canvas snapshot.
+
 ## 2026-08-05 — restored input after rejoining an empty game
 
 - Distinguished an automatic pause caused by every member leaving from a

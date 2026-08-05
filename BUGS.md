@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Pipes were not proven beyond the opening multiplayer camera — fixed (2026-08-05)
+
+The opening World 1-1 viewport ends before the first pipe, which made
+start-frame checks unable to distinguish an off-screen pipe from a missing one.
+A real multiplayer browser regression now runs to the first pipe using
+ordinary keys, proves its collision at x≈434, pauses the game, and exact
+compares the authored pipe frame.
+
 ### Enemy contact could remain harmless after recovery — fixed (2026-08-05)
 
 The per-enemy damage debounce correctly protects an enlarged player through
