@@ -218,6 +218,30 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
       })),
     );
 
+    // This is a real input-to-paint budget, not a server-state surrogate. Both
+    // browser canvases must visibly respond to the first shared movement edge
+    // within the normal 100 ms target plus a conservative browser-test margin.
+    const responseStartedAtMilliseconds = Date.now();
+    await mirrorKey(local, multiplayer, "ArrowRight", "down");
+    await Promise.all([
+      expect
+        .poll(() => canvasDataUrl(local, "Original platformer game canvas"), {
+          timeout: 250,
+        })
+        .not.toBe(localBefore),
+      expect
+        .poll(
+          () =>
+            canvasDataUrl(multiplayer, "Authoritative multiplayer game view"),
+          { timeout: 250 },
+        )
+        .not.toBe(multiplayerBefore),
+    ]);
+    const firstVisibleResponseMilliseconds =
+      Date.now() - responseStartedAtMilliseconds;
+    expect(firstVisibleResponseMilliseconds).toBeLessThanOrEqual(250);
+    await mirrorKey(local, multiplayer, "ArrowRight", "up");
+
     // The same physical input sequence reaches both actual browser windows.
     await mirrorKey(local, multiplayer, "Shift", "down");
     await mirrorKey(local, multiplayer, "ArrowRight", "down");
