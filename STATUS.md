@@ -2,13 +2,21 @@
 
 ## Current State
 
+**Four-browser World 1-1 recording completed (2026-08-05).** Four separate
+Chromium contexts authenticated, created/joined one real WebSocket game, and
+recorded World 1-1 through its authoritative completion into World 1-2. The
+runner replays a zero-reset small-player core trace solely as physical keyboard
+edges, scheduled against an absolute 60 Hz wall-clock timeline so Playwright
+overhead cannot drift late jumps into moving enemies. The production recording,
+stress, journey, visual-parity, and side-by-side lockstep suites pass. Ignored
+videos and per-perspective World 1-1/World 1-2 screenshots are in
+`playwright_adhoc/multiplayer-full-run/`.
+
 **Authoritative party-camera correction (2026-08-05).** The shared camera now
 follows the leading active player rather than treating the creator's slot as
 privileged. This fixes a genuine four-browser capture defect where an idle
 creator pinned every client at the start while a guest ran off-screen. The
-runner unit test passes. The required recorded World 1-1-to-1-2 browser run is
-still open: its live-input controller can reach midcourse state but has not
-yet completed the level, so no current recording is acceptance evidence.
+runner unit test and the completed four-browser recording pass.
 
 **World-map multiplayer rendering verified (2026-08-05).** Multiplayer now
 loads the selected `smb-N-N` source from the same release content bundle as

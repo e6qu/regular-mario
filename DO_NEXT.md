@@ -2,16 +2,17 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
-### Immediate acceptance gap (2026-08-05)
+### Current recorded acceptance evidence (2026-08-05)
 
-- Finish the four-independent-browser recording against the release World 1-1
-  map: the controller must use ordinary physical keyboard events, advance an
-  actual authoritative player through the level, and verify World 1-2 on all
-  four perspectives. Do not replace it with fixture routes, admin state
-  mutation, a mock renderer, or a cropped canvas.
-- Keep the fixed-step server scheduler and the leading-active-player shared
-  camera. The latter is required so an idle creator cannot make a guest's
-  real run invisible to every connected browser.
+- Four isolated authenticated Chromium sessions now create/join one release
+  World 1-1 game, send an ordinary physical-key replay to the production
+  WebSocket service, finish the level, and render World 1-2 from every
+  perspective. Videos and screenshots are intentionally ignored beneath
+  `playwright_adhoc/multiplayer-full-run/`.
+- The replay trace is a zero-reset normal small-player core completion. Its
+  runner uses absolute 60 Hz deadlines; do not replace it with an admin state
+  mutation, mock renderer, fixture course, or relative-time loop that drifts.
+- Keep the fixed-step server scheduler and leading-active-player shared camera.
 
 ### Current verified baseline (2026-08-05)
 

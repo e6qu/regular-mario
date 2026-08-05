@@ -2,15 +2,14 @@
 
 ## Known Bugs
 
-### World 1-1 four-browser completion recording is not yet valid — open (2026-08-05)
+### World 1-1 four-browser completion recording — fixed (2026-08-05)
 
-The current recording uses four real Chromium sessions and a real keyboard
-driver, but its guest runner still fails on a pipe/pit/enemy sequence in the
-release World 1-1 map. The browser-side driver has been changed to consult the
-authoritative grounded state and live enemy motion rather than treating a
-single long Space hold as a proof. It must finish World 1-1 and render World
-1-2 from all four recordings before any full-level claim is restored. The
-authoritative camera bug it exposed is fixed separately.
+Relative Playwright waits accumulated input-edge overhead and made the replay
+late against moving enemies. The runner now schedules its ordinary keyboard
+edges against absolute 60 Hz deadlines and sends the physical `ShiftLeft` run
+code expected by the multiplayer input layer. Four real recorded browsers now
+finish World 1-1 and render World 1-2; the production stress, journey, visual
+parity, and side-by-side suites pass afterwards.
 
 ### Hazard-damage fixture used an obsolete fixed spawn — fixed (2026-08-05)
 

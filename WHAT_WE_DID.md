@@ -5,6 +5,19 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — completed the real four-player World 1-1 recording
+
+- Replaced the fragile relative-delay course driver with a checked-in,
+  zero-reset small-player input trace replayed as physical browser key edges
+  against the production WebSocket server. Absolute 60 Hz deadlines prevent
+  Playwright command overhead from accumulating into late jumps; `ShiftLeft`
+  preserves the input layer's exact run-key semantics.
+- Four isolated authenticated Chromium contexts now create/join one real game,
+  complete World 1-1, render World 1-2 from every perspective, and save four
+  ignored videos plus per-level screenshots in
+  `playwright_adhoc/multiplayer-full-run/`. Production stress, journey, visual
+  parity, and side-by-side lockstep regressions pass afterwards.
+
 ## 2026-08-05 — corrected authoritative shared-camera ownership
 
 - Changed the multiplayer runner's camera selection from “first active slot”
