@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — hardened the lobby's one-game lifecycle
+
+- Game creation now enters the authoritative waiting-game view directly,
+  instead of making a follow-up lobby render the only path to entry.
+- The lobby exposes a single Join action for each other public game; its owner
+  Start action lives only in the waiting-game controls and matching semantic
+  JSON tree.
+- Extended the real production Playwright journey to prove direct entry,
+  refresh resume, all three bundled course choices, guest joining, and start.
+
 ## 2026-08-05 — made live local/multiplayer comparison repeatable
 
 - Reworked playing multiplayer so the canvas owns the whole browser viewport;

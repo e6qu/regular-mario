@@ -2,6 +2,15 @@
 
 ## Current State
 
+**Lobby single-game route reverified (2026-08-05).** Creating a game now
+enters its waiting-game view directly from the authoritative create response;
+the server remains the only membership authority and rejects any attempt to
+create or join a second active game. The owner-only Start action appears only
+inside that waiting-game view (and semantic JSON), while the lobby presents
+one Join action per other public game. A fresh production two-browser journey
+also verifies the selector exposes Party Runway, Coinbox Crossing, and Cavern
+Route.
+
 **Full-viewport lockstep harness and control drawer (2026-08-05).** Multiplayer
 now renders its game canvas across the full browser viewport; the semantic
 controls are a drawer (`M` during play), never a permanent sidebar or overlay.

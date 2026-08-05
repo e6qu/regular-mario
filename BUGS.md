@@ -86,13 +86,14 @@ is now a safe runway, online player bodies intentionally overlap, and the
 controls are now an optional drawer. A four-real-browser recorded journey
 proves keyboard movement, level completion, and next-level transition.
 
-### Reported local game-start failure — awaiting logged reproduction (2026-08-05)
+### Reported local game-start failure — lifecycle route hardened (2026-08-05)
 
-The original failed Start request predates file diagnostics, so its cause is
-not recoverable from evidence. The local server now writes redacted request and
-WebSocket errors to `screenshots/server.log`; reproduce once to capture the
-specific error. The eight-browser stress journey creates, joins, and starts
-successfully.
+The original failed Start request predates file diagnostics, so its exact old
+cause cannot be recovered. The tested route now enters the creator's waiting
+game immediately after create, keeps Start out of public-game rows, and leaves
+the server as the single membership authority. A fresh production two-browser
+journey creates, resumes, joins, and starts successfully; redacted diagnostics
+remain available at `screenshots/server.log` for any new failure.
 
 ### Multiplayer authored-skin delivery gap — fixed 2026-08-05
 

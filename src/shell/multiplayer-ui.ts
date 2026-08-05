@@ -271,14 +271,30 @@ async function renderLobby(
   );
   const create = makeButton("Create game", async () => {
     try {
-      await requestJson("/games", {
-        method: "POST",
-        body: JSON.stringify({
-          levelId: levelSelect.value,
-          mode: modeSelect.value,
-        }),
-      });
-      await renderLobby(mount, userAssetBundle);
+      const created = await requestJson<{ readonly game: GameSummary }>(
+        "/games",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            levelId: levelSelect.value,
+            mode: modeSelect.value,
+          }),
+        },
+      );
+      // Enter the newly-created game from the authoritative response rather
+      // than waiting for a second lobby request. This makes creation one
+      // action: it reserves the player's only game slot and opens that game.
+      const currentLobby = await requestJson<{
+        readonly profile: PlayerProfile;
+      }>("/lobby");
+      renderGame(
+        mount,
+        currentLobby.profile,
+        created.game.gameId,
+        created.game.levelId,
+        created.game.creator.playerId,
+        userAssetBundle,
+      );
     } catch (reason) {
       actionError.textContent =
         reason instanceof Error ? reason.message : "Could not create game.";

@@ -2,6 +2,18 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Verified: lobby creation enters the owned game (2026-08-05)
+
+- Creation uses the authoritative game response to open the waiting-game
+  panel immediately. Do not return the owner to a lobby after create; active
+  membership is server-enforced and lobby Create/Join controls would be
+  impossible actions.
+- The public list has one Join action per other game. Keep Start only in the
+  creator's waiting-game panel and in the matching semantic UI tree.
+- `journey.spec.ts` verifies direct entry, refresh resume, the complete three
+  course selector, a guest join, and creator start against a fresh production
+  server.
+
 ### Verified: four-player level-handoff input and full-viewport contract (2026-08-05)
 
 - `tests/multiplayer-browser/full-run-recording.spec.ts` now completes Party

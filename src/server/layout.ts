@@ -65,6 +65,10 @@ export function makeGameLayout(
   profile: MultiplayerPlayerProfile,
   game: PublicGameSummary,
 ): SemanticUiNode {
+  const creatorWaitingControls =
+    game.creator.playerId === profile.playerId && game.phase === "waiting"
+      ? [node("button", "Start game", [], "game.start", game.gameId)]
+      : [];
   return node("main", "Multiplayer game", [
     node("heading", `${game.levelId} (${game.mode})`),
     node("status", `Game ${game.gameId}: ${game.phase}`),
@@ -73,6 +77,7 @@ export function makeGameLayout(
     node("button", "Send game chat", [], "chat.game.send"),
     node("button", "Leave game", [], "game.leave"),
     node("status", `Playing as ${profile.nickname}`),
+    ...creatorWaitingControls,
   ]);
 }
 
