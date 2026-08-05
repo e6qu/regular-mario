@@ -14,6 +14,17 @@ committed — only numeric metadata, code, docs, and scripts.
   exposing Leave game; leaving releases the one-game membership and rejoining
   the live party creates a fresh active player in its current screen.
 
+## 2026-08-05 — separated authoritative world commits from predicted paint
+
+- Split the multiplayer Phaser scene's server-receipt and client-prediction
+  lanes. Persistent tiles commit only from ordered server state, while moving
+  world simulation continues to present at the client's fixed prediction rate.
+- Paused and finished snapshots explicitly block stale queued prediction,
+  preserving one canonical debug/parity frame for every connected browser.
+- Strengthened the two-client visual gate to require each canvas to have
+  actually rendered the paused authoritative frame, not merely received its
+  WebSocket metadata.
+
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
 - Kept server simulation authoritative but moved viewport presentation to each

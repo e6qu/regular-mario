@@ -656,6 +656,12 @@ function renderGame(
     if (snapshot === undefined || disposed) {
       return;
     }
+    // A paused/finished server receipt is a named authoritative frame used by
+    // debugging and parity tooling. Do not immediately cover it with a stale
+    // local prediction; there is no live input to hide in those phases.
+    if (snapshot.phase !== "playing") {
+      return;
+    }
     if (prediction === undefined || localPlayerSlot === undefined) {
       return;
     }
@@ -680,7 +686,7 @@ function renderGame(
         : clientCameraLeftPixels +
           (targetCameraLeftPixels - clientCameraLeftPixels) *
             multiplayerCameraSmoothingPerAnimationFrame;
-    renderer.presentSimulationState(
+    renderer.presentPredictedSimulationState(
       prediction.snapshot().state,
       clientCameraLeftPixels,
     );

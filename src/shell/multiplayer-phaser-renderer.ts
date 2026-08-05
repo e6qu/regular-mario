@@ -17,7 +17,7 @@ import type { UserAssetBundle } from "./user-asset-loader";
 export type MultiplayerPhaserRenderer = {
   readonly canvas: HTMLCanvasElement;
   render(snapshot: MultiplayerRenderedSnapshot): void;
-  presentSimulationState(
+  presentPredictedSimulationState(
     state: SimulationState,
     cameraLeftPixels: number,
   ): void;
@@ -131,14 +131,19 @@ export function makeMultiplayerPhaserRenderer(
       canvas.tabIndex = 0;
       canvas.focus();
       if (latestSnapshot !== undefined) {
+        candidate.setPredictedPresentationEnabled(
+          latestSnapshot.phase === "playing",
+        );
         applySnapshot(
           candidate,
           latestSnapshot,
-          latestPresentationState?.cameraLeftPixels ?? 0,
+          latestSnapshot.phase === "playing"
+            ? (latestPresentationState?.cameraLeftPixels ?? 0)
+            : latestSnapshot.cameraLeftPixels,
         );
       }
       if (latestPresentationState !== undefined) {
-        candidate.applyAuthoritativeSimulationState(
+        candidate.applyPredictedSimulationState(
           latestPresentationState.state,
           latestPresentationState.cameraLeftPixels,
         );
@@ -181,17 +186,22 @@ export function makeMultiplayerPhaserRenderer(
         String(snapshot.cameraLeftPixels),
       );
       if (ready) {
-        applySnapshot(
-          requireRemoteScene(game),
-          snapshot,
-          latestPresentationState?.cameraLeftPixels ?? 0,
-        );
+        const scene = requireRemoteScene(game);
+        // A pending rAF prediction can otherwise paint over a just-paused
+        // canonical frame, making two clients show different worlds despite
+        // receiving the same server snapshot.
+        scene.setPredictedPresentationEnabled(snapshot.phase === "playing");
+        const presentationCameraLeftPixels =
+          snapshot.phase === "playing"
+            ? (latestPresentationState?.cameraLeftPixels ?? 0)
+            : snapshot.cameraLeftPixels;
+        applySnapshot(scene, snapshot, presentationCameraLeftPixels);
       }
     },
-    presentSimulationState(state, cameraLeftPixels) {
+    presentPredictedSimulationState(state, cameraLeftPixels) {
       latestPresentationState = { state, cameraLeftPixels };
       if (ready) {
-        requireRemoteScene(game).applyAuthoritativeSimulationState(
+        requireRemoteScene(game).applyPredictedSimulationState(
           state,
           cameraLeftPixels,
         );

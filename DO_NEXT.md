@@ -23,6 +23,11 @@ rendering only the predicted local player while waiting for 20 Hz authoritative
 receipts makes coins and enemies visibly stutter. The password form must submit
 on Enter, and lobby Create remains a create-and-enter single action.
 
+Keep the two render lanes distinct: ordered server receipts own persistent map
+tile commits, while the client prediction lane owns moving-world paint. A paused
+or finished receipt must block any stale queued prediction; two-client raw
+canvas parity asserts both the authoritative frame and camera were painted.
+
 Server state remains authoritative, but camera is client presentation. Do not
 reintroduce direct 20 Hz server camera transforms; follow the locally predicted
 player with smoothing instead.

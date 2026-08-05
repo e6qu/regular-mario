@@ -808,6 +808,15 @@ export class BootScene extends Phaser.Scene {
   private pendingAuthoritativeState:
     | { readonly state: SimulationState; readonly cameraLeftPixels: number }
     | undefined;
+  // The server receipt and locally replayed prediction deliberately travel in
+  // separate lanes. A server receipt is where persistent world mutations are
+  // committed; the 60 Hz prediction lane is only allowed to animate the
+  // already-built world. Coalescing them made every browser frame reprocess
+  // static tiles and caused visible multiplayer stalls.
+  private pendingPredictedState:
+    | { readonly state: SimulationState; readonly cameraLeftPixels: number }
+    | undefined;
+  private acceptsPredictedPresentation = true;
   private pendingAuthoritativePlayerPresentation:
     | {
         readonly primaryCharacter: PlayerCharacter;
@@ -1105,6 +1114,42 @@ export class BootScene extends Phaser.Scene {
       );
     }
     this.pendingAuthoritativeState = { state, cameraLeftPixels };
+  }
+
+  /**
+   * Present the client's deterministic replay without treating it as a
+   * network receipt. This keeps input and moving actors smooth while static
+   * world changes remain ordered by the authoritative server stream.
+   */
+  public applyPredictedSimulationState(
+    state: SimulationState,
+    cameraLeftPixels: number,
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept predicted state.",
+      );
+    }
+    if (this.acceptsPredictedPresentation) {
+      this.pendingPredictedState = { state, cameraLeftPixels };
+    }
+  }
+
+  /**
+   * Stop or resume the prediction lane at a lifecycle boundary. A paused
+   * server frame must remain paint-stable even if an rAF callback was already
+   * queued before its WebSocket receipt.
+   */
+  public setPredictedPresentationEnabled(enabled: boolean): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can change prediction presentation.",
+      );
+    }
+    this.acceptsPredictedPresentation = enabled;
+    if (!enabled) {
+      this.pendingPredictedState = undefined;
+    }
   }
 
   public isAuthoritativeRenderSceneReady(): boolean {
@@ -2367,9 +2412,11 @@ export class BootScene extends Phaser.Scene {
 
   private flushAuthoritativePresentation(): void {
     const state = this.pendingAuthoritativeState;
+    const predictedState = this.pendingPredictedState;
     const playerPresentation = this.pendingAuthoritativePlayerPresentation;
     const positions = this.pendingAuthoritativePlayerPositions;
     this.pendingAuthoritativeState = undefined;
+    this.pendingPredictedState = undefined;
     this.pendingAuthoritativePlayerPresentation = undefined;
     this.pendingAuthoritativePlayerPositions = undefined;
     if (state !== undefined) {
@@ -2399,11 +2446,27 @@ export class BootScene extends Phaser.Scene {
       );
     }
     if (state !== undefined || playerPresentation !== undefined) {
-      this.renderSimulationState();
+      this.renderSimulationState("authoritative");
+    }
+    if (predictedState !== undefined) {
+      this.simulationState = predictedState.state;
+      this.cameras.main.stopFollow();
+      this.setAuthoritativeCameraLeft(predictedState.cameraLeftPixels);
+      this.game.canvas.setAttribute(
+        "data-rendered-camera-left",
+        String(predictedState.cameraLeftPixels),
+      );
+      this.renderSimulationState("predicted");
+    }
+    if (
+      state !== undefined ||
+      playerPresentation !== undefined ||
+      predictedState !== undefined
+    ) {
       // Authoritative-render scenes do not execute the normal local update
-      // method. Start and advance the visual death sequence here instead: the
-      // server only supplies the defeated outcome, while each client owns the
-      // dismemberment animation and its frame-by-frame presentation.
+      // method. Start and advance the visual death sequence once per browser
+      // paint: the server supplies the defeated outcome while the client owns
+      // the dismemberment timeline.
       this.maybeBeginDeathEffect();
       this.stepDeathEffect();
     }
@@ -5049,7 +5112,9 @@ export class BootScene extends Phaser.Scene {
     return set;
   }
 
-  private renderSimulationState(): void {
+  private renderSimulationState(
+    presentationSource: "authoritative" | "predicted" = "authoritative",
+  ): void {
     // This is a render receipt, not a transport receipt: browser QA uses it to
     // prove that Phaser has consumed the state that is about to be painted.
     // Keeping it on the canvas makes a frozen scene distinguishable from a
@@ -5376,9 +5441,14 @@ export class BootScene extends Phaser.Scene {
       collectedExtraLifeEntityIdStrings,
       collectedInvincibilityEntityIdStrings,
     );
-    this.renderBreakableTiles();
-    this.renderUsedInteractiveBlocks();
-    this.renderRevealedHiddenBlocks();
+    if (presentationSource === "authoritative") {
+      // Persistent tile mutations are committed at the ordered server
+      // boundary. Re-running these scans for every locally predicted frame is
+      // unnecessary work and visibly stalls large maps.
+      this.renderBreakableTiles();
+      this.renderUsedInteractiveBlocks();
+      this.renderRevealedHiddenBlocks();
+    }
     this.renderProjectiles();
     this.renderTimedHazardProjectiles();
     this.renderFrenzyCheeps();

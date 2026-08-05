@@ -25,6 +25,13 @@ cadence. Password entry is a form (Enter reaches the lobby), and lobby Create
 creates, starts, and enters a game as one action. The real multiplayer journey
 and its cadence gate pass.
 
+**Predicted rendering no longer reapplies persistent world work (2026-08-05).**
+The authoritative server-receipt lane commits static tile mutations; the 60 Hz
+client-prediction lane renders moving actors and local presentation only. A
+paused or finished receipt suppresses queued prediction so all clients paint
+the same canonical frame. Rebuilt browser journey, mirrored-input, local/server
+and two-client exact-pixel parity tests pass.
+
 **Multiplayer presentation cadence corrected (2026-08-05).** Stomp/score
 effects now consume authoritative 60 Hz simulation-frame deltas rather than
 20 Hz WebSocket arrivals, and remote-state application no longer forces a

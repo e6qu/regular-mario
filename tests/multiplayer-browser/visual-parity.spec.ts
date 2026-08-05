@@ -276,6 +276,28 @@ test("two independently connected avatars render every server-driven pixel ident
       { nickname: "PixelRen", avatarId: "ember-warden" },
     ],
   });
+  const pausedSnapshot = await creator.request.get(
+    `/api/games/${gameId}/snapshot`,
+    { headers: { "x-multiplayer-protocol-version": "1" } },
+  );
+  const pausedBody = (await pausedSnapshot.json()) as {
+    readonly frame: number;
+    readonly cameraLeftPixels: number;
+  };
+  for (const page of [creator, guest]) {
+    await expect(
+      page.getByLabel("Authoritative multiplayer game view"),
+    ).toHaveAttribute(
+      "data-rendered-simulation-frame",
+      String(pausedBody.frame),
+    );
+    await expect(
+      page.getByLabel("Authoritative multiplayer game view"),
+    ).toHaveAttribute(
+      "data-rendered-camera-left",
+      String(pausedBody.cameraLeftPixels),
+    );
+  }
   await expectExactCanvasParity(creator, guest);
   await creator.getByRole("button", { name: "End game", exact: true }).click();
 

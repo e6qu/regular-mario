@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Predicted frames could reprocess static map work or overwrite a paused frame — fixed (2026-08-05)
+
+The same scene receipt path handled both server corrections and every 60 Hz
+client prediction. That needlessly rescanned persistent tiles and allowed a
+queued prediction to race a paused server frame. The scene now has explicit
+authoritative and predicted presentation lanes: persistent map mutations apply
+at the server boundary, while a non-playing receipt disables prediction until
+play resumes. Exact two-client paused-frame parity is a browser regression gate.
+
 ### A defeated player could be trapped behind the hidden play drawer — fixed (2026-08-05)
 
 Death correctly retained the player as a spectator, but normal playing mode
