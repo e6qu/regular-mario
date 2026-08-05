@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Dynamic actors could select procedural substitute art — fixed (2026-08-05)
+
+Runtime-spawned items, shots, hazards, airborne enemies, and platforms had
+optional asset lookups that produced geometric shapes when coverage was
+incomplete. These paths now require their exact manifest raster and fail
+loudly. The production journey, eight-player stress, and pixel-parity browser
+checks pass.
+
 ### Static exit bypassed its authored raster — fixed (2026-08-05)
 
 `renderNonPlayerActors` intentionally selected the procedural actor renderer

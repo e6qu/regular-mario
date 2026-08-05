@@ -5,10 +5,10 @@
 ### Raster-only rendering boundary (2026-08-05)
 
 - Static level actors now require authored rasters, including `open-gate`.
-  Continue this boundary through dynamic actors, projectiles, hazards, level
-  tiles, and reaction effects; remove each procedural display path only after
-  the release manifest and a real-browser visual journey cover it. Missing art
-  must throw a specific error, never select substitute vector art.
+  Dynamic actors, projectiles, hazards, and lifts now do too. Continue this
+  boundary through level tiles and reaction effects; delete the now-unreachable
+  procedural actor implementation after a direct source guard is added.
+  Missing art must throw a specific error, never select substitute vector art.
 
 ### Current recorded acceptance evidence (2026-08-05)
 

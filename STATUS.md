@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Dynamic actor raster-only rendering enforced (2026-08-05).** Spawned
+actors, player and timed projectiles, aerial enemies, hatched spinies, cheeps,
+flame hazards, and moving platforms now require manifest art instead of
+procedural substitute shapes. The real production journey, eight-player stress
+test, and local/server plus two-client raw-pixel parity checks pass.
+
 **Static actor raster-only rendering enforced (2026-08-05).** The scene now
 requires authored raster art for every static rendered actor and fails loudly
 when it is absent. In particular, the generic exit no longer bypasses its

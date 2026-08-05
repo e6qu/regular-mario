@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — enforced raster-only dynamic actor rendering
+
+- Converted spawned actors, all projectile families, aerial/hatched/frenzy
+  enemies, flame hazards, and moving platforms from optional-image drawing to
+  required authored raster art. An unmapped runtime entity now raises its
+  specific asset error rather than appearing as a coloured geometric shape.
+- Verified the production two-player journey, eight-player WebSocket stress,
+  and local/server and two-client raw-pixel browser parity suites.
+
 ## 2026-08-05 — enforced raster-only static actor rendering
 
 - Removed the static-actor procedural rendering branch. The boot scene now

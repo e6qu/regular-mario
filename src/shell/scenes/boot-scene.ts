@@ -640,12 +640,6 @@ const exitBannerHeightPixels = 9;
 const exitLeftBannerOffsetX = -2;
 const exitRightBannerOffsetX = 11;
 const exitBannerOffsetY = 2;
-const projectileColor = 0xfacc15;
-const projectileCoreColor = 0x2dd4bf;
-const projectileOutlineColor = 0x854d0e;
-const projectileSparkleColor = 0xfefce8;
-const projectileSparkleSizePixels = 1;
-const projectileMinimumCoreDimensionPixels = 1;
 const pipeColor = 0x0f766e;
 const pipeLipColor = 0x14b8a6;
 const pipeShadowColor = 0x115e59;
@@ -5653,42 +5647,29 @@ export class BootScene extends Phaser.Scene {
   }
 
   // Draw one family of flame hazard points into the shared pool starting at
-  // the given index, as skin art when the sprite set provides it (falling
-  // back to the glowing circle). Returns the next free pool index.
+  // the given index with required authored skin art. Returns the next free
+  // pool index.
   private renderFlameHazardPoints(
     points: readonly { x: number; y: number; sizePixels: number }[],
     imageKey: string,
     startIndex: number,
   ): number {
-    const image = this.userAssetBundle?.actorImages.get(imageKey);
+    const image = this.requireActorImage(imageKey);
     for (const [offset, point] of points.entries()) {
       const index = startIndex + offset;
       let orb = this.flameHazardRenderObjects[index];
       if (orb === undefined) {
-        orb =
-          image !== undefined
-            ? addUserFrameImage(this, 0, 0, image)
-            : this.add
-                .circle(0, 0, point.sizePixels / 2, flameHazardCoreColor)
-                .setStrokeStyle(1, flameHazardRimColor);
+        orb = addUserFrameImage(this, 0, 0, image);
         this.flameHazardRenderObjects[index] = orb;
       }
-      if (orb instanceof Phaser.GameObjects.Arc) {
-        orb.setRadius(point.sizePixels / 2);
-        orb.setPosition(
-          point.x + point.sizePixels / 2,
-          point.y + point.sizePixels / 2,
-        );
-      } else {
-        orb.setDisplaySize(point.sizePixels, point.sizePixels);
-        orb.setPosition(point.x, point.y);
-      }
+      orb.setDisplaySize(point.sizePixels, point.sizePixels);
+      orb.setPosition(point.x, point.y);
       orb.setVisible(true);
     }
     return startIndex + points.length;
   }
 
-  // Moving lift platforms: one pooled raft (skin art, or a plain rectangle),
+  // Moving lift platforms: one pooled authored raft per platform,
   // repositioned every frame from the platform state.
   // ROM BowserIdentities: a fireball-killed keeper in worlds 1-7 is revealed
   // as that world's disguise enemy, tumbling off the bridge.
@@ -5913,31 +5894,15 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
       this.simulationState.clock.frameIndex,
     );
-    const liftImage = this.userAssetBundle?.actorImages.get("mechanism-lift");
+    const liftImage = this.requireActorImage("mechanism-lift");
     for (const [index, placement] of placements.entries()) {
       let plank = this.platformRenderObjects[index];
       if (plank === undefined) {
-        plank =
-          liftImage !== undefined
-            ? addUserFrameImage(this, 0, 0, liftImage)
-            : this.add
-                .rectangle(
-                  0,
-                  0,
-                  placement.widthPixels,
-                  placement.heightPixels,
-                  platformFillColor,
-                )
-                .setOrigin(0)
-                .setStrokeStyle(1, platformEdgeColor);
+        plank = addUserFrameImage(this, 0, 0, liftImage);
         this.platformRenderObjects.push(plank);
       }
       plank.setPosition(placement.x, placement.y);
-      if (plank instanceof Phaser.GameObjects.Rectangle) {
-        plank.setSize(placement.widthPixels, placement.heightPixels);
-      } else {
-        plank.setDisplaySize(placement.widthPixels, placement.heightPixels);
-      }
+      plank.setDisplaySize(placement.widthPixels, placement.heightPixels);
 
       // Balance platforms hang from their pulley rope (drawn up to the
       // pulley band under the HUD); wrap-around elevators ride a full-height
@@ -6545,6 +6510,16 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setPosition(0, 0);
   }
 
+  private requireActorImage(actorId: string): LoadedImageAsset {
+    const image = this.userAssetBundle?.actorImages.get(actorId);
+    if (image === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing runtime actor art for ${actorId}.`,
+      );
+    }
+    return image;
+  }
+
   private renderSpawnedActors(
     collectedCoinEntityIdStrings: ReadonlySet<string>,
     collectedItemEntityIdStrings: ReadonlySet<string>,
@@ -6559,18 +6534,12 @@ export class BootScene extends Phaser.Scene {
       );
 
       if (renderObject === undefined) {
-        const userImage = this.userAssetBundle?.actorImages.get(
-          spawnedActor.actorId,
-        );
-        renderObject =
-          userImage === undefined
-            ? renderAuthoredActor(
-                this,
-                spawnedActor.position,
-                spawnedActor.role,
-              )
-            : renderUserActorImage(this, spawnedActor.position, userImage)
-                .container;
+        const userImage = this.requireActorImage(spawnedActor.actorId);
+        renderObject = renderUserActorImage(
+          this,
+          spawnedActor.position,
+          userImage,
+        ).container;
         this.spawnedActorRenderObjects.set(spawnedActor.entityId, renderObject);
       }
 
@@ -6616,46 +6585,36 @@ export class BootScene extends Phaser.Scene {
   }
 
   private renderProjectiles(): void {
-    const fireball = this.userAssetBundle?.actorImages.get(
-      "projectile-fireball",
-    );
+    const fireball = this.requireActorImage("projectile-fireball");
     this.renderProjectileCollection(
       this.simulationState.projectiles.projectiles,
       this.projectileRenderObjects,
-      projectileColor,
-      projectileOutlineColor,
-      projectileCoreColor,
       () => fireball,
     );
   }
 
   private renderTimedHazardProjectiles(): void {
-    const images = this.userAssetBundle?.actorImages;
     this.renderProjectileCollection(
       this.simulationState.timedHazardProjectiles.projectiles,
       this.timedHazardProjectileRenderObjects,
-      cannonWarningColor,
-      cannonMouthColor,
-      projectileSparkleColor,
       // The pooled timed hazards mix kinds; the id prefix says which art fits
       // (castle flame jets, cannon bullets, hammers, Lakitu's eggs).
       (projectile) => {
-        if (images === undefined) {
-          return undefined;
-        }
         if (projectile.id.startsWith("timed-hazard-flame")) {
-          return images.get("projectile-flame");
+          return this.requireActorImage("projectile-flame");
         }
         if (projectile.id.startsWith("timed-hazard-")) {
-          return images.get("vglc-smb-bullet");
+          return this.requireActorImage("vglc-smb-bullet");
         }
         if (projectile.id.startsWith("aerial-throwing-enemy-")) {
-          return images.get("projectile-egg");
+          return this.requireActorImage("projectile-egg");
         }
         if (projectile.id.startsWith("throwing-enemy-")) {
-          return images.get("projectile-hammer");
+          return this.requireActorImage("projectile-hammer");
         }
-        return undefined;
+        throw new Error(
+          `No authored projectile art is mapped for ${projectile.id}.`,
+        );
       },
     );
   }
@@ -6676,22 +6635,13 @@ export class BootScene extends Phaser.Scene {
           entity.kind === AerialFrenzyKind.FlyingCheep
             ? "vglc-smb-cheep"
             : "vglc-smb-bullet";
-        const userImage = this.userAssetBundle?.actorImages.get(spriteKey);
-        if (userImage === undefined) {
-          renderObject = renderAuthoredActor(
-            this,
-            entity.position,
-            ActorRole.FlyingEnemy,
-          );
-        } else {
-          const rendered = renderUserActorImage(
-            this,
-            entity.position,
-            userImage,
-          );
-          rendered.image.setFlipX(entity.velocity.x > 0);
-          renderObject = rendered.container;
-        }
+        const rendered = renderUserActorImage(
+          this,
+          entity.position,
+          this.requireActorImage(spriteKey),
+        );
+        rendered.image.setFlipX(entity.velocity.x > 0);
+        renderObject = rendered.container;
         this.aerialFrenzyRenderObjects.set(entity.entityId, renderObject);
       }
       renderObject.setPosition(entity.position.x, entity.position.y);
@@ -6715,21 +6665,11 @@ export class BootScene extends Phaser.Scene {
       activeIds.add(spiny.spinyId);
       let renderObject = this.hatchedSpinyRenderObjects.get(spiny.spinyId);
       if (renderObject === undefined) {
-        const userImage =
-          this.userAssetBundle?.actorImages.get("vglc-smb-spiny");
-        if (userImage === undefined) {
-          renderObject = renderAuthoredActor(
-            this,
-            spiny.position,
-            ActorRole.ChasingEnemy,
-          );
-        } else {
-          renderObject = renderUserActorImage(
-            this,
-            spiny.position,
-            userImage,
-          ).container;
-        }
+        renderObject = renderUserActorImage(
+          this,
+          spiny.position,
+          this.requireActorImage("vglc-smb-spiny"),
+        ).container;
         this.hatchedSpinyRenderObjects.set(spiny.spinyId, renderObject);
       }
       renderObject.setPosition(spiny.position.x, spiny.position.y);
@@ -6749,24 +6689,14 @@ export class BootScene extends Phaser.Scene {
       activeIds.add(cheep.entityId);
       let renderObject = this.frenzyCheepRenderObjects.get(cheep.entityId);
       if (renderObject === undefined) {
-        const userImage =
-          this.userAssetBundle?.actorImages.get("vglc-smb-cheep");
-        if (userImage === undefined) {
-          renderObject = renderAuthoredActor(
-            this,
-            cheep.position,
-            ActorRole.FlyingEnemy,
-          );
-        } else {
-          const rendered = renderUserActorImage(
-            this,
-            cheep.position,
-            userImage,
-          );
-          // The fish sprite is drawn head-right; cheeps swim left, so mirror it.
-          rendered.image.setFlipX(true);
-          renderObject = rendered.container;
-        }
+        const rendered = renderUserActorImage(
+          this,
+          cheep.position,
+          this.requireActorImage("vglc-smb-cheep"),
+        );
+        // The fish sprite is drawn head-right; cheeps swim left, so mirror it.
+        rendered.image.setFlipX(true);
+        renderObject = rendered.container;
         this.frenzyCheepRenderObjects.set(cheep.entityId, renderObject);
       }
       renderObject.setPosition(cheep.position.x, cheep.position.y);
@@ -6789,12 +6719,9 @@ export class BootScene extends Phaser.Scene {
       readonly height: number;
     }[],
     renderObjects: Map<string, Phaser.GameObjects.Container>,
-    fillColor: number,
-    outlineColor: number,
-    coreColor: number,
-    resolveImage?: (projectile: {
+    resolveImage: (projectile: {
       readonly id: string;
-    }) => LoadedImageAsset | undefined,
+    }) => LoadedImageAsset,
   ): void {
     const activeProjectileIds = new Set<string>();
 
@@ -6803,52 +6730,16 @@ export class BootScene extends Phaser.Scene {
       let renderObject = renderObjects.get(projectile.id);
 
       if (renderObject === undefined) {
-        const imageAsset = resolveImage?.(projectile);
-        if (imageAsset !== undefined) {
-          // Skin art (drawn facing left); sized to the projectile's collider.
-          const image = addUserFrameImage(this, 0, 0, imageAsset)
-            .setOrigin(0.5)
-            .setDisplaySize(projectile.width, projectile.height);
-          renderObject = this.add.container(
-            projectile.position.x,
-            projectile.position.y,
-            [image],
-          );
-        } else {
-          const outline = this.add
-            .rectangle(0, 0, projectile.width, projectile.height, fillColor)
-            .setOrigin(0.5)
-            .setStrokeStyle(tileStrokeWidth, outlineColor);
-          const core = this.add
-            .rectangle(
-              0,
-              0,
-              Math.max(
-                projectile.width - tileStrokeWidth * 2,
-                projectileMinimumCoreDimensionPixels,
-              ),
-              Math.max(
-                projectile.height - tileStrokeWidth * 2,
-                projectileMinimumCoreDimensionPixels,
-              ),
-              coreColor,
-            )
-            .setOrigin(0.5);
-          const sparkle = this.add
-            .rectangle(
-              0,
-              0,
-              projectileSparkleSizePixels,
-              projectileSparkleSizePixels,
-              projectileSparkleColor,
-            )
-            .setOrigin(0.5);
-          renderObject = this.add.container(
-            projectile.position.x,
-            projectile.position.y,
-            [outline, core, sparkle],
-          );
-        }
+        const imageAsset = resolveImage(projectile);
+        // Skin art (drawn facing left); sized to the projectile's collider.
+        const image = addUserFrameImage(this, 0, 0, imageAsset)
+          .setOrigin(0.5)
+          .setDisplaySize(projectile.width, projectile.height);
+        renderObject = this.add.container(
+          projectile.position.x,
+          projectile.position.y,
+          [image],
+        );
         renderObjects.set(projectile.id, renderObject);
       }
 
@@ -9332,7 +9223,7 @@ function renderInteractiveTile(
   }
 }
 
-function renderAuthoredActor(
+export function renderAuthoredActor(
   scene: Phaser.Scene,
   pixelPosition: { readonly x: number; readonly y: number },
   role: BrowserRenderedActorRole,
@@ -9882,13 +9773,9 @@ const castleClearFriendLeadPixels = 56;
 // A beat on the friend + message before the finish overlay may appear.
 const castleClearMessageHoldFrames = 90;
 
-const flameHazardCoreColor = 0xf97316;
-const platformFillColor = 0xd9a066;
-const platformEdgeColor = 0x8a5a2b;
 const platformRopeColor = 0xd6c4a0;
 // Balance-lift ropes hang from the pulley band just below the HUD rows.
 const platformRopePulleyRowY = 2 * 16;
-const flameHazardRimColor = 0xfde047;
 const piranhaStalkColor = 0x15803d;
 const piranhaHeadColor = 0x22c55e;
 const piranhaMouthColor = 0x7f1d1d;
