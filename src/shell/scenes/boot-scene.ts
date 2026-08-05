@@ -8792,7 +8792,7 @@ function renderAuthoredTile(
     case "pipe-top-right":
     case "pipe-left":
     case "pipe-right":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
+      requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
       renderPipeTile(scene, x, y, size, tileId);
       return;
     case "breakable-block":

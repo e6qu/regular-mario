@@ -2,6 +2,28 @@
 
 ## Known Bugs
 
+### Multiplayer frames and music stalled; Party Runway looked empty — fixed (2026-08-05)
+
+The multiplayer shell had layered its own forced Phaser frame on top of the
+normal Phaser loop, read every 1280×720 canvas pixel back each rendered frame,
+and PNG-encoded it repeatedly for retained diagnostics. Those main-thread/GPU
+readbacks produced uneven input and Web Audio. Rendering now uses Phaser's
+normal loop, retains only one bounded initial diagnostic PNG, and browser QA
+fails if recurring `toDataURL()` capture resumes. The opening route now has
+visible original pipe scenery and enemies on elevated platforms while retaining
+a safe shared run lane.
+
+### Four-player WebSocket handoff closes during a rapid course transition — open (2026-08-05)
+
+The focused journey and lockstep browser flows stay connected, but the required
+four-browser recording still reports every gameplay WebSocket closing with
+code 1005 around the Coinbox-to-Cavern handoff. Completion now confirms against
+the current server snapshot, diagnostic PNGs are downscaled, and the server
+accepts an explicit 8 MiB keyframe ceiling; those changes have not yet closed
+the recording failure. Do not treat the current full-run recording as passing
+evidence. Measure server close/error codes and keyframe bytes before further
+transport changes.
+
 ### Multiplayer could render a reduced, backplated, falling game — fixed (2026-08-05)
 
 The previous acceptance tests could compare a paused canvas while missing the

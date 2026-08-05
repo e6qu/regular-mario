@@ -83,13 +83,6 @@ async function readCanvasReceipt(
       "data-rendered-primary-visible",
       "data-rendered-primary-rectangle",
       "data-rendered-primary-cullable",
-      "data-post-render-camera-left",
-      "data-post-render-pixel-checksum",
-      "data-post-render-primary-queued",
-      "data-post-render-camera-matrix",
-      "data-renderer-owns-visible-canvas",
-      "data-post-render-game-paused",
-      "data-post-render-loop-running",
     ];
     return Object.fromEntries(
       names.map((name) => [name, element.getAttribute(name)]),
@@ -185,6 +178,26 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
         ),
       )
       .toBeGreaterThan(20);
+    // Gameplay must not periodically read back and PNG-encode the full canvas
+    // for diagnostics: that stalls the main thread and makes both input and
+    // Web Audio audibly uneven. One capture may have happened at startup; no
+    // further capture is permitted during ordinary play.
+    await multiplayerCanvas.evaluate((canvas) => {
+      const gameCanvas = canvas as HTMLCanvasElement;
+      let captures = 0;
+      const original = gameCanvas.toDataURL.bind(gameCanvas);
+      gameCanvas.toDataURL = (...arguments_: Parameters<HTMLCanvasElement["toDataURL"]>) => {
+        captures += 1;
+        gameCanvas.setAttribute("data-test-debug-captures", String(captures));
+        return original(...arguments_);
+      };
+      gameCanvas.setAttribute("data-test-debug-captures", "0");
+    });
+    await multiplayer.waitForTimeout(1_200);
+    await expect(multiplayerCanvas).toHaveAttribute(
+      "data-test-debug-captures",
+      "0",
+    );
     await Promise.all([localCanvas.focus(), multiplayerCanvas.focus()]);
     const multiplayerLobby = await multiplayer.request.get("/api/lobby", {
       headers: { "x-multiplayer-protocol-version": "1" },

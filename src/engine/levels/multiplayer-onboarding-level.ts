@@ -1,4 +1,4 @@
-import { type LevelSpecInput } from "../domain/level-spec";
+import { TileCollisionKind, type LevelSpecInput } from "../domain/level-spec";
 import {
   makeRouteActorDefinitions,
   makeTileRun,
@@ -12,6 +12,9 @@ const onboardingWidthTiles = 64;
 // vertical playfield so local and multiplayer share the same proportions.
 const onboardingHeightTiles = 15;
 const onboardingSkyRows = onboardingHeightTiles - 6;
+const firstPipeLeftColumn = 20;
+const secondPipeLeftColumn = 44;
+const exitGateColumn = 56;
 
 /**
  * The first public co-op course: a full, readable overworld run with a safe
@@ -23,7 +26,15 @@ export const multiplayerOnboardingLevelInput: LevelSpecInput = {
   widthTiles: onboardingWidthTiles,
   heightTiles: onboardingHeightTiles,
   tileSizePixels: 16,
-  tileDefinitions: standardSurfaceTileDefinitions,
+  tileDefinitions: [
+    ...standardSurfaceTileDefinitions,
+    // The opening pipes establish the course's visual language without
+    // putting a blind obstacle in the shared party's first run.
+    { tileId: "pipe-top-left", collision: TileCollisionKind.Empty },
+    { tileId: "pipe-top-right", collision: TileCollisionKind.Empty },
+    { tileId: "pipe-left", collision: TileCollisionKind.Empty },
+    { tileId: "pipe-right", collision: TileCollisionKind.Empty },
+  ],
   actorDefinitions: makeRouteActorDefinitions({
     includeItem: true,
     includePowerUp: true,
@@ -45,14 +56,40 @@ export const multiplayerOnboardingLevelInput: LevelSpecInput = {
       ...makeTileRun("stone", 2),
       ...makeTileRun("sky", 28),
     ],
-    makeTileRun("sky", onboardingWidthTiles),
-    [...makeTileRun("sky", 56), "gate", ...makeTileRun("sky", 7)],
+    [
+      ...makeTileRun("sky", firstPipeLeftColumn),
+      "pipe-top-left",
+      "pipe-top-right",
+      ...makeTileRun(
+        "sky",
+        secondPipeLeftColumn - firstPipeLeftColumn - 2,
+      ),
+      "pipe-top-left",
+      "pipe-top-right",
+      ...makeTileRun("sky", onboardingWidthTiles - secondPipeLeftColumn - 2),
+    ],
+    [
+      ...makeTileRun("sky", firstPipeLeftColumn),
+      "pipe-left",
+      "pipe-right",
+      ...makeTileRun(
+        "sky",
+        secondPipeLeftColumn - firstPipeLeftColumn - 2,
+      ),
+      "pipe-left",
+      "pipe-right",
+      ...makeTileRun("sky", exitGateColumn - secondPipeLeftColumn - 2),
+      "gate",
+      ...makeTileRun("sky", onboardingWidthTiles - exitGateColumn - 1),
+    ],
     makeTileRun("grass", onboardingWidthTiles),
   ],
   actors: [
     { entityId: "runner-1", actorId: "runner-start", x: 1, y: 13 },
     { entityId: "shard-1", actorId: "star-shard", x: 7, y: 10 },
     { entityId: "spark-1", actorId: "spark-cap", x: 16, y: 10 },
+    { entityId: "beetle-1", actorId: "beetle", x: 14, y: 10 },
+    { entityId: "beetle-2", actorId: "beetle", x: 34, y: 10 },
     { entityId: "gate-1", actorId: "open-gate", x: 56, y: 13 },
   ],
 };

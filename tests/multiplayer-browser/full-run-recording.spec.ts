@@ -123,8 +123,10 @@ test("four separate browser sessions complete two courses back to back", async (
     await Promise.all(
       players.map((player) =>
         expect(
-          player.page.getByText(/^playing · frame [1-9][0-9]*$/),
-        ).toBeVisible(),
+          player.page
+            .locator(".multiplayer-play-controls-only p")
+            .first(),
+        ).toHaveText(/^playing · frame [1-9][0-9]*$/),
       ),
     );
     await expect(
@@ -251,12 +253,16 @@ test("four separate browser sessions complete two courses back to back", async (
         2,
       )}\n`,
     );
-    for (let frameBatch = 0; frameBatch < 40; frameBatch += 1) {
-      await creator.page.waitForTimeout(250);
-      const levelId = await creator.page
-        .getByLabel("Authoritative multiplayer game view")
-        .getAttribute("data-authoritative-level-id");
-      if (levelId === "cavern-route") {
+    for (let poll = 0; poll < 120; poll += 1) {
+      await creator.page.waitForTimeout(50);
+      const currentSnapshot = await creator.page.request.get(
+        `/api/games/${gameId}/snapshot`,
+        { headers: { "x-multiplayer-protocol-version": "1" } },
+      );
+      const currentLevelId = (await currentSnapshot.json()) as {
+        readonly levelId: string;
+      };
+      if (currentLevelId.levelId === "cavern-route") {
         break;
       }
     }
@@ -274,8 +280,8 @@ test("four separate browser sessions complete two courses back to back", async (
           .getAttribute("data-authoritative-frame");
         expect(Number(frame)).toBeGreaterThan(12);
         await expect(
-          player.page.getByText(/Game game-1 · cavern-route/),
-        ).toBeVisible();
+          player.page.locator(".multiplayer-play-controls-only h1"),
+        ).toHaveText(/Game game-1 · cavern-route/);
       }),
     );
     const finalCanvasBoxes = await Promise.all(

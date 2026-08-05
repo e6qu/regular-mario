@@ -16,6 +16,12 @@
 - Client prediction must target the authenticated player's authoritative slot,
   reconcile a complete server state, and advance at the fixed 60 Hz cadence.
   Four-player recordings and eight-player stress cover the lifecycle.
+- Keep ordinary multiplayer presentation on Phaser's native frame loop. Do not
+  reintroduce manual `game.step`, per-frame `getImageData`, or recurring PNG
+  canvas capture; the lockstep browser test guards the latter.
+- Diagnose the remaining four-player WebSocket code-1005 handoff close using
+  server close/error logging and exact encoded keyframe sizes. The current
+  completion confirmation and 8 MiB payload ceiling are not sufficient proof.
 
 ### Verified: lobby creation enters the owned game (2026-08-05)
 

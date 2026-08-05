@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — removed multiplayer rendering stalls and populated the opening course
+
+- Removed the duplicate forced Phaser frame, per-frame full-canvas readback,
+  and recurring debug PNG encoding that stalled local prediction and audio.
+  One bounded initial capture preserves the administrator screenshot workflow.
+- Added a browser regression that detects any subsequent canvas encoding during
+  normal play, and returned the renderer to Phaser's normal frame lifecycle.
+- Added visible original pipe scenery and elevated enemy encounters to Party
+  Runway without making the shared opening run a blind obstacle course.
+- The four-player recording then exposed a rapid-handoff socket-close
+  regression. Completion teardown now confirms against the current server
+  snapshot and debug PNGs are downscaled, but the recording remains marked
+  failed in `BUGS.md` until its close origin is measured.
+
 ## 2026-08-05 — corrected the live multiplayer game, not just a frozen canvas
 
 - Replaced the waiting sidebar and blank control form with a purposeful game

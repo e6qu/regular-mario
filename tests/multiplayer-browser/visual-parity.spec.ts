@@ -36,8 +36,14 @@ async function requireSameAuthoritativeFrame(
   await expect
     .poll(async () => {
       const [leftText, rightText] = await Promise.all([
-        left.locator(".multiplayer-game-panel p").textContent(),
-        right.locator(".multiplayer-game-panel p").textContent(),
+        left
+          .locator(".multiplayer-play-controls-only p")
+          .first()
+          .textContent(),
+        right
+          .locator(".multiplayer-play-controls-only p")
+          .first()
+          .textContent(),
       ]);
       return leftText === rightText ? leftText : undefined;
     })
@@ -159,7 +165,12 @@ test("the actual local BootScene and a paused server frame render every pixel id
 
   await pauseGameAsAdministrator(admin, game.gameId);
   await expect
-    .poll(() => player.locator(".multiplayer-game-panel p").textContent())
+    .poll(() =>
+      player
+        .locator(".multiplayer-play-controls-only p")
+        .first()
+        .textContent(),
+    )
     .toMatch(/^paused · frame [0-9]+$/);
   const snapshot = await player.request.get(
     `/api/games/${game.gameId}/snapshot`,

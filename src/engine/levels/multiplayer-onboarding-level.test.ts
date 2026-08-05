@@ -15,11 +15,15 @@ describe("multiplayerOnboardingLevelInput", () => {
       "stone",
       "stone",
     ]);
+    expect(multiplayerOnboardingLevelInput.tiles[12]?.slice(20, 22)).toEqual([
+      "pipe-top-left",
+      "pipe-top-right",
+    ]);
     expect(
       multiplayerOnboardingLevelInput.actors.filter(
         (actor) => actor.actorId === "beetle",
       ),
-    ).toHaveLength(0);
+    ).toHaveLength(2);
     expect(multiplayerOnboardingLevelInput.actors).toContainEqual({
       entityId: "gate-1",
       actorId: "open-gate",

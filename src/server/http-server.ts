@@ -39,11 +39,11 @@ import {
 import type { ServerLogger } from "./file-logger";
 
 const jsonBodyMaximumBytes = 64 * 1024;
-// Browser debug screenshots share the WebSocket with gameplay. A 1280×720
-// lossless canvas image can legitimately exceed the small JSON-request limit,
-// so retain a separate bounded allowance. The client is independently capped
-// at one retained screenshot per second.
-const webSocketMaximumPayloadBytes = 2 * 1024 * 1024;
+// Complete recovery keyframes and the bounded diagnostic image share this
+// transport. A multi-player level handoff can exceed 2 MiB even though routine
+// updates are deltas, so keep an explicit 8 MiB ceiling rather than allowing
+// `ws` to terminate the socket mid-handoff.
+const webSocketMaximumPayloadBytes = 8 * 1024 * 1024;
 const loginAttemptWindowMilliseconds = 60_000;
 const maximumLoginAttemptsPerWindow = 5;
 const snapshotBroadcastIntervalMilliseconds =

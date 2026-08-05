@@ -34,6 +34,27 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
 
 const multiplayerApiPrefix = "/api";
 
+const debugScreenshotWidthPixels = 320;
+const debugScreenshotHeightPixels = 180;
+
+function makeDiagnosticScreenshot(source: HTMLCanvasElement): string {
+  const diagnostic = document.createElement("canvas");
+  diagnostic.width = debugScreenshotWidthPixels;
+  diagnostic.height = debugScreenshotHeightPixels;
+  const context = diagnostic.getContext("2d");
+  if (context === null) {
+    throw new Error("Browser cannot create the multiplayer diagnostic canvas.");
+  }
+  context.drawImage(
+    source,
+    0,
+    0,
+    debugScreenshotWidthPixels,
+    debugScreenshotHeightPixels,
+  );
+  return diagnostic.toDataURL("image/png");
+}
+
 const multiplayerVisualStyleId = "multiplayer-visual-language";
 
 function installMultiplayerVisualLanguage(): void {
@@ -494,6 +515,11 @@ function renderGame(
       disposeView();
       await renderLobby(mount, userAssetBundle);
     });
+  const endGame = (): HTMLButtonElement => makeButton("End game", async () => {
+      await requestJson(`/games/${gameId}/end`, { method: "POST" });
+      disposeView();
+      await renderLobby(mount, userAssetBundle);
+    });
   waitingRoom.append(eyebrow, title, status, waitingDescription, roomActions, gameActionError, makeChat("Game chat message"));
   panel.append(waitingRoom);
   if (creatorPlayerId === profile.playerId) {
@@ -507,11 +533,7 @@ function renderGame(
     });
     roomActions.append(
       startGameButton,
-      makeButton("End game", async () => {
-        await requestJson(`/games/${gameId}/end`, { method: "POST" });
-        disposeView();
-        await renderLobby(mount, userAssetBundle);
-      }),
+      endGame(),
     );
   }
   roomActions.append(leaveGame());
@@ -522,7 +544,16 @@ function renderGame(
   const playStatus = document.createElement("p");
   const playHint = document.createElement("p");
   playHint.textContent = "Press M during play to close these controls.";
-  playControls.append(playControlsTitle, playStatus, playHint, makeChat("Game chat message"), leaveGame());
+  playControls.append(
+    playControlsTitle,
+    playStatus,
+    playHint,
+    makeChat("Game chat message"),
+    leaveGame(),
+  );
+  if (creatorPlayerId === profile.playerId) {
+    playControls.append(endGame());
+  }
   panel.append(playControls);
   gameShell.append(gameHost, panel);
   mount.append(gameShell);
@@ -563,7 +594,8 @@ function renderGame(
   let latestAuthoritativeFrame = 0;
   let latestAuthoritativeSnapshot: GameSnapshot | undefined;
   let lastPresentedPhase: GameSnapshot["phase"] | undefined;
-  let lastScreenshotSentAtMilliseconds = Number.NEGATIVE_INFINITY;
+  let completionConfirmationInFlight = false;
+  let initialDebugScreenshotSubmitted = false;
   let sentInputCount = 0;
   const snapshotsByGameId = new Map<string, GameSnapshot>();
   let presentationAnimationFrame: number | undefined;
@@ -722,6 +754,15 @@ function renderGame(
     }
   }
   function displaySnapshot(snapshot: GameSnapshot): void {
+    // A course handoff emits a new-level frame with a fresh frame clock. A
+    // delayed `finished` state for the prior course must never dispose this
+    // client after it has already entered that new course.
+    if (
+      snapshot.levelId !== currentLevelId &&
+      snapshot.phase === "finished"
+    ) {
+      return;
+    }
     const known = snapshotsByGameId.get(snapshot.gameId);
     if (
       known !== undefined &&
@@ -747,6 +788,7 @@ function renderGame(
       prediction = undefined;
       localPlayerSlot = undefined;
       title.textContent = `Game ${gameId} · ${currentLevelId}`;
+      playControlsTitle.textContent = `Game ${gameId} · ${currentLevelId}`;
     } else {
       latestAuthoritativeFrame = Math.max(
         latestAuthoritativeFrame,
@@ -797,34 +839,55 @@ function renderGame(
     startGameButton?.toggleAttribute("hidden", snapshot.phase !== "waiting");
     latestAuthoritativeSnapshot = snapshot;
     renderPresentation();
-    if (snapshot.phase === "finished") {
-      if (!completedAudioPlayed) {
-        audio.playEvents([SoundEvent.LevelComplete]);
-        completedAudioPlayed = true;
-      }
-      dispose();
-      window.setTimeout(() => {
-        void renderLobby(mount, userAssetBundle);
-      }, 1500);
+    if (snapshot.phase === "finished" && !completionConfirmationInFlight) {
+      completionConfirmationInFlight = true;
+      void confirmCompletedGame(snapshot);
     }
-    // Retain one current agent-debug image without turning the gameplay socket
-    // into a continuous PNG upload channel. At 20 Hz, four browsers would
-    // otherwise send 80 full canvas images per second and delay real input.
-    const nowMilliseconds = performance.now();
+    // Preserve one diagnostic image for the admin surface without repeatedly
+    // PNG-encoding a 1280×720 canvas on the gameplay/main thread. Repeated
+    // readback and encoding caused visible input and audio stalls.
     if (
       socket.readyState === WebSocket.OPEN &&
-      nowMilliseconds - lastScreenshotSentAtMilliseconds >= 1_000
+      snapshot.phase === "playing" &&
+      !initialDebugScreenshotSubmitted
     ) {
-      lastScreenshotSentAtMilliseconds = nowMilliseconds;
+      initialDebugScreenshotSubmitted = true;
       socket.send(
         JSON.stringify({
           type: "screenshot",
           protocolVersion: multiplayerProtocolVersion,
           gameId,
-          pngDataUrl: renderer.canvas.toDataURL("image/png"),
+          pngDataUrl: makeDiagnosticScreenshot(renderer.canvas),
         }),
       );
     }
+  }
+  async function confirmCompletedGame(finishedSnapshot: GameSnapshot): Promise<void> {
+    try {
+      const current = await requestJson<GameSnapshot>(`/games/${gameId}/snapshot`);
+      if (
+        !disposed &&
+        (current.phase !== "finished" || current.levelId !== finishedSnapshot.levelId)
+      ) {
+        completionConfirmationInFlight = false;
+        displaySnapshot(current);
+        return;
+      }
+    } catch {
+      // The final course is removed by the server after completion. Its missing
+      // snapshot is the same confirmed terminal condition as `finished`.
+    }
+    if (disposed) {
+      return;
+    }
+    if (!completedAudioPlayed) {
+      audio.playEvents([SoundEvent.LevelComplete]);
+      completedAudioPlayed = true;
+    }
+    dispose();
+    window.setTimeout(() => {
+      void renderLobby(mount, userAssetBundle);
+    }, 1500);
   }
   socket.addEventListener("message", (event) => {
     const message: unknown = JSON.parse(String(event.data));

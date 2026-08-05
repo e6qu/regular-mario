@@ -2,6 +2,21 @@
 
 ## Current State
 
+**Multiplayer frame-stall and sparse-course correction (2026-08-05).** The
+authoritative renderer no longer forces a second Phaser frame, reads back the
+full GPU canvas every frame, or repeatedly PNG-encodes it during play; these
+were the direct sources of uneven movement and audio. One bounded initial
+admin-debug capture remains. Party Runway now visibly includes a decorative
+pipe pair and elevated enemy encounters without blocking its shared safe run.
+Focused production journey and lockstep browser tests pass, including a guard
+that rejects recurring canvas encoding.
+
+**Handoff evidence currently blocked (2026-08-05).** The focused production
+checks pass, but the fresh four-browser two-course recording closes all game
+WebSockets with code 1005 at the Coinbox-to-Cavern transition. This is recorded
+as open in `BUGS.md`; do not rely on older recording evidence until it is
+measured and resolved.
+
 **Live multiplayer viewport, spawn, and prediction correction (2026-08-05).**
 The displayed multiplayer game now owns the entire 1280×720 viewport after
 Start; waiting is a purposeful game room (state, party count, chat, and
