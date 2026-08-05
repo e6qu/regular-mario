@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — enforced raster-only static actor rendering
+
+- Removed the static-actor procedural rendering branch. The boot scene now
+  requires the authored asset bundle and an explicit raster for each rendered
+  actor, including the generic exit; missing coverage is a visible startup
+  error rather than alternate vector art.
+- Added a generator assertion that `open-gate` maps to the authored
+  `public-exit-arch.png`, then passed release build and production raw-pixel
+  local/server and two-client parity browser checks.
+
 ## 2026-08-05 — removed player-art rectangle substitutes
 
 - Removed the coloured primary and co-op player rectangle presentation path.

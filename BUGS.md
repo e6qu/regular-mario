@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Static exit bypassed its authored raster — fixed (2026-08-05)
+
+`renderNonPlayerActors` intentionally selected the procedural actor renderer
+for every generic exit, even though the release manifest supplied the original
+`public-exit-arch.png`. It now requires the manifest image and has no static
+actor vector substitute path. Release raw-pixel local/server and two-client
+browser parity pass.
+
 ### World 1-1 four-browser completion recording — fixed (2026-08-05)
 
 Relative Playwright waits accumulated input-edge overhead and made the replay

@@ -2,6 +2,13 @@
 
 ## Current State
 
+**Static actor raster-only rendering enforced (2026-08-05).** The scene now
+requires authored raster art for every static rendered actor and fails loudly
+when it is absent. In particular, the generic exit no longer bypasses its
+`public-exit-arch.png` manifest entry to invoke the procedural actor renderer.
+The release asset test, typecheck, build, and production local/server plus
+two-client raw-pixel parity browser tests pass.
+
 **Four-browser World 1-1 recording completed (2026-08-05).** Four separate
 Chromium contexts authenticated, created/joined one real WebSocket game, and
 recorded World 1-1 through its authoritative completion into World 1-2. The

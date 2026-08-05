@@ -2,6 +2,14 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Raster-only rendering boundary (2026-08-05)
+
+- Static level actors now require authored rasters, including `open-gate`.
+  Continue this boundary through dynamic actors, projectiles, hazards, level
+  tiles, and reaction effects; remove each procedural display path only after
+  the release manifest and a real-browser visual journey cover it. Missing art
+  must throw a specific error, never select substitute vector art.
+
 ### Current recorded acceptance evidence (2026-08-05)
 
 - Four isolated authenticated Chromium sessions now create/join one release

@@ -8469,6 +8469,11 @@ function renderNonPlayerActors(
   levelSpec: LevelSpec,
   userAssetBundle: UserAssetBundle | undefined,
 ): RenderedActorSummarySet {
+  if (userAssetBundle === undefined) {
+    throw new Error(
+      "The authored asset bundle is required to render level actors.",
+    );
+  }
   const actorRoleLookup = makeActorRoleLookup(levelSpec);
   const roleCounts = makeEmptyRenderedActorRoleCounts();
   const actors: RuntimeRenderedActor[] = [];
@@ -8493,37 +8498,25 @@ function renderNonPlayerActors(
       x: actor.position.x * levelSpec.tileSizePixels + actorRenderOffsetPixels,
       y: actor.position.y * levelSpec.tileSizePixels + actorRenderOffsetPixels,
     };
-    // `open-gate` is a generic simulation exit, not a castle-art contract.
-    // The bundled skin's legacy gate-axe image is appropriate only to a
-    // castle scene; public routes use the authored exit arch instead.
-    const userImage =
-      role === ActorRole.Exit
-        ? undefined
-        : userAssetBundle?.actorImages.get(actor.actorId);
+    const userImage = userAssetBundle.actorImages.get(actor.actorId);
+    if (userImage === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing static actor art for ${actor.actorId}.`,
+      );
+    }
     // The 32x32 boss walks with his simulated 16px body at the sprite's lower
     // half: drop the baseline a tile so his feet stand on the bridge planks
     // rather than hovering a tile above them.
     const baselinePixels = actor.actorId.startsWith("vglc-smb-bowser")
       ? groundedActorSpriteHeightPixels * 2
       : groundedActorSpriteHeightPixels;
-    const renderedUserActor =
-      userImage === undefined
-        ? undefined
-        : renderUserActorImage(scene, pixelPosition, userImage, baselinePixels);
-    const renderObject =
-      renderedUserActor?.container ??
-      renderAuthoredActor(scene, pixelPosition, role);
-
-    // Fallback shapes get a small wing marker for winged armored enemies;
-    // toggled per frame by the winged behavior.
-    let wingObject: Phaser.GameObjects.Triangle | undefined;
-    if (role === ActorRole.ArmoredEnemy && renderedUserActor === undefined) {
-      wingObject = scene.add
-        .triangle(-2, 2, 0, 6, 6, 0, 6, 6, wingFallbackColor)
-        .setOrigin(0)
-        .setVisible(false);
-      renderObject.add(wingObject);
-    }
+    const renderedUserActor = renderUserActorImage(
+      scene,
+      pixelPosition,
+      userImage,
+      baselinePixels,
+    );
+    const renderObject = renderedUserActor.container;
 
     roleCounts[role] += 1;
     actors.push({
@@ -8536,9 +8529,9 @@ function renderNonPlayerActors(
       },
       pixelPosition,
       renderObject,
-      userImageObject: renderedUserActor?.image,
+      userImageObject: renderedUserActor.image,
       userImage,
-      wingObject,
+      wingObject: undefined,
     });
   }
 
@@ -9893,7 +9886,6 @@ const flameHazardCoreColor = 0xf97316;
 const platformFillColor = 0xd9a066;
 const platformEdgeColor = 0x8a5a2b;
 const platformRopeColor = 0xd6c4a0;
-const wingFallbackColor = 0xf8fafc;
 // Balance-lift ropes hang from the pulley band just below the HUD rows.
 const platformRopePulleyRowY = 2 * 16;
 const flameHazardRimColor = 0xfde047;
