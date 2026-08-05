@@ -5,6 +5,12 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — removed castle-only exit art from the public opening route
+
+- Prevented the generic simulation exit from consuming the bundle's legacy
+  axe asset. Party Runway now uses the authored public exit arch, keeping the
+  opening environment internally consistent.
+
 ## 2026-08-05 — removed multiplayer rendering stalls and populated the opening course
 
 - Removed the duplicate forced Phaser frame, per-frame full-canvas readback,

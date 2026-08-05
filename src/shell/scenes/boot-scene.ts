@@ -8683,7 +8683,13 @@ function renderNonPlayerActors(
       x: actor.position.x * levelSpec.tileSizePixels + actorRenderOffsetPixels,
       y: actor.position.y * levelSpec.tileSizePixels + actorRenderOffsetPixels,
     };
-    const userImage = userAssetBundle?.actorImages.get(actor.actorId);
+    // `open-gate` is a generic simulation exit, not a castle-art contract.
+    // The bundled skin's legacy gate-axe image is appropriate only to a
+    // castle scene; public routes use the authored exit arch instead.
+    const userImage =
+      role === ActorRole.Exit
+        ? undefined
+        : userAssetBundle?.actorImages.get(actor.actorId);
     // The 32x32 boss walks with his simulated 16px body at the sprite's lower
     // half: drop the baseline a tile so his feet stand on the bridge planks
     // rather than hovering a tile above them.

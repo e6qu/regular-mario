@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### Public multiplayer exit rendered as a castle axe — fixed (2026-08-05)
+
+The default asset bundle mapped the generic `open-gate` simulation actor to a
+castle-only axe image, so Party Runway showed an axe in its ordinary opening
+environment. Generic exits now render the original public exit arch; castle
+presentation must use an explicit castle scene rather than leaking through a
+shared actor ID. The production lockstep browser journey passes after the fix.
+
 ### Multiplayer frames and music stalled; Party Runway looked empty — fixed (2026-08-05)
 
 The multiplayer shell had layered its own forced Phaser frame on top of the
