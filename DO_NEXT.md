@@ -1,6 +1,10 @@
 # DO_NEXT.md
 
-## Next: trusted-friends multiplayer service (approved 2026-08-04)
+## Trusted-friends multiplayer service — completed implementation evidence
+
+There is no remaining approved implementation task for this milestone. The
+items below are preserved constraints and historical verification notes for
+future maintenance, not an instruction to add a second implementation.
 
 ### Fresh four-player recording proof (2026-08-05)
 

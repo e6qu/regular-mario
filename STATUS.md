@@ -141,11 +141,11 @@ pipe pair and elevated enemy encounters without blocking its shared safe run.
 Focused production journey and lockstep browser tests pass, including a guard
 that rejects recurring canvas encoding.
 
-**Handoff evidence currently blocked (2026-08-05).** The focused production
-checks pass, but the fresh four-browser two-course recording closes all game
-WebSockets with code 1005 at the Coinbox-to-Cavern transition. This is recorded
-as open in `BUGS.md`; do not rely on older recording evidence until it is
-measured and resolved.
+**Historical handoff failure closed (2026-08-05).** Earlier four-browser
+recordings could terminate during an old course transition; later transport
+and recording fixes supersede that evidence. Current acceptance is the fresh
+four-player World 1-1→1-2 recording, which remains connected through the
+handoff and is backed by the zero-rollback physical-input regression.
 
 **Live multiplayer viewport, spawn, and prediction correction (2026-08-05).**
 The displayed multiplayer game now owns the entire 1280×720 viewport after
