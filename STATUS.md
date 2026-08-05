@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Game-wide quality gate restored (2026-08-05).** The hazard damage-tier test
+now derives its contact location from the authored `player-start` actor rather
+than a retired fixed spawn coordinate. No simulation behavior changed. The
+full core suite reports 948 passing tests (one intentional skip), and the
+production build succeeds after the multiplayer transport work.
+
 **Ordered delayed-snapshot reconciliation (2026-08-05).** Every authoritative
 snapshot now carries a monotonic `snapshotSequence`, because a simulation frame
 can be reused by lifecycle transitions and resets on a course handoff. Deltas

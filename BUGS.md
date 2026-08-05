@@ -2,15 +2,14 @@
 
 ## Known Bugs
 
-### Hazard-damage unit regression — open (observed 2026-08-05)
+### Hazard-damage fixture used an obsolete fixed spawn — fixed (2026-08-05)
 
-`src/engine/simulation/hazard-damage-tiering.test.ts` currently expects a
-small player to be defeated and a fire player to enter recovery after one
-hazard-contact step, but both remain active/unchanged. This was reproduced in
-the isolated simulation test after the multiplayer transport work and does not
-touch the changed transport files. It blocks the repository-wide `pnpm run
-check`; investigate collision/contact ordering before claiming a fully green
-game-wide gate.
+`hazard-damage-tiering.test.ts` placed thorns at the former hard-coded initial
+player coordinate. Initial state now correctly derives its position from the
+level's `player-start` actor, so neither damage assertion actually contacted a
+hazard. The fixture now places thorns in that actor's feet-anchored overlap
+footprint; small, powered, invincible, and recovery damage-tier cases all pass
+again without changing game collision behavior.
 
 ### Delayed snapshots could rewind local prediction at the same simulation frame — fixed (2026-08-05)
 

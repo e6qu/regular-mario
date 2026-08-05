@@ -5,6 +5,14 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — restored damage-tier test coverage after actor-spawn migration
+
+- Replaced the hazard test's obsolete hard-coded spawn coordinate with the
+  authored player-start actor footprint. This restores actual hazard contact in
+  the fixture without altering collision or vitality code.
+- The complete core test suite is green: 948 passing tests and one deliberate
+  skip; production browser build also passes.
+
 ## 2026-08-05 — made delayed WebSocket prediction ordered and visible
 
 - Added a server-monotonic snapshot sequence to the real authoritative
