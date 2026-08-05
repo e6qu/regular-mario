@@ -2,6 +2,18 @@
 
 ## Current State
 
+**Live multiplayer viewport, spawn, and prediction correction (2026-08-05).**
+The displayed multiplayer game now owns the entire 1280×720 viewport after
+Start; waiting is a full ready room, not a sidebar over a partial game. The
+primary and remote authored sprites no longer show fallback-colour backplates.
+All multiplayer courses have a normal 15-tile playfield and the deterministic
+core honours the authored player-start tile, so players begin grounded rather
+than falling from a six-row fixture's old default height. Prediction reconciles
+the complete server state at each player's actual slot, then advances locally
+at 60 Hz. A fresh production suite passes side-by-side mirrored input, exact
+local/server and two-client pixel parity, and four separate recorded browsers
+through two courses; eight-player stress also passes.
+
 **Lobby single-game route reverified (2026-08-05).** Creating a game now
 enters its waiting-game view directly from the authoritative create response;
 the server remains the only membership authority and rejects any attempt to

@@ -5,6 +5,24 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — corrected the live multiplayer game, not just a frozen canvas
+
+- Replaced the waiting sidebar with a full ready room; the actual playing
+  canvas now owns the full browser viewport and the drawer remains hidden
+  until `M` is pressed.
+- Removed primary-sprite fallback rectangles and made remote players use their
+  own authored images. Spawn labels stack cleanly for a same-screen party.
+- Converted the three multiplayer routes to a canonical 15-tile playfield and
+  fixed the deterministic initializer to honour the validated player-start
+  actor rather than a stale six-row fixture coordinate.
+- Reworked client reconciliation around the full authoritative simulation and
+  the authenticated player's own slot, with local fixed-step prediction between
+  snapshots. Added a guest-slot core regression.
+- Strengthened real-browser proof to require a full waiting view, a full
+  playing canvas, actual authored-sprite pixels, mirrored input, and production
+  recordings. Exact pixel parity, the four-browser two-course recording, and
+  eight-player stress pass; artifacts remain ignored under `playwright_adhoc/`.
+
 ## 2026-08-05 — hardened the lobby's one-game lifecycle
 
 - Game creation now enters the authoritative waiting-game view directly,

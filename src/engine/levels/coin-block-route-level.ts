@@ -6,7 +6,8 @@ import {
 import { makeTileRun } from "./level-builder";
 
 const coinBlockRouteWidthTiles = 10;
-const coinBlockRouteHeightTiles = 6;
+const coinBlockRouteHeightTiles = 15;
+const coinBlockRouteSkyRows = coinBlockRouteHeightTiles - 6;
 
 export const coinBlockRouteLevelInput: LevelSpecInput = {
   widthTiles: coinBlockRouteWidthTiles,
@@ -46,6 +47,9 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
     },
   ],
   tiles: [
+    ...Array.from({ length: coinBlockRouteSkyRows }, () =>
+      makeTileRun("sky", coinBlockRouteWidthTiles),
+    ),
     makeTileRun("sky", coinBlockRouteWidthTiles),
     makeTileRun("sky", coinBlockRouteWidthTiles),
     [
@@ -73,13 +77,13 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
       entityId: "runner-1",
       actorId: "runner-start",
       x: 1,
-      y: 4,
+      y: 13,
     },
     {
       entityId: "gate-1",
       actorId: "open-gate",
       x: 8,
-      y: 4,
+      y: 13,
     },
   ],
 };

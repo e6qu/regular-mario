@@ -24,9 +24,9 @@ describe("cavern route level", () => {
       throw new Error("Expected cavern route to validate.");
     }
 
-    expect(result.value.tiles[5]?.[13]).toBe("sky");
-    expect(result.value.tiles[5]?.[12]).toBe("grass");
-    expect(result.value.tiles[5]?.[14]).toBe("grass");
+    expect(result.value.tiles[14]?.[13]).toBe("sky");
+    expect(result.value.tiles[14]?.[12]).toBe("grass");
+    expect(result.value.tiles[14]?.[14]).toBe("grass");
   });
 
   it("places the goal tile and exit actor near the far right", () => {
@@ -36,7 +36,7 @@ describe("cavern route level", () => {
       throw new Error("Expected cavern route to validate.");
     }
 
-    expect(result.value.tiles[4]?.[22]).toBe("gate");
+    expect(result.value.tiles[13]?.[22]).toBe("gate");
     expect(
       result.value.actors.some(
         (actor) => actor.entityId === "gate-1" && actor.actorId === "open-gate",

@@ -9,7 +9,7 @@ describe("coin-block route level", () => {
     if (!result.ok) {
       throw new Error("Expected coin-block route to validate.");
     }
-    expect(result.value.tiles[4]?.[8]).toBe("gate");
+    expect(result.value.tiles[13]?.[8]).toBe("gate");
     expect(
       result.value.tileDefinitions.find((tile) => tile.tileId === "gate")
         ?.collision,

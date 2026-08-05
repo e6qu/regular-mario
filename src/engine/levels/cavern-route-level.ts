@@ -6,7 +6,8 @@ import {
 } from "./level-builder";
 
 const cavernRouteWidthTiles = 24;
-const cavernRouteHeightTiles = 6;
+const cavernRouteHeightTiles = 15;
+const cavernRouteSkyRows = cavernRouteHeightTiles - 6;
 
 export const cavernRouteLevelInput: LevelSpecInput = {
   widthTiles: cavernRouteWidthTiles,
@@ -18,6 +19,9 @@ export const cavernRouteLevelInput: LevelSpecInput = {
     includePowerUp: true,
   }),
   tiles: [
+    ...Array.from({ length: cavernRouteSkyRows }, () =>
+      makeTileRun("sky", cavernRouteWidthTiles),
+    ),
     makeTileRun("sky", cavernRouteWidthTiles),
     makeTileRun("sky", cavernRouteWidthTiles),
     makeTileRun("sky", cavernRouteWidthTiles),
@@ -42,37 +46,37 @@ export const cavernRouteLevelInput: LevelSpecInput = {
       entityId: "runner-1",
       actorId: "runner-start",
       x: 1,
-      y: 4,
+      y: 13,
     },
     {
       entityId: "beetle-1",
       actorId: "beetle",
       x: 8,
-      y: 4,
+      y: 13,
     },
     {
       entityId: "beetle-2",
       actorId: "beetle",
       x: 19,
-      y: 4,
+      y: 13,
     },
     {
       entityId: "shard-1",
       actorId: "star-shard",
       x: 5,
-      y: 2,
+      y: 11,
     },
     {
       entityId: "spark-1",
       actorId: "spark-cap",
       x: 17,
-      y: 2,
+      y: 11,
     },
     {
       entityId: "gate-1",
       actorId: "open-gate",
       x: 22,
-      y: 3,
+      y: 12,
     },
   ],
   enemyPatrolSpeedByEntityId: {

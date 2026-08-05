@@ -9,7 +9,8 @@ describe("multiplayerOnboardingLevelInput", () => {
 
     expect(result.ok).toBe(true);
     expect(multiplayerOnboardingLevelInput.widthTiles).toBe(64);
-    expect(multiplayerOnboardingLevelInput.tiles[2]?.slice(6, 9)).toEqual([
+    expect(multiplayerOnboardingLevelInput.heightTiles).toBe(15);
+    expect(multiplayerOnboardingLevelInput.tiles[11]?.slice(6, 9)).toEqual([
       "stone",
       "stone",
       "stone",
@@ -23,7 +24,7 @@ describe("multiplayerOnboardingLevelInput", () => {
       entityId: "gate-1",
       actorId: "open-gate",
       x: 56,
-      y: 4,
+      y: 13,
     });
   });
 });

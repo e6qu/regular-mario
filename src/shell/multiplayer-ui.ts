@@ -62,6 +62,11 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-panel { position: absolute; z-index: 2; top: 0; right: 0; width: min(340px, 92vw); height: 100vh; box-sizing: border-box;
       overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; transition: transform 120ms ease-out; }
     .multiplayer-game-shell[data-controls-open=false] .multiplayer-game-panel { transform: translateX(100%); pointer-events: none; }
+    /* A waiting game is not yet playable. Present a deliberate full-viewport
+       ready room instead of exposing a cropped game behind a permanent drawer.
+       Once playing, the canvas owns every pixel and M opens the drawer. */
+    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel { inset: 0; width: 100%; max-width: none; height: 100%; border: 0; display: grid; align-content: center; justify-items: center; text-align: center; }
+    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel > * { max-width: min(640px, calc(100vw - 32px)); }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
       .multiplayer-game-shell { height: 100vh; min-height: 0; }
       .multiplayer-game-panel { width: min(100%, 420px); border-width: 0 0 0 5px; } }
@@ -410,6 +415,7 @@ function renderGame(
   gameShell.className = "multiplayer-game-shell";
   gameShell.setAttribute("aria-label", "Multiplayer game layout");
   gameShell.setAttribute("data-controls-open", "true");
+  gameShell.setAttribute("data-game-phase", "waiting");
   let controlsOpen = true;
   const setControlsOpen = (next: boolean): void => {
     controlsOpen = next;
@@ -492,7 +498,7 @@ function renderGame(
 
   let sequence = 0;
   const held = new Set<string>();
-  function makePrediction(nextLevelId: string) {
+  function makePrediction(nextLevelId: string, localPlayerSlot: number) {
     const initialPredictionState = makeInitialSimulationState(
       nominalSixtyHertzFrameDurationMilliseconds,
       requireBundledMultiplayerLevel(nextLevelId).levelSpec,
@@ -505,9 +511,11 @@ function renderGame(
       initialPredictionState.value,
       requireBundledMultiplayerLevel(nextLevelId).levelSpec,
       initialMovementConstants,
+      localPlayerSlot,
     );
   }
-  let prediction = makePrediction(levelId);
+  let localPlayerSlot: number | undefined;
+  let prediction: ReturnType<typeof makePrediction> | undefined;
   const audio = new GameAudio();
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
   let completedAudioPlayed = false;
@@ -518,6 +526,9 @@ function renderGame(
   let sentInputCount = 0;
   const snapshotsByGameId = new Map<string, GameSnapshot>();
   let presentationAnimationFrame: number | undefined;
+  let latestPredictionCommand: SimulationInputCommand | undefined;
+  let lastPredictionAnimationMilliseconds = performance.now();
+  let predictionFrameRemainderMilliseconds = 0;
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -556,7 +567,15 @@ function renderGame(
     if (snapshot === undefined || disposed) {
       return;
     }
-    const predictedPlayer = prediction.snapshot().state.players[0].player;
+    if (prediction === undefined || localPlayerSlot === undefined) {
+      return;
+    }
+    const predictedRuntime =
+      prediction.snapshot().state.players[localPlayerSlot];
+    if (predictedRuntime === undefined) {
+      throw new Error("Predicted state is missing the local player.");
+    }
+    const predictedPlayer = predictedRuntime.player;
     const interpolatedRemotePlayers = remoteInterpolator.positions(
       performance.now(),
     );
@@ -614,7 +633,31 @@ function renderGame(
       }),
     });
   }
-  function animatePresentation(): void {
+  function animatePresentation(nowMilliseconds: number): void {
+    const elapsedMilliseconds = Math.min(
+      Math.max(0, nowMilliseconds - lastPredictionAnimationMilliseconds),
+      250,
+    );
+    lastPredictionAnimationMilliseconds = nowMilliseconds;
+    predictionFrameRemainderMilliseconds += elapsedMilliseconds;
+    if (
+      prediction !== undefined &&
+      latestPredictionCommand !== undefined &&
+      latestAuthoritativeSnapshot?.phase === "playing"
+    ) {
+      while (
+        predictionFrameRemainderMilliseconds >=
+        nominalSixtyHertzFrameDurationMilliseconds
+      ) {
+        predictionFrameRemainderMilliseconds -=
+          nominalSixtyHertzFrameDurationMilliseconds;
+        const before = prediction.snapshot();
+        const advanced = prediction.advance(latestPredictionCommand);
+        audio.playEvents(resolveSoundEvents(before.state, advanced.state));
+      }
+    } else {
+      predictionFrameRemainderMilliseconds = 0;
+    }
     renderPresentation();
     if (!disposed) {
       presentationAnimationFrame =
@@ -657,7 +700,8 @@ function renderGame(
         false,
         userAssetBundle,
       );
-      prediction = makePrediction(currentLevelId);
+      prediction = undefined;
+      localPlayerSlot = undefined;
       title.textContent = `Game ${gameId} · ${currentLevelId}`;
     } else {
       latestAuthoritativeFrame = Math.max(
@@ -673,7 +717,19 @@ function renderGame(
       (player) => player.playerId === profile.playerId,
     );
     if (local !== undefined) {
-      prediction.reconcile(local.acknowledgedInputSequence, local);
+      if (localPlayerSlot !== local.slot || prediction === undefined) {
+        localPlayerSlot = local.slot;
+        prediction = makePrediction(currentLevelId, local.slot);
+      }
+      prediction.reconcileState(
+        local.acknowledgedInputSequence,
+        decodeMultiplayerSimulationState(snapshot.simulationState),
+      );
+      // The next animation-frame prediction begins from this exact server
+      // state. It is then stepped locally at the same 60 Hz as the engine,
+      // instead of visibly moving only at the 20 Hz snapshot cadence.
+      predictionFrameRemainderMilliseconds = 0;
+      lastPredictionAnimationMilliseconds = performance.now();
       gameShell.setAttribute(
         "data-debug-last-acknowledged-input-sequence",
         String(local.acknowledgedInputSequence),
@@ -684,6 +740,7 @@ function renderGame(
       String(snapshot.frame),
     );
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+    gameShell.setAttribute("data-game-phase", snapshot.phase);
     if (snapshot.phase !== lastPresentedPhase) {
       setControlsOpen(snapshot.phase !== "playing");
       lastPresentedPhase = snapshot.phase;
@@ -819,12 +876,7 @@ function renderGame(
       }
     }
   });
-  function sendInput(): void {
-    if (socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    sequence += 1;
-    sentInputCount += 1;
+  function currentHeldInputCommand(): SimulationInputCommand {
     const commandResult = makeSimulationInputCommand(
       held.has("ArrowLeft")
         ? "left"
@@ -842,11 +894,23 @@ function renderGame(
         commandResult.errors.map((error) => error.message).join(" "),
       );
     }
-    const priorPrediction = prediction.snapshot();
-    const predicted = prediction.submit(sequence, commandResult.value);
-    audio.playEvents(
-      resolveSoundEvents(priorPrediction.state, predicted.state),
-    );
+    return commandResult.value;
+  }
+  function sendInput(predictImmediately: boolean): void {
+    if (socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    sequence += 1;
+    sentInputCount += 1;
+    const command = currentHeldInputCommand();
+    latestPredictionCommand = command;
+    if (predictImmediately && prediction !== undefined) {
+      const priorPrediction = prediction.snapshot();
+      const predicted = prediction.submit(sequence, command);
+      audio.playEvents(
+        resolveSoundEvents(priorPrediction.state, predicted.state),
+      );
+    }
     socket.send(
       JSON.stringify({
         type: "input",
@@ -857,12 +921,12 @@ function renderGame(
         // it immediately consumable instead of deferring it behind an unrelated
         // client message count.
         intendedFrame: latestAuthoritativeFrame,
-        horizontal: commandResult.value.horizontal,
-        jumpPressed: commandResult.value.jumpPressed,
-        runHeld: commandResult.value.runHeld,
-        firePressed: commandResult.value.firePressed,
-        upHeld: commandResult.value.upHeld,
-        downHeld: commandResult.value.downHeld,
+        horizontal: command.horizontal,
+        jumpPressed: command.jumpPressed,
+        runHeld: command.runHeld,
+        firePressed: command.firePressed,
+        upHeld: command.upHeld,
+        downHeld: command.downHeld,
       }),
     );
     gameShell.setAttribute("data-debug-last-input-sequence", String(sequence));
@@ -884,7 +948,7 @@ function renderGame(
     // on connect instead of leaving the authoritative game idle until another
     // physical key edge occurs.
     if (held.size > 0) {
-      sendInput();
+      sendInput(true);
     }
   });
   socket.addEventListener("close", (event) => {
@@ -914,8 +978,9 @@ function renderGame(
       ].includes(event.code)
     ) {
       event.preventDefault();
+      const wasHeld = held.has(event.code);
       held.add(event.code);
-      sendInput();
+      sendInput(!wasHeld);
     }
   };
   const keyup = (event: KeyboardEvent) => {
@@ -923,7 +988,7 @@ function renderGame(
       return;
     }
     held.delete(event.code);
-    sendInput();
+    sendInput(true);
   };
   window.addEventListener("keydown", keydown);
   window.addEventListener("keyup", keyup);
@@ -936,7 +1001,7 @@ function renderGame(
   // staying well below the authoritative 60 Hz simulation cadence.
   const inputHeartbeatInterval = window.setInterval(() => {
     if (held.size > 0) {
-      sendInput();
+      sendInput(false);
     }
   }, 100);
   async function update(): Promise<void> {
@@ -1120,7 +1185,10 @@ export async function renderMultiplayerAdminUi(
     void appendSemanticLayout(panel, "/layout?screen=admin");
   }
 }
-import { makeSimulationInputCommand } from "../engine/simulation/input-command";
+import {
+  makeSimulationInputCommand,
+  type SimulationInputCommand,
+} from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import {

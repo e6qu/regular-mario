@@ -24,6 +24,11 @@ export type ClientPrediction = {
     acknowledgedSequence: number,
     authoritativePosition: { readonly x: number; readonly y: number },
   ): LocalPredictionSnapshot;
+  reconcileState(
+    acknowledgedSequence: number,
+    authoritativeState: SimulationState,
+  ): LocalPredictionSnapshot;
+  advance(command: SimulationInputCommand): LocalPredictionSnapshot;
   snapshot(): LocalPredictionSnapshot;
 };
 
@@ -31,14 +36,78 @@ export function makeClientPrediction(
   initialState: SimulationState,
   levelSpec: LevelSpec,
   movementConstants: MovementConstants,
+  localPlayerSlot: number,
 ): ClientPrediction {
+  if (!Number.isInteger(localPlayerSlot) || localPlayerSlot < 0) {
+    throw new Error("Client prediction local player slot is invalid.");
+  }
   let state = initialState;
   let pendingInputs: readonly PendingPredictedInput[] = [];
 
+  function requireSimulationPlayers(
+    players: readonly SimulationState["players"][number][],
+  ): SimulationState["players"] {
+    const first = players[0];
+    if (first === undefined) {
+      throw new Error("Predicted simulation state has no players.");
+    }
+    return [first, ...players.slice(1)];
+  }
+
+  function stepLocalPlayer(
+    source: SimulationState,
+    command: SimulationInputCommand,
+  ): SimulationState {
+    if (localPlayerSlot === 0) {
+      return stepSimulation(source, command, movementConstants, levelSpec);
+    }
+    const local = source.players[localPlayerSlot];
+    if (local === undefined) {
+      throw new Error("Predicted local player slot is absent from state.");
+    }
+    const orderedSlots = [
+      localPlayerSlot,
+      ...source.players
+        .map((_player, slot) => slot)
+        .filter((slot) => slot !== localPlayerSlot),
+    ];
+    const orderedState: SimulationState = {
+      ...source,
+      players: requireSimulationPlayers(
+        orderedSlots.map((slot) => {
+          const player = source.players[slot];
+          if (player === undefined) {
+            throw new Error("Predicted player slot is absent from state.");
+          }
+          return player;
+        }),
+      ),
+    };
+    const stepped = stepSimulation(
+      orderedState,
+      command,
+      movementConstants,
+      levelSpec,
+      undefined,
+      false,
+    );
+    const restoredPlayers = [...source.players];
+    orderedSlots.forEach((slot, orderedSlot) => {
+      const player = stepped.players[orderedSlot];
+      if (player === undefined) {
+        throw new Error("Predicted stepped player slot is absent from state.");
+      }
+      restoredPlayers[slot] = player;
+    });
+    return {
+      ...stepped,
+      players: requireSimulationPlayers(restoredPlayers),
+    };
+  }
+
   function replayPending(fromState: SimulationState): SimulationState {
     return pendingInputs.reduce(
-      (replayed, input) =>
-        stepSimulation(replayed, input.command, movementConstants, levelSpec),
+      (replayed, input) => stepLocalPlayer(replayed, input.command),
       fromState,
     );
   }
@@ -56,7 +125,7 @@ export function makeClientPrediction(
         );
       }
       pendingInputs = [...pendingInputs, { sequence, command }];
-      state = stepSimulation(state, command, movementConstants, levelSpec);
+      state = stepLocalPlayer(state, command);
       return snapshot();
     },
     reconcile(acknowledgedSequence, authoritativePosition) {
@@ -87,6 +156,22 @@ export function makeClientPrediction(
         ],
       };
       state = replayPending(corrected);
+      return snapshot();
+    },
+    reconcileState(acknowledgedSequence, authoritativeState) {
+      if (authoritativeState.players[localPlayerSlot] === undefined) {
+        throw new Error(
+          "Authoritative state is missing the local player slot.",
+        );
+      }
+      pendingInputs = pendingInputs.filter(
+        (input) => input.sequence > acknowledgedSequence,
+      );
+      state = replayPending(authoritativeState);
+      return snapshot();
+    },
+    advance(command) {
+      state = stepLocalPlayer(state, command);
       return snapshot();
     },
     snapshot,

@@ -1445,10 +1445,10 @@ export class BootScene extends Phaser.Scene {
     this.playerImageObject?.setDepth(59);
     this.playerRectangle
       .setFillStyle(playerFallbackColor(this.playerCharacter))
-      // Keep the original pixel body directly beneath its authored sprite.
-      // If a texture is late or malformed, an online player remains visible
-      // instead of silently disappearing from an otherwise valid game frame.
-      .setVisible(true);
+      // This is an actual fallback, never a backdrop. Leaving it visible
+      // beneath a transparent authored sprite creates a solid coloured box
+      // around the player in multiplayer and local play alike.
+      .setVisible(this.playerImageObject === undefined);
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -5325,6 +5325,9 @@ export class BootScene extends Phaser.Scene {
           this.simulationState.players[0].player.position.y,
         )
         .setDisplaySize(displayWidth, collider.height);
+      this.playerRectangle.setVisible(false);
+    } else {
+      this.playerRectangle.setVisible(true);
     }
     this.game.canvas.setAttribute(
       "data-rendered-primary-visible",
@@ -6199,20 +6202,21 @@ export class BootScene extends Phaser.Scene {
       String(coopRuntimes.length),
     );
     while (this.coopPlayerImages.length < coopRuntimes.length) {
+      // Each remote player owns an independent authored image. A rectangle is
+      // only a loud fallback when the authored bundle is genuinely absent; it
+      // must never sit behind a transparent sprite as a coloured backdrop.
+      const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
       this.coopPlayerImages.push(
-        // A remote player must always have an independently owned display
-        // object. Reusing an authored source image here can leave the pooled
-        // object invisible after a texture/crop update in Phaser; the crisp
-        // body is a reliable base and is recoloured per selected avatar below.
-        this.add
-          .rectangle(
-            0,
-            0,
-            initialPlayerSimulationStateConfig.colliderWidth,
-            initialPlayerSimulationStateConfig.colliderHeight,
-          )
-          .setOrigin(0)
-          .setDepth(59),
+        image?.setDepth(59) ??
+          this.add
+            .rectangle(
+              0,
+              0,
+              initialPlayerSimulationStateConfig.colliderWidth,
+              initialPlayerSimulationStateConfig.colliderHeight,
+            )
+            .setOrigin(0)
+            .setDepth(59),
       );
     }
     while (this.coopPlayerImages.length > coopRuntimes.length) {
@@ -6261,12 +6265,16 @@ export class BootScene extends Phaser.Scene {
       // Float this bot's call-sign just above its head, centred on the sprite.
       const label = this.coopPlayerNameLabels[index];
       if (label !== undefined) {
+        // Several friends can spawn in the same shared screen. Stack their
+        // labels above one another rather than drawing unreadable text through
+        // the party at the exact same baseline.
+        const stackedLabelOffsetPixels = 5 + index * 8;
         label
           .setText(this.coopBotNames[index] ?? "")
           .setPosition(
             Number(coopPlayer.position.x) +
               Number(coopPlayer.collider.width) / 2,
-            Number(coopPlayer.position.y) - 3,
+            Number(coopPlayer.position.y) - stackedLabelOffsetPixels,
           );
       }
     });

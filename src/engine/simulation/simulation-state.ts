@@ -1,9 +1,13 @@
 import type { DomainResult } from "../domain/result";
 import { fail, succeed } from "../domain/result";
 import type { EntityId } from "../domain/identifiers";
-import type { LevelSpec } from "../domain/level-spec";
+import { ActorRole, type LevelSpec } from "../domain/level-spec";
 import type { FrameDurationMilliseconds, FrameIndex } from "../domain/units";
-import { makeFrameDurationMilliseconds, makeFrameIndex } from "../domain/units";
+import {
+  makeFrameDurationMilliseconds,
+  makeFrameIndex,
+  makePixelPosition,
+} from "../domain/units";
 import type { ValidationError } from "../domain/validation-error";
 import {
   makeCoopPlayerSimulationState,
@@ -278,8 +282,31 @@ export function makeInitialSimulationStateWithPlayerVitality(
     return fail(errors);
   }
 
+  const playerStart = levelSpec.actors.find((actor) => {
+    const definition = levelSpec.actorDefinitions.find(
+      (candidate) => candidate.actorId === actor.actorId,
+    );
+    return definition?.role === ActorRole.PlayerStart;
+  });
+  if (playerStart === undefined) {
+    throw new Error("Validated level is missing its player-start actor.");
+  }
+  const spawnX = makePixelPosition(
+    Number(playerStart.position.x) * Number(levelSpec.tileSizePixels),
+    "player.position.x",
+  );
+  const spawnY = makePixelPosition(
+    Number(playerStart.position.y) * Number(levelSpec.tileSizePixels),
+    "player.position.y",
+  );
+  if (!spawnX.ok || !spawnY.ok) {
+    throw new Error("Validated level has an invalid player-start position.");
+  }
   const primaryRuntime: PlayerRuntime = {
-    player: makeInitialPlayerSimulationState(),
+    player: {
+      ...makeInitialPlayerSimulationState(),
+      position: { x: spawnX.value, y: spawnY.value },
+    },
     vitality: playerVitality,
     invincibility: makeEmptyPlayerInvincibilityState(),
     outcome: makeActivePlayerOutcomeState(),

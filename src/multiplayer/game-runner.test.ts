@@ -130,7 +130,7 @@ describe("authoritative multiplayer game runner", () => {
       playerId: "ren",
       slot: 1,
       x: 144,
-      y: 64,
+      y: 208,
     });
   });
 
@@ -347,7 +347,7 @@ describe("authoritative multiplayer game runner", () => {
       ...multiplayerOnboardingLevelInput,
       tiles: multiplayerOnboardingLevelInput.tiles.map((row, rowIndex) =>
         row.map((tile, columnIndex) =>
-          rowIndex === 4 && columnIndex === 9 ? "gate" : tile,
+          rowIndex === 13 && columnIndex === 9 ? "gate" : tile,
         ),
       ),
     });

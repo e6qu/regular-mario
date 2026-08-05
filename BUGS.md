@@ -2,6 +2,20 @@
 
 ## Known Bugs
 
+### Multiplayer could render a reduced, backplated, falling game — fixed (2026-08-05)
+
+The previous acceptance tests could compare a paused canvas while missing the
+ordinary live journey. That allowed three visible defects: a permanent
+waiting-panel sidebar, fallback rectangles behind authored sprites, and
+six-tile courses whose level actors were ignored by the initial simulation
+spawn. The ready room is now full viewport, playing hides the drawer, authored
+primary/remote images replace their fallback bodies, courses use a 15-tile
+playfield, and the core starts at the validated `player-start` actor. Client
+prediction now reconciles the full state at the correct player slot and steps
+locally at 60 Hz. Production side-by-side, exact-parity, four-recording, and
+eight-player stress evidence passes; current captures are ignored under
+`playwright_adhoc/`.
+
 ### Four-player second-course input after an authoritative level handoff — fixed (2026-08-05)
 
 Four recording clients each uploaded a retained lossless debug screenshot over

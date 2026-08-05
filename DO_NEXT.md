@@ -2,6 +2,20 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Verified: visual acceptance must use the live journey (2026-08-05)
+
+- Preserve `side-by-side-lockstep.spec.ts` as a full-viewport gate: it checks
+  the waiting ready room, a hidden playing drawer, a 1280×720 canvas, real
+  authored-sprite pixels, mirrored keyboard input, and changed rendered
+  frames. Internal scene receipts alone are not visual evidence.
+- Multiplayer courses are deliberately 15 tiles high. Do not reintroduce the
+  former six-row routes or fixed default spawn coordinates; the deterministic
+  initial state derives its primary position from the LevelSpec player-start
+  actor.
+- Client prediction must target the authenticated player's authoritative slot,
+  reconcile a complete server state, and advance at the fixed 60 Hz cadence.
+  Four-player recordings and eight-player stress cover the lifecycle.
+
 ### Verified: lobby creation enters the owned game (2026-08-05)
 
 - Creation uses the authoritative game response to open the waiting-game

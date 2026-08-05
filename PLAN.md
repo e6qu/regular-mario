@@ -231,6 +231,16 @@ prediction and remote interpolation. Exact local/shared-camera server-frame
 parity is zero raw pixels, and the ignored four-browser recordings complete
 two transitions at 100 ms, 500 ms, and 3 s injected delay.
 
+**Live-journey visual correction (2026-08-05):** frozen-frame parity alone is
+not sufficient acceptance evidence. The production gate also starts an actual
+waiting game, requires its ready room to fill the viewport, starts it, requires
+a 1280×720 unoccluded canvas with real authored-player pixels, mirrors actual
+input against local play, and records separate four-player sessions through
+two course transitions. The deterministic initial state derives player spawn
+from the validated LevelSpec actor; multiplayer routes use a 15-tile canonical
+playfield; and each client predicts its own authoritative player slot from a
+complete state at 60 Hz.
+
 ## Target
 
 Faithful classic-platformer feel — mechanics, HUD, background, physics, and
