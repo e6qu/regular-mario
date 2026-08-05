@@ -111,10 +111,10 @@ async function expectExactCanvasParity(
     { localDataUrl: leftDataUrl, remoteDataUrl: rightDataUrl },
   );
   expect(comparison).toEqual({
-    width: 1280,
+    width: 940,
     height: 720,
     differentPixels: 0,
-    differenceBounds: [1280, 720, -1, -1],
+    differenceBounds: [940, 720, -1, -1],
   });
 }
 
@@ -127,6 +127,11 @@ test("the actual local BootScene and a paused server frame render every pixel id
   const player = await playerContext.newPage();
   const local = await localContext.newPage();
   const admin = await adminContext.newPage();
+
+  // The multiplayer game canvas is the browser viewport minus its semantic
+  // control sidebar (940×720 at the standard desktop test viewport). Match
+  // that exact drawable surface locally before comparing raw canvas pixels.
+  await local.setViewportSize({ width: 940, height: 720 });
 
   await enterMultiplayerLobby(player);
   await player.getByRole("button", { name: "Create game" }).click();
@@ -170,7 +175,10 @@ test("the actual local BootScene and a paused server frame render every pixel id
     >[0];
   };
 
-  await local.goto("/?browserLevel=first-authored");
+  // The lobby's default public course is Party Runway. Keep the exact-pixel
+  // comparison on that real create/start path so a level-selection or
+  // pre-create lifecycle regression cannot hide behind the old fixture.
+  await local.goto("/?browserLevel=multiplayer-onboarding");
   await expect(
     local.getByLabel("Original platformer game canvas"),
   ).toBeVisible();
@@ -231,7 +239,9 @@ test("two independently connected avatars render every server-driven pixel ident
   await setProfile(guest, "PixelRen", "ember-warden");
   await guest
     .locator("section > div")
-    .filter({ hasText: /^PixelMira · first-authored · regular · waiting/ })
+    .filter({
+      hasText: /^PixelMira · multiplayer-onboarding · regular · waiting/,
+    })
     .getByRole("button", { name: "Join" })
     .click();
   await creator.getByRole("button", { name: "Start" }).click();

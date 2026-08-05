@@ -2,6 +2,14 @@
 
 ## Current State
 
+**Live multiplayer first-frame rendering corrected (2026-08-05).** The
+production create/join/start route now waits for BootScene's post-create
+render-ready event before applying the first authoritative snapshot. This
+prevents a sky-and-ground-only canvas when a snapshot arrives during scene
+construction. A fresh standalone Playwright journey was captured and visually
+inspected with Party Runway's player and collectible visible; the exact-pixel
+parity check now exercises that live default course.
+
 **Multiplayer real-play acceptance (2026-08-05).** The shared game canvas now
 uses the full browser viewport left of a non-overlapping control sidebar.
 The introductory course has a safe runway and transitions the same public game

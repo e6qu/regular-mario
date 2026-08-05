@@ -149,7 +149,8 @@ bundle as local play, not a separate simplified snapshot painter. A lossless
 wire codec carries complete simulation state (including map-backed state) to
 that scene. The proof suite deep-compares a 12-frame two-player local-engine
 trace against each server state; compares a local `BootScene` supplied a named
-paused server frame against multiplayer at all 921,600 raw canvas pixels; and
+paused Party Runway server frame against multiplayer at all 676,800 raw canvas
+pixels (940×720, matching the sidebar layout); and
 independently requires two different multiplayer avatars to match exactly. The
 comparison hides only the local route's non-game ESC navigation hint and uses
 no crop, scale, mask, or pixel tolerance for gameplay pixels.

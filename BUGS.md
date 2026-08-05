@@ -2,6 +2,17 @@
 
 ## Known Bugs
 
+### First-frame multiplayer canvas could be background-only — fixed 2026-08-05
+
+Phaser reports a scene as active before `BootScene.create()` has built its
+player and level objects. The multiplayer adapter treated that as render-ready,
+so an early authoritative snapshot could be replaced by the scene's empty
+local seed, producing the reported grass-and-sky-only game. The adapter now
+waits exclusively for BootScene's explicit post-create render-ready event.
+The production Playwright create/join/start journey was inspected after the
+fix, and the exact raw-pixel local/server parity check now uses Party Runway,
+the live lobby default, rather than the obsolete first-authored fixture.
+
 ### Multi-course authoritative rendering and exit completion — fixed 2026-08-05
 
 A real four-player two-course run found five defects that the prior

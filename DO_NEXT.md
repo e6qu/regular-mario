@@ -10,8 +10,12 @@
 - Complete. `game-runner.test.ts` proves a 12-frame two-player local/core
   simulation trace equals every authoritative server state. The real-server
   Playwright journey freezes an actual local `BootScene` on a named paused
-  server frame and compares every gameplay-canvas pixel (1280×720) with zero
-  tolerance; it also compares two selected multiplayer avatars exactly.
+  Party Runway server frame and compares every gameplay-canvas pixel
+  (940×720, matching the sidebar layout) with zero tolerance; it also compares
+  two selected multiplayer avatars exactly.
+- Complete. The multiplayer adapter now waits for BootScene's post-create
+  render-ready event; an early snapshot can no longer leave a background-only
+  Party Runway canvas.
 - Complete. Admin pause/step/resume now immediately broadcast the changed
   authoritative snapshot, so debug controls and parity capture observe the
   same frame. The production browser journey passes at 100 ms and 3,000 ms.

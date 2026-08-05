@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — fixed the live first-frame multiplayer rendering race
+
+- Waited for BootScene's explicit post-create render-ready signal instead of
+  Phaser's earlier active-scene state, preventing an early authoritative frame
+  from being overwritten by the scene's empty local seed.
+- Re-ran the production standalone create/join/start journey and inspected its
+  browser capture: Party Runway now visibly contains the local party and its
+  collectible immediately after start.
+- Retargeted exact local/server raw-pixel parity to Party Runway, the actual
+  default public multiplayer course.
+
 ## 2026-08-05 — verified four-player, two-course multiplayer completion
 
 - Strengthened the Playwright recording from isolated contexts to four separate

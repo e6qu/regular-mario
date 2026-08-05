@@ -62,11 +62,12 @@ export function makeMultiplayerPhaserRenderer(
         applySnapshot(scene, latestSnapshot);
       }
     };
-    if (scene.sys.isActive()) {
-      markReady();
-    } else {
-      scene.events.once(authoritativeRenderSceneReadyEvent, markReady);
-    }
+    // A scene becomes "active" before BootScene.create() has created its
+    // player and level render objects. Applying a server frame during that
+    // interval is then overwritten by create()'s empty local seed state,
+    // leaving a valid background with no party or level objects. The scene's
+    // explicit signal is emitted only after those render objects exist.
+    scene.events.once(authoritativeRenderSceneReadyEvent, markReady);
   });
   canvas.setAttribute("aria-label", "Authoritative multiplayer game view");
   canvas.setAttribute("data-role", "multiplayer-phaser-canvas");
