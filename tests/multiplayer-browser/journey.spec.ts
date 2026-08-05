@@ -181,3 +181,69 @@ test("administrator can inspect and step a paused game", async ({ page }) => {
     .click();
   await page.screenshot({ path: "test-results/multiplayer-admin-mobile.png" });
 });
+
+test("a live game maintains render and snapshot cadence", async ({ page }) => {
+  const receivedWebSocketFrames: string[] = [];
+  page.on("websocket", (socket) => {
+    socket.on("framereceived", (event) => {
+      receivedWebSocketFrames.push(String(event.payload));
+    });
+  });
+  await login(page);
+  await saveProfile(page, "Cadence");
+  await page.getByLabel("Bundled level").selectOption("smb-1-1");
+  await page.getByRole("button", { name: "Create game" }).click();
+  await page.getByRole("button", { name: "Start game" }).click();
+  await expect(
+    page.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+
+  const cadence = await page.evaluate(async () => {
+    const frameIntervals: number[] = [];
+    const longTaskDurations: number[] = [];
+    const observer = new PerformanceObserver((entries) => {
+      for (const entry of entries.getEntries()) {
+        longTaskDurations.push(entry.duration);
+      }
+    });
+    observer.observe({ type: "longtask", buffered: true });
+    let previous = performance.now();
+    const until = previous + 2_000;
+    await new Promise<void>((resolve) => {
+      const sample = (now: number): void => {
+        frameIntervals.push(now - previous);
+        previous = now;
+        if (now >= until) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    observer.disconnect();
+    const sorted = [...frameIntervals].sort((left, right) => left - right);
+    return {
+      frameCount: frameIntervals.length,
+      meanFrameMilliseconds:
+        frameIntervals.reduce((sum, value) => sum + value, 0) /
+        frameIntervals.length,
+      percentile95FrameMilliseconds:
+        sorted[Math.floor(sorted.length * 0.95)] ?? Number.POSITIVE_INFINITY,
+      longestTaskMilliseconds: Math.max(0, ...longTaskDurations),
+    };
+  });
+
+  const stateFrames = receivedWebSocketFrames.filter(
+    (payload) =>
+      payload.includes('"type":"state-keyframes"') ||
+      payload.includes('"type":"state-deltas"'),
+  );
+  expect(cadence.frameCount).toBeGreaterThanOrEqual(100);
+  expect(cadence.meanFrameMilliseconds).toBeLessThan(24);
+  expect(cadence.percentile95FrameMilliseconds).toBeLessThan(40);
+  expect(cadence.longestTaskMilliseconds).toBeLessThan(100);
+  // Twenty snapshots per second is deliberate; this minimum leaves room for
+  // startup jitter while proving the browser received the live game stream.
+  expect(stateFrames.length).toBeGreaterThanOrEqual(30);
+});

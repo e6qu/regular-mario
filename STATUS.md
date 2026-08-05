@@ -2,6 +2,13 @@
 
 ## Current State
 
+**Multiplayer presentation cadence corrected (2026-08-05).** Stomp/score
+effects now consume authoritative 60 Hz simulation-frame deltas rather than
+20 Hz WebSocket arrivals, and remote-state application no longer forces a
+full Phaser display-list depth sort per receipt. The production browser
+journey measures a live game for two seconds, requiring smooth animation-frame
+cadence, no long main-thread task, and ongoing state keyframe/delta traffic.
+
 **Manual-server lifecycle rechecked (2026-08-05).** The local server was
 restarted from an empty ephemeral state after a stale process was found on port 8080. The real browser journey now proves that Leave game is actionable, takes
 the guest back to the lobby, and releases that player's sole game membership.

@@ -832,6 +832,11 @@ export class BootScene extends Phaser.Scene {
   }[] = [];
   private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
   private previousEnemyKillScore = 0;
+  // The renderer may receive server state at 20 Hz while the deterministic
+  // simulation advances at 60 Hz. Presentation effects are specified in
+  // simulation frames, so retain the previously consumed frame and advance
+  // their lifetimes by the authoritative frame delta rather than by arrivals.
+  private previousRenderedSimulationFrame: number | undefined;
   // Per-Goomba flatten countdown: a stomped Goomba renders squashed until this
   // reaches zero, then it is hidden.
   private readonly flattenedEnemyTimers = new Map<string, number>();
@@ -4344,6 +4349,7 @@ export class BootScene extends Phaser.Scene {
     this.resetCoopBotState();
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
+    this.previousRenderedSimulationFrame = undefined;
     this.flattenedEnemyTimers.clear();
     this.entityIdSetCache.clear();
     this.lastEnemyContactObservation = undefined;
@@ -4933,6 +4939,7 @@ export class BootScene extends Phaser.Scene {
   private resolveEnemyDefeatVisibility(
     actor: RuntimeRenderedActor,
     defeated: boolean,
+    elapsedSimulationFrames: number,
   ): boolean {
     if (!isRenderedEnemyRole(actor.role)) {
       return true;
@@ -4953,7 +4960,10 @@ export class BootScene extends Phaser.Scene {
       this.flattenedEnemyTimers.set(actor.entityId, 0);
       return false;
     }
-    this.flattenedEnemyTimers.set(actor.entityId, remaining - 1);
+    this.flattenedEnemyTimers.set(
+      actor.entityId,
+      Math.max(0, remaining - elapsedSimulationFrames),
+    );
     // Squash the sprite flat and drop it so it sits on the ground.
     actor.renderObject.setScale(1, stompedGoombaSquashScaleY);
     actor.renderObject.setY(
@@ -4963,9 +4973,12 @@ export class BootScene extends Phaser.Scene {
     return true;
   }
 
-  private stepScorePopups(defeatedEnemyIds: ReadonlySet<string>): void {
+  private stepScorePopups(
+    defeatedEnemyIds: ReadonlySet<string>,
+    elapsedSimulationFrames: number,
+  ): void {
     this.scorePopups = this.scorePopups.filter((popup) => {
-      popup.framesRemaining -= 1;
+      popup.framesRemaining -= elapsedSimulationFrames;
       if (popup.framesRemaining <= 0) {
         popup.text.destroy();
         return false;
@@ -5047,6 +5060,17 @@ export class BootScene extends Phaser.Scene {
       "data-rendered-primary-y",
       String(this.simulationState.players[0].player.position.y),
     );
+    const currentRenderedSimulationFrame = Number(
+      this.simulationState.clock.frameIndex,
+    );
+    const previousRenderedSimulationFrame =
+      this.previousRenderedSimulationFrame;
+    const elapsedSimulationFrames =
+      previousRenderedSimulationFrame === undefined ||
+      currentRenderedSimulationFrame < previousRenderedSimulationFrame
+        ? 1
+        : currentRenderedSimulationFrame - previousRenderedSimulationFrame;
+    this.previousRenderedSimulationFrame = currentRenderedSimulationFrame;
     const currentVertical =
       this.simulationState.players[0].player.movement.vertical;
     const currentWorldY = this.simulationState.players[0].player.position.y;
@@ -5332,11 +5356,12 @@ export class BootScene extends Phaser.Scene {
       const enemyVisible = this.resolveEnemyDefeatVisibility(
         actor,
         defeatedEnemyEntityIdStrings.has(actor.entityId),
+        elapsedSimulationFrames,
       );
       actor.renderObject.setVisible(collectibleUncollected && enemyVisible);
     }
 
-    this.stepScorePopups(defeatedEnemyEntityIdStrings);
+    this.stepScorePopups(defeatedEnemyEntityIdStrings, elapsedSimulationFrames);
 
     this.renderSpawnedActors(
       collectedCoinEntityIdStrings,
@@ -5359,13 +5384,10 @@ export class BootScene extends Phaser.Scene {
     // Network frames can be applied after the level's asynchronous authored
     // art has rebuilt its display objects. Keep every primary representation
     // explicitly above that world layer instead of relying on insertion order.
-    this.playerRectangle.setDepth(59);
-    this.playerImageObject?.setDepth(59);
+    // These objects receive a stable depth when constructed. Reassigning it
+    // on every 20 Hz server receipt dirties Phaser's entire display list.
+    // Dynamic additions still queue their own depth sort when they are made.
     this.bringPlayerObjectsToTop();
-    // Local scenes flush this through their normal update pass. An
-    // authoritative-render scene intentionally has no local simulation update,
-    // so make the display-list ordering observable to the renderer now.
-    this.children.depthSort();
   }
 
   // Rotating firebar orbs and leaping podoboos are pure functions of the

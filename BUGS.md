@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Multiplayer presentation effects and rendering could stall — fixed (2026-08-05)
+
+The renderer decremented frame-based stomp and score effects once for each
+20 Hz snapshot, stretching them roughly threefold. It also dirtied and sorted
+the complete Phaser display list for every remote state receipt. Presentation
+now advances those effects by the authoritative simulation-frame delta and
+retains stable object depths. The real browser journey samples two seconds of
+animation frames/long tasks and confirms continuous WebSocket state transport.
+
 ### Local server could retain a stale ephemeral game between manual starts — fixed (2026-08-05)
 
 The process listening on port 8080 predated the requested manual start and

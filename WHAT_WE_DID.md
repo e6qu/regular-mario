@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — corrected live multiplayer presentation cadence
+
+- Fixed stomp/score effect durations to advance by authoritative simulation
+  frames, so 20 Hz snapshot delivery no longer stretches short visual effects.
+- Removed the redundant full Phaser display-list depth sort from every remote
+  receipt while retaining the stable depth assigned during object construction.
+- Added a real WebSocket-game browser gate that samples animation-frame timing,
+  browser long tasks, and live state-keyframe/delta delivery for two seconds.
+- Reclaimed only package-manager caches during QA; ignored ROM/reference
+  content under `.cache/user-levels` and all requested recordings were kept.
+
 ## 2026-08-05 — verified Leave game in the live browser journey
 
 - Identified a stale local server process as the source of an inherited Guest

@@ -10,6 +10,11 @@ Manual local starts must use an empty process. If a browser unexpectedly
 resumes a game, inspect `/api/admin/debug`; only restart the confirmed local
 server process, since games and sessions are deliberately ephemeral.
 
+The multiplayer journey's live cadence gate is deliberate: effects expressed
+in simulation frames must consume authoritative-frame deltas, never raw packet
+arrivals, and remote state application must not force a display-list-wide depth
+sort per 20 Hz receipt.
+
 ### Fresh four-player recording proof (2026-08-05)
 
 - Preserve the checked-in compressed World 1-1 trace as a continuous,
