@@ -595,9 +595,21 @@ function renderGame(
   let sequence = 0;
   const held = new Set<string>();
   function makePrediction(nextLevelId: string, localPlayerSlot: number) {
+    const levelInput = userAssetBundle.levels.get(nextLevelId)?.levelSpecInput;
+    if (levelInput === undefined) {
+      throw new Error(
+        `Authoritative multiplayer level "${nextLevelId}" is absent from the loaded content bundle.`,
+      );
+    }
+    const parsedLevel = makeLevelSpec(levelInput);
+    if (!parsedLevel.ok) {
+      throw new Error(
+        `Authoritative multiplayer level "${nextLevelId}" did not validate.`,
+      );
+    }
     const initialPredictionState = makeInitialSimulationState(
       nominalSixtyHertzFrameDurationMilliseconds,
-      requireBundledMultiplayerLevel(nextLevelId).levelSpec,
+      parsedLevel.value,
       initialMovementConstants,
     );
     if (!initialPredictionState.ok) {
@@ -605,7 +617,7 @@ function renderGame(
     }
     return makeClientPrediction(
       initialPredictionState.value,
-      requireBundledMultiplayerLevel(nextLevelId).levelSpec,
+      parsedLevel.value,
       initialMovementConstants,
       localPlayerSlot,
     );
@@ -1312,6 +1324,7 @@ import {
   makeSimulationInputCommand,
   type SimulationInputCommand,
 } from "../engine/simulation/input-command";
+import { makeLevelSpec } from "../engine/domain/level-spec";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
@@ -1320,7 +1333,6 @@ import {
   SoundEvent,
 } from "../engine/simulation/sound-events";
 import { makeClientPrediction } from "../multiplayer/client-prediction";
-import { requireBundledMultiplayerLevel } from "../multiplayer/bundled-levels";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";

@@ -2,6 +2,16 @@
 
 ## Current State
 
+**World-map multiplayer rendering verified (2026-08-05).** Multiplayer now
+loads the selected `smb-N-N` source from the same release content bundle as
+normal play; it no longer routes through the miniature `browserLevel` fixtures.
+The obsolete multiplayer fixture catalogue and its tests are removed. The
+procedural parallax path is deleted, and the renderer fails on incomplete
+authored sprite coverage. A real normal-content-set World 1-1 `BootScene` and
+a paused authoritative WebSocket World 1-1 frame now compare at 1280×720 with
+zero differing pixels. The authenticated two-player journey and mirrored
+keyboard harness also pass on World 1-1.
+
 **Authored-skin startup hardened (2026-08-05).** The standalone server must
 serve a release build: a normal Vite build points asset requests at the dev-only
 cache and causes the authored-skin load failure. `start:server` now builds the

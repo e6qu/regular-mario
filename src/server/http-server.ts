@@ -5,12 +5,14 @@ import {
   type ServerResponse,
 } from "node:http";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 
 import { makeSimulationInputCommand } from "../engine/simulation/input-command";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
-import { bundledMultiplayerLevels } from "../multiplayer/bundled-levels";
+import { makeLevelSpec } from "../engine/domain/level-spec";
+import { parseVglcSmbMultiLayerLevel } from "../engine/levels/import/vglc-smb-text-level";
 import {
   multiplayerSnapshotFramesPerSecond,
   requireMultiplayerPlayerId,
@@ -36,6 +38,7 @@ import {
   type MakeMultiplayerServiceConfig,
   type MultiplayerService,
 } from "./service";
+import type { ServerLevelOption } from "./game-lobby";
 import type { ServerLogger } from "./file-logger";
 
 const jsonBodyMaximumBytes = 64 * 1024;
@@ -897,10 +900,57 @@ export function makeProductionServiceConfig(
   adminPassword: string,
   signingSecret: string,
 ): MakeMultiplayerServiceConfig {
+  const bundleDirectory = resolve(
+    process.cwd(),
+    "dist/game-content/content-set-bundles/castaway-parody__official-smb",
+  );
+  const manifest = JSON.parse(
+    readFileSync(resolve(bundleDirectory, "remote-manifest.json"), "utf8"),
+  ) as {
+    readonly levels: readonly {
+      readonly name: string;
+      readonly source: { readonly url: string };
+      readonly importMetadataSource: { readonly url: string };
+    }[];
+  };
+  const levels: readonly ServerLevelOption[] = manifest.levels
+    .filter((entry) => /^smb-\d-\d$/.test(entry.name))
+    .map((entry) => {
+      const input = parseVglcSmbMultiLayerLevel(
+        readFileSync(resolve(bundleDirectory, entry.source.url), "utf8"),
+        JSON.parse(
+          readFileSync(
+            resolve(bundleDirectory, entry.importMetadataSource.url),
+            "utf8",
+          ),
+        ) as unknown,
+      );
+      if (!input.ok) {
+        throw new Error(
+          `Release multiplayer level ${entry.name} could not parse: ${input.errors.map((error) => error.message).join(" ")}`,
+        );
+      }
+      const spec = makeLevelSpec(input.value);
+      if (!spec.ok) {
+        throw new Error(
+          `Release multiplayer level ${entry.name} could not validate: ${spec.errors.map((error) => error.message).join(" ")}`,
+        );
+      }
+      return {
+        id: entry.name,
+        label: entry.name.replace("smb-", "World "),
+        levelSpec: spec.value,
+      };
+    });
+  if (levels.length === 0) {
+    throw new Error(
+      "Release content bundle contains no selectable multiplayer levels.",
+    );
+  }
   let gameNumber = 0;
   return {
     session: { serverPassword, adminPassword, signingSecret },
-    levels: bundledMultiplayerLevels,
+    levels,
     movementConstants: initialMovementConstants,
     nextGameId: () => `game-${++gameNumber}`,
   };

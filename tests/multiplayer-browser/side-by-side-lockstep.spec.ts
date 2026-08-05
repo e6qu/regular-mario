@@ -7,9 +7,8 @@ import { enterMultiplayerLobby } from "./support";
 
 const artifactDirectory = "playwright_adhoc/side-by-side-lockstep";
 const canvasViewport = { width: 1280, height: 720 };
-// The actual shared authored opening contains a hazard immediately ahead of
-// spawn. This proves real server movement before the scripted jump rather than
-// assuming the old flat multiplayer-only runway's longer uninterrupted sprint.
+// World 1-1 starts with real course geometry and actors. This proves server
+// movement on the shipped course rather than on a miniature mechanics fixture.
 const minimumAuthoritativeTravelPixels = 4;
 const minimumVisiblePredictedTravelPixels = 2;
 
@@ -125,9 +124,9 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
   try {
     await enterMultiplayerLobby(multiplayer);
     await setProfile(multiplayer);
-    await multiplayer.getByLabel("Bundled level").selectOption("pipe-route");
+    await multiplayer.getByLabel("Bundled level").selectOption("smb-1-1");
     await expect(multiplayer.getByLabel("Bundled level")).toHaveValue(
-      "pipe-route",
+      "smb-1-1",
     );
     // Keep this a real UI-to-server assertion. A correct option value is not
     // enough if a stale closure or request codec substitutes another course
@@ -138,7 +137,7 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     });
     await multiplayer.getByRole("button", { name: "Create game" }).click();
     expect((await createGameRequest).postDataJSON()).toMatchObject({
-      levelId: "pipe-route",
+      levelId: "smb-1-1",
       mode: "regular",
     });
     const multiplayerShell = multiplayer.locator(".multiplayer-game-shell");
@@ -182,7 +181,9 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     // party: this exact authored course starts live, so it can otherwise die
     // before the first mirrored key is sent. Starting it here gives both real
     // games the same live-input window without replacing either simulation.
-    await local.goto("/?browserLevel=pipe-route");
+    await local.goto(
+      "/#play?skin=castaway-parody&map=official-smb&level=smb-1-1&mode=classic&sound=classic&bots=0&character=castaway&revenge=0&renderer=auto&god=0",
+    );
     await expect(
       local.getByLabel("Original platformer game canvas"),
     ).toBeVisible();
@@ -263,7 +264,7 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
       readonly levelId: string;
       readonly players: readonly { readonly x: number }[];
     };
-    expect(initialSnapshotBody.levelId).toBe("pipe-route");
+    expect(initialSnapshotBody.levelId).toBe("smb-1-1");
     const initialPlayerX = initialSnapshotBody.players[0]?.x;
     if (initialPlayerX === undefined) {
       throw new Error("Lockstep initial player position is missing.");
@@ -434,7 +435,7 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     // Both outcomes remain within the real server-owned shared catalogue.
     expect(
       await multiplayerCanvas.getAttribute("data-authoritative-level-id"),
-    ).toMatch(/^(pipe-route|enemy-stomp-route)$/);
+    ).toMatch(/^smb-1-[12]$/);
   } finally {
     await Promise.all([localContext.close(), multiplayerContext.close()]);
   }

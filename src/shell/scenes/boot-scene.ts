@@ -668,12 +668,6 @@ const pipeMouthOpeningInsetPixels = 3;
 const pipeMouthOpeningTopPixels = 2;
 const pipeMouthOpeningHeightPixels = 3;
 const pipeMouthOpeningDepthHeightPixels = 1;
-const parallaxDistantHillColor = 0x9ed69e;
-const parallaxHillColor = 0x00a800; // the original's overworld hill/bush green
-const parallaxBushColor = 0x00a800;
-const parallaxHillDotColor = 0x006800;
-const parallaxHillShadeColor = 0x007c00;
-const parallaxCloudColor = 0xf0f8ff;
 // Frames between air bubbles rising from the swimmer in the water world.
 const swimBubbleIntervalFrames = 20;
 // Behind the tile layer (depth 0) but in front of the parallax background, so a
@@ -1360,6 +1354,11 @@ export class BootScene extends Phaser.Scene {
     state: MultiplayerSimulationWireState,
     cameraLeftPixels: number,
   ): void {
+    // A normal content-set launch waits behind its start card. This explicit
+    // debug state injection replaces that local lifecycle, so it must also
+    // clear the card; otherwise a canvas comparison would be title-card versus
+    // gameplay rather than a simulation/render comparison.
+    this.beginPlay();
     // Freeze before rendering so the ordinary local update loop cannot advance
     // between receiving the named server frame and the canvas readback.
     this.paused = true;
@@ -2016,9 +2015,7 @@ export class BootScene extends Phaser.Scene {
       this.browserGameBootstrap.userLevelVisualName,
     );
 
-    if (levelVisual === undefined) {
-      renderParallaxBackground(this, this.levelSpec, this.currentTheme);
-    } else {
+    if (levelVisual !== undefined) {
       renderLevelVisual(this, levelVisual);
     }
 
@@ -7635,248 +7632,6 @@ function configureMainCamera(
   // each frame. Follow horizontally fairly tightly, like the original.
   camera.startFollow(playerRectangle, true, 0.2, 0.12);
   camera.setDeadzone(80, 40);
-}
-
-// Water world backdrop: seaweed fronds rising from the seabed and slow bubbles
-// drifting upward, each layer on its own parallax rate.
-// World-Y of the water surface: the top of the playfield, which is grid row 2
-// (the top two rows are reserved for the HUD overlay). The simulation's swim
-// clamp keeps the player at/below this same line — a jagged white waterline.
-const waterSurfaceHudRows = 2;
-const waterSurfaceTileSizePixels = 16;
-const waterSurfaceY = waterSurfaceHudRows * waterSurfaceTileSizePixels;
-
-function renderWaterParallax(
-  scene: Phaser.Scene,
-  worldWidth: number,
-  groundY: number,
-): void {
-  const seaweedColor = 0x0e8f7a;
-  const bubbleColor = 0xbdf0ff;
-
-  // Rolling, shimmering waterline: two overlapping sine swells (a deeper back
-  // swell and a bright foam crest) that gently sway, plus twinkling highlights,
-  // instead of a row of static triangle teeth.
-  renderWaterSurface(scene, worldWidth);
-  for (let i = 60; i < worldWidth; i += 150) {
-    const fronds = 3 + ((i * 7) % 3);
-    const lean = (i * 13) % 2 === 0 ? -3 : 3;
-    for (let s = 0; s < fronds; s += 1) {
-      scene.add
-        .ellipse(
-          i + (s % 2 === 0 ? lean : -lean),
-          groundY - s * 12 - 6,
-          11,
-          18,
-          seaweedColor,
-        )
-        .setScrollFactor(0.85, 1)
-        .setDepth(-80);
-    }
-  }
-  for (let i = 30; i < worldWidth; i += 70) {
-    scene.add
-      .circle(
-        i,
-        groundY - 40 - ((i * 17) % 160),
-        3 + ((i * 5) % 4),
-        bubbleColor,
-        0.55,
-      )
-      .setScrollFactor(0.6, 1)
-      .setDepth(-85);
-  }
-}
-
-// Draw one filled sine swell across the level: a smooth crest at `crestY` with
-// the given amplitude/wavelength, filled down to `fillBottomY`.
-function fillWaveBand(
-  graphics: Phaser.GameObjects.Graphics,
-  worldWidth: number,
-  crestY: number,
-  amplitude: number,
-  wavelength: number,
-  phase: number,
-  fillBottomY: number,
-): void {
-  const step = 4;
-  graphics.beginPath();
-  graphics.moveTo(0, fillBottomY);
-  for (let x = 0; x <= worldWidth; x += step) {
-    const y = crestY + Math.sin(x / wavelength + phase) * amplitude;
-    graphics.lineTo(x, y);
-  }
-  graphics.lineTo(worldWidth, fillBottomY);
-  graphics.closePath();
-  graphics.fillPath();
-}
-
-// A realistic, animated water surface: a translucent back swell, a bright foam
-// crest, and drifting twinkling highlights, all gently swaying.
-function renderWaterSurface(scene: Phaser.Scene, worldWidth: number): void {
-  const crestY = waterSurfaceY + 4;
-  const fillBottomY = waterSurfaceY + 14;
-
-  // Deeper back swell — a soft translucent aqua band under the foam.
-  const backSwell = scene.add.graphics().setScrollFactor(1, 1).setDepth(-72);
-  backSwell.fillStyle(0x7fd4ff, 0.55);
-  fillWaveBand(backSwell, worldWidth, crestY + 2, 3, 34, 1.2, fillBottomY);
-
-  // Bright foam crest on top.
-  const crest = scene.add.graphics().setScrollFactor(1, 1).setDepth(-70);
-  crest.fillStyle(0xffffff, 0.95);
-  fillWaveBand(crest, worldWidth, crestY, 2.4, 26, 0, fillBottomY - 4);
-
-  // Sway the swells side to side and up a touch, so the waves visibly roll.
-  scene.tweens.add({
-    targets: [backSwell, crest],
-    x: { from: -4, to: 4 },
-    y: { from: -1.2, to: 1.2 },
-    duration: 2600,
-    yoyo: true,
-    repeat: -1,
-    ease: "Sine.InOut",
-  });
-
-  // Twinkling specular highlights that drift along the surface and fade in/out.
-  for (let x = 20; x < worldWidth; x += 46) {
-    const glint = scene.add
-      .ellipse(x, crestY - 1, 5 + ((x * 3) % 4), 2, 0xffffff, 0.9)
-      .setScrollFactor(1, 1)
-      .setDepth(-69);
-    scene.tweens.add({
-      targets: glint,
-      alpha: { from: 0.15, to: 0.9 },
-      scaleX: { from: 0.6, to: 1.3 },
-      duration: 700 + ((x * 37) % 900),
-      delay: (x * 53) % 1400,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.InOut",
-    });
-  }
-}
-
-function renderParallaxBackground(
-  scene: Phaser.Scene,
-  levelSpec: LevelSpec,
-  theme: LevelTheme | undefined,
-): void {
-  const worldWidth = makeLevelWorldWidthPixels(levelSpec);
-  const worldHeight = makeLevelWorldHeightPixels(levelSpec);
-  const resolvedTheme: LevelTheme = theme ?? "overworld";
-
-  // Full-world backdrop in the theme's sky colour (empty cells no longer paint
-  // an opaque sky tile, so this and the parallax layers below show through).
-  scene.add
-    .rectangle(0, 0, worldWidth, worldHeight, themePalettes[resolvedTheme].sky)
-    .setOrigin(0)
-    .setScrollFactor(0)
-    .setDepth(-100);
-
-  const groundY = worldHeight - levelSpec.tileSizePixels;
-
-  // Underground and castle are a plain dark void in the original — no decoration.
-  if (resolvedTheme === "underground" || resolvedTheme === "castle") {
-    return;
-  }
-
-  if (resolvedTheme === "water") {
-    renderWaterParallax(scene, worldWidth, groundY);
-    return;
-  }
-
-  // A three-lobe mound (cloud / hill / bush share this silhouette in the
-  // original). `flatBaseY` is the flat bottom edge; lobes rise above it.
-  const addMound = (
-    cx: number,
-    flatBaseY: number,
-    scale: number,
-    color: number,
-    scroll: number,
-    depth: number,
-    dots: boolean,
-  ): void => {
-    const r = Math.round(9 * scale);
-    for (const [dx, lobe] of [
-      [-2 * r, r],
-      [0, Math.round(r * 1.4)],
-      [2 * r, r],
-    ] as const) {
-      scene.add
-        .ellipse(cx + dx, flatBaseY - lobe, lobe * 2, lobe * 2, color)
-        .setScrollFactor(scroll, 1)
-        .setDepth(depth);
-    }
-    scene.add
-      .rectangle(cx, flatBaseY - r, 5 * r, r, color)
-      .setOrigin(0.5, 0)
-      .setScrollFactor(scroll, 1)
-      .setDepth(depth);
-    if (dots) {
-      // Two-tone body: a darker band across the hill's lower portion, as in the
-      // original's shaded hills.
-      scene.add
-        .rectangle(
-          cx,
-          flatBaseY - Math.round(r * 0.5),
-          5 * r,
-          Math.round(r * 0.5),
-          parallaxHillShadeColor,
-        )
-        .setOrigin(0.5, 0)
-        .setScrollFactor(scroll, 1)
-        .setDepth(depth);
-      // Darker scalloped "feet" along the base give the original's hills their
-      // two-tone footed silhouette.
-      const footRadius = Math.round(r * 0.5);
-      for (const dx of [-2 * r, 0, 2 * r]) {
-        scene.add
-          .ellipse(
-            cx + dx,
-            flatBaseY,
-            footRadius * 2,
-            footRadius * 2,
-            parallaxHillShadeColor,
-          )
-          .setScrollFactor(scroll, 1)
-          .setDepth(depth);
-      }
-      // The two dark "eye" dots that give the original's hills their face.
-      for (const dx of [-Math.round(r * 0.6), Math.round(r * 0.6)]) {
-        scene.add
-          .ellipse(cx + dx, flatBaseY - r, 4, 4, parallaxHillDotColor)
-          .setScrollFactor(scroll, 1)
-          .setDepth(depth + 1);
-      }
-    }
-  };
-
-  // Distant hills sit just above the horizon, slow parallax, faded green.
-  for (let i = 40; i < worldWidth; i += 176) {
-    addMound(i, groundY, 1.3, parallaxDistantHillColor, 0.5, -90, false);
-  }
-  // Near hills with the face dots.
-  for (let i = 120; i < worldWidth; i += 176) {
-    addMound(i, groundY, 0.9, parallaxHillColor, 0.75, -85, true);
-  }
-  // Bushes sit on the ground plane and scroll almost with it.
-  for (let i = 80; i < worldWidth; i += 128) {
-    addMound(i, groundY, 0.6, parallaxBushColor, 0.9, -60, false);
-  }
-  // Flat-bottomed clouds drifting slowly overhead, up in the sky.
-  const cloudY = groundY - 120 - ((levelSpec.widthTiles * 3) % 24);
-  for (let i = 20; i < worldWidth; i += 176) {
-    addMound(
-      i,
-      cloudY + ((i * 11) % 24),
-      0.9,
-      parallaxCloudColor,
-      0.35,
-      -70,
-      false,
-    );
-  }
 }
 
 function makeBrowserCameraSnapshot(

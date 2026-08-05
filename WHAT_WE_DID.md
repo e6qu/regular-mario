@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — replaced multiplayer fixture rendering with the release World maps
+
+- The authoritative server parses the selected World map from the release
+  content-set bundle, and the multiplayer Phaser scene receives that same
+  bundle level input and metadata as normal play. The retired multiplayer-only
+  fixture catalogue is gone.
+- Deleted the procedural parallax world renderer rather than retaining it as a
+  hidden substitute. Multiplayer validates authored sprite coverage before it
+  boots a game scene.
+- Retargeted visual parity and mirrored-keyboard browser tests to actual World
+  1-1. The normal content-set route and a paused server frame produce identical
+  1280×720 canvases (zero pixel difference); authenticated two-player journey
+  and mirrored input checks pass.
+
 ## 2026-08-05 — made authored skins mandatory at startup
 
 - Corrected local server startup to build the release-static client before

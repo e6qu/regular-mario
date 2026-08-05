@@ -3,6 +3,11 @@ import Phaser from "phaser";
 import { requireCharacterForMultiplayerAvatar } from "../multiplayer/avatar-character";
 import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
+import {
+  makeFirePlayerVitalityState,
+  makeInitialPlayerVitalityState,
+} from "../engine/simulation/player-vitality";
+import { validateDefaultVglcSmbSpriteCoverage } from "./default-vglc-smb-sprite-coverage";
 import { selectBrowserGameBootstrap } from "./browser-level-selection";
 import { createGameConfig } from "./create-game-config";
 import { BootScene } from "./scenes/boot-scene";
@@ -46,9 +51,49 @@ export function makeMultiplayerPhaserRenderer(
     )
     .forEach((canvas) => canvas.remove());
   parent.replaceChildren();
-  const bootstrap = selectBrowserGameBootstrap(
-    `?browserLevel=${encodeURIComponent(levelId)}`,
+  const selectedLevel = userAssetBundle.levels.get(levelId);
+  if (selectedLevel === undefined) {
+    throw new Error(
+      `Authoritative multiplayer level "${levelId}" is absent from the loaded content bundle.`,
+    );
+  }
+  const coverageErrors = validateDefaultVglcSmbSpriteCoverage(
+    userAssetBundle.manifest,
+    selectedLevel.levelSpecInput,
   );
+  if (coverageErrors.length > 0) {
+    throw new Error(coverageErrors.join(" "));
+  }
+  // The browser and the server both consume the composed release content-set.
+  // Do not pass through the query-route bootstrap here: that route contains
+  // small mechanics fixtures and previously replaced a real multiplayer map
+  // with its unrelated test layout.
+  const bootstrap = {
+    ...selectBrowserGameBootstrap(""),
+    levelInput: selectedLevel.levelSpecInput,
+    levelSequence: undefined,
+    warpLevelsByName: new Map(
+      [...userAssetBundle.levels].map(([name, level]) => [
+        name,
+        level.levelSpecInput,
+      ]),
+    ),
+    warpLevelThemesByName: new Map(
+      [...userAssetBundle.levels].flatMap(([name, level]) =>
+        level.theme === undefined ? [] : [[name, level.theme] as const],
+      ),
+    ),
+    levelIndex: 0,
+    userLevelVisualName: selectedLevel.name,
+    worldLevelLabel: selectedLevel.name.replace(/^smb-/, ""),
+    initialPlayerVitality:
+      selectedLevel.theme === "water"
+        ? makeFirePlayerVitalityState()
+        : makeInitialPlayerVitalityState(),
+    ...(selectedLevel.theme === undefined
+      ? {}
+      : { theme: selectedLevel.theme }),
+  };
   const game = new Phaser.Game(
     createGameConfig(parent, {
       ...bootstrap,

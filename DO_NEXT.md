@@ -433,3 +433,12 @@ Everything from the previous "known deltas" list is now in:
   squash flash, vine-grow sound — the audited backlog is done. Remaining
   known deviation, kept by design: normal-mode damage knockback, which the
   ROM does not have; say the word to remove it.)
+# Current next work
+
+- Retarget the four-player recorded completion and stress journeys from the
+  retired miniature fixture routes to release-bundle World maps, then inspect
+  each recorded player perspective. Do not call that evidence complete until
+  all sessions traverse an actual level handoff.
+- Continue replacing remaining optional primitive render branches in
+  `BootScene` with explicit authored-asset requirements, with coverage tests
+  for every shipped content-set level.

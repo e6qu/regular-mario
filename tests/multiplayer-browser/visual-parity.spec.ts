@@ -186,10 +186,11 @@ test("the actual local BootScene and a paused server frame render every pixel id
     player.getByLabel("Authoritative multiplayer game view"),
   ).toHaveAttribute("data-authoritative-frame", String(body.frame));
 
-  // The lobby's default public course is Party Runway. Keep the exact-pixel
-  // comparison on that real create/start path so a level-selection or
-  // pre-create lifecycle regression cannot hide behind the old fixture.
-  await local.goto("/?browserLevel=first-authored");
+  // Both routes must boot the same release-bundle course. A browserLevel route
+  // is a mechanics fixture and is deliberately forbidden here.
+  await local.goto(
+    "/#play?skin=castaway-parody&map=official-smb&level=smb-1-1&mode=classic&sound=classic&bots=0&character=castaway&revenge=0&renderer=auto&god=0",
+  );
   await expect(
     local.getByLabel("Original platformer game canvas"),
   ).toBeVisible();
@@ -253,7 +254,7 @@ test("two independently connected avatars render every server-driven pixel ident
   await guest
     .locator("section > div")
     .filter({
-      hasText: /^PixelMira · first-authored · regular · waiting/,
+      hasText: /^PixelMira · smb-1-1 · regular · waiting/,
     })
     .getByRole("button", { name: "Join" })
     .click();

@@ -531,3 +531,9 @@ fireball 6×6 vs ROM 8×8, hammers 6×6 vs 8×8, power-ups 16×16 vs 12×12, pod
   manual concern); secret scanning is heuristic.
 - Keep the continuity files (`STATUS.md`, `WHAT_WE_DID.md`, `DO_NEXT.md`, `BUGS.md`)
   updated with each completed task.
+# Open verification gap — 2026-08-05
+
+The focused World 1-1 visual parity, lifecycle, and mirrored-input checks are
+green, but the four-player recorded full-completion journey still names retired
+fixture routes. It is not valid evidence for release World-map completion until
+that journey is retargeted and rerun from each player perspective.

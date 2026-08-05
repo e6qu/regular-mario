@@ -2843,12 +2843,9 @@ async function bootSelectedContentSet(
     const bundle = await fetchAndLoadManifest(
       contentSetBundleManifestUrl(assetSetId, mapSetId),
     );
-    // Boot the level the player picked; fall back to the first if the id is
-    // unknown (e.g. an empty selection).
-    const selectedLevel =
-      bundle.levels.get(levelName) ?? [...bundle.levels.values()][0];
+    const selectedLevel = bundle.levels.get(levelName);
     if (selectedLevel === undefined) {
-      throw new Error("manifest has no levels");
+      throw new Error(`Selected level "${levelName}" is absent from this content set.`);
     }
 
     // Classic labels + the ordered main levels (intro fragments and pipe sub-
