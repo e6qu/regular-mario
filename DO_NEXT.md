@@ -29,6 +29,11 @@ pause resumes on the first rejoin so the returned player can immediately send
 input; an explicit P pause remains paused. Complete the remaining
 remote-player visible-desync browser journey.
 
+A revive does not imply a new input acknowledgement. Preserve the explicit
+lifecycle-reconciliation check so an authoritative spectator-to-active receipt
+immediately replaces dead client prediction while retaining the same level,
+frame clock, and shared world.
+
 Keep complete predicted simulation presentation on the browser frame loop:
 rendering only the predicted local player while waiting for 20 Hz authoritative
 receipts makes coins and enemies visibly stutter. The password form must submit

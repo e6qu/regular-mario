@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Revived client could keep painting its defeated prediction — fixed (2026-08-05)
+
+The server correctly revived the retained player slot without restarting the
+shared level, but the browser reconciled only after an input acknowledgement.
+Revive changes outcome without necessarily acknowledging input, leaving the
+dead predicted state on top of the fresh authoritative state. Lifecycle outcome
+transitions now force reconciliation; core regressions prove the same live
+frame remains playing and that the client becomes active without a new ack.
+
 ### Multiplayer entry pipes never handed off their target area — fixed (2026-08-05)
 
 The local scene handled a pipe target level, but the authoritative lobby only

@@ -32,6 +32,30 @@ export type ClientPrediction = {
   snapshot(): LocalPredictionSnapshot;
 };
 
+/**
+ * Lifecycle transitions are authoritative even when no input was acknowledged.
+ *
+ * A defeated player has no input to acknowledge.  Consequently, a server-side
+ * revive may keep the acknowledgement number unchanged while changing that
+ * player's outcome from `defeated` to `active`.  Continuing to paint the old
+ * predicted outcome would make a successful revive look like a level reset or
+ * an unresponsive player.  The browser must replace that prediction promptly.
+ */
+export function predictionRequiresLifecycleReconcile(
+  predictedState: SimulationState,
+  authoritativeState: SimulationState,
+  localPlayerSlot: number,
+): boolean {
+  const predicted = predictedState.players[localPlayerSlot];
+  const authoritative = authoritativeState.players[localPlayerSlot];
+  if (predicted === undefined || authoritative === undefined) {
+    throw new Error(
+      "Prediction lifecycle reconciliation is missing local player.",
+    );
+  }
+  return predicted.outcome.kind !== authoritative.outcome.kind;
+}
+
 export function makeClientPrediction(
   initialState: SimulationState,
   levelSpec: LevelSpec,

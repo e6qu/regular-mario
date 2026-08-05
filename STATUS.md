@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Revive now restores the existing live game on the client (2026-08-05).**
+The server already retained the shared level and frame, but a revive does not
+advance an input acknowledgement. The browser now treats the authoritative
+spectator-to-active transition as mandatory prediction reconciliation, so it
+cannot keep painting a stale defeated player over the revived state.
+
 **Entry-pipe handoff and piranha simulation are authoritative (2026-08-05).**
 The multiplayer server now resolves a completed cross-level pipe entry into
 its linked bundled area rather than continuing to simulate the source map.

@@ -512,6 +512,36 @@ describe("authoritative multiplayer game runner", () => {
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Waiting);
   });
 
+  it("revives only the defeated player without restarting the shared game", () => {
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason: PlayerDefeatReason.PitContact,
+          },
+        },
+      ],
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+    runner.step(1);
+    runner.step(2);
+    const beforeRevive = runner.snapshot();
+
+    const revived = runner.revive(requireMultiplayerPlayerId("mira"));
+
+    expect(revived.phase).toBe(MultiplayerGamePhase.Playing);
+    expect(revived.frame).toBe(beforeRevive.frame);
+    expect(revived.players[0]?.spectator).toBe(false);
+    expect(
+      decodeMultiplayerSimulationState(revived.simulationState).players[0]
+        ?.outcome.kind,
+    ).toBe(PlayerOutcomeKind.Active);
+  });
+
   it("enforces the hard sixteen-player game cap", () => {
     const runner = makeRunner();
     for (let playerNumber = 1; playerNumber < 16; playerNumber += 1) {

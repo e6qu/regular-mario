@@ -891,13 +891,21 @@ function renderGame(
       if (activePrediction === undefined) {
         throw new Error("Multiplayer prediction was not initialised.");
       }
+      const authoritativeState = decodeMultiplayerSimulationState(
+        snapshot.simulationState,
+      );
       if (
         requiresPredictionBaseline ||
+        predictionRequiresLifecycleReconcile(
+          activePrediction.snapshot().state,
+          authoritativeState,
+          local.slot,
+        ) ||
         local.acknowledgedInputSequence > lastReconciledInputSequence
       ) {
         activePrediction.reconcileState(
           local.acknowledgedInputSequence,
-          decodeMultiplayerSimulationState(snapshot.simulationState),
+          authoritativeState,
         );
         lastReconciledInputSequence = local.acknowledgedInputSequence;
         // The next animation-frame prediction begins from this exact server
@@ -1466,7 +1474,10 @@ import {
   resolveSoundEvents,
   SoundEvent,
 } from "../engine/simulation/sound-events";
-import { makeClientPrediction } from "../multiplayer/client-prediction";
+import {
+  makeClientPrediction,
+  predictionRequiresLifecycleReconcile,
+} from "../multiplayer/client-prediction";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";

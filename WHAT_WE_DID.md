@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — fixed stale client prediction after revive
+
+- Confirmed revival was already server-authoritative and preserved the shared
+  level/frame; the client incorrectly waited for a new input acknowledgement.
+- Made the spectator-to-active lifecycle transition a mandatory prediction
+  reconciliation, so `R` restores the player at the party checkpoint without
+  restarting the game or leaving a stale dead presentation on screen.
+- Added runner and client-prediction regressions, then rebuilt and ran the
+  real two-browser multiplayer lifecycle journey.
+
 ## 2026-08-05 — fixed authoritative entry-pipe handoff
 
 - Kept public level selection restricted to main courses while registering all

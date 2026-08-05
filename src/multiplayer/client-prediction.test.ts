@@ -12,10 +12,17 @@ import {
   type SimulationState,
 } from "../engine/simulation/simulation-state";
 import {
+  PlayerDefeatReason,
+  PlayerOutcomeKind,
+} from "../engine/simulation/player-outcome";
+import {
   nominalSixtyHertzFrameDurationMilliseconds,
   requireSimulationPixelPosition,
 } from "../engine/simulation/simulation-units";
-import { makeClientPrediction } from "./client-prediction";
+import {
+  makeClientPrediction,
+  predictionRequiresLifecycleReconcile,
+} from "./client-prediction";
 
 const right: SimulationInputCommand = {
   horizontal: HorizontalInput.Right,
@@ -110,6 +117,41 @@ describe("client prediction", () => {
     const reconciled = prediction.reconcileState(0, serverState);
     expect(Number(requirePlayerAt(reconciled.state, 1).player.position.x)).toBe(
       beforeJoiner,
+    );
+  });
+
+  it("reconciles a server revive without waiting for another input acknowledgement", () => {
+    const defeated: SimulationState = {
+      ...initialState(),
+      players: [
+        {
+          ...initialState().players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason: PlayerDefeatReason.EnemyContact,
+          },
+        },
+      ],
+    };
+    const revived = initialState();
+    const prediction = makeClientPrediction(
+      defeated,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      0,
+    );
+
+    expect(
+      predictionRequiresLifecycleReconcile(
+        prediction.snapshot().state,
+        revived,
+        0,
+      ),
+    ).toBe(true);
+
+    const reconciled = prediction.reconcileState(0, revived);
+    expect(reconciled.state.players[0].outcome.kind).toBe(
+      PlayerOutcomeKind.Active,
     );
   });
 });

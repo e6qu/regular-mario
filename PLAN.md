@@ -45,6 +45,8 @@ its local player.
   A dead player remains connected as a spectator and sees the surviving
   players until completion. A spectator may revive at the furthest party
   checkpoint reached by an active player, without rewinding the shared world.
+  A revive is a player lifecycle transition, not a new game: the client must
+  replace a stale spectator prediction even if no input acknowledgement changed.
   Any current member may pause a live game. Completing or creator-ending ends
   the game; when everybody leaves, it must remain resumable and pause itself.
   The first later member to join automatically resumes that empty-party pause;
