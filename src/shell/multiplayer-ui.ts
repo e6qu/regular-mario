@@ -499,6 +499,7 @@ function renderGame(
   let latestAuthoritativeSnapshot: GameSnapshot | undefined;
   let lastPresentedPhase: GameSnapshot["phase"] | undefined;
   let lastScreenshotSentAtMilliseconds = Number.NEGATIVE_INFINITY;
+  let sentInputCount = 0;
   const snapshotsByGameId = new Map<string, GameSnapshot>();
   let presentationAnimationFrame: number | undefined;
   const socketUrl = new URL(
@@ -507,6 +508,15 @@ function renderGame(
   );
   socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(socketUrl);
+  let socketLifecycle = "connecting";
+  const recordSocketLifecycle = (): void => {
+    gameShell.setAttribute("data-debug-socket-lifecycle", socketLifecycle);
+    gameShell.setAttribute(
+      "data-debug-socket-ready-state",
+      String(socket.readyState),
+    );
+  };
+  recordSocketLifecycle();
   let disposed = false;
   function dispose(): void {
     if (disposed) {
@@ -648,7 +658,15 @@ function renderGame(
     );
     if (local !== undefined) {
       prediction.reconcile(local.acknowledgedInputSequence, local);
+      gameShell.setAttribute(
+        "data-debug-last-acknowledged-input-sequence",
+        String(local.acknowledgedInputSequence),
+      );
     }
+    gameShell.setAttribute(
+      "data-debug-authoritative-frame",
+      String(snapshot.frame),
+    );
     status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
     if (snapshot.phase !== lastPresentedPhase) {
       setControlsOpen(snapshot.phase !== "playing");
@@ -790,6 +808,7 @@ function renderGame(
       return;
     }
     sequence += 1;
+    sentInputCount += 1;
     const commandResult = makeSimulationInputCommand(
       held.has("ArrowLeft")
         ? "left"
@@ -830,9 +849,20 @@ function renderGame(
         downHeld: commandResult.value.downHeld,
       }),
     );
+    gameShell.setAttribute("data-debug-last-input-sequence", String(sequence));
+    gameShell.setAttribute(
+      "data-debug-last-input-intended-frame",
+      String(latestAuthoritativeFrame),
+    );
+    gameShell.setAttribute(
+      "data-debug-input-send-count",
+      String(sentInputCount),
+    );
     renderPresentation();
   }
   socket.addEventListener("open", () => {
+    socketLifecycle = "open";
+    recordSocketLifecycle();
     // A player can hold a key while the initial HTTP snapshot is visible but
     // before the WebSocket finishes connecting. Send that already-held state
     // on connect instead of leaving the authoritative game idle until another
@@ -840,6 +870,14 @@ function renderGame(
     if (held.size > 0) {
       sendInput();
     }
+  });
+  socket.addEventListener("close", (event) => {
+    socketLifecycle = `closed:${String(event.code)}`;
+    recordSocketLifecycle();
+  });
+  socket.addEventListener("error", () => {
+    socketLifecycle = "error";
+    recordSocketLifecycle();
   });
   const keydown = (event: KeyboardEvent) => {
     if (event.code === "KeyM") {

@@ -15,9 +15,12 @@ committed — only numeric metadata, code, docs, and scripts.
   rendered movement, and changed PNGs.
 - Added held-input resend/heartbeat and capped per-client debug screenshot
   upload at one image per second. Focused production browser checks pass.
-- The four-browser recording still exposes a real post-level-handoff input
-  regression on the second course; it is documented in `BUGS.md` and remains
-  a failing acceptance test rather than a completed claim.
+- The four-browser recording exposed a post-level-handoff input failure: PNG
+  debug captures exceeded the server WebSocket's 64 KiB limit and closed every
+  gameplay socket with code 1009. A dedicated bounded 2 MiB payload budget and
+  one-image-per-second capture rate retain debug screenshots without starving
+  or disconnecting gameplay. The same recording now reaches Cavern Route with
+  open sockets and acknowledged inputs from all four players.
 
 ## 2026-08-05 — added and closed an honest single-player/multiplayer lockstep harness
 

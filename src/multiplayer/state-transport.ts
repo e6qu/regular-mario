@@ -5,9 +5,9 @@
  * stream uses these small structural patches between periodic keyframes so a
  * slow client never receives an endlessly growing history of full states.
  */
-export type StateDeltaPathPart = string | number;
+type StateDeltaPathPart = string | number;
 
-export type StateDeltaChange = {
+type StateDeltaChange = {
   readonly path: readonly StateDeltaPathPart[];
   readonly value?: unknown;
   readonly remove?: true;

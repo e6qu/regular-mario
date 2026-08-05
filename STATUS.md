@@ -13,11 +13,13 @@ real canvas pixels move. Exact paused-frame parity is zero differing pixels at
 1280×720. Held input now has a connect resend/100 ms heartbeat and debug PNG
 capture is bounded to 1 Hz per client.
 
-**Open regression: four-player second course (2026-08-05).** The real recorded
-four-browser run completes the first course, then fresh held input does not
-advance Coinbox Crossing after the authoritative runner is replaced. No
-protocol error is reported. The failing full-run test and the diagnostic plan
-are recorded in `BUGS.md`; do not claim two-course completion until it passes.
+**Four-player level-handoff input regression fixed (2026-08-05).** The server
+was closing screenshot-reporting WebSockets with code 1009 at its unsuitable
+64 KiB payload ceiling. The browser then polled state but could not submit
+inputs. A bounded 2 MiB WebSocket limit for the required screenshot channel,
+combined with 1 Hz client image capture, keeps all four sockets open. The
+recorded journey reaches Cavern Route with fresh per-player acknowledgements;
+the combined production suite passes.
 
 **Multiplayer raster presentation is live under lockstep input (fixed
 2026-08-05).** The production Playwright harness starts isolated local and

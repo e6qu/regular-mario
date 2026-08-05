@@ -1,4 +1,4 @@
-import { rename } from "node:fs/promises";
+import { rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import {
@@ -53,14 +53,18 @@ async function closeAndNameRecording(
   );
 }
 
+async function releaseRunningKeys(player: RecordedPlayer): Promise<void> {
+  await player.page.keyboard.up("ArrowRight");
+  await player.page.keyboard.up("Shift");
+}
+
 async function startRunning(players: readonly RecordedPlayer[]): Promise<void> {
   await Promise.all(
     players.map(async (player) => {
       // A course transition can occur while an earlier browser-level key is
       // still recorded as down. Clear that physical state first so this is a
       // fresh, real key edge in every independently recorded browser.
-      await player.page.keyboard.up("ArrowRight");
-      await player.page.keyboard.up("Shift");
+      await releaseRunningKeys(player);
       await player.page
         .getByLabel("Authoritative multiplayer game view")
         .focus();
@@ -73,8 +77,7 @@ async function startRunning(players: readonly RecordedPlayer[]): Promise<void> {
 async function stopRunning(players: readonly RecordedPlayer[]): Promise<void> {
   await Promise.all(
     players.map(async (player) => {
-      await player.page.keyboard.up("ArrowRight");
-      await player.page.keyboard.up("Shift");
+      await releaseRunningKeys(player);
     }),
   );
 }
@@ -225,6 +228,29 @@ test("four separate browser sessions complete two courses back to back", async (
     await startRunning(players);
     await creator.page.waitForTimeout(500);
     await expect(creator.page.getByRole("alert")).toHaveText("");
+    await writeFile(
+      join(recordingDirectory, "second-course-input-receipts.json"),
+      `${JSON.stringify(
+        await Promise.all(
+          players.map(async (player, index) => ({
+            player: index + 1,
+            receipt: await player.page
+              .locator(".multiplayer-game-shell")
+              .evaluate((element) =>
+                Object.fromEntries(
+                  [...element.attributes]
+                    .filter((attribute) =>
+                      attribute.name.startsWith("data-debug-"),
+                    )
+                    .map((attribute) => [attribute.name, attribute.value]),
+                ),
+              ),
+          })),
+        ),
+        null,
+        2,
+      )}\n`,
+    );
     for (let frameBatch = 0; frameBatch < 40; frameBatch += 1) {
       await creator.page.waitForTimeout(250);
       const levelId = await creator.page

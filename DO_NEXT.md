@@ -2,15 +2,16 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
-### Immediate blocker: diagnose the four-player level-handoff input loss (2026-08-05)
+### Verified: four-player level-handoff input and full-viewport contract (2026-08-05)
 
-- `tests/multiplayer-browser/full-run-recording.spec.ts` completes Party
-  Runway with four separate, recorded real browsers but then cannot move the
-  new Coinbox Crossing runner. Do not delete or weaken this assertion.
-- Expose and compare each player's client sequence/intended frame, WebSocket
-  send count, server input acknowledgement, and runner queue metrics before
-  and after `advanceCompletedGame`; then fix the true boundary defect and
-  require the same recording to reach Cavern Route.
+- `tests/multiplayer-browser/full-run-recording.spec.ts` now completes Party
+  Runway and Coinbox Crossing with four separately recorded real browsers,
+  then reaches Cavern Route. Its ignored second-course receipts prove all four
+  sockets remain open and newly sent input is acknowledged after replacement.
+- The actual defect was a 64 KiB WebSocket ceiling closing retained debug-PNG
+  uploads with code 1009. Preserve the separate 2 MiB bounded image budget and
+  one-per-second capture throttle; do not reapply the small JSON-body limit to
+  the screenshot WebSocket channel.
 - The full browser viewport/drawer contract is complete: 1280×720 game canvas,
   no persistent panel overlay, `M` opens controls during play. Keep
   `side-by-side-lockstep.spec.ts` and exact pixel parity at this size.

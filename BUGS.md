@@ -2,18 +2,17 @@
 
 ## Known Bugs
 
-### Four-player second-course input is lost after an authoritative level handoff (observed 2026-08-05)
+### Four-player second-course input after an authoritative level handoff — fixed (2026-08-05)
 
-`tests/multiplayer-browser/full-run-recording.spec.ts` is intentionally left
-failing as evidence. Four separately recorded, authenticated Chromium players
-complete Party Runway, but after the server advances the same party into
-Coinbox Crossing, fresh Right/Run key edges do not move the server state and
-the expected Cavern Route transition never occurs. The client surfaces no
-protocol error, so this is not a failure that may be hidden by retries or by
-calling the run successful. The focused side-by-side lockstep, exact parity,
-and normal two-player journey pass. Next diagnosis: retain and inspect per
-player input sequence, intended frame, acknowledgement, and queue metrics
-across the runner replacement, then add a regression at that boundary.
+Four recording clients each uploaded a retained lossless debug screenshot over
+the gameplay WebSocket. At 1280×720, a later image exceeded the server's old
+64 KiB inbound WebSocket payload limit; `ws` closed every socket with code 1009. The browser could still render HTTP-polled state but could no longer
+send input, making the second course appear frozen. Debug screenshot uploads
+remain throttled to one per client per second and the WebSocket has a separate,
+bounded 2 MiB image-aware payload ceiling. The recorded four-player journey
+now reaches Cavern Route, with every client receipt showing an open socket and
+acknowledged fresh input; the combined production browser suite (recording,
+lockstep, exact parity, journey, admin, and eight-player stress) passes.
 
 ### Multiplayer full-viewport drawer and input heartbeat (fixed 2026-08-05)
 

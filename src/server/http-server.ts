@@ -39,6 +39,11 @@ import {
 import type { ServerLogger } from "./file-logger";
 
 const jsonBodyMaximumBytes = 64 * 1024;
+// Browser debug screenshots share the WebSocket with gameplay. A 1280×720
+// lossless canvas image can legitimately exceed the small JSON-request limit,
+// so retain a separate bounded allowance. The client is independently capped
+// at one retained screenshot per second.
+const webSocketMaximumPayloadBytes = 2 * 1024 * 1024;
 const loginAttemptWindowMilliseconds = 60_000;
 const maximumLoginAttemptsPerWindow = 5;
 const snapshotBroadcastIntervalMilliseconds =
@@ -258,7 +263,7 @@ export function makeMultiplayerHttpServer(
   >();
   const webSocketServer = new WebSocketServer({
     noServer: true,
-    maxPayload: 64 * 1024,
+    maxPayload: webSocketMaximumPayloadBytes,
   });
   let lastSnapshotBroadcastMilliseconds = 0;
   let lastKeyframeBroadcastMilliseconds = Number.NEGATIVE_INFINITY;
@@ -278,21 +283,30 @@ export function makeMultiplayerHttpServer(
     throw new Error("Snapshot delay must be a non-negative safe integer.");
   }
 
+  function sendEncodedWebSocketMessage(
+    socket: WebSocket,
+    encoded: string,
+    delayMilliseconds: number,
+  ): void {
+    if (socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    if (delayMilliseconds === 0) {
+      socket.send(encoded);
+      return;
+    }
+    setTimeout(() => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(encoded);
+      }
+    }, delayMilliseconds).unref();
+  }
+
   function broadcast(value: unknown, delayMilliseconds = 0): void {
     const encoded = JSON.stringify(value);
     for (const sockets of socketsByPlayerId.values()) {
       for (const socket of sockets) {
-        if (socket.readyState === WebSocket.OPEN) {
-          if (delayMilliseconds === 0) {
-            socket.send(encoded);
-          } else {
-            setTimeout(() => {
-              if (socket.readyState === WebSocket.OPEN) {
-                socket.send(encoded);
-              }
-            }, delayMilliseconds).unref();
-          }
-        }
+        sendEncodedWebSocketMessage(socket, encoded, delayMilliseconds);
       }
     }
   }
@@ -307,18 +321,7 @@ export function makeMultiplayerHttpServer(
     keyframeBroadcastCount += 1;
     keyframeBytes += stateTransportEncodedBytes(message);
     for (const socket of sockets) {
-      if (socket.readyState !== WebSocket.OPEN) {
-        continue;
-      }
-      if (delayMilliseconds === 0) {
-        socket.send(encoded);
-      } else {
-        setTimeout(() => {
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(encoded);
-          }
-        }, delayMilliseconds).unref();
-      }
+      sendEncodedWebSocketMessage(socket, encoded, delayMilliseconds);
     }
   }
 

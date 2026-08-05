@@ -1,7 +1,6 @@
 import Phaser from "phaser";
 
-export const authoritativeRenderSceneReadyEvent =
-  "authoritative-render-scene-ready";
+const authoritativeRenderSceneReadyEvent = "authoritative-render-scene-ready";
 import { makeLavaTileIds } from "../../engine/simulation/tile-collision-support";
 
 import {

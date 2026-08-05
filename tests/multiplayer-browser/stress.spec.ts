@@ -107,6 +107,10 @@ test("eight independent browser players can share one authoritative game", async
   await finalPlayer.screenshot({
     path: "screenshots/multiplayer-stress-player-8.png",
   });
+  await creator.keyboard.press("KeyM");
+  await expect(
+    creator.getByRole("button", { name: "End game", exact: true }),
+  ).toBeVisible();
   await creator.getByRole("button", { name: "End game", exact: true }).click();
   await Promise.all(pages.map((page) => page.context().close()));
 });
