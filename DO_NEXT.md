@@ -2,6 +2,17 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Immediate acceptance gap (2026-08-05)
+
+- Finish the four-independent-browser recording against the release World 1-1
+  map: the controller must use ordinary physical keyboard events, advance an
+  actual authoritative player through the level, and verify World 1-2 on all
+  four perspectives. Do not replace it with fixture routes, admin state
+  mutation, a mock renderer, or a cropped canvas.
+- Keep the fixed-step server scheduler and the leading-active-player shared
+  camera. The latter is required so an idle creator cannot make a guest's
+  real run invisible to every connected browser.
+
 ### Current verified baseline (2026-08-05)
 
 - Preserve `snapshotSequence` as the transport ordering identity. A simulation

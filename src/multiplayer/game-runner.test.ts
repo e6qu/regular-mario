@@ -160,6 +160,25 @@ describe("authoritative multiplayer game runner", () => {
     expect(joined.players[1]?.x).toBe(beforeJoin.cameraLeftPixels + 128 + 16);
   });
 
+  it("follows the leading active guest when the creator remains idle", () => {
+    const runner = makeRunner();
+    runner.join(profile("ren", "Ren"));
+    runner.start(requireMultiplayerPlayerId("mira"));
+    runner.submitInput(
+      {
+        playerId: requireMultiplayerPlayerId("ren"),
+        sequence: 1,
+        intendedFrame: 1,
+        receivedAtMilliseconds: 0,
+        command: { ...neutral, horizontal: HorizontalInput.Right, runHeld: true },
+      },
+      0,
+    );
+    const snapshot = runner.step(1);
+    expect(snapshot.players[1]!.x).toBeGreaterThan(snapshot.players[0]!.x);
+    expect(snapshot.cameraLeftPixels).toBeGreaterThan(0);
+  });
+
   it("runs only after the creator starts and acknowledges queued input", () => {
     const runner = makeRunner();
     expect(runner.snapshot().phase).toBe(MultiplayerGamePhase.Waiting);

@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — corrected authoritative shared-camera ownership
+
+- Changed the multiplayer runner's camera selection from “first active slot”
+  to the active runtime with the greatest forward world position. An idle
+  creator therefore cannot pin a party's shared camera while a guest is the
+  one actually playing.
+- Added a pure runner regression for an idle creator plus moving guest.
+  The fresh World-map recording remains deliberately marked open until it
+  completes with four real browser videos.
+
 ## 2026-08-05 — replaced multiplayer fixture rendering with the release World maps
 
 - The authoritative server parses the selected World map from the release

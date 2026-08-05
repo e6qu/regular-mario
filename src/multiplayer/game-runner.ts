@@ -151,9 +151,19 @@ export function makeAuthoritativeGameRunner(
   }
 
   function updateCamera(): void {
-    const cameraTarget = state.players.find(
-      (runtime) => runtime.outcome.kind === PlayerOutcomeKind.Active,
-    );
+    // The shared camera follows the party's forward progress, not the creator
+    // slot. An idle creator must never pin every remote browser at the start
+    // while another active player legitimately leads the run.
+    const cameraTarget = state.players
+      .filter((runtime) => runtime.outcome.kind === PlayerOutcomeKind.Active)
+      .reduce<SimulationState["players"][number] | undefined>(
+        (leading, runtime) =>
+          leading === undefined ||
+          runtime.player.position.x > leading.player.position.x
+            ? runtime
+            : leading,
+        undefined,
+      );
     if (cameraTarget === undefined) {
       return;
     }

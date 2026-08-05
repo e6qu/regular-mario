@@ -2,6 +2,16 @@
 
 ## Known Bugs
 
+### World 1-1 four-browser completion recording is not yet valid — open (2026-08-05)
+
+The current recording uses four real Chromium sessions and a real keyboard
+driver, but its guest runner still fails on a pipe/pit/enemy sequence in the
+release World 1-1 map. The browser-side driver has been changed to consult the
+authoritative grounded state and live enemy motion rather than treating a
+single long Space hold as a proof. It must finish World 1-1 and render World
+1-2 from all four recordings before any full-level claim is restored. The
+authoritative camera bug it exposed is fixed separately.
+
 ### Hazard-damage fixture used an obsolete fixed spawn — fixed (2026-08-05)
 
 `hazard-damage-tiering.test.ts` placed thorns at the former hard-coded initial

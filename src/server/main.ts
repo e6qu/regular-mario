@@ -51,10 +51,34 @@ const app = makeMultiplayerHttpServer({
   ...(logger === undefined ? {} : { logger }),
 });
 
-setInterval(
-  () => app.tick(Date.now()),
-  1000 / multiplayerAuthoritativeFramesPerSecond,
-).unref();
+const authoritativeFrameMilliseconds =
+  1000 / multiplayerAuthoritativeFramesPerSecond;
+const maximumCatchUpFramesPerTurn = 8;
+let nextAuthoritativeFrameAt = Date.now();
+
+function runAuthoritativeFrames(): void {
+  const now = Date.now();
+  let advanced = 0;
+  while (
+    now >= nextAuthoritativeFrameAt &&
+    advanced < maximumCatchUpFramesPerTurn
+  ) {
+    app.tick(nextAuthoritativeFrameAt);
+    nextAuthoritativeFrameAt += authoritativeFrameMilliseconds;
+    advanced += 1;
+  }
+  if (advanced === maximumCatchUpFramesPerTurn && now >= nextAuthoritativeFrameAt) {
+    // Do not run an unbounded catch-up loop after a process pause. Resynchronise
+    // the wall clock and continue at the fixed cadence on the next turn.
+    nextAuthoritativeFrameAt = now + authoritativeFrameMilliseconds;
+  }
+  setTimeout(
+    runAuthoritativeFrames,
+    Math.max(0, nextAuthoritativeFrameAt - Date.now()),
+  ).unref();
+}
+
+runAuthoritativeFrames();
 app.server.listen(port, "0.0.0.0", () => {
   logger?.("server_started", { port });
   process.stdout.write(
