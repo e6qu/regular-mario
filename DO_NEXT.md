@@ -2,6 +2,13 @@
 
 ## Next: trusted-friends multiplayer service (approved 2026-08-04)
 
+### Blocking acceptance defect (2026-08-05)
+
+- Re-derive the World 1-1 completion physical-key trace against the current
+  deterministic game, then run `full-run-recording.spec.ts` until it produces
+  four real World 1-1 and World 1-2 screenshots/videos. The current trace
+  stalls or dies and the fresh recording fails; old artifacts are insufficient.
+
 ### Raster-only rendering boundary (2026-08-05)
 
 - Static level actors now require authored rasters, including `open-gate`.

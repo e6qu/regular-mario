@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Fresh four-player completion recording is currently failing (2026-08-05).**
+The current physical-key World 1-1 trace no longer reaches its goal in the
+real production game. This invalidates fresh World 1-1→1-2 recording evidence
+until the trace is re-derived; all other latest quality, rendering, and
+100 ms/3 s delayed-browser checks below remain separately verified.
+
 **Repository quality gate restored (2026-08-05).** The checked-in physical
 replay trace is correctly excluded from copy-paste analysis, and the unused
 catalogue export is internal. Dependency, content, license, vulnerability,

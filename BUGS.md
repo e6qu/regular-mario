@@ -2,6 +2,16 @@
 
 ## Known Bugs
 
+### Fresh four-player World 1-1 recording does not complete — open (2026-08-05)
+
+The real production recording test now stops before the World 1-1 goal: its
+checked-in physical-key trace either stalls at x≈2769 or dies when naively
+extended, so the authoritative game remains on `smb-1-1`. This is not a mock
+or screenshot issue; Playwright records four real browser contexts and the
+failure is retained in `test-results/`. Do not claim current four-player
+World 1-1→1-2 acceptance until a newly derived, deterministic physical input
+trace completes the live level and all four recordings render World 1-2.
+
 ### Co-op bots could explode into generic body-part art — fixed (2026-08-05)
 
 The per-robot reaction lookup silently borrowed generic part images when a
