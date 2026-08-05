@@ -43,6 +43,11 @@ independent browser players completed the real World 1-1 run and rendered
 World 1-2; the eight-client WebSocket stress journey also passed. The ignored
 videos and screenshots remain in `playwright_adhoc/multiplayer-full-run/`.
 
+**Full delayed transport acceptance passes (2026-08-05).** The complete
+production browser suite, including recordings, stress, parity and cadence,
+passes at both 100 ms and 3 s injected snapshot delay after the delay-aware
+cadence correction.
+
 **Multiplayer presentation cadence corrected (2026-08-05).** Stomp/score
 effects now consume authoritative 60 Hz simulation-frame deltas rather than
 20 Hz WebSocket arrivals, and remote-state application no longer forces a

@@ -45,6 +45,9 @@ committed — only numeric metadata, code, docs, and scripts.
   injected snapshot delay. A 3 s delayed transport cannot produce packets in
   a two-second sample; the updated gate samples after delivery and passed the
   rebuilt real 3 s journey.
+- Reran the full production browser suite at both 100 ms and 3 s injected
+  snapshot delay. All scenarios pass, including recordings, stress, visual
+  parity, local prediction and transport cadence.
 
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
