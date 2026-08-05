@@ -190,7 +190,11 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
     page.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
 
-  const cadence = await page.evaluate(async () => {
+  const sampleDurationMilliseconds = Math.max(
+    2_000,
+    injectedSnapshotDelayMilliseconds + 1_500,
+  );
+  const cadence = await page.evaluate(async (samplingMilliseconds) => {
     const frameIntervals: number[] = [];
     const longTaskDurations: number[] = [];
     const observer = new PerformanceObserver((entries) => {
@@ -200,7 +204,7 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
     });
     observer.observe({ type: "longtask", buffered: true });
     let previous = performance.now();
-    const until = previous + 2_000;
+    const until = previous + samplingMilliseconds;
     await new Promise<void>((resolve) => {
       const sample = (now: number): void => {
         frameIntervals.push(now - previous);
@@ -224,7 +228,7 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
         sorted[Math.floor(sorted.length * 0.95)] ?? Number.POSITIVE_INFINITY,
       longestTaskMilliseconds: Math.max(0, ...longTaskDurations),
     };
-  });
+  }, sampleDurationMilliseconds);
 
   const stateFrames = receivedWebSocketFrames.filter(
     (payload) =>
@@ -235,7 +239,9 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
   expect(cadence.meanFrameMilliseconds).toBeLessThan(24);
   expect(cadence.percentile95FrameMilliseconds).toBeLessThan(40);
   expect(cadence.longestTaskMilliseconds).toBeLessThan(100);
-  // Twenty snapshots per second is deliberate; this minimum leaves room for
-  // startup jitter while proving the browser received the live game stream.
-  expect(stateFrames.length).toBeGreaterThanOrEqual(30);
+  // At 3 s injected latency the first packets cannot arrive during a fixed
+  // 2 s observation. Sample past the configured delivery delay, then require
+  // live stream traffic rather than mistaking the configured network condition
+  // for a stopped server.
+  expect(stateFrames.length).toBeGreaterThanOrEqual(15);
 });

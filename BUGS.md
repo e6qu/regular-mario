@@ -2,6 +2,14 @@
 
 ## Known Bugs
 
+### The 3 s cadence check observed before delayed state could arrive — fixed (2026-08-05)
+
+The browser cadence gate sampled a fixed two seconds even when the configured
+test transport deliberately held snapshots for three. It reported zero state
+messages for the expected condition. The sampling window now extends past the
+configured delivery delay and asserts live keyframe/delta traffic afterward;
+the rebuilt 3 s real journey passes.
+
 ### Stomp visual timing could inherit server reaction state — fixed (2026-08-05)
 
 The server's gameplay state includes a stomp event, but the renderer also used

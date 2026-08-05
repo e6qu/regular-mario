@@ -37,6 +37,10 @@ recorded World 1-1-to-1-2 run plus eight live WebSocket clients. Keep the
 recording artifacts ignored beneath `playwright_adhoc/` and inspect a real
 post-handoff frame when altering rendering or input reconciliation.
 
+Delay-aware browser gates must sample beyond their injected delivery delay.
+Do not interpret intentionally unavailable packets during the delay window as
+transport failure; assert cadence only after the configured delay has elapsed.
+
 Server state remains authoritative, but camera is client presentation. Do not
 reintroduce direct 20 Hz server camera transforms; follow the locally predicted
 player with smoothing instead.

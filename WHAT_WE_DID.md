@@ -39,6 +39,13 @@ committed — only numeric metadata, code, docs, and scripts.
   recorded first-level and post-handoff frames remain ignored under
   `playwright_adhoc/multiplayer-full-run/`.
 
+## 2026-08-05 — corrected delayed-network cadence evidence
+
+- Made the live browser cadence observation window depend on the intentional
+  injected snapshot delay. A 3 s delayed transport cannot produce packets in
+  a two-second sample; the updated gate samples after delivery and passed the
+  rebuilt real 3 s journey.
+
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
 - Kept server simulation authoritative but moved viewport presentation to each
