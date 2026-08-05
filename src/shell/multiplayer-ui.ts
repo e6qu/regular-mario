@@ -61,12 +61,27 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-host canvas { display: block; }
     .multiplayer-game-panel { position: absolute; z-index: 2; top: 0; right: 0; width: min(340px, 92vw); height: 100vh; box-sizing: border-box;
       overflow: auto; margin: 0; border-width: 0 0 0 5px; box-shadow: none; background: #f5f7fb; transition: transform 120ms ease-out; }
-    .multiplayer-game-shell[data-controls-open=false] .multiplayer-game-panel { transform: translateX(100%); pointer-events: none; }
-    /* A waiting game is not yet playable. Present a deliberate full-viewport
-       ready room instead of exposing a cropped game behind a permanent drawer.
-       Once playing, the canvas owns every pixel and M opens the drawer. */
-    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel { inset: 0; width: 100%; max-width: none; height: 100%; border: 0; display: grid; align-content: center; justify-items: center; text-align: center; }
-    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel > * { max-width: min(640px, calc(100vw - 32px)); }
+    .multiplayer-game-shell[data-controls-open=false] .multiplayer-game-panel { visibility: hidden; transform: translateX(100%); pointer-events: none; }
+    /* Waiting is a game room, not a covered or empty game canvas. The renderer
+       stays mounted for the authoritative transition, but is hidden until the
+       server actually starts play. */
+    .multiplayer-game-shell[data-game-phase=waiting] { min-height: 100vh; background: linear-gradient(#8ed4ea 0 22%, #dff4ee 22% 100%); }
+    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-host { visibility: hidden; pointer-events: none; }
+    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel { inset: 0; width: 100%; max-width: none; height: 100%; border: 0; display: grid; align-content: center; justify-items: center; text-align: left; background: transparent; }
+    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-game-panel > * { width: min(760px, calc(100vw - 40px)); box-sizing: border-box; }
+    .multiplayer-game-room { padding: clamp(20px, 5vw, 52px); border: 5px solid #172033; background: #f5f7fb; box-shadow: 9px 9px 0 #285a37; }
+    .multiplayer-game-room__eyebrow { margin: 0 0 8px; color: #285a37; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    .multiplayer-game-room__title { margin-bottom: 4px; }
+    .multiplayer-game-room__status { margin: 0 0 20px; font-weight: 800; }
+    .multiplayer-game-room__actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+    .multiplayer-game-room__actions button { margin: 0; }
+    .multiplayer-game-room__chat { margin: 18px 0 0; padding-top: 16px; border-top: 3px solid #172033; }
+    .multiplayer-game-room__chat h2 { margin: 0 0 8px; font-size: 1.05rem; }
+    .multiplayer-game-room__chat [role=log] { min-height: 2.5em; max-height: 9em; overflow: auto; white-space: pre-wrap; }
+    .multiplayer-game-room__chat-row { display: flex; gap: 8px; align-items: center; }
+    .multiplayer-game-room__chat-row input { flex: 1; min-width: 0; }
+    .multiplayer-game-shell[data-game-phase=playing] .multiplayer-game-room-only { display: none; }
+    .multiplayer-game-shell[data-game-phase=waiting] .multiplayer-play-controls-only { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
       .multiplayer-game-shell { height: 100vh; min-height: 0; }
       .multiplayer-game-panel { width: min(100%, 420px); border-width: 0 0 0 5px; } }
@@ -423,47 +438,64 @@ function renderGame(
   };
   const title = document.createElement("h1");
   title.textContent = `Game ${gameId}`;
+  title.className = "multiplayer-game-room__title";
   const status = document.createElement("p");
+  status.className = "multiplayer-game-room__status";
   const gameHost = document.createElement("div");
   gameHost.className = "multiplayer-game-host";
   let currentLevelId = levelId;
-  const chatInput = document.createElement("input");
-  chatInput.maxLength = 256;
-  chatInput.setAttribute("aria-label", "Game chat message");
-  const chatLog = document.createElement("div");
-  chatLog.setAttribute("role", "log");
-  chatLog.setAttribute("aria-label", "Game chat");
+  const chatLogs: HTMLDivElement[] = [];
+  const makeChat = (inputLabel: string): HTMLElement => {
+    const chat = document.createElement("section");
+    chat.className = "multiplayer-game-room__chat";
+    const heading = document.createElement("h2");
+    heading.textContent = "Game chat";
+    const log = document.createElement("div");
+    log.setAttribute("role", "log");
+    log.setAttribute("aria-label", "Game chat");
+    log.textContent = "No messages yet.";
+    chatLogs.push(log);
+    const input = document.createElement("input");
+    input.maxLength = 256;
+    input.setAttribute("aria-label", inputLabel);
+    const row = document.createElement("div");
+    row.className = "multiplayer-game-room__chat-row";
+    row.append(
+      input,
+      makeButton("Send game chat", async () => {
+        await requestJson(`/games/${gameId}/chat`, {
+          method: "POST",
+          body: JSON.stringify({ text: input.value }),
+        });
+        input.value = "";
+        await refreshGameChat();
+      }),
+    );
+    chat.append(heading, log, row);
+    return chat;
+  };
   const gameActionError = document.createElement("div");
   gameActionError.setAttribute("role", "alert");
+  const waitingRoom = document.createElement("section");
+  waitingRoom.className = "multiplayer-game-room multiplayer-game-room-only";
+  waitingRoom.setAttribute("aria-label", "Game room");
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "multiplayer-game-room__eyebrow";
+  eyebrow.textContent = "Game room";
+  const waitingDescription = document.createElement("p");
+  waitingDescription.textContent =
+    "Invite friends, chat, then begin when the party is ready.";
+  const roomActions = document.createElement("div");
+  roomActions.className = "multiplayer-game-room__actions";
   let startGameButton: HTMLButtonElement | undefined;
   panel.classList.add("multiplayer-game-panel");
-  panel.append(
-    title,
-    status,
-    makeButton("Resume game", () => setControlsOpen(false)),
-    Object.assign(document.createElement("div"), {
-      textContent: "Press M during play to open these controls.",
-    }),
-    chatLog,
-    chatInput,
-  );
-  panel.append(
-    makeButton("Send game chat", async () => {
-      await requestJson(`/games/${gameId}/chat`, {
-        method: "POST",
-        body: JSON.stringify({ text: chatInput.value }),
-      });
-      chatInput.value = "";
-      await refreshGameChat();
-    }),
-  );
-  panel.append(
-    makeButton("Leave game", async () => {
+  const leaveGame = (): HTMLButtonElement => makeButton("Leave game", async () => {
       await requestJson("/game/leave", { method: "POST" });
       disposeView();
       await renderLobby(mount, userAssetBundle);
-    }),
-  );
+    });
+  waitingRoom.append(eyebrow, title, status, waitingDescription, roomActions, gameActionError, makeChat("Game chat message"));
+  panel.append(waitingRoom);
   if (creatorPlayerId === profile.playerId) {
     startGameButton = makeButton("Start game", async () => {
       try {
@@ -473,7 +505,7 @@ function renderGame(
           reason instanceof Error ? reason.message : "Could not start game.";
       }
     });
-    panel.append(
+    roomActions.append(
       startGameButton,
       makeButton("End game", async () => {
         await requestJson(`/games/${gameId}/end`, { method: "POST" });
@@ -481,8 +513,17 @@ function renderGame(
         await renderLobby(mount, userAssetBundle);
       }),
     );
-    panel.append(gameActionError);
   }
+  roomActions.append(leaveGame());
+  const playControls = document.createElement("section");
+  playControls.className = "multiplayer-play-controls-only";
+  const playControlsTitle = document.createElement("h1");
+  playControlsTitle.textContent = `Game ${gameId}`;
+  const playStatus = document.createElement("p");
+  const playHint = document.createElement("p");
+  playHint.textContent = "Press M during play to close these controls.";
+  playControls.append(playControlsTitle, playStatus, playHint, makeChat("Game chat message"), leaveGame());
+  panel.append(playControls);
   gameShell.append(gameHost, panel);
   mount.append(gameShell);
   // Phaser measures its parent during boot. Mount first so every browser
@@ -672,9 +713,12 @@ function renderGame(
       }[];
     }>(`/games/${gameId}/chat`);
     if (!disposed) {
-      chatLog.textContent = response.messages
+      const rendered = response.messages
         .map((message) => `${message.nickname}: ${message.text}`)
         .join("\n");
+      for (const chatLog of chatLogs) {
+        chatLog.textContent = rendered === "" ? "No messages yet." : rendered;
+      }
     }
   }
   function displaySnapshot(snapshot: GameSnapshot): void {
@@ -739,7 +783,12 @@ function renderGame(
       "data-debug-authoritative-frame",
       String(snapshot.frame),
     );
-    status.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
+    const phaseText =
+      snapshot.phase === "waiting"
+        ? `Waiting for friends · ${snapshot.players.length}/16 players`
+        : `${snapshot.phase} · frame ${snapshot.frame}`;
+    status.textContent = phaseText;
+    playStatus.textContent = `${snapshot.phase} · frame ${snapshot.frame}`;
     gameShell.setAttribute("data-game-phase", snapshot.phase);
     if (snapshot.phase !== lastPresentedPhase) {
       setControlsOpen(snapshot.phase !== "playing");

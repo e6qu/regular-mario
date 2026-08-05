@@ -8,7 +8,9 @@ The previous acceptance tests could compare a paused canvas while missing the
 ordinary live journey. That allowed three visible defects: a permanent
 waiting-panel sidebar, fallback rectangles behind authored sprites, and
 six-tile courses whose level actors were ignored by the initial simulation
-spawn. The ready room is now full viewport, playing hides the drawer, authored
+spawn. Waiting is now a genuine full-viewport game room with player count,
+chat, and actions; it hides the canvas and does not offer Resume. Playing hides
+the drawer, authored
 primary/remote images replace their fallback bodies, courses use a 15-tile
 playfield, and the core starts at the validated `player-start` actor. Client
 prediction now reconciles the full state at the correct player slot and steps

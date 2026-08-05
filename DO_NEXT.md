@@ -5,7 +5,8 @@
 ### Verified: visual acceptance must use the live journey (2026-08-05)
 
 - Preserve `side-by-side-lockstep.spec.ts` as a full-viewport gate: it checks
-  the waiting ready room, a hidden playing drawer, a 1280×720 canvas, real
+  a purposeful waiting game room (and rejects Resume/visible-canvas states), a
+  hidden playing drawer, a 1280×720 canvas, real
   authored-sprite pixels, mirrored keyboard input, and changed rendered
   frames. Internal scene receipts alone are not visual evidence.
 - Multiplayer courses are deliberately 15 tiles high. Do not reintroduce the

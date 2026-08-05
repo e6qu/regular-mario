@@ -126,15 +126,23 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     await multiplayer.getByRole("button", { name: "Create game" }).click();
     const multiplayerShell = multiplayer.locator(".multiplayer-game-shell");
     const multiplayerPanel = multiplayer.locator(".multiplayer-game-panel");
-    // Waiting is a complete ready room, not a game canvas squeezed beside a
-    // persistent control rail. Play is the point at which a viewport parity
-    // comparison is meaningful.
+    // Waiting is a purpose-built game room. It must not pretend that the
+    // course is playable, expose an empty canvas, or show the old invalid
+    // "Resume game" escape hatch.
     await expect(multiplayerShell).toHaveAttribute(
       "data-game-phase",
       "waiting",
     );
-    await expect(multiplayerPanel).toHaveJSProperty("clientWidth", 1280);
-    await expect(multiplayerPanel).toHaveJSProperty("clientHeight", 720);
+    await expect(multiplayer.getByLabel("Game room")).toBeVisible();
+    await expect(
+      multiplayer.getByLabel("Authoritative multiplayer game view"),
+    ).not.toBeVisible();
+    await expect(
+      multiplayer.getByRole("button", { name: "Resume game" }),
+    ).toHaveCount(0);
+    await expect(
+      multiplayer.getByText("Invite friends, chat, then begin when the party is ready."),
+    ).toBeVisible();
     await multiplayer.screenshot({
       path: join(artifactDirectory, "multiplayer-waiting-ready-room.png"),
     });
@@ -144,7 +152,10 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     ).toBeVisible();
     await expect
       .poll(() =>
-        multiplayer.locator(".multiplayer-game-panel p").textContent(),
+        multiplayer
+          .locator(".multiplayer-play-controls-only p")
+          .first()
+          .textContent(),
       )
       .toMatch(/^playing · frame [1-9][0-9]*$/);
 
@@ -158,7 +169,7 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     );
     await expect(multiplayerCanvas).toHaveJSProperty("clientWidth", 1280);
     await expect(multiplayerCanvas).toHaveJSProperty("clientHeight", 720);
-    await expect(multiplayerPanel).toHaveCSS("transform", /matrix/);
+    await expect(multiplayerPanel).not.toBeVisible();
     // This hair colour belongs to the authored castaway sprite and is absent
     // from the Party Runway tiles. A state receipt alone is insufficient: the
     // visible multiplayer canvas must paint the player before capture/input

@@ -7,9 +7,11 @@ committed — only numeric metadata, code, docs, and scripts.
 
 ## 2026-08-05 — corrected the live multiplayer game, not just a frozen canvas
 
-- Replaced the waiting sidebar with a full ready room; the actual playing
-  canvas now owns the full browser viewport and the drawer remains hidden
-  until `M` is pressed.
+- Replaced the waiting sidebar and blank control form with a purposeful game
+  room: party count, chat, owner Start/End, and Leave are visible before play;
+  the canvas is hidden but remains layout-sized for a clean Phaser handoff.
+  The actual playing canvas owns the full browser viewport and the drawer
+  remains hidden until `M` is pressed.
 - Removed primary-sprite fallback rectangles and made remote players use their
   own authored images. Spawn labels stack cleanly for a same-screen party.
 - Converted the three multiplayer routes to a canonical 15-tile playfield and

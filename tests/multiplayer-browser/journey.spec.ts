@@ -45,9 +45,10 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await creator.getByRole("button", { name: "Create game" }).click();
   // Creation is also entry. The creator must never be left in the lobby with
   // impossible Create/Join actions after claiming their only game slot.
+  await expect(creator.getByLabel("Game room")).toBeVisible();
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
-  ).toBeVisible();
+  ).not.toBeVisible();
   await expect(
     creator.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toHaveCount(0);
@@ -57,9 +58,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   // A refresh must resume the one game this session already owns. Otherwise
   // the lobby offers create/join controls which the server correctly rejects.
   await creator.reload();
-  await expect(
-    creator.getByLabel("Authoritative multiplayer game view"),
-  ).toBeVisible();
+  await expect(creator.getByLabel("Game room")).toBeVisible();
   await expect(
     creator.getByRole("button", { name: "Start game" }),
   ).toBeVisible();
@@ -74,9 +73,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
     .filter({ hasText: /^Mira · cavern-route · regular · waiting/ })
     .getByRole("button", { name: "Join" })
     .click();
-  await expect(
-    guest.getByLabel("Authoritative multiplayer game view"),
-  ).toBeVisible();
+  await expect(guest.getByLabel("Game room")).toBeVisible();
 
   await creator.getByRole("button", { name: "Start game" }).click();
   await expect(
@@ -89,7 +86,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await creator.waitForTimeout(120);
   await creator.keyboard.up("ArrowRight");
   await creator.waitForTimeout(injectedSnapshotDelayMilliseconds + 200);
-  await expect(creator.getByText(/playing · frame [1-9]/)).toBeVisible();
+  await expect(
+    creator.locator(".multiplayer-play-controls-only p").first(),
+  ).toHaveText(/playing · frame [1-9]/);
   expect(
     await creator
       .getByLabel("Authoritative multiplayer game view")
@@ -111,15 +110,16 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   // Playing uses the complete canvas. Open the optional control drawer before
   // exercising chat and leave actions just as a real player would.
   await guest.keyboard.press("KeyM");
-  await expect(
-    guest.getByRole("button", { name: "Resume game" }),
-  ).toBeVisible();
-  await guest.getByLabel("Game chat message").fill("hello from Ren");
-  await guest.getByRole("button", { name: "Send game chat" }).click();
+  await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();
+  const guestControls = guest.locator(".multiplayer-play-controls-only");
+  await guestControls.getByLabel("Game chat message").fill("hello from Ren");
+  await guestControls.getByRole("button", { name: "Send game chat" }).click();
   await creator.keyboard.press("KeyM");
-  await expect(creator.getByRole("log", { name: "Game chat" })).toContainText(
-    "Ren: hello from Ren",
-  );
+  await expect(
+    creator
+      .locator(".multiplayer-play-controls-only")
+      .getByRole("log", { name: "Game chat" }),
+  ).toContainText("Ren: hello from Ren");
   await expect(guest.getByRole("button", { name: "Leave game" })).toBeVisible();
   await creator.screenshot({ path: "test-results/multiplayer-desktop.png" });
   await creatorContext.close();

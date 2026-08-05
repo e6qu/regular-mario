@@ -4,7 +4,8 @@
 
 **Live multiplayer viewport, spawn, and prediction correction (2026-08-05).**
 The displayed multiplayer game now owns the entire 1280×720 viewport after
-Start; waiting is a full ready room, not a sidebar over a partial game. The
+Start; waiting is a purposeful game room (state, party count, chat, and
+actions) with no visible canvas, not a sidebar or empty control form. The
 primary and remote authored sprites no longer show fallback-colour backplates.
 All multiplayer courses have a normal 15-tile playfield and the deterministic
 core honours the authored player-start tile, so players begin grounded rather

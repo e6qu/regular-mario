@@ -1,5 +1,8 @@
 import type { PublicGameSummary } from "./game-lobby";
-import type { MultiplayerPlayerProfile } from "../multiplayer/game-runner";
+import {
+  MultiplayerGamePhase,
+  type MultiplayerPlayerProfile,
+} from "../multiplayer/game-runner";
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";
 
 function node(
@@ -66,18 +69,35 @@ export function makeGameLayout(
   game: PublicGameSummary,
 ): SemanticUiNode {
   const creatorWaitingControls =
-    game.creator.playerId === profile.playerId && game.phase === "waiting"
+    game.creator.playerId === profile.playerId &&
+    game.phase === MultiplayerGamePhase.Waiting
       ? [node("button", "Start game", [], "game.start", game.gameId)]
       : [];
+  const waitingRoom =
+    game.phase === MultiplayerGamePhase.Waiting
+      ? [
+          node("region", "Game room", [
+            node(
+              "status",
+              `Waiting for friends: ${game.playerCount}/${game.maximumPlayerCount} players`,
+            ),
+            node("log", "Game chat", [], "chat.game"),
+            node("button", "Send game chat", [], "chat.game.send"),
+            node("button", "Leave game", [], "game.leave"),
+            ...creatorWaitingControls,
+          ]),
+        ]
+      : [
+          node("img", "Authoritative multiplayer game view", [], "game.canvas"),
+          node("log", "Game chat", [], "chat.game"),
+          node("button", "Send game chat", [], "chat.game.send"),
+          node("button", "Leave game", [], "game.leave"),
+        ];
   return node("main", "Multiplayer game", [
     node("heading", `${game.levelId} (${game.mode})`),
     node("status", `Game ${game.gameId}: ${game.phase}`),
-    node("img", "Authoritative multiplayer game view", [], "game.canvas"),
-    node("log", "Game chat", [], "chat.game"),
-    node("button", "Send game chat", [], "chat.game.send"),
-    node("button", "Leave game", [], "game.leave"),
     node("status", `Playing as ${profile.nickname}`),
-    ...creatorWaitingControls,
+    ...waitingRoom,
   ]);
 }
 
