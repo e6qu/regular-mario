@@ -59,12 +59,11 @@ test("eight independent browser players can share one authoritative game", async
     await page
       .locator("section > div")
       .filter({
-        hasText: /^LoadPilot0 · smb-1-1 · regular · waiting/,
+        hasText: /^LoadPilot0 · smb-1-1 · regular · playing/,
       })
       .getByRole("button", { name: "Join" })
       .click();
   }
-  await creator.getByRole("button", { name: "Start game" }).click();
   await Promise.all(
     pages.map((page) =>
       expect(

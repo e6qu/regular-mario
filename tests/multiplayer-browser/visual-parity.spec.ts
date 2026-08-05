@@ -138,7 +138,6 @@ test("the actual local BootScene and a paused server frame render every pixel id
 
   await enterMultiplayerLobby(player);
   await player.getByRole("button", { name: "Create game" }).click();
-  await player.getByRole("button", { name: "Start game" }).click();
   await expect(
     player.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
@@ -254,11 +253,10 @@ test("two independently connected avatars render every server-driven pixel ident
   await guest
     .locator("section > div")
     .filter({
-      hasText: /^PixelMira · smb-1-1 · regular · waiting/,
+      hasText: /^PixelMira · smb-1-1 · regular · playing/,
     })
     .getByRole("button", { name: "Join" })
     .click();
-  await creator.getByRole("button", { name: "Start game" }).click();
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();

@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — made live world presentation and game entry immediate
+
+- Multiplayer now presents the full client-predicted deterministic simulation
+  every animation frame, not merely the local player transform. Coins, enemies
+  and other dynamic world actors therefore use the same 60 Hz visual cadence.
+- Re-baseline full-world prediction when an authoritative join changes player
+  membership, so existing clients render newly joined players immediately.
+- Converted password entry to a real form, so Enter logs into the lobby.
+- Lobby Create now creates, starts, and enters the game in one action; browser
+  journeys were updated to reject the obsolete waiting-room Start step.
+
 ## 2026-08-05 — corrected live multiplayer presentation cadence
 
 - Fixed stomp/score effect durations to advance by authoritative simulation

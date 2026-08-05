@@ -46,22 +46,17 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   const gameId = await findGameIdByCreatorNickname(creator, "Mira");
   // Creation is also entry. The creator must never be left in the lobby with
   // impossible Create/Join actions after claiming their only game slot.
-  await expect(creator.getByLabel("Game room")).toBeVisible();
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
-  ).not.toBeVisible();
+  ).toBeVisible();
   await expect(
     creator.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toHaveCount(0);
-  await expect(
-    creator.getByRole("button", { name: "Start game" }),
-  ).toBeVisible();
   // A refresh must resume the one game this session already owns. Otherwise
   // the lobby offers create/join controls which the server correctly rejects.
   await creator.reload();
-  await expect(creator.getByLabel("Game room")).toBeVisible();
   await expect(
-    creator.getByRole("button", { name: "Start game" }),
+    creator.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
 
   await login(guest);
@@ -71,15 +66,13 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   );
   await guest
     .locator("section > div")
-    .filter({ hasText: /^Mira · smb-1-1 · regular · waiting/ })
+    .filter({ hasText: /^Mira · smb-1-1 · regular · playing/ })
     .getByRole("button", { name: "Join" })
     .click();
-  await expect(guest.getByLabel("Game room")).toBeVisible();
-
-  await creator.getByRole("button", { name: "Start game" }).click();
   await expect(
-    creator.getByLabel("Authoritative multiplayer game view"),
+    guest.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
+
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),
   ).toHaveAttribute("data-role", "multiplayer-phaser-canvas");
@@ -193,7 +186,6 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
   await saveProfile(page, "Cadence");
   await page.getByLabel("Bundled level").selectOption("smb-1-1");
   await page.getByRole("button", { name: "Create game" }).click();
-  await page.getByRole("button", { name: "Start game" }).click();
   await expect(
     page.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();

@@ -2,6 +2,13 @@
 
 ## Current State
 
+**Live-world multiplayer presentation and entry flow corrected (2026-08-05).**
+The client now presents its complete predicted deterministic state every
+browser frame, rather than painting coins/enemies only at the 20 Hz transport
+cadence. Password entry is a form (Enter reaches the lobby), and lobby Create
+creates, starts, and enters a game as one action. The real multiplayer journey
+and its cadence gate pass.
+
 **Multiplayer presentation cadence corrected (2026-08-05).** Stomp/score
 effects now consume authoritative 60 Hz simulation-frame deltas rather than
 20 Hz WebSocket arrivals, and remote-state application no longer forces a

@@ -2,6 +2,19 @@
 
 ## Known Bugs
 
+### World actors and entry flow could feel one step behind — fixed (2026-08-05)
+
+Only the local player transform was presented at browser-frame cadence; coins,
+enemies, and other deterministic actors waited for 20 Hz state receipts.
+The renderer now consumes the complete locally predicted state each frame and
+uses the server stream only as reconciliation. The password is now submitted
+by Enter, and lobby Create immediately begins and enters the game rather than
+requiring a waiting-room Start action.
+
+When membership changes after play has started, reconciliation also replaces a
+prediction baseline whose player count differs from the authoritative snapshot;
+otherwise an existing client can retain a one-player predicted world.
+
 ### Multiplayer presentation effects and rendering could stall — fixed (2026-08-05)
 
 The renderer decremented frame-based stomp and score effects once for each

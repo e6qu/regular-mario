@@ -15,6 +15,11 @@ in simulation frames must consume authoritative-frame deltas, never raw packet
 arrivals, and remote state application must not force a display-list-wide depth
 sort per 20 Hz receipt.
 
+Keep complete predicted simulation presentation on the browser frame loop:
+rendering only the predicted local player while waiting for 20 Hz authoritative
+receipts makes coins and enemies visibly stutter. The password form must submit
+on Enter, and lobby Create remains a create-and-enter single action.
+
 ### Fresh four-player recording proof (2026-08-05)
 
 - Preserve the checked-in compressed World 1-1 trace as a continuous,

@@ -339,18 +339,21 @@ async function renderLobby(
           }),
         },
       );
-      // Enter the newly-created game from the authoritative response rather
-      // than waiting for a second lobby request. This makes creation one
-      // action: it reserves the player's only game slot and opens that game.
+      // A lobby create is one user action: create the reserved public game and
+      // immediately begin it. Friends may join a game already in progress.
+      const started = await requestJson<{ readonly game: GameSummary }>(
+        `/games/${created.game.gameId}/start`,
+        { method: "POST" },
+      );
       const currentLobby = await requestJson<{
         readonly profile: PlayerProfile;
       }>("/lobby");
       renderGame(
         mount,
         currentLobby.profile,
-        created.game.gameId,
-        created.game.levelId,
-        created.game.creator.playerId,
+        started.game.gameId,
+        started.game.levelId,
+        started.game.creator.playerId,
         userAssetBundle,
       );
     } catch (reason) {
@@ -397,37 +400,6 @@ async function renderLobby(
         }
       }),
     );
-    if (
-      game.creator.playerId === lobby.profile.playerId &&
-      game.phase === "waiting"
-    ) {
-      row.append(
-        makeButton("Start", async () => {
-          try {
-            const started = await requestJson<{ readonly game: GameSummary }>(
-              `/games/${game.gameId}/start`,
-              { method: "POST" },
-            );
-            const currentLobby = await requestJson<{
-              readonly profile: PlayerProfile;
-            }>("/lobby");
-            renderGame(
-              mount,
-              currentLobby.profile,
-              started.game.gameId,
-              started.game.levelId,
-              started.game.creator.playerId,
-              userAssetBundle,
-            );
-          } catch (reason) {
-            actionError.textContent =
-              reason instanceof Error
-                ? reason.message
-                : "Could not start game.";
-          }
-        }),
-      );
-    }
     games.append(row);
   }
   panel.append(games);
@@ -690,6 +662,14 @@ function renderGame(
       throw new Error("Predicted state is missing the local player.");
     }
     const predictedPlayer = predictedRuntime.player;
+    // The prediction advances the exact deterministic world state, not just
+    // the local avatar. Present it each browser frame so coins, enemies and
+    // other simulation-driven actors move at 60 Hz; 20 Hz server receipts
+    // remain the reconciliation baseline.
+    renderer.presentSimulationState(
+      prediction.snapshot().state,
+      snapshot.cameraLeftPixels,
+    );
     const interpolatedRemotePlayers = remoteInterpolator.positions(
       performance.now(),
     );
@@ -799,7 +779,9 @@ function renderGame(
     );
     if (local !== undefined) {
       const requiresPredictionBaseline =
-        localPlayerSlot !== local.slot || prediction === undefined;
+        localPlayerSlot !== local.slot ||
+        prediction === undefined ||
+        prediction.snapshot().state.players.length !== snapshot.players.length;
       if (requiresPredictionBaseline) {
         localPlayerSlot = local.slot;
         prediction = makePrediction(currentLevelId, local.slot);
@@ -1176,27 +1158,29 @@ export async function renderMultiplayerUi(
     const panel = makePanel();
     const heading = document.createElement("h1");
     heading.textContent = "Trusted friends multiplayer";
+    const loginForm = document.createElement("form");
     const password = document.createElement("input");
     password.type = "password";
     password.setAttribute("aria-label", "Server password");
     const error = document.createElement("p");
-    panel.append(
-      heading,
-      password,
-      error,
-      makeButton("Enter lobby", async () => {
-        try {
-          await requestJson("/login", {
-            method: "POST",
-            body: JSON.stringify({ password: password.value }),
-          });
-          await renderLobby(mount, userAssetBundle);
-        } catch (reason) {
-          error.textContent =
-            reason instanceof Error ? reason.message : "Login failed.";
-        }
-      }),
-    );
+    const submitLogin = async (): Promise<void> => {
+      try {
+        await requestJson("/login", {
+          method: "POST",
+          body: JSON.stringify({ password: password.value }),
+        });
+        await renderLobby(mount, userAssetBundle);
+      } catch (reason) {
+        error.textContent =
+          reason instanceof Error ? reason.message : "Login failed.";
+      }
+    };
+    loginForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void submitLogin();
+    });
+    loginForm.append(password, makeButton("Enter lobby", submitLogin), error);
+    panel.append(heading, loginForm);
     mount.append(panel);
     await appendSemanticLayout(panel);
   }

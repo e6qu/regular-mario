@@ -3,6 +3,7 @@ import Phaser from "phaser";
 import { requireCharacterForMultiplayerAvatar } from "../multiplayer/avatar-character";
 import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
+import type { SimulationState } from "../engine/simulation/simulation-state";
 import {
   makeFirePlayerVitalityState,
   makeInitialPlayerVitalityState,
@@ -16,6 +17,10 @@ import type { UserAssetBundle } from "./user-asset-loader";
 export type MultiplayerPhaserRenderer = {
   readonly canvas: HTMLCanvasElement;
   render(snapshot: MultiplayerRenderedSnapshot): void;
+  presentSimulationState(
+    state: SimulationState,
+    cameraLeftPixels: number,
+  ): void;
   presentPlayerPositions(
     positions: readonly { readonly x: number; readonly y: number }[],
   ): void;
@@ -108,6 +113,9 @@ export function makeMultiplayerPhaserRenderer(
   let latestPlayerPositions:
     | readonly { readonly x: number; readonly y: number }[]
     | undefined;
+  let latestPresentationState:
+    | { readonly state: SimulationState; readonly cameraLeftPixels: number }
+    | undefined;
   let ready = false;
   let destroyed = false;
   const waitForSceneReadiness = (): void => {
@@ -124,6 +132,12 @@ export function makeMultiplayerPhaserRenderer(
       canvas.focus();
       if (latestSnapshot !== undefined) {
         applySnapshot(candidate, latestSnapshot);
+      }
+      if (latestPresentationState !== undefined) {
+        candidate.applyAuthoritativeSimulationState(
+          latestPresentationState.state,
+          latestPresentationState.cameraLeftPixels,
+        );
       }
       if (latestPlayerPositions !== undefined) {
         candidate.applyAuthoritativePlayerPositions(latestPlayerPositions);
@@ -164,6 +178,15 @@ export function makeMultiplayerPhaserRenderer(
       );
       if (ready) {
         applySnapshot(requireRemoteScene(game), snapshot);
+      }
+    },
+    presentSimulationState(state, cameraLeftPixels) {
+      latestPresentationState = { state, cameraLeftPixels };
+      if (ready) {
+        requireRemoteScene(game).applyAuthoritativeSimulationState(
+          state,
+          cameraLeftPixels,
+        );
       }
     },
     presentPlayerPositions(positions) {

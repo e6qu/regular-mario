@@ -142,32 +142,19 @@ test("single-player and multiplayer receive mirrored keyboard input", async ({
     });
     const multiplayerShell = multiplayer.locator(".multiplayer-game-shell");
     const multiplayerPanel = multiplayer.locator(".multiplayer-game-panel");
-    // Waiting is a purpose-built game room. It must not pretend that the
-    // course is playable, expose an empty canvas, or show the old invalid
-    // "Resume game" escape hatch.
+    // A lobby Create starts and enters the real shared course in one action;
+    // it must not leave the owner on a waiting-room intermediate screen.
     await expect(multiplayerShell).toHaveAttribute(
       "data-game-phase",
-      "waiting",
+      "playing",
     );
-    await expect(multiplayer.getByLabel("Game room")).toBeVisible();
+    await expect(multiplayer.getByLabel("Game room")).not.toBeVisible();
     await expect(
       multiplayer.getByLabel("Authoritative multiplayer game view"),
-    ).not.toBeVisible();
+    ).toBeVisible();
     await expect(
       multiplayer.getByRole("button", { name: "Resume game" }),
     ).toHaveCount(0);
-    await expect(
-      multiplayer.getByText(
-        "Invite friends, chat, then begin when the party is ready.",
-      ),
-    ).toBeVisible();
-    await multiplayer.screenshot({
-      path: join(artifactDirectory, "multiplayer-waiting-ready-room.png"),
-    });
-    await multiplayer.getByRole("button", { name: "Start game" }).click();
-    await expect(
-      multiplayer.getByLabel("Authoritative multiplayer game view"),
-    ).toBeVisible();
     await expect
       .poll(() =>
         multiplayer

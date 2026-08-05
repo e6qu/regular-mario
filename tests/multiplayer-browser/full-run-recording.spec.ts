@@ -185,7 +185,6 @@ test("four separate browser sessions complete a shared course and enter the next
       await player.page.reload();
       await player.page.getByRole("button", { name: "Join" }).click();
     }
-    await creator.page.getByRole("button", { name: "Start game" }).click();
     await Promise.all(
       players.map((player) =>
         expect(
@@ -193,10 +192,8 @@ test("four separate browser sessions complete a shared course and enter the next
         ).toBeVisible(),
       ),
     );
-    // The canvas is created while the game is still waiting. Do not send a
-    // real player's first held movement command until every separate browser
-    // has received the authoritative playing state; inputs submitted during
-    // the waiting transition are intentionally not gameplay commands.
+    // Do not send the first held movement command until every separate browser
+    // has received the authoritative playing state after its join.
     await Promise.all(
       players.map((player) =>
         expect(
