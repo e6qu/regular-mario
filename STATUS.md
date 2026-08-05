@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Repository quality gate restored (2026-08-05).** The checked-in physical
+replay trace is correctly excluded from copy-paste analysis, and the unused
+catalogue export is internal. Dependency, content, license, vulnerability,
+format, lint, dead-code, copy-paste, typecheck, unit (947 passed, 1 skipped),
+and production-build checks now pass.
+
 **Co-op reaction fallback removed (2026-08-05).** A bot explosion now requires
 its own robot-part rasters rather than substituting generic parts; the bot
 burst asset is required too. Production eight-player WebSocket stress and

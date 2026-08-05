@@ -67,7 +67,10 @@ function runAuthoritativeFrames(): void {
     nextAuthoritativeFrameAt += authoritativeFrameMilliseconds;
     advanced += 1;
   }
-  if (advanced === maximumCatchUpFramesPerTurn && now >= nextAuthoritativeFrameAt) {
+  if (
+    advanced === maximumCatchUpFramesPerTurn &&
+    now >= nextAuthoritativeFrameAt
+  ) {
     // Do not run an unbounded catch-up loop after a process pause. Resynchronise
     // the wall clock and continue at the fixed cadence on the next turn.
     nextAuthoritativeFrameAt = now + authoritativeFrameMilliseconds;

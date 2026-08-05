@@ -444,6 +444,7 @@ Everything from the previous "known deltas" list is now in:
   squash flash, vine-grow sound — the audited backlog is done. Remaining
   known deviation, kept by design: normal-mode damage knockback, which the
   ROM does not have; say the word to remove it.)
+
 # Current next work
 
 - Retarget the four-player recorded completion and stress journeys from the

@@ -1219,8 +1219,7 @@ export class BootScene extends Phaser.Scene {
       this.userAssetBundle?.playerImage,
     );
     this.playerImageObject?.setDepth(59);
-    this.playerRectangle
-      .setVisible(false);
+    this.playerRectangle.setVisible(false);
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -5983,7 +5982,9 @@ export class BootScene extends Phaser.Scene {
     while (this.coopPlayerImages.length < coopRuntimes.length) {
       const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
       if (image === undefined) {
-        throw new Error("Authored player art is required for every co-op player.");
+        throw new Error(
+          "Authored player art is required for every co-op player.",
+        );
       }
       this.coopPlayerImages.push(image.setDepth(59));
     }
@@ -6480,9 +6481,7 @@ export class BootScene extends Phaser.Scene {
       readonly height: number;
     }[],
     renderObjects: Map<string, Phaser.GameObjects.Container>,
-    resolveImage: (projectile: {
-      readonly id: string;
-    }) => LoadedImageAsset,
+    resolveImage: (projectile: { readonly id: string }) => LoadedImageAsset,
   ): void {
     const activeProjectileIds = new Set<string>();
 
@@ -7620,7 +7619,8 @@ function renderLevelTiles(
               decorativeSceneryTileIds.has(candidate),
           );
           if (neighborSceneryId !== undefined) {
-            const sceneryImage = userAssetBundle.tileImages.get(neighborSceneryId);
+            const sceneryImage =
+              userAssetBundle.tileImages.get(neighborSceneryId);
             if (sceneryImage === undefined) {
               throw new Error(
                 `The authored asset bundle is missing scenery art for ${neighborSceneryId}.`,
@@ -7664,9 +7664,7 @@ function renderLevelTiles(
               levelSpec.tileSizePixels,
             )
           : undefined;
-        if (
-          singleUseQuestionBlockTileIds.has(tileId)
-        ) {
+        if (singleUseQuestionBlockTileIds.has(tileId)) {
           if (usedBlockImage === undefined) {
             throw new Error(
               "The authored asset bundle is missing tile art for empty-question-block.",
@@ -8153,8 +8151,6 @@ function renderNonPlayerActors(
   };
 }
 
-
-
 function isIntentionallyInvisibleTile(tileId: string): boolean {
   return tileId === "empty" || tileId === "sky" || tileId === "goal-reach";
 }
@@ -8189,8 +8185,6 @@ const decorativeSceneryTileIds: ReadonlySet<string> = new Set([
   "lava-body",
   "coral",
 ]);
-
-
 
 const flagpoleTileId = "flagpole";
 const flagpoleFurnitureDepth = 5;
@@ -8229,7 +8223,6 @@ const flagFabricColor = 0x18c018;
 // The flagpole is a slim pole centred in its (goal-collision) column; a stack of
 // these segments reads as one continuous pole. The ball and flag are added once
 // per column by BootScene.renderFlagpoleFurniture.
-
 
 function renderUserTileImage(
   scene: Phaser.Scene,

@@ -107,9 +107,7 @@ function findMissingTileSpriteIds(
 ): readonly string[] {
   const hiddenTileIds = new Set(
     levelInput.tileDefinitions
-      .filter(
-        (tile) => tile.collision === hiddenTileCollisionValue,
-      )
+      .filter((tile) => tile.collision === hiddenTileCollisionValue)
       .map((tile) => tile.tileId),
   );
   const tileIds = new Set<string>();

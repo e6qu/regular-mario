@@ -2845,7 +2845,9 @@ async function bootSelectedContentSet(
     );
     const selectedLevel = bundle.levels.get(levelName);
     if (selectedLevel === undefined) {
-      throw new Error(`Selected level "${levelName}" is absent from this content set.`);
+      throw new Error(
+        `Selected level "${levelName}" is absent from this content set.`,
+      );
     }
 
     // Classic labels + the ordered main levels (intro fragments and pipe sub-

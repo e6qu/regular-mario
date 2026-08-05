@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — restored the complete repository quality gate
+
+- Formatted the reported tracked files, made the catalogue list internal behind
+  its validated lookup, and excluded the data-only physical-key replay trace
+  from source-copy analysis without changing its zero-tolerance threshold.
+- Verified dependency/content/license/vulnerability policies, formatting,
+  lint, dead-code, copy-paste, typecheck, all 948 unit outcomes (947 pass,
+  one intentional skip), and the production client build.
+
 ## 2026-08-05 — removed generic co-op reaction substitute art
 
 - Co-op robot explosions now require the corresponding robot's head, torso,

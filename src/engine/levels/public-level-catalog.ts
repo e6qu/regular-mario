@@ -14,7 +14,7 @@ export type PublicOriginalLevel = {
   readonly levelInput: LevelSpecInput;
 };
 
-export const publicOriginalLevels: readonly PublicOriginalLevel[] = [
+const publicOriginalLevels: readonly PublicOriginalLevel[] = [
   {
     id: "first-authored",
     label: "First Authored Route",

@@ -170,7 +170,11 @@ describe("authoritative multiplayer game runner", () => {
         sequence: 1,
         intendedFrame: 1,
         receivedAtMilliseconds: 0,
-        command: { ...neutral, horizontal: HorizontalInput.Right, runHeld: true },
+        command: {
+          ...neutral,
+          horizontal: HorizontalInput.Right,
+          runHeld: true,
+        },
       },
       0,
     );
