@@ -2400,6 +2400,12 @@ export class BootScene extends Phaser.Scene {
     }
     if (state !== undefined || playerPresentation !== undefined) {
       this.renderSimulationState();
+      // Authoritative-render scenes do not execute the normal local update
+      // method. Start and advance the visual death sequence here instead: the
+      // server only supplies the defeated outcome, while each client owns the
+      // dismemberment animation and its frame-by-frame presentation.
+      this.maybeBeginDeathEffect();
+      this.stepDeathEffect();
     }
     if (positions !== undefined) {
       if (positions.length !== this.simulationState.players.length) {

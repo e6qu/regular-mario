@@ -5,6 +5,12 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — restored client-owned multiplayer death presentation
+
+- Wired authoritative-render presentation into the existing client-local
+  death-effect lifecycle, so a reconciled defeated player dismembers locally
+  instead of remaining without a death sequence.
+
 ## 2026-08-05 — decoupled camera presentation from server receipts
 
 - Kept server simulation authoritative but moved viewport presentation to each

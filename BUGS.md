@@ -2,6 +2,13 @@
 
 ## Known Bugs
 
+### Multiplayer player dismemberment did not start — fixed (2026-08-05)
+
+The normal scene update starts and advances local death effects, but the
+authoritative-render scene omitted that path after applying reconciled state.
+It now starts and advances the existing client-owned dismemberment effect from
+the authoritative defeated outcome.
+
 ### Server camera receipts caused viewport jerks — fixed (2026-08-05)
 
 The server's shared camera coordinate was applied as a hard 20 Hz transform,

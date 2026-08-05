@@ -131,7 +131,11 @@ export function makeMultiplayerPhaserRenderer(
       canvas.tabIndex = 0;
       canvas.focus();
       if (latestSnapshot !== undefined) {
-        applySnapshot(candidate, latestSnapshot);
+        applySnapshot(
+          candidate,
+          latestSnapshot,
+          latestPresentationState?.cameraLeftPixels ?? 0,
+        );
       }
       if (latestPresentationState !== undefined) {
         candidate.applyAuthoritativeSimulationState(
@@ -177,7 +181,11 @@ export function makeMultiplayerPhaserRenderer(
         String(snapshot.cameraLeftPixels),
       );
       if (ready) {
-        applySnapshot(requireRemoteScene(game), snapshot);
+        applySnapshot(
+          requireRemoteScene(game),
+          snapshot,
+          latestPresentationState?.cameraLeftPixels ?? 0,
+        );
       }
     },
     presentSimulationState(state, cameraLeftPixels) {
@@ -209,10 +217,11 @@ export function makeMultiplayerPhaserRenderer(
 function applySnapshot(
   scene: BootScene,
   snapshot: MultiplayerRenderedSnapshot,
+  presentationCameraLeftPixels: number,
 ): void {
   scene.applyAuthoritativeSimulationState(
     decodeMultiplayerSimulationState(snapshot.simulationState),
-    snapshot.cameraLeftPixels,
+    presentationCameraLeftPixels,
   );
   const orderedPlayers = [...snapshot.players].sort(
     (left, right) => left.slot - right.slot,

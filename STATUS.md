@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Multiplayer client death presentation is active (2026-08-05).**
+Authoritative-render scenes now invoke the same local death-effect start/step
+path as normal play when a reconciled outcome becomes defeated. The server
+owns the outcome; each browser owns dismemberment presentation.
+
 **Camera presentation is client-local (2026-08-05).** The authoritative
 server still reconciles gameplay, but it no longer controls the browser's
 painted camera at 20 Hz. Each client smoothly follows its predicted local
