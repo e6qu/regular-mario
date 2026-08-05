@@ -20,6 +20,10 @@ rendering only the predicted local player while waiting for 20 Hz authoritative
 receipts makes coins and enemies visibly stutter. The password form must submit
 on Enter, and lobby Create remains a create-and-enter single action.
 
+Server state remains authoritative, but camera is client presentation. Do not
+reintroduce direct 20 Hz server camera transforms; follow the locally predicted
+player with smoothing instead.
+
 ### Fresh four-player recording proof (2026-08-05)
 
 - Preserve the checked-in compressed World 1-1 trace as a continuous,

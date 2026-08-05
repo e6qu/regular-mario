@@ -5,6 +5,12 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — decoupled camera presentation from server receipts
+
+- Kept server simulation authoritative but moved viewport presentation to each
+  client's predicted local player with browser-frame smoothing, eliminating
+  20 Hz packet-driven camera jumps.
+
 ## 2026-08-05 — made live world presentation and game entry immediate
 
 - Multiplayer now presents the full client-predicted deterministic simulation

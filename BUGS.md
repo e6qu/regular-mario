@@ -2,6 +2,13 @@
 
 ## Known Bugs
 
+### Server camera receipts caused viewport jerks — fixed (2026-08-05)
+
+The server's shared camera coordinate was applied as a hard 20 Hz transform,
+so even a smooth local simulation visibly jumped whenever a receipt arrived.
+Camera is now client-local presentation: it smoothly follows the predicted
+local player while authoritative state continues to reconcile gameplay.
+
 ### World actors and entry flow could feel one step behind — fixed (2026-08-05)
 
 Only the local player transform was presented at browser-frame cadence; coins,

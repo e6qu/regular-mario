@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Camera presentation is client-local (2026-08-05).** The authoritative
+server still reconciles gameplay, but it no longer controls the browser's
+painted camera at 20 Hz. Each client smoothly follows its predicted local
+player, eliminating packet-cadence viewport jumps.
+
 **Live-world multiplayer presentation and entry flow corrected (2026-08-05).**
 The client now presents its complete predicted deterministic state every
 browser frame, rather than painting coins/enemies only at the 20 Hz transport

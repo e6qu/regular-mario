@@ -37,6 +37,8 @@ const multiplayerApiPrefix = "/api";
 
 const debugScreenshotWidthPixels = 320;
 const debugScreenshotHeightPixels = 180;
+const multiplayerClientCameraWidthPixels = 256;
+const multiplayerCameraSmoothingPerAnimationFrame = 0.18;
 
 function makeDiagnosticScreenshot(source: HTMLCanvasElement): string {
   const diagnostic = document.createElement("canvas");
@@ -615,6 +617,7 @@ function renderGame(
   let latestPredictionCommand: SimulationInputCommand | undefined;
   let lastPredictionAnimationMilliseconds = performance.now();
   let predictionFrameRemainderMilliseconds = 0;
+  let clientCameraLeftPixels: number | undefined;
   const socketUrl = new URL(
     `${multiplayerApiPrefix.replace(/^\//, "")}/socket`,
     window.location.href,
@@ -666,9 +669,20 @@ function renderGame(
     // the local avatar. Present it each browser frame so coins, enemies and
     // other simulation-driven actors move at 60 Hz; 20 Hz server receipts
     // remain the reconciliation baseline.
+    const targetCameraLeftPixels = Math.max(
+      0,
+      Number(predictedPlayer.position.x) -
+        multiplayerClientCameraWidthPixels / 2,
+    );
+    clientCameraLeftPixels =
+      clientCameraLeftPixels === undefined
+        ? targetCameraLeftPixels
+        : clientCameraLeftPixels +
+          (targetCameraLeftPixels - clientCameraLeftPixels) *
+            multiplayerCameraSmoothingPerAnimationFrame;
     renderer.presentSimulationState(
       prediction.snapshot().state,
-      snapshot.cameraLeftPixels,
+      clientCameraLeftPixels,
     );
     const interpolatedRemotePlayers = remoteInterpolator.positions(
       performance.now(),
