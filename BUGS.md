@@ -2,6 +2,15 @@
 
 ## Known Bugs
 
+### Standalone multiplayer could load development-only asset URLs — fixed (2026-08-05)
+
+A plain production build did not set `VITE_STATIC_CONTENT`, so it could replace
+the release client with one requesting `/__user-level-cache/` content. The
+standalone server correctly has no such development-cache route and returned
+`not found (HTTP 400)` before the login UI. The normal build now emits the
+same static `game-content/` URLs used by the standalone release build; a real
+browser login and Enter-to-lobby smoke test pass.
+
 ### Strict quality gate found duplicate multiplayer test setup — fixed (2026-08-05)
 
 The new death-rejoin test repeated the regular-game setup verbatim, which

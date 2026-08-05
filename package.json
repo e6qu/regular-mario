@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/ensure-smb-dev-cache.mjs && vite --host 127.0.0.1 --port 5177 --strictPort",
-    "build": "pnpm run typecheck && vite build",
+    "build": "pnpm run typecheck && VITE_STATIC_CONTENT=1 vite build",
     "build:server": "pnpm run typecheck && vite build --ssr src/server/main.ts --outDir server-dist",
     "start:server": "pnpm run build:release && pnpm run build:server && node server-dist/main.js",
     "build:release-content": "node scripts/build-release-content.mjs",

@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Standalone multiplayer build-path mismatch fixed (2026-08-05).** The
+ordinary production build now enables static release content, just like the
+standalone server build. A routine build can no longer replace the client with
+development-only `/__user-level-cache/` asset URLs, which caused the
+multiplayer route to show `not found (HTTP 400)` before login.
+
 **Multiplayer client death presentation is active (2026-08-05).**
 Authoritative-render scenes now invoke the same local death-effect start/step
 path as normal play when a reconciled outcome becomes defeated. The server

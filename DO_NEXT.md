@@ -10,6 +10,11 @@ Manual local starts must use an empty process. If a browser unexpectedly
 resumes a game, inspect `/api/admin/debug`; only restart the confirmed local
 server process, since games and sessions are deliberately ephemeral.
 
+The standalone service always requires a static-content release client. Keep
+`pnpm run build` in that mode: development-only `/__user-level-cache/` URLs
+are intentionally absent from the standalone server and otherwise turn the
+multiplayer entry route into an HTTP 400 before login.
+
 The multiplayer journey's live cadence gate is deliberate: effects expressed
 in simulation frames must consume authoritative-frame deltas, never raw packet
 arrivals, and remote state application must not force a display-list-wide depth

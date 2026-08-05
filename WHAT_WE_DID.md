@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — fixed standalone multiplayer content loading
+
+- Found the actual browser request behind `not found (HTTP 400)`: a normal
+  `pnpm run build` had overwritten the release client with one that requested
+  development-only `/__user-level-cache/` content, which the standalone
+  service must not expose.
+- Made the normal production build emit static release-content URLs. Rebuilt
+  and restarted the service; an actual browser now loads the required manifest,
+  presents login, and reaches the lobby by submitting the password form.
+
 ## 2026-08-05 — restored client-owned multiplayer death presentation
 
 - Wired authoritative-render presentation into the existing client-local
