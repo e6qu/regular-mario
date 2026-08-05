@@ -6,8 +6,8 @@
 
 - Static level actors now require authored rasters, including `open-gate`.
   Dynamic actors, projectiles, hazards, and lifts now do too. Continue this
-  boundary through level tiles and reaction effects; delete the now-unreachable
-  procedural actor implementation after a direct source guard is added.
+  boundary through level tiles and reaction effects; the obsolete procedural
+  actor implementation has been deleted.
   Missing art must throw a specific error, never select substitute vector art.
 
 ### Current recorded acceptance evidence (2026-08-05)

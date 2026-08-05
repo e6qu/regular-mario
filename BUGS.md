@@ -2,6 +2,12 @@
 
 ## Known Bugs
 
+### Dead procedural actor renderer remained after raster migration — fixed (2026-08-05)
+
+After every live call site required manifest art, the old actor-shape renderer
+and its supporting constants still remained in source. They are now deleted,
+while real production journey and raw-pixel parity checks still pass.
+
 ### Dynamic actors could select procedural substitute art — fixed (2026-08-05)
 
 Runtime-spawned items, shots, hazards, airborne enemies, and platforms had

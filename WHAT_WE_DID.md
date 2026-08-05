@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-05 — deleted the obsolete procedural actor renderer
+
+- Removed the disconnected geometric actor-renderer implementation and its
+  associated actor-shape constants instead of retaining functionally dead
+  fallback code. The remaining castle-clear timing and authored-rope constants
+  remain as explicit presentation behavior, not substitute art.
+- Passed typecheck, release build, real multiplayer journey, and both
+  local/server and two-client raw-pixel parity browser checks.
+
 ## 2026-08-05 — enforced raster-only dynamic actor rendering
 
 - Converted spawned actors, all projectile families, aerial/hatched/frenzy

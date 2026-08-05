@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Procedural actor renderer removed (2026-08-05).** The unused actor-shape
+implementation and its 800+ supporting lines are deleted, rather than merely
+being unreachable. Release build plus production multiplayer journey and
+local/server and two-client raw-pixel parity all pass after the deletion.
+
 **Dynamic actor raster-only rendering enforced (2026-08-05).** Spawned
 actors, player and timed projectiles, aerial enemies, hatched spinies, cheeps,
 flame hazards, and moving platforms now require manifest art instead of
