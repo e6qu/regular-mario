@@ -348,6 +348,26 @@ test("held-input heartbeats do not repeatedly reset local prediction", async ({
   expect(after - before).toBeLessThanOrEqual(2);
 });
 
+test("R always reaches the authoritative revive endpoint during live play", async ({
+  page,
+}) => {
+  await login(page);
+  await saveProfile(page, "ReviveKey");
+  await page.getByLabel("Bundled level").selectOption("smb-1-1");
+  await page.getByRole("button", { name: "Create game" }).click();
+  const shell = page.locator(".multiplayer-game-shell");
+  await expect(shell).toHaveAttribute("data-game-phase", "playing");
+
+  // This player is deliberately active, so the server must reject the revive;
+  // the assertion proves the physical key is not consumed by the render scene
+  // or silently discarded by a stale client spectator flag.
+  await page.keyboard.press("KeyR");
+  await expect(shell).toHaveAttribute("data-debug-revive-request-count", "1");
+  await expect(shell.locator(".multiplayer-game-error")).toContainText(
+    "Only defeated players can revive.",
+  );
+});
+
 test("a newer game connection supersedes the previous socket for one player", async ({
   browser,
 }) => {

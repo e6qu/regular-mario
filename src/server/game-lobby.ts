@@ -1,6 +1,11 @@
 import type { LevelSpec } from "../engine/domain/level-spec";
+import type { TilePoint } from "../engine/domain/units";
 import type { MovementConstants } from "../engine/simulation/movement-model";
-import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
+import { teleportPlayerToTilePosition } from "../engine/simulation/pipe-state";
+import {
+  makeInitialSimulationState,
+  type SimulationState,
+} from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
 import { PipeEntryPhase } from "../engine/simulation/pipe-state";
 import {
@@ -46,7 +51,12 @@ type HostedGame = {
   levelId: string;
   runner: AuthoritativeGameRunner;
   readonly chat: EphemeralChatRoom;
-  pendingWarpTargetLevelId: string | undefined;
+  pendingWarp: PipeWarpTarget | undefined;
+};
+
+type PipeWarpTarget = {
+  readonly levelId: string;
+  readonly targetTilePosition: TilePoint;
 };
 
 export type MultiplayerLobby = {
@@ -159,6 +169,7 @@ export function makeMultiplayerLobby(
     levelId: string,
     mode: MultiplayerGameMode,
     members: readonly MultiplayerPlayerProfile[],
+    pipeDestination: TilePoint | undefined = undefined,
   ): AuthoritativeGameRunner {
     const level = levelById.get(levelId);
     if (level === undefined) {
@@ -174,12 +185,28 @@ export function makeMultiplayerLobby(
         "Selected level cannot create an initial simulation state.",
       );
     }
+    const stateAtPipeDestination =
+      pipeDestination === undefined
+        ? initialState.value
+        : {
+            ...initialState.value,
+            players: [
+              {
+                ...initialState.value.players[0],
+                player: teleportPlayerToTilePosition(
+                  initialState.value.players[0].player,
+                  pipeDestination,
+                  level.levelSpec,
+                ),
+              },
+            ] as SimulationState["players"],
+          };
     const runner = makeAuthoritativeGameRunner({
       gameId,
       levelId,
       creator,
       mode,
-      initialState: initialState.value,
+      initialState: stateAtPipeDestination,
       levelSpec: level.levelSpec,
       movementConstants: config.movementConstants,
     });
@@ -238,12 +265,15 @@ export function makeMultiplayerLobby(
           `Entry pipe targets unavailable bundled level ${state.pipeEntry.targetLevelName}.`,
         );
       }
-      game.pendingWarpTargetLevelId = state.pipeEntry.targetLevelName;
+      game.pendingWarp = {
+        levelId: state.pipeEntry.targetLevelName,
+        targetTilePosition: state.pipeEntry.targetTilePosition,
+      };
       return undefined;
     }
-    const targetLevelId = game.pendingWarpTargetLevelId;
+    const pendingWarp = game.pendingWarp;
     if (
-      targetLevelId === undefined ||
+      pendingWarp === undefined ||
       state.pipeEntry.phase !== PipeEntryPhase.None
     ) {
       return undefined;
@@ -257,16 +287,17 @@ export function makeMultiplayerLobby(
     if (firstMember === undefined) {
       throw new Error("A running entry pipe cannot warp an empty party.");
     }
-    game.levelId = targetLevelId;
+    game.levelId = pendingWarp.levelId;
     game.runner = makeRunner(
       gameId,
       firstMember,
-      targetLevelId,
+      pendingWarp.levelId,
       snapshot.mode,
       members,
+      pendingWarp.targetTilePosition,
     );
     game.runner.start(firstMember.playerId);
-    game.pendingWarpTargetLevelId = undefined;
+    game.pendingWarp = undefined;
     return game.runner.snapshot();
   }
 
@@ -283,7 +314,7 @@ export function makeMultiplayerLobby(
         levelId,
         runner: makeRunner(gameId, creator, levelId, mode, [creator]),
         chat: makeEphemeralChatRoom(),
-        pendingWarpTargetLevelId: undefined,
+        pendingWarp: undefined,
       };
       gamesById.set(gameId, game);
       gameIdByPlayerId.set(creator.playerId, gameId);

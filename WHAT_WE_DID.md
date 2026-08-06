@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-06 — corrected multiplayer pipe arrivals and revive-key routing
+
+- Preserved each authoritative cross-level pipe's declared destination tile
+  through runner replacement, so party members arrive at the connected pipe
+  exit rather than the destination area's ordinary player-start tile.
+- Made R a reliable live-game request: it is never silently gated by a stale
+  client spectator flag, while server authority still permits revival only for
+  defeated players. The browser surfaces rejected active-player requests.
+- Added exact pipe-arrival and physical-key browser regressions; focused core
+  tests and the six-journey real-browser multiplayer suite pass.
+
 ## 2026-08-06 — completed a multiplayer UI and browser-proof sweep
 
 - Deleted the unmounted legacy game drawer and its obsolete waiting-room

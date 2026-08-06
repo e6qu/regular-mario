@@ -1,5 +1,19 @@
 # BUGS.md
 
+### Multiplayer cross-level pipes reset the party to the target start — fixed (2026-08-06)
+
+The lobby correctly found the next bundled level but rebuilt its runner from
+that level's normal player-start, discarding the pipe's `targetTilePosition`.
+The replacement runner now begins at the declared target tile; the regression
+checks the first authoritative post-handoff position.
+
+### R could be silently ignored for a dead multiplayer player — fixed (2026-08-06)
+
+The browser required its latest spectator flag before it would send a revive.
+An out-of-date receipt could therefore swallow R. A live-game R now always
+requests server-authoritative revival and displays a rejection when the player
+is not actually defeated.
+
 ### Retired game drawer remained as dead UI/test code — fixed (2026-08-06)
 
 Gameplay already hid the drawer, but still constructed its controls and a

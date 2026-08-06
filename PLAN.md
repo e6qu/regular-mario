@@ -53,7 +53,7 @@ its local player.
   a deliberate member pause remains paused until a member toggles it with P.
 - A valid entry pipe is resolved by the authoritative game after its fixed
   entry animation. The server switches the whole party into the pipe's linked
-  bundled area; internal warp areas are available to the runner but are not
+  bundled area at the pipe's declared destination tile; internal warp areas are available to the runner but are not
   selectable from the public lobby. Piranha movement is server-simulated and
   client-rendered from the synchronized actor state.
 - Games, chats, queues, and sessions are deliberately ephemeral: a service

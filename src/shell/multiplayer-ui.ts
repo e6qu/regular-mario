@@ -1110,13 +1110,22 @@ function renderGame(
     if (
       event.code === "KeyR" &&
       !chatEditing &&
-      latestAuthoritativeSnapshot?.phase === "playing" &&
-      latestAuthoritativeSnapshot.players.some(
-        (player) => player.playerId === profile.playerId && player.spectator,
-      )
+      latestAuthoritativeSnapshot?.phase === "playing"
     ) {
       event.preventDefault();
-      void requestJson("/game/revive", { method: "POST" });
+      const reviveRequestCount = Number(
+        gameShell.getAttribute("data-debug-revive-request-count") ?? "0",
+      );
+      gameShell.setAttribute(
+        "data-debug-revive-request-count",
+        String(reviveRequestCount + 1),
+      );
+      void requestJson("/game/revive", { method: "POST" }).catch((error) => {
+        // R must never be silently ignored. The server remains the authority
+        // on whether this player is currently a defeated spectator.
+        gameError.textContent =
+          error instanceof Error ? error.message : "Could not revive player.";
+      });
       return;
     }
     if (

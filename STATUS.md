@@ -2,6 +2,13 @@
 
 ## Current State
 
+**Pipe handoffs and the R revive key are reliable (2026-08-06).** A
+cross-level multiplayer pipe now carries its declared destination tile into
+the freshly authoritative target-area simulation rather than placing the party
+at that area's normal start. During live play R always reaches the server
+revive endpoint; the server decides whether the player is a defeated spectator
+and the client visibly reports an invalid active-player request.
+
 **Multiplayer UI and browser proof sweep is clean (2026-08-06).** Gameplay no
 longer constructs the retired in-game drawer at all: the canvas owns the full
 viewport, chat remains the T overlay, and semantic layout data remains

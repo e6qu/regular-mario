@@ -1,5 +1,9 @@
 # DO_NEXT.md
 
+- Keep pipe target coordinates part of the authoritative level-handoff
+  contract. Any future runner replacement must preserve the connected exit,
+  not use an implicit player-start position.
+
 - Preserve the full-viewport game contract: gameplay controls must remain
   keyboard/chat overlays and semantic inspection must never affect canvas
   layout. Keep browser assertions on live state attributes rather than hidden

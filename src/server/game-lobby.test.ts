@@ -18,6 +18,7 @@ import {
 } from "../multiplayer/domain";
 import type { MultiplayerPlayerProfile } from "../multiplayer/game-runner";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
+import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import { makeMultiplayerLobby } from "./game-lobby";
 
 function profile(id: string, nickname: string): MultiplayerPlayerProfile {
@@ -156,11 +157,22 @@ describe("public multiplayer lobby", () => {
       lobby.stepAll(frame);
     }
 
-    expect(lobby.gameSnapshot(game.gameId)).toMatchObject({
+    const handoff = lobby.gameSnapshot(game.gameId);
+    expect(handoff).toMatchObject({
       levelId: warpRouteUndergroundLevelName,
       phase: MultiplayerGamePhase.Playing,
       frame: 1,
     });
+    // A cross-level pipe must retain its declared destination, never rebuild
+    // the target area at that level's ordinary player-start tile.
+    const pipeArrival = decodeMultiplayerSimulationState(
+      handoff.simulationState,
+    ).players[0].player.position;
+    expect(pipeArrival.x).toBe(32);
+    // The first frame has gravity after the teleport, so it is just below the
+    // exact feet-anchored tile position rather than at the target level start.
+    expect(pipeArrival.y).toBeGreaterThan(32);
+    expect(pipeArrival.y).toBeLessThan(33);
   });
 
   it("keeps lobby and game chat separate and membership-gated", () => {
