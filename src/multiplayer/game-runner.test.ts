@@ -88,6 +88,22 @@ function makeInitialState(): SimulationState {
   return initial.value;
 }
 
+function makeDefeatedPlayerRunner(): AuthoritativeGameRunner {
+  const initial = makeInitialState();
+  return makeRunnerWithInitialState({
+    ...initial,
+    players: [
+      {
+        ...initial.players[0],
+        outcome: {
+          kind: PlayerOutcomeKind.Defeated,
+          reason: PlayerDefeatReason.PitContact,
+        },
+      },
+    ],
+  });
+}
+
 function multiplayerLevelSpec() {
   const result = makeLevelSpec(finishRouteLevelInput);
   if (!result.ok) {
@@ -494,38 +510,14 @@ describe("authoritative multiplayer game runner", () => {
   });
 
   it("retains defeated members as spectators while active players continue", () => {
-    const initial = makeInitialState();
-    const runner = makeRunnerWithInitialState({
-      ...initial,
-      players: [
-        {
-          ...initial.players[0],
-          outcome: {
-            kind: PlayerOutcomeKind.Defeated,
-            reason: PlayerDefeatReason.PitContact,
-          },
-        },
-      ],
-    });
+    const runner = makeDefeatedPlayerRunner();
     const snapshot = runner.snapshot();
     expect(snapshot.players[0]?.spectator).toBe(true);
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Waiting);
   });
 
   it("revives only the defeated player without restarting the shared game", () => {
-    const initial = makeInitialState();
-    const runner = makeRunnerWithInitialState({
-      ...initial,
-      players: [
-        {
-          ...initial.players[0],
-          outcome: {
-            kind: PlayerOutcomeKind.Defeated,
-            reason: PlayerDefeatReason.PitContact,
-          },
-        },
-      ],
-    });
+    const runner = makeDefeatedPlayerRunner();
     runner.start(requireMultiplayerPlayerId("mira"));
     runner.step(1);
     runner.step(2);
@@ -543,19 +535,7 @@ describe("authoritative multiplayer game runner", () => {
   });
 
   it("allows a defeated player to revive while the party is paused", () => {
-    const initial = makeInitialState();
-    const runner = makeRunnerWithInitialState({
-      ...initial,
-      players: [
-        {
-          ...initial.players[0],
-          outcome: {
-            kind: PlayerOutcomeKind.Defeated,
-            reason: PlayerDefeatReason.PitContact,
-          },
-        },
-      ],
-    });
+    const runner = makeDefeatedPlayerRunner();
     runner.start(requireMultiplayerPlayerId("mira"));
     runner.pause();
     const revived = runner.revive(requireMultiplayerPlayerId("mira"));
