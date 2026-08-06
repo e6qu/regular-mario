@@ -791,17 +791,20 @@ The focused World 1-1 visual parity, lifecycle, and mirrored-input checks are
 green, but the four-player recorded full-completion journey still names retired
 fixture routes. It is not valid evidence for release World-map completion until
 that journey is retargeted and rerun from each player perspective.
+
 # Completion and presentation verification in progress (2026-08-06)
 
 The server previously advanced/deleted a completed multiplayer course in the
 same tick, leaving no stable state for a client cutscene. It now holds the
 finished state for the explicit presentation interval. Browser proof of the
 whole sequence, including the remaining visible-lag audit, is still required.
+
 ### Rejoining could retain a detached Phaser session — fixed (2026-08-06)
 
 `renderGame` replaced its DOM host without disposing the prior renderer. The
 detached scene retained audio and listeners, yielding double music and
 concurrent sessions. Each mount now has one explicit game owner.
+
 ### R could be blocked by presentation/menu state — fixed (2026-08-06)
 
 The client gated R on a `playing` receipt and rejected all keys behind the

@@ -548,6 +548,7 @@ Everything from the previous "known deltas" list is now in:
 - Continue replacing remaining optional primitive render branches in
   `BootScene` with explicit authored-asset requirements, with coverage tests
   for every shipped content-set level.
+
 # Immediate verification
 
 - Finish the real Playwright multiplayer journey after the completion/menu
