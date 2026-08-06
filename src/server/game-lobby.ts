@@ -22,6 +22,7 @@ import {
   type MultiplayerPlayerProfile,
 } from "../multiplayer/game-runner";
 import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
+import { multiplayerCompletionPresentationMilliseconds } from "../multiplayer/completion-presentation";
 import type { QueuedSimulationInput } from "../multiplayer/input-queue";
 import {
   makeEphemeralChatRoom,
@@ -52,6 +53,7 @@ type HostedGame = {
   runner: AuthoritativeGameRunner;
   readonly chat: EphemeralChatRoom;
   pendingWarp: PipeWarpTarget | undefined;
+  completionReadyAtMilliseconds: number | undefined;
 };
 
 type PipeWarpTarget = {
@@ -315,6 +317,7 @@ export function makeMultiplayerLobby(
         runner: makeRunner(gameId, creator, levelId, mode, [creator]),
         chat: makeEphemeralChatRoom(),
         pendingWarp: undefined,
+        completionReadyAtMilliseconds: undefined,
       };
       gamesById.set(gameId, game);
       gameIdByPlayerId.set(creator.playerId, gameId);
@@ -370,8 +373,8 @@ export function makeMultiplayerLobby(
     },
     endGame(playerId, gameId) {
       const game = requireGame(gameId);
-      if (game.creatorPlayerId !== playerId) {
-        throw new Error("Only the game creator can end this game.");
+      if (gameIdByPlayerId.get(playerId) !== gameId) {
+        throw new Error("Only current game members can cancel this game.");
       }
       gamesById.delete(gameId);
       for (const player of game.runner.snapshot().players) {
@@ -409,7 +412,26 @@ export function makeMultiplayerLobby(
       const snapshots: AuthoritativeGameSnapshot[] = [];
       const completedGameIds: MultiplayerGameId[] = [];
       for (const [gameId, game] of gamesById.entries()) {
-        if (game.runner.snapshot().phase === MultiplayerGamePhase.Playing) {
+        const current = game.runner.snapshot();
+        if (current.phase === MultiplayerGamePhase.Finished) {
+          if (game.completionReadyAtMilliseconds === undefined) {
+            game.completionReadyAtMilliseconds =
+              nowMilliseconds + multiplayerCompletionPresentationMilliseconds;
+          }
+          if (nowMilliseconds < game.completionReadyAtMilliseconds) {
+            snapshots.push(current);
+            continue;
+          }
+          const advanced = advanceCompletedGame(gameId, game);
+          if (advanced === undefined) {
+            completedGameIds.push(gameId);
+          } else {
+            game.completionReadyAtMilliseconds = undefined;
+            snapshots.push(advanced);
+          }
+          continue;
+        }
+        if (current.phase === MultiplayerGamePhase.Playing) {
           const snapshot = game.runner.step(nowMilliseconds);
           snapshots.push(snapshot);
           const warped = advancePipeWarp(gameId, game, snapshot);
@@ -418,12 +440,8 @@ export function makeMultiplayerLobby(
             continue;
           }
           if (snapshot.phase === MultiplayerGamePhase.Finished) {
-            const advanced = advanceCompletedGame(gameId, game);
-            if (advanced === undefined) {
-              completedGameIds.push(gameId);
-            } else {
-              snapshots[snapshots.length - 1] = advanced;
-            }
+            game.completionReadyAtMilliseconds =
+              nowMilliseconds + multiplayerCompletionPresentationMilliseconds;
           }
         }
       }

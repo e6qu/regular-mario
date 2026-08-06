@@ -548,3 +548,11 @@ Everything from the previous "known deltas" list is now in:
 - Continue replacing remaining optional primitive render branches in
   `BootScene` with explicit authored-asset requirements, with coverage tests
   for every shipped content-set level.
+# Immediate verification
+
+- Finish the real Playwright multiplayer journey after the completion/menu
+  lifecycle change, including the new cancel-for-everyone path and the
+  full-level completion presentation.
+- Inspect the captured completion frame for the flag/castle animation and
+  retain the browser performance/cadence result before claiming the remaining
+  visible-lag issue closed.

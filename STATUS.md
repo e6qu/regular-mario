@@ -2,6 +2,13 @@
 
 ## Current State
 
+**Multiplayer completion and Escape lifecycle are being tightened (2026-08-06).**
+Completed authoritative courses now remain frozen for a seven-second shared
+presentation interval so each client can run the existing flag/castle sequence
+locally before server advancement. Escape opens a compact game menu; any
+current member may leave or cancel the entire game, returning all members to
+the lobby. Focused core/type checks pass; the browser journey is being rerun.
+
 **Pipe handoffs and the R revive key are reliable (2026-08-06).** A
 cross-level multiplayer pipe now carries its declared destination tile into
 the freshly authoritative target-area simulation rather than placing the party

@@ -99,6 +99,13 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-chat-feed { position: absolute; z-index: 2; left: 18px; bottom: 18px; width: min(430px, calc(100vw - 36px)); display: grid; gap: 6px; pointer-events: none; }
     .multiplayer-game-chat-feed p { margin: 0; padding: 7px 10px; color: #fffef6; background: rgb(23 32 51 / 72%); border-left: 3px solid #ffd54a; font: 700 14px/1.35 monospace; text-shadow: 1px 1px #172033; }
     .multiplayer-game-shell[data-chat-open=true] .multiplayer-game-chat-feed { visibility: hidden; }
+    .multiplayer-game-menu { position: absolute; z-index: 5; inset: 0; display: none; place-items: center; background: rgb(23 32 51 / 40%); }
+    .multiplayer-game-shell[data-menu-open=true] .multiplayer-game-menu { display: grid; }
+    .multiplayer-game-menu > section { min-width: min(330px, calc(100vw - 36px)); padding: 18px; border: 4px solid #172033; background: #f5f7fb; box-shadow: 7px 7px 0 #285a37; color: #172033; font: 700 16px/1.35 monospace; }
+    .multiplayer-game-menu h2 { margin: 0 0 8px; }
+    .multiplayer-game-menu p { margin: 0 0 12px; }
+    .multiplayer-game-menu button { margin: 4px; padding: 8px 11px; border: 3px solid #172033; background: #ffd54a; color: #172033; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 3px 3px 0 #b9682f; }
+    .multiplayer-game-menu button[data-danger=true] { background: #ef7860; }
     .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
     .multiplayer-game-error:empty { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
@@ -497,10 +504,22 @@ function renderGame(
   semanticInspector.hidden = true;
   const gameChatOverlay = makeChat("Game chat message");
   gameChatOverlay.classList.add("multiplayer-game-chat-overlay");
+  const gameMenu = document.createElement("aside");
+  gameMenu.className = "multiplayer-game-menu";
+  gameMenu.setAttribute("aria-label", "Game menu");
+  const gameMenuPanel = document.createElement("section");
+  gameMenuPanel.append(
+    Object.assign(document.createElement("h2"), { textContent: "Game menu" }),
+    Object.assign(document.createElement("p"), {
+      textContent: "Escape closes this menu. P pauses or resumes for everyone.",
+    }),
+  );
+  gameMenu.append(gameMenuPanel);
   gameShell.append(
     gameHost,
     gameChatFeed,
     gameChatOverlay,
+    gameMenu,
     gameError,
     semanticInspector,
   );
@@ -556,10 +575,10 @@ function renderGame(
   let predictionReconcileCount = 0;
   const audio = new GameAudio();
   const remoteInterpolator = makeRemotePlayerInterpolator(100);
-  let completedAudioPlayed = false;
   let latestAuthoritativeFrame = 0;
   let latestAuthoritativeSnapshot: GameSnapshot | undefined;
   let completionConfirmationInFlight = false;
+  let completionPresentationStarted = false;
   let initialDebugScreenshotSubmitted = false;
   let sentInputCount = 0;
   const snapshotsByGameId = new Map<string, GameSnapshot>();
@@ -575,6 +594,7 @@ function renderGame(
   socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const socket = new WebSocket(socketUrl);
   let socketLifecycle = "connecting";
+  let exitingGame = false;
   const recordSocketLifecycle = (): void => {
     gameShell.setAttribute("data-debug-socket-lifecycle", socketLifecycle);
     gameShell.setAttribute(
@@ -602,10 +622,53 @@ function renderGame(
     window.removeEventListener("keydown", escapeLeave);
   }
   async function leaveCurrentGame(): Promise<void> {
-    await requestJson("/game/leave", { method: "POST" });
+    if (exitingGame) {
+      return;
+    }
+    exitingGame = true;
+    gameShell.setAttribute("data-debug-leave-requested", "true");
+    // Stop the predictive render loop before issuing this lifecycle request.
+    // Keeping a 60 Hz canvas simulation alive behind an open menu can starve
+    // the browser's interaction task queue on slower machines.
     dispose();
-    await renderLobby(mount, userAssetBundle);
+    try {
+      await requestJson("/game/leave", { method: "POST" });
+      await renderLobby(mount, userAssetBundle);
+    } catch (error) {
+      exitingGame = false;
+      gameError.textContent =
+        error instanceof Error ? error.message : "Could not leave game.";
+    }
   }
+  async function cancelCurrentGame(): Promise<void> {
+    if (exitingGame) {
+      return;
+    }
+    exitingGame = true;
+    gameShell.setAttribute("data-debug-cancel-requested", "true");
+    dispose();
+    try {
+      await requestJson(`/games/${gameId}/end`, { method: "POST" });
+      await renderLobby(mount, userAssetBundle);
+    } catch (error) {
+      exitingGame = false;
+      gameError.textContent =
+        error instanceof Error ? error.message : "Could not cancel game.";
+    }
+  }
+  const setGameMenuOpen = (open: boolean): void => {
+    gameShell.setAttribute("data-menu-open", String(open));
+  };
+  const cancelButton = makeButton(
+    "Cancel game for everyone",
+    () => void cancelCurrentGame(),
+  );
+  cancelButton.dataset.danger = "true";
+  gameMenuPanel.append(
+    makeButton("Resume", () => setGameMenuOpen(false)),
+    makeButton("Leave game", () => void leaveCurrentGame()),
+    cancelButton,
+  );
   const escapeLeave = (event: KeyboardEvent): void => {
     if (event.key !== "Escape" || disposed) {
       return;
@@ -618,7 +681,8 @@ function renderGame(
       }
       return;
     }
-    void leaveCurrentGame();
+    event.preventDefault();
+    setGameMenuOpen(gameShell.getAttribute("data-menu-open") !== "true");
   };
   window.addEventListener("keydown", escapeLeave);
   function renderPresentation(): void {
@@ -764,6 +828,8 @@ function renderGame(
       localPlayerSlot = undefined;
       latestImmediatelyPredictedInputSequence = -1;
       lastReconciledImmediatelyPredictedInputSequence = -1;
+      completionConfirmationInFlight = false;
+      completionPresentationStarted = false;
     } else {
       latestAuthoritativeFrame = Math.max(
         latestAuthoritativeFrame,
@@ -846,9 +912,15 @@ function renderGame(
     // lightweight predicted/interpolated player transforms.
     renderer.render(snapshot);
     renderPresentation();
-    if (snapshot.phase === "finished" && !completionConfirmationInFlight) {
-      completionConfirmationInFlight = true;
-      void confirmCompletedGame(snapshot);
+    if (snapshot.phase === "finished" && !completionPresentationStarted) {
+      completionPresentationStarted = true;
+      renderer.beginCompletionPresentation();
+      window.setTimeout(() => {
+        if (!disposed && !completionConfirmationInFlight) {
+          completionConfirmationInFlight = true;
+          void confirmCompletedGame(snapshot);
+        }
+      }, multiplayerCompletionPresentationMilliseconds + 150);
     }
     // Preserve one diagnostic image for the admin surface without repeatedly
     // PNG-encoding a 1280×720 canvas on the gameplay/main thread. Repeated
@@ -892,14 +964,8 @@ function renderGame(
     if (disposed) {
       return;
     }
-    if (!completedAudioPlayed) {
-      audio.playEvents([SoundEvent.LevelComplete]);
-      completedAudioPlayed = true;
-    }
     dispose();
-    window.setTimeout(() => {
-      void renderLobby(mount, userAssetBundle);
-    }, 1500);
+    await renderLobby(mount, userAssetBundle);
   }
   socket.addEventListener("message", (event) => {
     const message: unknown = JSON.parse(String(event.data));
@@ -916,6 +982,15 @@ function renderGame(
         typeof message.error === "string"
           ? message.error
           : "Multiplayer protocol rejected a message.";
+      return;
+    }
+    if (message.type === "games-changed" && !exitingGame) {
+      void requestJson<GameSnapshot>(`/games/${gameId}/snapshot`).catch(() => {
+        if (!disposed) {
+          dispose();
+          void renderLobby(mount, userAssetBundle);
+        }
+      });
       return;
     }
     if (
@@ -1092,6 +1167,9 @@ function renderGame(
     recordSocketLifecycle();
   });
   const keydown = (event: KeyboardEvent) => {
+    if (gameShell.getAttribute("data-menu-open") === "true") {
+      return;
+    }
     if (
       event.code === "KeyP" &&
       !chatEditing &&
@@ -1373,10 +1451,7 @@ import { makeLevelSpec } from "../engine/domain/level-spec";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";
-import {
-  resolveSoundEvents,
-  SoundEvent,
-} from "../engine/simulation/sound-events";
+import { resolveSoundEvents } from "../engine/simulation/sound-events";
 import {
   makeClientPrediction,
   predictionRequiresLifecycleReconcile,
@@ -1384,6 +1459,7 @@ import {
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
 import { shouldReconcilePrediction } from "../multiplayer/reconciliation-policy";
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";
+import { multiplayerCompletionPresentationMilliseconds } from "../multiplayer/completion-presentation";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";
 import {

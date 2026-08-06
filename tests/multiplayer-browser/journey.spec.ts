@@ -132,9 +132,19 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   );
   await creator.keyboard.press("Escape");
   await guest.keyboard.press("Escape");
-  // The control must be actionable, not merely present. A guest leaving a
-  // playing game returns to the lobby and frees their only active-game slot.
-  await guest.keyboard.press("Escape");
+  // Escape opens the compact gameplay menu; leaving remains a deliberate
+  // action so an accidental key press cannot disconnect a live player.
+  const leaveResponse = guest.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/game/leave") &&
+      response.request().method() === "POST",
+  );
+  await guest.getByRole("button", { name: "Leave game" }).click();
+  await expect(guest.locator(".multiplayer-game-shell")).toHaveAttribute(
+    "data-debug-leave-requested",
+    "true",
+  );
+  expect((await leaveResponse).ok()).toBe(true);
   await expect(
     guest.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toBeVisible();
@@ -155,6 +165,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   // deleting its authoritative world. A later Escape follows the same leave
   // lifecycle and must not be interpreted as closing the game itself.
   await creator.keyboard.press("Escape");
+  await creator.getByRole("button", { name: "Leave game" }).click();
   await expect(
     creator.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toBeVisible();
@@ -181,6 +192,7 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
     )
     .toBeGreaterThan(frameBeforeRejoinInput);
   await guest.keyboard.press("Escape");
+  await guest.getByRole("button", { name: "Leave game" }).click();
   await expect(
     guest.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toBeVisible();
@@ -242,6 +254,41 @@ test("administrator can inspect and step a paused game", async ({
     path: "test-results/multiplayer-admin-mobile.png",
   });
   await adminContext.close();
+});
+
+test("any current member can cancel from the Escape menu and returns the party to lobby", async ({
+  browser,
+}) => {
+  const creatorContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  const creator = await creatorContext.newPage();
+  const guest = await guestContext.newPage();
+  await login(creator);
+  await saveProfile(creator, "CancelCreator");
+  await creator.getByRole("button", { name: "Create game" }).click();
+  await login(guest);
+  await saveProfile(guest, "CancelGuest");
+  await guest
+    .locator("section > div")
+    .filter({ hasText: /^CancelCreator · / })
+    .getByRole("button", { name: "Join" })
+    .click();
+  await expect(
+    guest.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+  await guest.keyboard.press("Escape");
+  await expect(
+    guest.getByRole("complementary", { name: "Game menu" }),
+  ).toBeVisible();
+  await guest.getByRole("button", { name: "Cancel game for everyone" }).click();
+  await expect(
+    guest.getByRole("heading", { name: "Trusted friends lobby" }),
+  ).toBeVisible();
+  await expect(
+    creator.getByRole("heading", { name: "Trusted friends lobby" }),
+  ).toBeVisible();
+  await creatorContext.close();
+  await guestContext.close();
 });
 
 test("a live game maintains render and snapshot cadence", async ({ page }) => {

@@ -606,6 +606,11 @@ export class BootScene extends Phaser.Scene {
   private levelIndex: number;
   private levelAdvanceDelayFramesRemaining = 0;
   private levelCompleteSoundPlayed = false;
+  // Multiplayer completion is still server-timed, but this scene owns the
+  // visible flag/castle sequence.  Freeze remote finish receipts once it has
+  // started so 20 Hz packets cannot redraw over a browser-frame animation.
+  private authoritativeCompletionPresentationRequested = false;
+  private authoritativeCompletionPresentationActive = false;
   // Event-music latches: the star theme swaps in while invincible, the death
   // jingle plays once on defeat, and the time-warning sting/speed-up fires once
   // as the clock drops under the warning threshold.
@@ -1123,6 +1128,12 @@ export class BootScene extends Phaser.Scene {
         "Only an authoritative-render scene can accept remote state.",
       );
     }
+    const isFinished =
+      state.players[0]?.outcome.kind === PlayerOutcomeKind.Finished ||
+      state.players[0]?.outcome.kind === PlayerOutcomeKind.DefeatedAndFinished;
+    if (this.authoritativeCompletionPresentationActive && isFinished) {
+      return;
+    }
     this.pendingAuthoritativeState = { state, cameraLeftPixels };
   }
 
@@ -1164,6 +1175,16 @@ export class BootScene extends Phaser.Scene {
 
   public isAuthoritativeRenderSceneReady(): boolean {
     return this.authoritativeRenderSceneReady;
+  }
+
+  /** Start the existing local visual finish sequence for a frozen server state. */
+  public beginAuthoritativeCompletionPresentation(): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can play a remote completion.",
+      );
+    }
+    this.authoritativeCompletionPresentationRequested = true;
   }
 
   /** Narrow paint receipt for production browser diagnostics. */
@@ -1243,7 +1264,9 @@ export class BootScene extends Phaser.Scene {
         "Only an authoritative-render scene can accept remote player positions.",
       );
     }
-    this.pendingAuthoritativePlayerPositions = positions;
+    if (!this.authoritativeCompletionPresentationActive) {
+      this.pendingAuthoritativePlayerPositions = positions;
+    }
   }
 
   public create(): void {
@@ -2455,7 +2478,11 @@ export class BootScene extends Phaser.Scene {
         (player) => player.nickname,
       );
     }
-    if (state !== undefined || playerPresentation !== undefined) {
+    if (
+      (state !== undefined || playerPresentation !== undefined) &&
+      !this.authoritativeCompletionPresentationActive &&
+      predictedState === undefined
+    ) {
       this.renderSimulationState("authoritative");
     }
     if (predictedState !== undefined) {
@@ -2488,6 +2515,60 @@ export class BootScene extends Phaser.Scene {
       }
       this.applyQueuedAuthoritativePlayerPositions(positions);
     }
+    if (this.authoritativeCompletionPresentationRequested) {
+      this.authoritativeCompletionPresentationRequested = false;
+      this.startAuthoritativeCompletionPresentation();
+    }
+  }
+
+  private startAuthoritativeCompletionPresentation(): void {
+    if (this.authoritativeCompletionPresentationActive) {
+      return;
+    }
+    if (!this.hasFinishedOutcome()) {
+      throw new Error(
+        "A multiplayer completion presentation requires a finished state.",
+      );
+    }
+    this.authoritativeCompletionPresentationActive = true;
+    this.levelCompleteSoundPlayed = true;
+    this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
+    this.beginFlagpoleSlide();
+    this.beginTimeBonusCountdown();
+    const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
+    this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
+    if (isCastleClear) {
+      this.castleClearTotalFrames =
+        this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
+        castleClearFallFrames +
+        castleClearWalkFrames +
+        castleClearMessageHoldFrames;
+      this.castleClearFramesRemaining = this.castleClearTotalFrames;
+      this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
+    }
+    this.game.canvas.setAttribute(
+      "data-authoritative-completion-active",
+      "true",
+    );
+  }
+
+  private stepAuthoritativeCompletionPresentation(): void {
+    if (!this.authoritativeCompletionPresentationActive) {
+      return;
+    }
+    if (this.levelAdvanceDelayFramesRemaining > 0) {
+      this.levelAdvanceDelayFramesRemaining -= 1;
+      this.stepFlagpoleSlide();
+      this.stepCastleClearCinematic();
+      this.stepVictoryFireworks();
+      this.stepTimeBonusCountdown();
+      return;
+    }
+    this.authoritativeCompletionPresentationActive = false;
+    this.game.canvas.setAttribute(
+      "data-authoritative-completion-active",
+      "false",
+    );
   }
 
   private applyQueuedAuthoritativePlayerPositions(
@@ -3825,6 +3906,7 @@ export class BootScene extends Phaser.Scene {
   public override update(): void {
     if (this.browserGameBootstrap.authoritativeRenderOnly === true) {
       this.flushAuthoritativePresentation();
+      this.stepAuthoritativeCompletionPresentation();
       return;
     }
     assertValidPlayerVitalityState(this.simulationState.players[0].vitality);

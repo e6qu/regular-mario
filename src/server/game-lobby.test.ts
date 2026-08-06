@@ -90,7 +90,7 @@ describe("public multiplayer lobby", () => {
     ).toThrow("only one game");
   });
 
-  it("lets only a creator start/end a game and steps all playing games", () => {
+  it("lets only a creator start but any current member cancel a game", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
     const ren = profile("ren", "Ren");
@@ -104,8 +104,9 @@ describe("public multiplayer lobby", () => {
       MultiplayerGamePhase.Playing,
     );
     expect(lobby.stepAll(1)).toHaveLength(1);
-    expect(() => lobby.endGame(ren.playerId, game.gameId)).toThrow("creator");
-    lobby.endGame(mira.playerId, game.gameId);
+    expect(() => lobby.endGame(ren.playerId, game.gameId)).toThrow("member");
+    lobby.joinGame(ren, game.gameId);
+    lobby.endGame(ren.playerId, game.gameId);
     expect(lobby.games()).toEqual([]);
   });
 

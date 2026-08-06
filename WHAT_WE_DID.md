@@ -5,6 +5,17 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-06 — multiplayer completion presentation and Escape menu
+
+- Held a finished authoritative course for a protocol-defined seven-second
+  interval; the shared BootScene now plays its established flagpole or castle
+  completion sequence locally while server simulation remains frozen.
+- Avoided rendering both a server receipt and its predicted successor in the
+  same browser paint, removing an unnecessary full-scene redraw at snapshot
+  cadence.
+- Added an Escape menu with deliberate Leave and all-members Cancel actions;
+  cancellation removes the game and returns every connected member to lobby.
+
 ## 2026-08-06 — corrected multiplayer pipe arrivals and revive-key routing
 
 - Preserved each authoritative cross-level pipe's declared destination tile

@@ -202,6 +202,14 @@ defects rather than treating the first transition as sufficient proof.
 
 ### Multiplayer lifecycle and co-op acceptance extension (2026-08-05)
 
+- A completed multiplayer course must remain server-frozen for the declared
+  client presentation interval. The browser renders the existing flagpole or
+  castle cutscene locally, then consumes the server's next-course transition;
+  this is a lifecycle rule, not a visual fallback.
+- Escape opens a compact gameplay menu. Any current member may leave their
+  slot or cancel the whole public game; cancellation broadcasts the removal
+  and takes every connected member back to the lobby.
+
 - Add real browser journeys for: death → spectator → party-checkpoint revive;
   leaving and rejoining a live game; the last player leaving an active game
   (game persists and pauses); any member pausing/resuming; and both players

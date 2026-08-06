@@ -24,6 +24,7 @@ export type MultiplayerPhaserRenderer = {
   presentPlayerPositions(
     positions: readonly { readonly x: number; readonly y: number }[],
   ): void;
+  beginCompletionPresentation(): void;
   destroy(): void;
 };
 
@@ -118,6 +119,7 @@ export function makeMultiplayerPhaserRenderer(
     | undefined;
   let ready = false;
   let destroyed = false;
+  let completionPresentationRequested = false;
   const waitForSceneReadiness = (): void => {
     if (ready || destroyed) {
       return;
@@ -150,6 +152,9 @@ export function makeMultiplayerPhaserRenderer(
       }
       if (latestPlayerPositions !== undefined) {
         candidate.applyAuthoritativePlayerPositions(latestPlayerPositions);
+      }
+      if (completionPresentationRequested) {
+        candidate.beginAuthoritativeCompletionPresentation();
       }
       return;
     }
@@ -211,6 +216,12 @@ export function makeMultiplayerPhaserRenderer(
       latestPlayerPositions = positions;
       if (ready) {
         requireRemoteScene(game).applyAuthoritativePlayerPositions(positions);
+      }
+    },
+    beginCompletionPresentation() {
+      completionPresentationRequested = true;
+      if (ready) {
+        requireRemoteScene(game).beginAuthoritativeCompletionPresentation();
       }
     },
     destroy() {
