@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { enterMultiplayerLobby, findGameIdByCreatorNickname } from "./support";
 
@@ -32,13 +32,22 @@ async function saveProfile(page: Page, nickname: string): Promise<void> {
   ).toBeVisible();
 }
 
+async function makeTwoPlayerPages(browser: Browser) {
+  const creatorContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  return {
+    creatorContext,
+    guestContext,
+    creator: await creatorContext.newPage(),
+    guest: await guestContext.newPage(),
+  };
+}
+
 test("two trusted friends create, join, chat, and inspect a game", async ({
   browser,
 }) => {
-  const creatorContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const creator = await creatorContext.newPage();
-  const guest = await guestContext.newPage();
+  const { creatorContext, guestContext, creator, guest } =
+    await makeTwoPlayerPages(browser);
   await login(creator);
   await saveProfile(creator, "Mira");
   await creator.getByLabel("Bundled level").selectOption("smb-1-1");
@@ -265,10 +274,8 @@ test("administrator can inspect and step a paused game", async ({
 test("any current member can cancel from the Escape menu and returns the party to lobby", async ({
   browser,
 }) => {
-  const creatorContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const creator = await creatorContext.newPage();
-  const guest = await guestContext.newPage();
+  const { creatorContext, guestContext, creator, guest } =
+    await makeTwoPlayerPages(browser);
   await login(creator);
   await saveProfile(creator, "CancelCreator");
   await creator.getByRole("button", { name: "Create game" }).click();

@@ -2542,25 +2542,30 @@ export class BootScene extends Phaser.Scene {
       );
     }
     this.authoritativeCompletionPresentationActive = true;
+    this.beginCompletionPresentation();
+    this.game.canvas.setAttribute(
+      "data-authoritative-completion-active",
+      "true",
+    );
+  }
+
+  private beginCompletionPresentation(): void {
     this.levelCompleteSoundPlayed = true;
     this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
     this.beginFlagpoleSlide();
     this.beginTimeBonusCountdown();
     const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
     this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
-    if (isCastleClear) {
-      this.castleClearTotalFrames =
-        this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
-        castleClearFallFrames +
-        castleClearWalkFrames +
-        castleClearMessageHoldFrames;
-      this.castleClearFramesRemaining = this.castleClearTotalFrames;
-      this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
+    if (!isCastleClear) {
+      return;
     }
-    this.game.canvas.setAttribute(
-      "data-authoritative-completion-active",
-      "true",
-    );
+    this.castleClearTotalFrames =
+      this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
+      castleClearFallFrames +
+      castleClearWalkFrames +
+      castleClearMessageHoldFrames;
+    this.castleClearFramesRemaining = this.castleClearTotalFrames;
+    this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
   }
 
   private stepAuthoritativeCompletionPresentation(): void {
@@ -4100,25 +4105,7 @@ export class BootScene extends Phaser.Scene {
     // the level then advances is decided when the delay elapses (a last level
     // just stays finished and offers a retry).
     if (!this.levelCompleteSoundPlayed && this.hasFinishedOutcome()) {
-      this.levelCompleteSoundPlayed = true;
-      this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
-      this.beginFlagpoleSlide();
-      this.beginTimeBonusCountdown();
-      // The flagpole grab takes over the music with the fanfare; a castle end
-      // (an axe, not a pole) plays the grander world-clear victory theme.
-      const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
-      this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
-      // A castle ends at the axe: stage the bridge chop, the boss's fall and
-      // the rescue message before the finish overlay appears.
-      if (isCastleClear) {
-        this.castleClearTotalFrames =
-          this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
-          castleClearFallFrames +
-          castleClearWalkFrames +
-          castleClearMessageHoldFrames;
-        this.castleClearFramesRemaining = this.castleClearTotalFrames;
-        this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
-      }
+      this.beginCompletionPresentation();
     }
 
     this.stepEventMusic();

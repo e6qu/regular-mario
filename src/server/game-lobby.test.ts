@@ -56,6 +56,15 @@ function createRegularGame(
   );
 }
 
+function makeStartedGameWithTwoProfiles() {
+  const lobby = makeLobby();
+  const mira = profile("mira", "Mira");
+  const ren = profile("ren", "Ren");
+  const game = createRegularGame(lobby, mira);
+  lobby.startGame(mira.playerId, game.gameId);
+  return { lobby, mira, ren, game };
+}
+
 function requireWarpRouteLevelSpec() {
   const result = makeLevelSpec({
     ...warpRouteLevelInput,
@@ -218,11 +227,7 @@ describe("public multiplayer lobby", () => {
   });
 
   it("resumes an empty-paused running game when a member reclaims its slot", () => {
-    const lobby = makeLobby();
-    const mira = profile("mira", "Mira");
-    const ren = profile("ren", "Ren");
-    const game = createRegularGame(lobby, mira);
-    lobby.startGame(mira.playerId, game.gameId);
+    const { lobby, mira, ren, game } = makeStartedGameWithTwoProfiles();
     lobby.leaveGame(mira.playerId);
     expect(lobby.games()).toMatchObject([
       {
@@ -241,11 +246,7 @@ describe("public multiplayer lobby", () => {
   });
 
   it("keeps a deliberate player pause paused when another member joins", () => {
-    const lobby = makeLobby();
-    const mira = profile("mira", "Mira");
-    const ren = profile("ren", "Ren");
-    const game = createRegularGame(lobby, mira);
-    lobby.startGame(mira.playerId, game.gameId);
+    const { lobby, mira, ren, game } = makeStartedGameWithTwoProfiles();
     lobby.pauseGameByPlayer(mira.playerId);
 
     expect(lobby.joinGame(ren, game.gameId)).toMatchObject({
