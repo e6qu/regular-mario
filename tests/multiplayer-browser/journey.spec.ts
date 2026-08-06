@@ -134,6 +134,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
     "Ren: hello from Ren",
   );
   await creator.keyboard.press("Escape");
+  // The first Escape exits the still-focused chat composer; the next opens
+  // the gameplay menu without accidentally disconnecting the player.
+  await guest.keyboard.press("Escape");
   await guest.keyboard.press("Escape");
   // Escape opens the compact gameplay menu; leaving remains a deliberate
   // action so an accidental key press cannot disconnect a live player.

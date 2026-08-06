@@ -34,7 +34,18 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
 }
 
 const multiplayerApiPrefix = "/api";
-const activeGameDisposerByMount = new WeakMap<HTMLElement, () => void>();
+
+/** All imperative resources owned by one mounted multiplayer game route. */
+type MountedGameSession = {
+  readonly kind: "mounted-game-session";
+  dispose(): void;
+};
+
+const activeGameSessionByMount = new WeakMap<HTMLElement, MountedGameSession>();
+
+function disposeMountedGameSession(mount: HTMLElement): void {
+  activeGameSessionByMount.get(mount)?.dispose();
+}
 
 const debugScreenshotWidthPixels = 320;
 const debugScreenshotHeightPixels = 180;
@@ -221,6 +232,10 @@ async function renderLobby(
   mount: HTMLElement,
   userAssetBundle: UserAssetBundle,
 ): Promise<void> {
+  // Route changes consume the current game resource before replacing DOM. This
+  // is deliberately at the lobby boundary as well as renderGame: no caller can
+  // accidentally render a lobby over a live Phaser/WebSocket/audio session.
+  disposeMountedGameSession(mount);
   const [lobby, levelResponse] = await Promise.all([
     requestJson<{
       readonly profile: PlayerProfile;
@@ -430,7 +445,7 @@ function renderGame(
 ): void {
   // A route refresh/rejoin may arrive while an earlier game shell is still
   // mounted. DOM replacement alone does not destroy Phaser or its audio graph.
-  activeGameDisposerByMount.get(mount)?.();
+  disposeMountedGameSession(mount);
   mount.replaceChildren();
   const gameShell = document.createElement("section");
   gameShell.className = "multiplayer-game-shell";
@@ -624,11 +639,14 @@ function renderGame(
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
     window.removeEventListener("keydown", escapeLeave);
-    if (activeGameDisposerByMount.get(mount) === dispose) {
-      activeGameDisposerByMount.delete(mount);
+    if (activeGameSessionByMount.get(mount)?.dispose === dispose) {
+      activeGameSessionByMount.delete(mount);
     }
   }
-  activeGameDisposerByMount.set(mount, dispose);
+  activeGameSessionByMount.set(mount, {
+    kind: "mounted-game-session",
+    dispose,
+  });
   async function leaveCurrentGame(): Promise<void> {
     if (exitingGame) {
       return;
