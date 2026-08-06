@@ -76,6 +76,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await expect(
     guest.getByLabel("Authoritative multiplayer game view"),
   ).toBeVisible();
+  await expect(
+    guest.locator('[data-role="multiplayer-phaser-canvas"]'),
+  ).toHaveCount(1);
 
   await expect(
     creator.getByLabel("Authoritative multiplayer game view"),

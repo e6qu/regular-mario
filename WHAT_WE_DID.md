@@ -5,6 +5,12 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-06 — exclusive multiplayer renderer teardown
+
+- Made a game mount own exactly one renderer/session; re-entry tears down the
+  predecessor before a replacement canvas can boot.
+- Explicitly silenced BootScene audio during renderer disposal.
+
 ## 2026-08-06 — multiplayer completion presentation and Escape menu
 
 - Held a finished authoritative course for a protocol-defined seven-second

@@ -1187,6 +1187,17 @@ export class BootScene extends Phaser.Scene {
     this.authoritativeCompletionPresentationRequested = true;
   }
 
+  /** Explicitly silence a detached multiplayer renderer before Phaser tears it down. */
+  public stopAuthoritativeRenderAudio(): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can be explicitly silenced.",
+      );
+    }
+    this.gameAudio.stopBackgroundMusic();
+    this.gameAudio.setLavaSizzle(false);
+  }
+
   /** Narrow paint receipt for production browser diagnostics. */
   public primaryObjectsWereQueuedForRender(): boolean {
     return (

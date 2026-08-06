@@ -34,6 +34,7 @@ function isGameSnapshot(value: unknown): value is GameSnapshot {
 }
 
 const multiplayerApiPrefix = "/api";
+const activeGameDisposerByMount = new WeakMap<HTMLElement, () => void>();
 
 const debugScreenshotWidthPixels = 320;
 const debugScreenshotHeightPixels = 180;
@@ -427,6 +428,9 @@ function renderGame(
   levelId: string,
   userAssetBundle: UserAssetBundle,
 ): void {
+  // A route refresh/rejoin may arrive while an earlier game shell is still
+  // mounted. DOM replacement alone does not destroy Phaser or its audio graph.
+  activeGameDisposerByMount.get(mount)?.();
   mount.replaceChildren();
   const gameShell = document.createElement("section");
   gameShell.className = "multiplayer-game-shell";
@@ -620,7 +624,11 @@ function renderGame(
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
     window.removeEventListener("keydown", escapeLeave);
+    if (activeGameDisposerByMount.get(mount) === dispose) {
+      activeGameDisposerByMount.delete(mount);
+    }
   }
+  activeGameDisposerByMount.set(mount, dispose);
   async function leaveCurrentGame(): Promise<void> {
     if (exitingGame) {
       return;
@@ -748,7 +756,8 @@ function renderGame(
     if (
       prediction !== undefined &&
       latestPredictionCommand !== undefined &&
-      latestAuthoritativeSnapshot?.phase === "playing"
+      (latestAuthoritativeSnapshot?.phase === "playing" ||
+        latestAuthoritativeSnapshot?.phase === "paused")
     ) {
       while (
         predictionFrameRemainderMilliseconds >=

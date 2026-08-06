@@ -226,6 +226,9 @@ export function makeMultiplayerPhaserRenderer(
     },
     destroy() {
       destroyed = true;
+      if (ready) {
+        requireRemoteScene(game).stopAuthoritativeRenderAudio();
+      }
       game.destroy(true);
       // Phaser's asynchronous destruction does not consistently detach the
       // canvas before a newly advanced server course mounts its replacement.

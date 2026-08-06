@@ -797,3 +797,8 @@ The server previously advanced/deleted a completed multiplayer course in the
 same tick, leaving no stable state for a client cutscene. It now holds the
 finished state for the explicit presentation interval. Browser proof of the
 whole sequence, including the remaining visible-lag audit, is still required.
+### Rejoining could retain a detached Phaser session — fixed (2026-08-06)
+
+`renderGame` replaced its DOM host without disposing the prior renderer. The
+detached scene retained audio and listeners, yielding double music and
+concurrent sessions. Each mount now has one explicit game owner.

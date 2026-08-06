@@ -2,6 +2,10 @@
 
 ## Current State
 
+**Multiplayer session ownership is exclusive (2026-08-06).** Re-entering a
+game now disposes the prior Phaser renderer, WebSocket, frame loop, input
+listeners, and audio before mounting the replacement.
+
 **Multiplayer completion and Escape lifecycle are being tightened (2026-08-06).**
 Completed authoritative courses now remain frozen for a seven-second shared
 presentation interval so each client can run the existing flag/castle sequence
