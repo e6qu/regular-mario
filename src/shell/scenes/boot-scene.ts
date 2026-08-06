@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+
+const authoritativeRenderSceneReadyEvent = "authoritative-render-scene-ready";
 import { makeLavaTileIds } from "../../engine/simulation/tile-collision-support";
 
 import {
@@ -92,7 +94,12 @@ import {
   resolveSoundEvents,
   SoundEvent,
 } from "../../engine/simulation/sound-events";
+import { stompReactionFrames } from "../../engine/simulation/stomp-reaction";
 import { stepSimulation } from "../../engine/simulation/step-simulation";
+import {
+  decodeMultiplayerSimulationState,
+  type MultiplayerSimulationWireState,
+} from "../../multiplayer/simulation-wire";
 import {
   makePlayerTileColumnSpan,
   makePlayerTileRowSpan,
@@ -315,9 +322,7 @@ const pitDefeatedOutcomeFeedbackText = "Fell into a pit — Press R";
 const timeUpDefeatedOutcomeFeedbackText = "Time up — Press R";
 const finishedOutcomeFeedbackText = "Gate reached — Press R";
 const simultaneousOutcomeFeedbackText = "Run ended at the gate — Press R";
-const tileStrokeColor = 0x172033;
 const skyTileColor = 0x8fd3e8;
-const skyCloudColor = 0xf4fbff;
 const grassTileColor = 0x6f4e37;
 const grassTopColor = 0x75a743;
 const grassBladeColor = 0x2f7d55;
@@ -418,250 +423,22 @@ function resolveMovementConstants(
   }
   return { ...base, bloodyBonks, godMode };
 }
-const thornTileColor = 0x355e3b;
-const thornPointColor = 0xf97316;
-const cannonTileColor = 0x293241;
-const cannonMouthColor = 0x111827;
-const cannonBandColor = 0x64748b;
-const cannonWarningColor = 0xf97316;
-const gateTileColor = 0xf4c542;
-const gateFrameColor = 0x374151;
-const gateShineColor = 0xfef3c7;
-const gateGemColor = 0x2dd4bf;
-const enemyBodyColor = 0x1f2937;
-const enemyShellColor = 0x0f766e;
-const enemyShellSpotColor = 0xf59e0b;
-const enemyEyeWhiteColor = 0xfafafa;
-const enemyEyePupilColor = 0x111827;
-const enemyLegColor = 0x451a03;
-const flyingEnemyBodyColor = 0xf59e0b;
-const flyingEnemyStripeColor = 0x111827;
-const flyingEnemyWingColor = 0xbae6fd;
-const flyingEnemyEyeColor = 0xfafafa;
-const chasingEnemyBodyColor = 0x1f2937;
-const chasingEnemySpikeColor = 0xf59e0b;
-const chasingEnemyEyeColor = 0xfafafa;
-const armoredEnemyShellColor = 0x0f766e;
-const armoredEnemySegmentColor = 0x115e59;
-const armoredEnemyClawColor = 0xf97316;
-const armoredEnemyEyeColor = 0xfafafa;
-const coinCoreColor = 0xfacc15;
-const coinShineColor = 0xfef3c7;
-const itemCoreColor = 0x2dd4bf;
-const itemShineColor = 0xccfbf1;
-const powerUpCoreColor = 0xf59e0b;
-const powerUpGemColor = 0x2dd4bf;
-const powerUpShineColor = 0xfefce8;
-const extraLifeCoreColor = 0x16a34a;
-const extraLifeMarkColor = 0xfef3c7;
-const invincibilityCoreColor = 0xfef08a;
-const invincibilityAccentColor = 0x22d3ee;
-const invincibilityShineColor = 0xfefce8;
-const climbableStemColor = 0x15803d;
-const climbableLeafColor = 0x86efac;
-const exitArchColor = 0x111827;
-const exitGlowColor = 0xf4c542;
+
 const actorRenderOffsetPixels = 2;
 const tileStrokeWidth = 1;
-const grassBladeOffsetX = 1;
-const grassBladeOffsetY = 2;
-const grassBladeInsetPixels = 2;
-const grassBladeHeightPixels = 3;
-const grassTopHeightPixels = 5;
-const grassDirtStoneWidthPixels = 4;
-const grassDirtStoneHeightPixels = 2;
-const grassDirtStoneOffsetX = 3;
-const grassDirtStoneOffsetY = 10;
-const stoneHighlightOffsetX = 3;
-const stoneHighlightOffsetY = 3;
-const stoneHighlightInsetPixels = 6;
-const stoneHighlightHeightPixels = 2;
-const gateShineOffsetX = 1;
-const gateShineOffsetY = 3;
-const gateShineWidthPixels = 1;
-const gateShineInsetPixels = 6;
-const gateGemSizePixels = 4;
-const hazardPointBaseOffsetX = 8;
-const hazardPointBaseOffsetY = 4;
-const hazardPointBaseX1 = 0;
-const hazardPointBaseY1 = 8;
-const hazardPointBaseX2 = 8;
-const hazardPointBaseY2 = 0;
-const hazardPointBaseX3 = 16;
-const hazardPointBaseY3 = 8;
-const springBaseColor = 0x0f766e;
-const springCoilColor = 0xfacc15;
-const springTopColor = 0xfef3c7;
-const springInsetPixels = 3;
-const springTopHeightPixels = 3;
-const springBaseHeightPixels = 4;
-const springCoilWidthPixels = 10;
-const springCoilHeightPixels = 2;
-const springCoilOffsetX = 3;
-const springFirstCoilOffsetY = 6;
-const springSecondCoilOffsetY = 10;
-const cannonMouthOffsetX = 3;
-const cannonMouthOffsetY = 1;
-const cannonMouthWidthPixels = 10;
-const cannonMouthHeightPixels = 4;
-const cannonBandOffsetY = 8;
-const cannonBandHeightPixels = 3;
-const cannonWarningWidthPixels = 2;
-const cannonWarningHeightPixels = 5;
-const cannonWarningLeftOffsetX = 4;
-const cannonWarningRightOffsetX = 10;
-const cannonWarningOffsetY = 5;
-const enemyBodyWidthPixels = 12;
-const enemyBodyHeightPixels = 8;
-const enemyBodyOffsetY = 2;
-const enemyShellWidthPixels = 8;
-const enemyShellHeightPixels = 5;
-const enemyShellOffsetX = 2;
-const enemyShellSpotSizePixels = 2;
-const enemyShellSpotOffsetX = 6;
-const enemyShellSpotOffsetY = 1;
-const enemyEyeSizePixels = 2;
-const enemyEyeOffsetX = 3;
-const enemyEyeOffsetY = 1;
-const enemyPupilSizePixels = 1;
-const enemyLegWidthPixels = 2;
-const enemyLegHeightPixels = 2;
-const enemyLeftLegOffsetX = 1;
-const enemyRightLegOffsetX = 9;
-const enemyLegOffsetY = 10;
-const flyingEnemyBodyWidthPixels = 10;
-const flyingEnemyBodyHeightPixels = 6;
-const flyingEnemyBodyOffsetX = 1;
-const flyingEnemyBodyOffsetY = 4;
-const flyingEnemyWingWidthPixels = 4;
-const flyingEnemyWingHeightPixels = 3;
-const flyingEnemyLeftWingOffsetX = 0;
-const flyingEnemyRightWingOffsetX = 9;
-const flyingEnemyWingOffsetY = 1;
-const flyingEnemyStripeWidthPixels = 2;
-const flyingEnemyStripeHeightPixels = 6;
-const flyingEnemyStripeOffsetX = 5;
-const flyingEnemyStripeOffsetY = 4;
-const flyingEnemyEyeSizePixels = 2;
-const flyingEnemyEyeOffsetX = 3;
-const flyingEnemyEyeOffsetY = 5;
-const chasingEnemyBodyWidthPixels = 12;
-const chasingEnemyBodyHeightPixels = 8;
-const chasingEnemyBodyOffsetY = 2;
-const chasingEnemySpikeSizePixels = 2;
-const chasingEnemySpikeOffsetY = 0;
-const chasingEnemyEyeSizePixels = 2;
-const chasingEnemyEyeOffsetX = 3;
-const chasingEnemyEyeOffsetY = 3;
-const armoredEnemyShellWidthPixels = 12;
-const armoredEnemyShellHeightPixels = 8;
-const armoredEnemyShellOffsetY = 2;
-const armoredEnemySegmentWidthPixels = 2;
-const armoredEnemySegmentHeightPixels = 6;
-const armoredEnemySegmentOffsetX = 5;
-const armoredEnemySegmentOffsetY = 3;
-const armoredEnemyClawWidthPixels = 3;
-const armoredEnemyClawHeightPixels = 3;
-const armoredEnemyLeftClawOffsetX = -1;
-const armoredEnemyRightClawOffsetX = 10;
-const armoredEnemyClawOffsetY = 7;
-const armoredEnemyEyeSizePixels = 2;
-const armoredEnemyEyeOffsetX = 3;
-const armoredEnemyEyeOffsetY = 4;
-const coinCoreRadiusPixels = 5;
-const coinShineWidthPixels = 2;
-const coinShineHeightPixels = 5;
-const coinShineOffsetX = -1;
-const coinShineOffsetY = -3;
-const itemCoreWidthPixels = 8;
-const itemCoreHeightPixels = 8;
-const itemShineWidthPixels = 2;
-const itemShineHeightPixels = 2;
-const itemShineOffsetX = 3;
-const itemShineOffsetY = 1;
-const powerUpCoreWidthPixels = 8;
-const interactiveBoxColor = 0xd97706;
-const interactiveBoxShineColor = 0xfef3c7;
-const usedBoxColor = 0x78350f;
-const interactiveBoxQuestionOffsetX = 4;
-const interactiveBoxQuestionOffsetY = 2;
-const powerUpCoreHeightPixels = 8;
-const powerUpShineWidthPixels = 4;
-const powerUpShineHeightPixels = 4;
-const powerUpShineOffsetX = 2;
-const powerUpShineOffsetY = 2;
-const powerUpSparkleSizePixels = 1;
-const powerUpSparkleInsetPixels = 1;
-const extraLifeCoreWidthPixels = 8;
-const extraLifeCoreHeightPixels = 8;
-const extraLifeStemWidthPixels = 2;
-const extraLifeStemHeightPixels = 6;
-const extraLifeBarWidthPixels = 6;
-const extraLifeBarHeightPixels = 2;
-const extraLifeStemOffsetX = 3;
-const extraLifeStemOffsetY = 1;
-const extraLifeBarOffsetX = 1;
-const extraLifeBarOffsetY = 3;
-const invincibilityCoreWidthPixels = 10;
-const invincibilityCoreHeightPixels = 10;
-const invincibilityCoreOffsetX = 1;
-const invincibilityCoreOffsetY = 1;
-const invincibilityAccentWidthPixels = 4;
-const invincibilityAccentHeightPixels = 4;
-const invincibilityAccentOffsetX = 4;
-const invincibilityAccentOffsetY = 4;
-const invincibilityShineSizePixels = 2;
-const invincibilityShineOffsetX = 7;
-const invincibilityShineOffsetY = 2;
-const climbableStemWidthPixels = 3;
-const climbableStemHeightPixels = 16;
-const climbableStemOffsetX = 6;
-const climbableLeafWidthPixels = 5;
-const climbableLeafHeightPixels = 3;
-const climbableLeftLeafOffsetX = 1;
-const climbableRightLeafOffsetX = 9;
-const climbableUpperLeafOffsetY = 4;
-const climbableLowerLeafOffsetY = 10;
-const exitArchWidthPixels = 12;
-const exitArchHeightPixels = 14;
-const exitGlowWidthPixels = 4;
-const exitGlowHeightPixels = 9;
-const exitGlowOffsetX = 4;
-const exitGlowOffsetY = 3;
-const exitBannerColor = 0x0f766e;
-const exitBannerWidthPixels = 3;
-const exitBannerHeightPixels = 9;
-const exitLeftBannerOffsetX = -2;
-const exitRightBannerOffsetX = 11;
-const exitBannerOffsetY = 2;
-const projectileColor = 0xfacc15;
-const projectileCoreColor = 0x2dd4bf;
-const projectileOutlineColor = 0x854d0e;
-const projectileSparkleColor = 0xfefce8;
-const projectileSparkleSizePixels = 1;
-const projectileMinimumCoreDimensionPixels = 1;
-const pipeColor = 0x0f766e;
-const pipeLipColor = 0x14b8a6;
-const pipeShadowColor = 0x115e59;
-const pipeHighlightColor = 0x5eead4;
-const pipeLipHeightPixels = 4;
-const pipeHighlightWidthPixels = 2;
-const pipeHighlightOffsetX = 3;
-const pipeHighlightOffsetY = 5;
-// The enterable-pipe cue: a dark opening inside the two-tile mouth ring.
-const pipeMouthWidthTiles = 2;
-const pipeMouthOpeningColor = 0x233a20;
-const pipeMouthOpeningDepthColor = 0x111d10;
-const pipeMouthOpeningInsetPixels = 3;
-const pipeMouthOpeningTopPixels = 2;
-const pipeMouthOpeningHeightPixels = 3;
-const pipeMouthOpeningDepthHeightPixels = 1;
-const parallaxDistantHillColor = 0x9ed69e;
-const parallaxHillColor = 0x00a800; // the original's overworld hill/bush green
-const parallaxBushColor = 0x00a800;
-const parallaxHillDotColor = 0x006800;
-const parallaxHillShadeColor = 0x007c00;
-const parallaxCloudColor = 0xf0f8ff;
+const itemCoreColor = 0x2dd4bf;
+const itemShineColor = 0xccfbf1;
+// Castle-clear cinematic pacing and the bridge tile it chops.
+const castleBridgeTileId = "castle-bridge";
+const castleBridgeChopFrames = 5;
+const castleClearFallFrames = 120;
+const castleClearFallSpeedPerFrame = 3;
+const castleClearWalkFrames = 110;
+const castleClearWalkSpeedPerFrame = 1.5;
+const castleClearFriendLeadPixels = 56;
+const castleClearMessageHoldFrames = 90;
+const platformRopeColor = 0xd6c4a0;
+const platformRopePulleyRowY = 2 * 16;
 // Frames between air bubbles rising from the swimmer in the water world.
 const swimBubbleIntervalFrames = 20;
 // Behind the tile layer (depth 0) but in front of the parallax background, so a
@@ -713,7 +490,7 @@ function makeBrowserProjectileSnapshot(projectile: {
 export class BootScene extends Phaser.Scene {
   private readonly browserGameBootstrap: BrowserGameBootstrap;
   // Which costume the player wears (default castaway; Luigi is the green swap).
-  private readonly playerCharacter: PlayerCharacter;
+  private playerCharacter: PlayerCharacter;
   // Revenge mode: you play the stomper (goomba/princess) and the walking
   // enemies are re-skinned as half-height Mario/Luigi you stomp.
   private readonly revengeMode: boolean;
@@ -829,6 +606,11 @@ export class BootScene extends Phaser.Scene {
   private levelIndex: number;
   private levelAdvanceDelayFramesRemaining = 0;
   private levelCompleteSoundPlayed = false;
+  // Multiplayer completion is still server-timed, but this scene owns the
+  // visible flag/castle sequence.  Freeze remote finish receipts once it has
+  // started so 20 Hz packets cannot redraw over a browser-frame animation.
+  private authoritativeCompletionPresentationRequested = false;
+  private authoritativeCompletionPresentationActive = false;
   // Event-music latches: the star theme swaps in while invincible, the death
   // jingle plays once on defeat, and the time-warning sting/speed-up fires once
   // as the clock drops under the warning threshold.
@@ -1007,12 +789,10 @@ export class BootScene extends Phaser.Scene {
   // sit strictly above it instead of the strip overlapping the play field.
   private reservedBottomPixels = 0;
   // An invisible anchor for the player's position (camera follow, death arc,
-  // flagpole slide). The visible player is always the authored sprite
-  // (playerImageObject); there is no procedural vector-rectangle player.
+  // flagpole slide). Visual presentation is always authored sprite art.
   private playerRectangle!: Phaser.GameObjects.Rectangle;
   private playerImageObject: Phaser.GameObjects.Image | undefined;
-  // Sprites for the additional co-op players (demo bots), kept in sync with
-  // simulationState.players[1..] and positioned from them each frame.
+  // Authored sprites for additional co-op players.
   private readonly coopPlayerImages: Phaser.GameObjects.Image[] = [];
   // Last non-trivial horizontal travel direction, so the water merman can face
   // the way he swims.
@@ -1024,6 +804,37 @@ export class BootScene extends Phaser.Scene {
   // frame behind a prompt until the player presses a key, so a slow first load
   // never means missing the start of the level.
   private awaitingStart = false;
+  // Phaser's core-ready signal fires before a scene has necessarily completed
+  // create(). Remote renderers use this durable receipt to avoid applying a
+  // network frame into the half-constructed seed scene.
+  private authoritativeRenderSceneReady = false;
+  // Browser network callbacks and Phaser's renderer have separate scheduling.
+  // Keep remote state and inexpensive predicted transforms queued so one
+  // Phaser update consumes them immediately before paint.
+  private pendingAuthoritativeState:
+    | { readonly state: SimulationState; readonly cameraLeftPixels: number }
+    | undefined;
+  // The server receipt and locally replayed prediction deliberately travel in
+  // separate lanes. A server receipt is where persistent world mutations are
+  // committed; the 60 Hz prediction lane is only allowed to animate the
+  // already-built world. Coalescing them made every browser frame reprocess
+  // static tiles and caused visible multiplayer stalls.
+  private pendingPredictedState:
+    | { readonly state: SimulationState; readonly cameraLeftPixels: number }
+    | undefined;
+  private acceptsPredictedPresentation = true;
+  private pendingAuthoritativePlayerPresentation:
+    | {
+        readonly primaryCharacter: PlayerCharacter;
+        readonly coopPlayers: readonly {
+          readonly character: PlayerCharacter;
+          readonly nickname: string;
+        }[];
+      }
+    | undefined;
+  private pendingAuthoritativePlayerPositions:
+    | readonly { readonly x: number; readonly y: number }[]
+    | undefined;
   private reactionText!: Phaser.GameObjects.Text;
   private stompReactionBurst!: Phaser.GameObjects.Text;
   private enemyStompReactionImage: Phaser.GameObjects.Image | undefined;
@@ -1036,6 +847,20 @@ export class BootScene extends Phaser.Scene {
   }[] = [];
   private previousDefeatedEnemyIds: ReadonlySet<string> = new Set();
   private previousEnemyKillScore = 0;
+  // Network state proves a stomp happened; this visual state deliberately does
+  // not reuse its position or remaining-frame counter. Each browser starts
+  // and advances the pop locally, so delivery cadence cannot stretch it.
+  private clientStompReaction = {
+    active: false,
+    remainingFrames: 0,
+    x: 0,
+    y: 0,
+  };
+  // The renderer may receive server state at 20 Hz while the deterministic
+  // simulation advances at 60 Hz. Presentation effects are specified in
+  // simulation frames, so retain the previously consumed frame and advance
+  // their lifetimes by the authoritative frame delta rather than by arrivals.
+  private previousRenderedSimulationFrame: number | undefined;
   // Per-Goomba flatten countdown: a stomped Goomba renders squashed until this
   // reaches zero, then it is hidden.
   private readonly flattenedEnemyTimers = new Map<string, number>();
@@ -1200,12 +1025,20 @@ export class BootScene extends Phaser.Scene {
   private sizeCanvasToDisplay(): void {
     const canvas = this.game.canvas;
     const parent = canvas.parentElement;
-    const cssWidth = Math.max(1, parent?.clientWidth ?? window.innerWidth);
+    // Read the resolved layout rectangle, not clientHeight: an inline or
+    // freshly replaced canvas can temporarily influence clientHeight and give
+    // one multiplayer client a taller backing buffer than its siblings.
+    const parentBounds = parent?.getBoundingClientRect();
+    const cssWidth = Math.max(
+      1,
+      Math.floor(parentBounds?.width ?? window.innerWidth),
+    );
     // Shrink the canvas by the space the replay strip reserves at the bottom so
     // the strip sits below the game area rather than over it.
     const cssHeight = Math.max(
       1,
-      (parent?.clientHeight ?? window.innerHeight) - this.reservedBottomPixels,
+      Math.floor(parentBounds?.height ?? window.innerHeight) -
+        this.reservedBottomPixels,
     );
     // The Canvas-2D renderer fills the whole backing store in software every
     // frame, so its cost scales with pixelRatio². On phones (coarse pointer,
@@ -1285,6 +1118,168 @@ export class BootScene extends Phaser.Scene {
     window.addEventListener("keydown", this.handleEarlyStartKey);
   }
 
+  /** Render a server-owned frame without stepping this scene's local simulation. */
+  public applyAuthoritativeSimulationState(
+    state: SimulationState,
+    cameraLeftPixels: number,
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept remote state.",
+      );
+    }
+    const isFinished =
+      state.players[0].outcome.kind === PlayerOutcomeKind.Finished ||
+      state.players[0].outcome.kind === PlayerOutcomeKind.DefeatedAndFinished;
+    if (this.authoritativeCompletionPresentationActive && isFinished) {
+      return;
+    }
+    this.pendingAuthoritativeState = { state, cameraLeftPixels };
+  }
+
+  /**
+   * Present the client's deterministic replay without treating it as a
+   * network receipt. This keeps input and moving actors smooth while static
+   * world changes remain ordered by the authoritative server stream.
+   */
+  public applyPredictedSimulationState(
+    state: SimulationState,
+    cameraLeftPixels: number,
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept predicted state.",
+      );
+    }
+    if (this.acceptsPredictedPresentation) {
+      this.pendingPredictedState = { state, cameraLeftPixels };
+    }
+  }
+
+  /**
+   * Stop or resume the prediction lane at a lifecycle boundary. A paused
+   * server frame must remain paint-stable even if an rAF callback was already
+   * queued before its WebSocket receipt.
+   */
+  public setPredictedPresentationEnabled(enabled: boolean): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can change prediction presentation.",
+      );
+    }
+    this.acceptsPredictedPresentation = enabled;
+    if (!enabled) {
+      this.pendingPredictedState = undefined;
+    }
+  }
+
+  public isAuthoritativeRenderSceneReady(): boolean {
+    return this.authoritativeRenderSceneReady;
+  }
+
+  /** Start the existing local visual finish sequence for a frozen server state. */
+  public beginAuthoritativeCompletionPresentation(): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can play a remote completion.",
+      );
+    }
+    this.authoritativeCompletionPresentationRequested = true;
+  }
+
+  /** Explicitly silence a detached multiplayer renderer before Phaser tears it down. */
+  public stopAuthoritativeRenderAudio(): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can be explicitly silenced.",
+      );
+    }
+    this.gameAudio.stopBackgroundMusic();
+    this.gameAudio.setLavaSizzle(false);
+  }
+
+  /** Narrow paint receipt for production browser diagnostics. */
+  public primaryObjectsWereQueuedForRender(): boolean {
+    return (
+      this.cameras.main.renderList.includes(this.playerRectangle) ||
+      (this.playerImageObject !== undefined &&
+        this.cameras.main.renderList.includes(this.playerImageObject))
+    );
+  }
+
+  /** Test/dev bridge for comparing a local BootScene against a server frame. */
+  public renderMultiplayerWireStateForDebug(
+    state: MultiplayerSimulationWireState,
+    cameraLeftPixels: number,
+  ): void {
+    // A normal content-set launch waits behind its start card. This explicit
+    // debug state injection replaces that local lifecycle, so it must also
+    // clear the card; otherwise a canvas comparison would be title-card versus
+    // gameplay rather than a simulation/render comparison.
+    this.beginPlay();
+    // Freeze before rendering so the ordinary local update loop cannot advance
+    // between receiving the named server frame and the canvas readback.
+    this.paused = true;
+    // This is local-route navigation chrome, not level rendering. Multiplayer
+    // exposes its leave control in the semantic shell instead.
+    this.exitHintText.setVisible(false);
+    this.simulationState = decodeMultiplayerSimulationState(state);
+    this.cameras.main.stopFollow();
+    this.setAuthoritativeCameraLeft(cameraLeftPixels);
+    this.renderSimulationState();
+  }
+
+  /**
+   * The multiplayer protocol expresses the shared camera in world-left
+   * pixels. Phaser stores scroll around its unzoomed viewport centre, so using
+   * that value directly makes a zoomed 940px canvas look hundreds of world
+   * pixels to the right of the supplied screen.
+   */
+  private setAuthoritativeCameraLeft(cameraLeftPixels: number): void {
+    const camera = this.cameras.main;
+    const horizontalViewportInset = (camera.width - camera.displayWidth) / 2;
+    camera.setScroll(
+      cameraLeftPixels - horizontalViewportInset,
+      camera.scrollY,
+    );
+  }
+
+  /**
+   * Names and authored costumes are presentation data, separate from the
+   * deterministic engine state. The order must match SimulationState.players.
+   */
+  public applyAuthoritativePlayerPresentation(
+    primaryCharacter: PlayerCharacter,
+    coopPlayers: readonly {
+      readonly character: PlayerCharacter;
+      readonly nickname: string;
+    }[],
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept remote players.",
+      );
+    }
+    this.pendingAuthoritativePlayerPresentation = {
+      primaryCharacter,
+      coopPlayers,
+    };
+  }
+
+  /** Apply client prediction / remote interpolation without serialising state. */
+  public applyAuthoritativePlayerPositions(
+    positions: readonly { readonly x: number; readonly y: number }[],
+  ): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
+      throw new Error(
+        "Only an authoritative-render scene can accept remote player positions.",
+      );
+    }
+    if (!this.authoritativeCompletionPresentationActive) {
+      this.pendingAuthoritativePlayerPositions = positions;
+    }
+  }
+
   public create(): void {
     window.addEventListener("keydown", this.handleWindowKeyDown);
     window.addEventListener("keyup", this.handleWindowKeyUp);
@@ -1302,8 +1297,8 @@ export class BootScene extends Phaser.Scene {
       this.gameAudio.setLavaSizzle(false);
     });
 
-    // The invisible position anchor: never drawn, only used to place the sprite
-    // and drive the camera.
+    // Player presentation requires the authored bundle; there is no vector
+    // substitute for missing art.
     this.playerRectangle = this.add
       .rectangle(
         0,
@@ -1312,11 +1307,13 @@ export class BootScene extends Phaser.Scene {
         initialPlayerSimulationStateConfig.colliderHeight,
       )
       .setOrigin(0)
-      .setVisible(false);
+      .setDepth(59);
     this.playerImageObject = renderPlayerImage(
       this,
       this.userAssetBundle?.playerImage,
     );
+    this.playerImageObject?.setDepth(59);
+    this.playerRectangle.setVisible(false);
 
     this.outcomeFeedbackText = this.add
       .text(
@@ -1458,6 +1455,8 @@ export class BootScene extends Phaser.Scene {
 
     this.publishDebugApi();
     this.renderSimulationState();
+    this.authoritativeRenderSceneReady = true;
+    this.events.emit(authoritativeRenderSceneReadyEvent);
 
     // Freeze on frame 0 until the first key, so a slow load doesn't eat the run.
     this.awaitingStart = this.browserGameBootstrap.awaitStart ?? false;
@@ -1871,9 +1870,7 @@ export class BootScene extends Phaser.Scene {
       this.browserGameBootstrap.userLevelVisualName,
     );
 
-    if (levelVisual === undefined) {
-      renderParallaxBackground(this, this.levelSpec, this.currentTheme);
-    } else {
+    if (levelVisual !== undefined) {
       renderLevelVisual(this, levelVisual);
     }
 
@@ -2186,13 +2183,9 @@ export class BootScene extends Phaser.Scene {
     feetPixelY: number,
     finalCastle: boolean,
   ): void {
-    const friendAsset = finalCastle
-      ? this.userAssetBundle?.reactionImages.get("rescued-friend")
-      : (this.userAssetBundle?.reactionImages.get("freed-attendant") ??
-        this.userAssetBundle?.reactionImages.get("rescued-friend"));
-    if (friendAsset === undefined) {
-      return;
-    }
+    const friendAsset = this.requireReactionImage(
+      finalCastle ? "rescued-friend" : "freed-attendant",
+    );
     const image = addUserFrameImage(this, 0, 0, friendAsset);
     image
       .setOrigin(0.5, 1)
@@ -2215,18 +2208,13 @@ export class BootScene extends Phaser.Scene {
   // Castle-clear cinematic pacing: one plank chopped per interval, then the
   // boss falls and the rescue message shows.
 
-  // Builds a hidden image for an asset set's reaction sprite (e.g. the parody
-  // skin's "ouch" pose or squashed-enemy frame) when the bundle provides it, so
-  // the reaction renders as authored art instead of the fallback text overlay.
+  // Builds a hidden authored reaction image (e.g. an ouch pose or a squashed
+  // enemy frame). Release presentation has no geometric substitute path.
   private makeReactionImage(
     reactionId: string,
     originY: number,
-  ): Phaser.GameObjects.Image | undefined {
-    const imageAsset = this.userAssetBundle?.reactionImages.get(reactionId);
-    if (imageAsset === undefined) {
-      return undefined;
-    }
-
+  ): Phaser.GameObjects.Image {
+    const imageAsset = this.requireReactionImage(reactionId);
     const image = addUserFrameImage(this, 0, 0, imageAsset);
     image.setOrigin(0.5, originY).setDepth(51).setVisible(false);
     return image;
@@ -2464,6 +2452,169 @@ export class BootScene extends Phaser.Scene {
       this.beginCastleFlagRise(this.flagpoleWalkOffTargetX);
       this.beginVictoryFireworks();
     }
+  }
+
+  private flushAuthoritativePresentation(): void {
+    const state = this.pendingAuthoritativeState;
+    const predictedState = this.pendingPredictedState;
+    const playerPresentation = this.pendingAuthoritativePlayerPresentation;
+    const positions = this.pendingAuthoritativePlayerPositions;
+    this.pendingAuthoritativeState = undefined;
+    this.pendingPredictedState = undefined;
+    this.pendingAuthoritativePlayerPresentation = undefined;
+    this.pendingAuthoritativePlayerPositions = undefined;
+    if (state !== undefined) {
+      this.simulationState = state.state;
+      this.cameras.main.stopFollow();
+      this.setAuthoritativeCameraLeft(state.cameraLeftPixels);
+      this.game.canvas.setAttribute(
+        "data-rendered-camera-left",
+        String(state.cameraLeftPixels),
+      );
+    }
+    if (playerPresentation !== undefined) {
+      if (
+        playerPresentation.coopPlayers.length !==
+        this.simulationState.players.length - 1
+      ) {
+        throw new Error(
+          "Authoritative player presentation does not match simulation slots.",
+        );
+      }
+      this.playerCharacter = playerPresentation.primaryCharacter;
+      this.coopBotCharacters = playerPresentation.coopPlayers.map(
+        (player) => player.character,
+      );
+      this.coopBotNames = playerPresentation.coopPlayers.map(
+        (player) => player.nickname,
+      );
+    }
+    if (
+      (state !== undefined || playerPresentation !== undefined) &&
+      !this.authoritativeCompletionPresentationActive &&
+      predictedState === undefined
+    ) {
+      this.renderSimulationState("authoritative");
+    }
+    if (predictedState !== undefined) {
+      this.simulationState = predictedState.state;
+      this.cameras.main.stopFollow();
+      this.setAuthoritativeCameraLeft(predictedState.cameraLeftPixels);
+      this.game.canvas.setAttribute(
+        "data-rendered-camera-left",
+        String(predictedState.cameraLeftPixels),
+      );
+      this.renderSimulationState("predicted");
+    }
+    if (
+      state !== undefined ||
+      playerPresentation !== undefined ||
+      predictedState !== undefined
+    ) {
+      // Authoritative-render scenes do not execute the normal local update
+      // method. Start and advance the visual death sequence once per browser
+      // paint: the server supplies the defeated outcome while the client owns
+      // the dismemberment timeline.
+      this.maybeBeginDeathEffect();
+      this.stepDeathEffect();
+    }
+    if (positions !== undefined) {
+      if (positions.length !== this.simulationState.players.length) {
+        throw new Error(
+          "Authoritative player positions do not match simulation slots.",
+        );
+      }
+      this.applyQueuedAuthoritativePlayerPositions(positions);
+    }
+    if (this.authoritativeCompletionPresentationRequested) {
+      this.authoritativeCompletionPresentationRequested = false;
+      this.startAuthoritativeCompletionPresentation();
+    }
+  }
+
+  private startAuthoritativeCompletionPresentation(): void {
+    if (this.authoritativeCompletionPresentationActive) {
+      return;
+    }
+    if (!this.hasFinishedOutcome()) {
+      throw new Error(
+        "A multiplayer completion presentation requires a finished state.",
+      );
+    }
+    this.authoritativeCompletionPresentationActive = true;
+    this.beginCompletionPresentation();
+    this.game.canvas.setAttribute(
+      "data-authoritative-completion-active",
+      "true",
+    );
+  }
+
+  private beginCompletionPresentation(): void {
+    this.levelCompleteSoundPlayed = true;
+    this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
+    this.beginFlagpoleSlide();
+    this.beginTimeBonusCountdown();
+    const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
+    this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
+    if (!isCastleClear) {
+      return;
+    }
+    this.castleClearTotalFrames =
+      this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
+      castleClearFallFrames +
+      castleClearWalkFrames +
+      castleClearMessageHoldFrames;
+    this.castleClearFramesRemaining = this.castleClearTotalFrames;
+    this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
+  }
+
+  private stepAuthoritativeCompletionPresentation(): void {
+    if (!this.authoritativeCompletionPresentationActive) {
+      return;
+    }
+    if (this.levelAdvanceDelayFramesRemaining > 0) {
+      this.levelAdvanceDelayFramesRemaining -= 1;
+      this.stepFlagpoleSlide();
+      this.stepCastleClearCinematic();
+      this.stepVictoryFireworks();
+      this.stepTimeBonusCountdown();
+      return;
+    }
+    this.authoritativeCompletionPresentationActive = false;
+    this.game.canvas.setAttribute(
+      "data-authoritative-completion-active",
+      "false",
+    );
+  }
+
+  private applyQueuedAuthoritativePlayerPositions(
+    positions: readonly { readonly x: number; readonly y: number }[],
+  ): void {
+    const primary = positions[0];
+    if (primary === undefined) {
+      throw new Error(
+        "Authoritative player presentation has no primary player.",
+      );
+    }
+    this.playerRectangle.setPosition(primary.x, primary.y);
+    this.playerImageObject?.setPosition(primary.x, primary.y);
+    this.game.canvas.setAttribute("data-rendered-primary-x", String(primary.x));
+    this.game.canvas.setAttribute("data-rendered-primary-y", String(primary.y));
+    positions.slice(1).forEach((position, index) => {
+      const image = this.coopPlayerImages[index];
+      const runtime = this.simulationState.players[index + 1];
+      if (image === undefined || runtime === undefined) {
+        return;
+      }
+      image.setPosition(position.x, position.y);
+      const label = this.coopPlayerNameLabels[index];
+      if (label !== undefined) {
+        label.setPosition(
+          position.x + Number(runtime.player.collider.width) / 2,
+          position.y - (5 + index * 8),
+        );
+      }
+    });
   }
 
   // The column of a goal tile inside the player's current tile span (the tile
@@ -3035,10 +3186,7 @@ export class BootScene extends Phaser.Scene {
     if (!this.suppressDeathSounds) {
       this.gameAudio.playScream();
     }
-    const flameAsset = this.userAssetBundle?.reactionImages.get("burn-flame");
-    if (flameAsset === undefined) {
-      return;
-    }
+    const flameAsset = this.requireReactionImage("burn-flame");
     const width = this.simulationState.players[0].player.collider.width;
     const height = this.simulationState.players[0].player.collider.height;
     for (let index = 0; index < deathBurnFlameCount; index += 1) {
@@ -3059,15 +3207,8 @@ export class BootScene extends Phaser.Scene {
   // sprites — head, torso, two arms, two legs (severed parts, not crops of the
   // body). Each part is flung only slightly outward from the body centre, spins,
   // and then falls under gravity like a projectile. The head carries the X-ed
-  // eyes. Falls back to the launch arc only if the part sprites are unavailable.
+  // eyes. Every part is required authored art.
   private beginExplodeEffect(): void {
-    const partAsset = this.userAssetBundle?.reactionImages.get("part-torso");
-    if (partAsset === undefined) {
-      this.deathEffectStyle = "launch";
-      this.deathArcActive = true;
-      this.deathArcVelocityY = -deathArcPopSpeedPixels;
-      return;
-    }
     const width = this.simulationState.players[0].player.collider.width;
     const height = this.simulationState.players[0].player.collider.height;
     if (this.playerImageObject !== undefined) {
@@ -3103,10 +3244,7 @@ export class BootScene extends Phaser.Scene {
       { id: "part-leg", fx: 0.66, fy: 0.82, flip: false, fling: 1.8 },
     ];
     parts.forEach((part, index) => {
-      const asset = this.userAssetBundle?.reactionImages.get(part.id);
-      if (asset === undefined) {
-        return;
-      }
+      const asset = this.requireReactionImage(part.id);
       const partX = this.deathArcX + part.fx * width;
       const partY = this.deathArcY + part.fy * height;
       const eyes =
@@ -3548,14 +3686,12 @@ export class BootScene extends Phaser.Scene {
     }
     const width = this.simulationState.players[0].player.collider.width;
     const height = this.simulationState.players[0].player.collider.height;
-    const huskAsset = this.userAssetBundle?.reactionImages.get("burned-husk");
-    const image =
-      huskAsset !== undefined
-        ? addUserFrameImage(this, 0, 0, huskAsset).setDisplaySize(width, height)
-        : this.add
-            .image(0, 0, this.playerImageObject?.texture.key ?? "")
-            .setDisplaySize(width, height)
-            .setTint(0x161616);
+    const image = addUserFrameImage(
+      this,
+      0,
+      0,
+      this.requireReactionImage("burned-husk"),
+    ).setDisplaySize(width, height);
     image
       .setOrigin(0.5)
       .setPosition(this.deathArcX + width / 2, this.deathArcY + height / 2)
@@ -3594,10 +3730,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   private spawnSmokePuff(): void {
-    const smokeAsset = this.userAssetBundle?.reactionImages.get("smoke-puff");
-    if (smokeAsset === undefined) {
-      return;
-    }
+    const smokeAsset = this.requireReactionImage("smoke-puff");
     const image = addUserFrameImage(this, 0, 0, smokeAsset);
     const jitter = ((this.deathEffectFrame * 7) % 9) - 4;
     image
@@ -3787,6 +3920,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   public override update(): void {
+    if (this.browserGameBootstrap.authoritativeRenderOnly === true) {
+      this.flushAuthoritativePresentation();
+      this.stepAuthoritativeCompletionPresentation();
+      return;
+    }
     assertValidPlayerVitalityState(this.simulationState.players[0].vitality);
     assertValidPlayerOutcomeState(this.simulationState.players[0].outcome);
     assertValidCollectibleInteractionState(
@@ -3967,25 +4105,7 @@ export class BootScene extends Phaser.Scene {
     // the level then advances is decided when the delay elapses (a last level
     // just stays finished and offers a retry).
     if (!this.levelCompleteSoundPlayed && this.hasFinishedOutcome()) {
-      this.levelCompleteSoundPlayed = true;
-      this.levelAdvanceDelayFramesRemaining = this.levelAdvanceDelayFrames;
-      this.beginFlagpoleSlide();
-      this.beginTimeBonusCountdown();
-      // The flagpole grab takes over the music with the fanfare; a castle end
-      // (an axe, not a pole) plays the grander world-clear victory theme.
-      const isCastleClear = this.castleBridgeTilesByColumn.size > 0;
-      this.gameAudio.playJingle(isCastleClear ? "victory" : "level-clear");
-      // A castle ends at the axe: stage the bridge chop, the boss's fall and
-      // the rescue message before the finish overlay appears.
-      if (isCastleClear) {
-        this.castleClearTotalFrames =
-          this.castleBridgeTilesByColumn.size * castleBridgeChopFrames +
-          castleClearFallFrames +
-          castleClearWalkFrames +
-          castleClearMessageHoldFrames;
-        this.castleClearFramesRemaining = this.castleClearTotalFrames;
-        this.levelAdvanceDelayFramesRemaining += this.castleClearTotalFrames;
-      }
+      this.beginCompletionPresentation();
     }
 
     this.stepEventMusic();
@@ -4388,6 +4508,13 @@ export class BootScene extends Phaser.Scene {
     this.resetCoopBotState();
     this.previousDefeatedEnemyIds = new Set();
     this.previousEnemyKillScore = 0;
+    this.clientStompReaction = {
+      active: false,
+      remainingFrames: 0,
+      x: 0,
+      y: 0,
+    };
+    this.previousRenderedSimulationFrame = undefined;
     this.flattenedEnemyTimers.clear();
     this.entityIdSetCache.clear();
     this.lastEnemyContactObservation = undefined;
@@ -4977,6 +5104,7 @@ export class BootScene extends Phaser.Scene {
   private resolveEnemyDefeatVisibility(
     actor: RuntimeRenderedActor,
     defeated: boolean,
+    elapsedSimulationFrames: number,
   ): boolean {
     if (!isRenderedEnemyRole(actor.role)) {
       return true;
@@ -4997,7 +5125,10 @@ export class BootScene extends Phaser.Scene {
       this.flattenedEnemyTimers.set(actor.entityId, 0);
       return false;
     }
-    this.flattenedEnemyTimers.set(actor.entityId, remaining - 1);
+    this.flattenedEnemyTimers.set(
+      actor.entityId,
+      Math.max(0, remaining - elapsedSimulationFrames),
+    );
     // Squash the sprite flat and drop it so it sits on the ground.
     actor.renderObject.setScale(1, stompedGoombaSquashScaleY);
     actor.renderObject.setY(
@@ -5007,9 +5138,12 @@ export class BootScene extends Phaser.Scene {
     return true;
   }
 
-  private stepScorePopups(defeatedEnemyIds: ReadonlySet<string>): void {
+  private stepScorePopups(
+    defeatedEnemyIds: ReadonlySet<string>,
+    elapsedSimulationFrames: number,
+  ): void {
     this.scorePopups = this.scorePopups.filter((popup) => {
-      popup.framesRemaining -= 1;
+      popup.framesRemaining -= elapsedSimulationFrames;
       if (popup.framesRemaining <= 0) {
         popup.text.destroy();
         return false;
@@ -5057,6 +5191,46 @@ export class BootScene extends Phaser.Scene {
     this.previousDefeatedEnemyIds = new Set(defeatedEnemyIds);
   }
 
+  private stepClientStompReaction(
+    defeatedEnemyIds: ReadonlySet<string>,
+    elapsedSimulationFrames: number,
+  ): void {
+    if (this.clientStompReaction.active) {
+      this.clientStompReaction.remainingFrames = Math.max(
+        0,
+        this.clientStompReaction.remainingFrames - elapsedSimulationFrames,
+      );
+      this.clientStompReaction.active =
+        this.clientStompReaction.remainingFrames > 0;
+    }
+    const newlyDefeated = [...defeatedEnemyIds].find(
+      (entityId) => !this.previousDefeatedEnemyIds.has(entityId),
+    );
+    // The simulation's reaction flag distinguishes a stomp from a projectile
+    // kill. Its short-lived coordinates/timer are never rendered directly;
+    // use the locally presented actor position and a fresh client timeline.
+    if (
+      newlyDefeated !== undefined &&
+      this.simulationState.enemyStompReaction.active
+    ) {
+      const actor = this.renderedActors.find(
+        (candidate) => candidate.entityId === newlyDefeated,
+      );
+      if (actor !== undefined) {
+        const position = makeRuntimeRenderedActorPixelPosition(
+          actor,
+          this.simulationState,
+        );
+        this.clientStompReaction = {
+          active: true,
+          remainingFrames: stompReactionFrames,
+          x: position.x,
+          y: position.y,
+        };
+      }
+    }
+  }
+
   // Return a cached string Set of the given entity-id array, rebuilding only
   // when its length changes. Safe because these arrays only ever grow (you
   // cannot un-collect a coin or un-defeat an enemy) or reset to empty on a
@@ -5074,7 +5248,36 @@ export class BootScene extends Phaser.Scene {
     return set;
   }
 
-  private renderSimulationState(): void {
+  private renderSimulationState(
+    presentationSource: "authoritative" | "predicted" = "authoritative",
+  ): void {
+    // This is a render receipt, not a transport receipt: browser QA uses it to
+    // prove that Phaser has consumed the state that is about to be painted.
+    // Keeping it on the canvas makes a frozen scene distinguishable from a
+    // healthy WebSocket that merely updates its own bookkeeping attributes.
+    this.game.canvas.setAttribute(
+      "data-rendered-simulation-frame",
+      String(this.simulationState.clock.frameIndex),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-x",
+      String(this.simulationState.players[0].player.position.x),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-y",
+      String(this.simulationState.players[0].player.position.y),
+    );
+    const currentRenderedSimulationFrame = Number(
+      this.simulationState.clock.frameIndex,
+    );
+    const previousRenderedSimulationFrame =
+      this.previousRenderedSimulationFrame;
+    const elapsedSimulationFrames =
+      previousRenderedSimulationFrame === undefined ||
+      currentRenderedSimulationFrame < previousRenderedSimulationFrame
+        ? 1
+        : currentRenderedSimulationFrame - previousRenderedSimulationFrame;
+    this.previousRenderedSimulationFrame = currentRenderedSimulationFrame;
     const currentVertical =
       this.simulationState.players[0].player.movement.vertical;
     const currentWorldY = this.simulationState.players[0].player.position.y;
@@ -5172,7 +5375,31 @@ export class BootScene extends Phaser.Scene {
           this.simulationState.players[0].player.position.y,
         )
         .setDisplaySize(displayWidth, collider.height);
+      this.playerRectangle.setVisible(false);
+    } else {
+      this.playerRectangle.setVisible(true);
     }
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-visible",
+      String(this.playerImageObject?.visible ?? this.playerRectangle.visible),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-rectangle",
+      JSON.stringify({
+        active: this.playerRectangle.active,
+        alpha: this.playerRectangle.alpha,
+        depth: this.playerRectangle.depth,
+        isFilled: this.playerRectangle.isFilled,
+        renderFlags: this.playerRectangle.renderFlags,
+        visible: this.playerRectangle.visible,
+        x: this.playerRectangle.x,
+        y: this.playerRectangle.y,
+      }),
+    );
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-cullable",
+      String(this.playerRectangle.willRender(this.cameras.main)),
+    );
 
     const isRecoveringVitality =
       this.simulationState.players[0].vitality.kind ===
@@ -5234,18 +5461,6 @@ export class BootScene extends Phaser.Scene {
       .setVisible(headBonking);
     this.renderPlayerBloodiness();
 
-    const stompReaction = this.simulationState.enemyStompReaction;
-    const stompActive = this.exaggeratedReactions && stompReaction.active;
-    if (this.enemyStompReactionImage !== undefined) {
-      this.enemyStompReactionImage
-        .setPosition(stompReaction.x + 8, stompReaction.y + 8)
-        .setVisible(stompActive);
-      this.stompReactionBurst.setVisible(false);
-    } else {
-      this.stompReactionBurst
-        .setPosition(stompReaction.x + 8, stompReaction.y + 4)
-        .setVisible(stompActive);
-    }
     this.updateScoreHud(
       this.sessionScore(),
       this.simulationState.levelTimer.remainingFrames,
@@ -5336,11 +5551,34 @@ export class BootScene extends Phaser.Scene {
       const enemyVisible = this.resolveEnemyDefeatVisibility(
         actor,
         defeatedEnemyEntityIdStrings.has(actor.entityId),
+        elapsedSimulationFrames,
       );
       actor.renderObject.setVisible(collectibleUncollected && enemyVisible);
     }
 
-    this.stepScorePopups(defeatedEnemyEntityIdStrings);
+    this.stepClientStompReaction(
+      defeatedEnemyEntityIdStrings,
+      elapsedSimulationFrames,
+    );
+    const stompActive =
+      this.exaggeratedReactions && this.clientStompReaction.active;
+    if (this.enemyStompReactionImage !== undefined) {
+      this.enemyStompReactionImage
+        .setPosition(
+          this.clientStompReaction.x + 8,
+          this.clientStompReaction.y + 8,
+        )
+        .setVisible(stompActive);
+      this.stompReactionBurst.setVisible(false);
+    } else {
+      this.stompReactionBurst
+        .setPosition(
+          this.clientStompReaction.x + 8,
+          this.clientStompReaction.y + 4,
+        )
+        .setVisible(stompActive);
+    }
+    this.stepScorePopups(defeatedEnemyEntityIdStrings, elapsedSimulationFrames);
 
     this.renderSpawnedActors(
       collectedCoinEntityIdStrings,
@@ -5349,9 +5587,14 @@ export class BootScene extends Phaser.Scene {
       collectedExtraLifeEntityIdStrings,
       collectedInvincibilityEntityIdStrings,
     );
-    this.renderBreakableTiles();
-    this.renderUsedInteractiveBlocks();
-    this.renderRevealedHiddenBlocks();
+    if (presentationSource === "authoritative") {
+      // Persistent tile mutations are committed at the ordered server
+      // boundary. Re-running these scans for every locally predicted frame is
+      // unnecessary work and visibly stalls large maps.
+      this.renderBreakableTiles();
+      this.renderUsedInteractiveBlocks();
+      this.renderRevealedHiddenBlocks();
+    }
     this.renderProjectiles();
     this.renderTimedHazardProjectiles();
     this.renderFrenzyCheeps();
@@ -5360,6 +5603,13 @@ export class BootScene extends Phaser.Scene {
     this.renderAerialFrenzyEntities();
     this.renderHatchedSpinies();
     this.renderPipes();
+    // Network frames can be applied after the level's asynchronous authored
+    // art has rebuilt its display objects. Keep every primary representation
+    // explicitly above that world layer instead of relying on insertion order.
+    // These objects receive a stable depth when constructed. Reassigning it
+    // on every 20 Hz server receipt dirties Phaser's entire display list.
+    // Dynamic additions still queue their own depth sort when they are made.
+    this.bringPlayerObjectsToTop();
   }
 
   // Rotating firebar orbs and leaping podoboos are pure functions of the
@@ -5395,42 +5645,29 @@ export class BootScene extends Phaser.Scene {
   }
 
   // Draw one family of flame hazard points into the shared pool starting at
-  // the given index, as skin art when the sprite set provides it (falling
-  // back to the glowing circle). Returns the next free pool index.
+  // the given index with required authored skin art. Returns the next free
+  // pool index.
   private renderFlameHazardPoints(
     points: readonly { x: number; y: number; sizePixels: number }[],
     imageKey: string,
     startIndex: number,
   ): number {
-    const image = this.userAssetBundle?.actorImages.get(imageKey);
+    const image = this.requireActorImage(imageKey);
     for (const [offset, point] of points.entries()) {
       const index = startIndex + offset;
       let orb = this.flameHazardRenderObjects[index];
       if (orb === undefined) {
-        orb =
-          image !== undefined
-            ? addUserFrameImage(this, 0, 0, image)
-            : this.add
-                .circle(0, 0, point.sizePixels / 2, flameHazardCoreColor)
-                .setStrokeStyle(1, flameHazardRimColor);
+        orb = addUserFrameImage(this, 0, 0, image);
         this.flameHazardRenderObjects[index] = orb;
       }
-      if (orb instanceof Phaser.GameObjects.Arc) {
-        orb.setRadius(point.sizePixels / 2);
-        orb.setPosition(
-          point.x + point.sizePixels / 2,
-          point.y + point.sizePixels / 2,
-        );
-      } else {
-        orb.setDisplaySize(point.sizePixels, point.sizePixels);
-        orb.setPosition(point.x, point.y);
-      }
+      orb.setDisplaySize(point.sizePixels, point.sizePixels);
+      orb.setPosition(point.x, point.y);
       orb.setVisible(true);
     }
     return startIndex + points.length;
   }
 
-  // Moving lift platforms: one pooled raft (skin art, or a plain rectangle),
+  // Moving lift platforms: one pooled authored raft per platform,
   // repositioned every frame from the platform state.
   // ROM BowserIdentities: a fireball-killed keeper in worlds 1-7 is revealed
   // as that world's disguise enemy, tumbling off the bridge.
@@ -5655,31 +5892,15 @@ export class BootScene extends Phaser.Scene {
       this.levelSpec,
       this.simulationState.clock.frameIndex,
     );
-    const liftImage = this.userAssetBundle?.actorImages.get("mechanism-lift");
+    const liftImage = this.requireActorImage("mechanism-lift");
     for (const [index, placement] of placements.entries()) {
       let plank = this.platformRenderObjects[index];
       if (plank === undefined) {
-        plank =
-          liftImage !== undefined
-            ? addUserFrameImage(this, 0, 0, liftImage)
-            : this.add
-                .rectangle(
-                  0,
-                  0,
-                  placement.widthPixels,
-                  placement.heightPixels,
-                  platformFillColor,
-                )
-                .setOrigin(0)
-                .setStrokeStyle(1, platformEdgeColor);
+        plank = addUserFrameImage(this, 0, 0, liftImage);
         this.platformRenderObjects.push(plank);
       }
       plank.setPosition(placement.x, placement.y);
-      if (plank instanceof Phaser.GameObjects.Rectangle) {
-        plank.setSize(placement.widthPixels, placement.heightPixels);
-      } else {
-        plank.setDisplaySize(placement.widthPixels, placement.heightPixels);
-      }
+      plank.setDisplaySize(placement.widthPixels, placement.heightPixels);
 
       // Balance platforms hang from their pulley rope (drawn up to the
       // pulley band under the HUD); wrap-around elevators ride a full-height
@@ -5917,13 +6138,8 @@ export class BootScene extends Phaser.Scene {
     height: number,
     character: PlayerCharacter,
   ): void {
-    const bundle = this.userAssetBundle;
-    const partSprite = (part: string): LoadedImageAsset | undefined =>
-      bundle?.reactionImages.get(`${character}-part-${part}`) ??
-      bundle?.reactionImages.get(`part-${part}`);
-    if (partSprite("torso") === undefined) {
-      return;
-    }
+    const partSprite = (part: string): LoadedImageAsset =>
+      this.requireReactionImage(`${character}-part-${part}`);
     // Body parts collide with the level's blocks as they fall — build the
     // lookup lazily (a bot can explode with no primary death in flight).
     this.deathPartCollisionLookup ??= makeTileCollisionLookup(this.levelSpec);
@@ -5944,9 +6160,6 @@ export class BootScene extends Phaser.Scene {
     ];
     parts.forEach((part, index) => {
       const asset = partSprite(part.part);
-      if (asset === undefined) {
-        return;
-      }
       this.pushFlyingDeathPart(this.botDeathPieces, {
         asset,
         x: x + part.fx * width,
@@ -5963,11 +6176,7 @@ export class BootScene extends Phaser.Scene {
   // A short expanding flash at a bot's blast, self-destructing via a tween so
   // several bots can burst at once (unlike the primary's single tracked burst).
   private spawnBotExplosionBurst(x: number, y: number): void {
-    const burstAsset =
-      this.userAssetBundle?.reactionImages.get("explosion-burst");
-    if (burstAsset === undefined) {
-      return;
-    }
+    const burstAsset = this.requireReactionImage("explosion-burst");
     const image = addUserFrameImage(this, 0, 0, burstAsset)
       .setOrigin(0.5)
       .setPosition(x, y)
@@ -6010,12 +6219,18 @@ export class BootScene extends Phaser.Scene {
   // and positioning each from its own kinematics.
   private renderCoopPlayers(): void {
     const coopRuntimes = this.simulationState.players.slice(1);
+    this.game.canvas.setAttribute(
+      "data-rendered-coop-player-count",
+      String(coopRuntimes.length),
+    );
     while (this.coopPlayerImages.length < coopRuntimes.length) {
       const image = renderPlayerImage(this, this.userAssetBundle?.playerImage);
       if (image === undefined) {
-        break;
+        throw new Error(
+          "Authored player art is required for every co-op player.",
+        );
       }
-      this.coopPlayerImages.push(image);
+      this.coopPlayerImages.push(image.setDepth(59));
     }
     while (this.coopPlayerImages.length > coopRuntimes.length) {
       this.coopPlayerImages.pop()?.destroy();
@@ -6043,22 +6258,28 @@ export class BootScene extends Phaser.Scene {
         this.currentTheme,
         this.coopBotCharacters[index] ?? robotCharacterForBotIndex(index),
       );
-      if (sprite !== undefined) {
+      if (sprite !== undefined && image instanceof Phaser.GameObjects.Image) {
         setUserFrameImage(this, image, sprite);
       }
+      image.setFlipX(
+        this.currentTheme === "water" && coopPlayer.velocity.x < -4,
+      );
       image
-        .setFlipX(this.currentTheme === "water" && coopPlayer.velocity.x < -4)
         .setPosition(coopPlayer.position.x, coopPlayer.position.y)
         .setDisplaySize(coopPlayer.collider.width, coopPlayer.collider.height);
       // Float this bot's call-sign just above its head, centred on the sprite.
       const label = this.coopPlayerNameLabels[index];
       if (label !== undefined) {
+        // Several friends can spawn in the same shared screen. Stack their
+        // labels above one another rather than drawing unreadable text through
+        // the party at the exact same baseline.
+        const stackedLabelOffsetPixels = 5 + index * 8;
         label
           .setText(this.coopBotNames[index] ?? "")
           .setPosition(
             Number(coopPlayer.position.x) +
               Number(coopPlayer.collider.width) / 2,
-            Number(coopPlayer.position.y) - 3,
+            Number(coopPlayer.position.y) - stackedLabelOffsetPixels,
           );
       }
     });
@@ -6175,13 +6396,11 @@ export class BootScene extends Phaser.Scene {
       this.revealedHiddenTiles.add(key);
       // A revealed hidden block shows the spent "used" block art (its own
       // "hidden-block" id has no art — it was invisible until now).
-      renderAuthoredTile(
+      renderUserTileImage(
         this,
         hiddenTile.pixelX,
         hiddenTile.pixelY,
-        hiddenTile.sizePixels,
-        "empty-question-block",
-        TileCollisionKind.Solid,
+        this.requireTileImage("empty-question-block"),
       );
     }
   }
@@ -6277,6 +6496,36 @@ export class BootScene extends Phaser.Scene {
     this.cameras.main.setPosition(0, 0);
   }
 
+  private requireActorImage(actorId: string): LoadedImageAsset {
+    const image = this.userAssetBundle?.actorImages.get(actorId);
+    if (image === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing runtime actor art for ${actorId}.`,
+      );
+    }
+    return image;
+  }
+
+  private requireTileImage(tileId: string): LoadedImageAsset {
+    const image = this.userAssetBundle?.tileImages.get(tileId);
+    if (image === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing tile art for ${tileId}.`,
+      );
+    }
+    return image;
+  }
+
+  private requireReactionImage(reactionId: string): LoadedImageAsset {
+    const image = this.userAssetBundle?.reactionImages.get(reactionId);
+    if (image === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing reaction art for ${reactionId}.`,
+      );
+    }
+    return image;
+  }
+
   private renderSpawnedActors(
     collectedCoinEntityIdStrings: ReadonlySet<string>,
     collectedItemEntityIdStrings: ReadonlySet<string>,
@@ -6291,18 +6540,12 @@ export class BootScene extends Phaser.Scene {
       );
 
       if (renderObject === undefined) {
-        const userImage = this.userAssetBundle?.actorImages.get(
-          spawnedActor.actorId,
-        );
-        renderObject =
-          userImage === undefined
-            ? renderAuthoredActor(
-                this,
-                spawnedActor.position,
-                spawnedActor.role,
-              )
-            : renderUserActorImage(this, spawnedActor.position, userImage)
-                .container;
+        const userImage = this.requireActorImage(spawnedActor.actorId);
+        renderObject = renderUserActorImage(
+          this,
+          spawnedActor.position,
+          userImage,
+        ).container;
         this.spawnedActorRenderObjects.set(spawnedActor.entityId, renderObject);
       }
 
@@ -6348,46 +6591,36 @@ export class BootScene extends Phaser.Scene {
   }
 
   private renderProjectiles(): void {
-    const fireball = this.userAssetBundle?.actorImages.get(
-      "projectile-fireball",
-    );
+    const fireball = this.requireActorImage("projectile-fireball");
     this.renderProjectileCollection(
       this.simulationState.projectiles.projectiles,
       this.projectileRenderObjects,
-      projectileColor,
-      projectileOutlineColor,
-      projectileCoreColor,
       () => fireball,
     );
   }
 
   private renderTimedHazardProjectiles(): void {
-    const images = this.userAssetBundle?.actorImages;
     this.renderProjectileCollection(
       this.simulationState.timedHazardProjectiles.projectiles,
       this.timedHazardProjectileRenderObjects,
-      cannonWarningColor,
-      cannonMouthColor,
-      projectileSparkleColor,
       // The pooled timed hazards mix kinds; the id prefix says which art fits
       // (castle flame jets, cannon bullets, hammers, Lakitu's eggs).
       (projectile) => {
-        if (images === undefined) {
-          return undefined;
-        }
         if (projectile.id.startsWith("timed-hazard-flame")) {
-          return images.get("projectile-flame");
+          return this.requireActorImage("projectile-flame");
         }
         if (projectile.id.startsWith("timed-hazard-")) {
-          return images.get("vglc-smb-bullet");
+          return this.requireActorImage("vglc-smb-bullet");
         }
         if (projectile.id.startsWith("aerial-throwing-enemy-")) {
-          return images.get("projectile-egg");
+          return this.requireActorImage("projectile-egg");
         }
         if (projectile.id.startsWith("throwing-enemy-")) {
-          return images.get("projectile-hammer");
+          return this.requireActorImage("projectile-hammer");
         }
-        return undefined;
+        throw new Error(
+          `No authored projectile art is mapped for ${projectile.id}.`,
+        );
       },
     );
   }
@@ -6408,22 +6641,13 @@ export class BootScene extends Phaser.Scene {
           entity.kind === AerialFrenzyKind.FlyingCheep
             ? "vglc-smb-cheep"
             : "vglc-smb-bullet";
-        const userImage = this.userAssetBundle?.actorImages.get(spriteKey);
-        if (userImage === undefined) {
-          renderObject = renderAuthoredActor(
-            this,
-            entity.position,
-            ActorRole.FlyingEnemy,
-          );
-        } else {
-          const rendered = renderUserActorImage(
-            this,
-            entity.position,
-            userImage,
-          );
-          rendered.image.setFlipX(entity.velocity.x > 0);
-          renderObject = rendered.container;
-        }
+        const rendered = renderUserActorImage(
+          this,
+          entity.position,
+          this.requireActorImage(spriteKey),
+        );
+        rendered.image.setFlipX(entity.velocity.x > 0);
+        renderObject = rendered.container;
         this.aerialFrenzyRenderObjects.set(entity.entityId, renderObject);
       }
       renderObject.setPosition(entity.position.x, entity.position.y);
@@ -6447,21 +6671,11 @@ export class BootScene extends Phaser.Scene {
       activeIds.add(spiny.spinyId);
       let renderObject = this.hatchedSpinyRenderObjects.get(spiny.spinyId);
       if (renderObject === undefined) {
-        const userImage =
-          this.userAssetBundle?.actorImages.get("vglc-smb-spiny");
-        if (userImage === undefined) {
-          renderObject = renderAuthoredActor(
-            this,
-            spiny.position,
-            ActorRole.ChasingEnemy,
-          );
-        } else {
-          renderObject = renderUserActorImage(
-            this,
-            spiny.position,
-            userImage,
-          ).container;
-        }
+        renderObject = renderUserActorImage(
+          this,
+          spiny.position,
+          this.requireActorImage("vglc-smb-spiny"),
+        ).container;
         this.hatchedSpinyRenderObjects.set(spiny.spinyId, renderObject);
       }
       renderObject.setPosition(spiny.position.x, spiny.position.y);
@@ -6481,24 +6695,14 @@ export class BootScene extends Phaser.Scene {
       activeIds.add(cheep.entityId);
       let renderObject = this.frenzyCheepRenderObjects.get(cheep.entityId);
       if (renderObject === undefined) {
-        const userImage =
-          this.userAssetBundle?.actorImages.get("vglc-smb-cheep");
-        if (userImage === undefined) {
-          renderObject = renderAuthoredActor(
-            this,
-            cheep.position,
-            ActorRole.FlyingEnemy,
-          );
-        } else {
-          const rendered = renderUserActorImage(
-            this,
-            cheep.position,
-            userImage,
-          );
-          // The fish sprite is drawn head-right; cheeps swim left, so mirror it.
-          rendered.image.setFlipX(true);
-          renderObject = rendered.container;
-        }
+        const rendered = renderUserActorImage(
+          this,
+          cheep.position,
+          this.requireActorImage("vglc-smb-cheep"),
+        );
+        // The fish sprite is drawn head-right; cheeps swim left, so mirror it.
+        rendered.image.setFlipX(true);
+        renderObject = rendered.container;
         this.frenzyCheepRenderObjects.set(cheep.entityId, renderObject);
       }
       renderObject.setPosition(cheep.position.x, cheep.position.y);
@@ -6521,12 +6725,7 @@ export class BootScene extends Phaser.Scene {
       readonly height: number;
     }[],
     renderObjects: Map<string, Phaser.GameObjects.Container>,
-    fillColor: number,
-    outlineColor: number,
-    coreColor: number,
-    resolveImage?: (projectile: {
-      readonly id: string;
-    }) => LoadedImageAsset | undefined,
+    resolveImage: (projectile: { readonly id: string }) => LoadedImageAsset,
   ): void {
     const activeProjectileIds = new Set<string>();
 
@@ -6535,52 +6734,16 @@ export class BootScene extends Phaser.Scene {
       let renderObject = renderObjects.get(projectile.id);
 
       if (renderObject === undefined) {
-        const imageAsset = resolveImage?.(projectile);
-        if (imageAsset !== undefined) {
-          // Skin art (drawn facing left); sized to the projectile's collider.
-          const image = addUserFrameImage(this, 0, 0, imageAsset)
-            .setOrigin(0.5)
-            .setDisplaySize(projectile.width, projectile.height);
-          renderObject = this.add.container(
-            projectile.position.x,
-            projectile.position.y,
-            [image],
-          );
-        } else {
-          const outline = this.add
-            .rectangle(0, 0, projectile.width, projectile.height, fillColor)
-            .setOrigin(0.5)
-            .setStrokeStyle(tileStrokeWidth, outlineColor);
-          const core = this.add
-            .rectangle(
-              0,
-              0,
-              Math.max(
-                projectile.width - tileStrokeWidth * 2,
-                projectileMinimumCoreDimensionPixels,
-              ),
-              Math.max(
-                projectile.height - tileStrokeWidth * 2,
-                projectileMinimumCoreDimensionPixels,
-              ),
-              coreColor,
-            )
-            .setOrigin(0.5);
-          const sparkle = this.add
-            .rectangle(
-              0,
-              0,
-              projectileSparkleSizePixels,
-              projectileSparkleSizePixels,
-              projectileSparkleColor,
-            )
-            .setOrigin(0.5);
-          renderObject = this.add.container(
-            projectile.position.x,
-            projectile.position.y,
-            [outline, core, sparkle],
-          );
-        }
+        const imageAsset = resolveImage(projectile);
+        // Skin art (drawn facing left); sized to the projectile's collider.
+        const image = addUserFrameImage(this, 0, 0, imageAsset)
+          .setOrigin(0.5)
+          .setDisplaySize(projectile.width, projectile.height);
+        renderObject = this.add.container(
+          projectile.position.x,
+          projectile.position.y,
+          [image],
+        );
         renderObjects.set(projectile.id, renderObject);
       }
 
@@ -6645,6 +6808,9 @@ export class BootScene extends Phaser.Scene {
 
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
+      renderMultiplayerWireStateForDebug: (state, cameraLeftPixels) => {
+        this.renderMultiplayerWireStateForDebug(state, cameraLeftPixels);
+      },
       teleportPlayer: (xPixels: number, yPixels: number) => {
         // Fail loudly on states a teleport cannot meaningfully change, instead
         // of silently moving a sprite the frozen simulation will never step —
@@ -7327,248 +7493,6 @@ function configureMainCamera(
   camera.setDeadzone(80, 40);
 }
 
-// Water world backdrop: seaweed fronds rising from the seabed and slow bubbles
-// drifting upward, each layer on its own parallax rate.
-// World-Y of the water surface: the top of the playfield, which is grid row 2
-// (the top two rows are reserved for the HUD overlay). The simulation's swim
-// clamp keeps the player at/below this same line — a jagged white waterline.
-const waterSurfaceHudRows = 2;
-const waterSurfaceTileSizePixels = 16;
-const waterSurfaceY = waterSurfaceHudRows * waterSurfaceTileSizePixels;
-
-function renderWaterParallax(
-  scene: Phaser.Scene,
-  worldWidth: number,
-  groundY: number,
-): void {
-  const seaweedColor = 0x0e8f7a;
-  const bubbleColor = 0xbdf0ff;
-
-  // Rolling, shimmering waterline: two overlapping sine swells (a deeper back
-  // swell and a bright foam crest) that gently sway, plus twinkling highlights,
-  // instead of a row of static triangle teeth.
-  renderWaterSurface(scene, worldWidth);
-  for (let i = 60; i < worldWidth; i += 150) {
-    const fronds = 3 + ((i * 7) % 3);
-    const lean = (i * 13) % 2 === 0 ? -3 : 3;
-    for (let s = 0; s < fronds; s += 1) {
-      scene.add
-        .ellipse(
-          i + (s % 2 === 0 ? lean : -lean),
-          groundY - s * 12 - 6,
-          11,
-          18,
-          seaweedColor,
-        )
-        .setScrollFactor(0.85, 1)
-        .setDepth(-80);
-    }
-  }
-  for (let i = 30; i < worldWidth; i += 70) {
-    scene.add
-      .circle(
-        i,
-        groundY - 40 - ((i * 17) % 160),
-        3 + ((i * 5) % 4),
-        bubbleColor,
-        0.55,
-      )
-      .setScrollFactor(0.6, 1)
-      .setDepth(-85);
-  }
-}
-
-// Draw one filled sine swell across the level: a smooth crest at `crestY` with
-// the given amplitude/wavelength, filled down to `fillBottomY`.
-function fillWaveBand(
-  graphics: Phaser.GameObjects.Graphics,
-  worldWidth: number,
-  crestY: number,
-  amplitude: number,
-  wavelength: number,
-  phase: number,
-  fillBottomY: number,
-): void {
-  const step = 4;
-  graphics.beginPath();
-  graphics.moveTo(0, fillBottomY);
-  for (let x = 0; x <= worldWidth; x += step) {
-    const y = crestY + Math.sin(x / wavelength + phase) * amplitude;
-    graphics.lineTo(x, y);
-  }
-  graphics.lineTo(worldWidth, fillBottomY);
-  graphics.closePath();
-  graphics.fillPath();
-}
-
-// A realistic, animated water surface: a translucent back swell, a bright foam
-// crest, and drifting twinkling highlights, all gently swaying.
-function renderWaterSurface(scene: Phaser.Scene, worldWidth: number): void {
-  const crestY = waterSurfaceY + 4;
-  const fillBottomY = waterSurfaceY + 14;
-
-  // Deeper back swell — a soft translucent aqua band under the foam.
-  const backSwell = scene.add.graphics().setScrollFactor(1, 1).setDepth(-72);
-  backSwell.fillStyle(0x7fd4ff, 0.55);
-  fillWaveBand(backSwell, worldWidth, crestY + 2, 3, 34, 1.2, fillBottomY);
-
-  // Bright foam crest on top.
-  const crest = scene.add.graphics().setScrollFactor(1, 1).setDepth(-70);
-  crest.fillStyle(0xffffff, 0.95);
-  fillWaveBand(crest, worldWidth, crestY, 2.4, 26, 0, fillBottomY - 4);
-
-  // Sway the swells side to side and up a touch, so the waves visibly roll.
-  scene.tweens.add({
-    targets: [backSwell, crest],
-    x: { from: -4, to: 4 },
-    y: { from: -1.2, to: 1.2 },
-    duration: 2600,
-    yoyo: true,
-    repeat: -1,
-    ease: "Sine.InOut",
-  });
-
-  // Twinkling specular highlights that drift along the surface and fade in/out.
-  for (let x = 20; x < worldWidth; x += 46) {
-    const glint = scene.add
-      .ellipse(x, crestY - 1, 5 + ((x * 3) % 4), 2, 0xffffff, 0.9)
-      .setScrollFactor(1, 1)
-      .setDepth(-69);
-    scene.tweens.add({
-      targets: glint,
-      alpha: { from: 0.15, to: 0.9 },
-      scaleX: { from: 0.6, to: 1.3 },
-      duration: 700 + ((x * 37) % 900),
-      delay: (x * 53) % 1400,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.InOut",
-    });
-  }
-}
-
-function renderParallaxBackground(
-  scene: Phaser.Scene,
-  levelSpec: LevelSpec,
-  theme: LevelTheme | undefined,
-): void {
-  const worldWidth = makeLevelWorldWidthPixels(levelSpec);
-  const worldHeight = makeLevelWorldHeightPixels(levelSpec);
-  const resolvedTheme: LevelTheme = theme ?? "overworld";
-
-  // Full-world backdrop in the theme's sky colour (empty cells no longer paint
-  // an opaque sky tile, so this and the parallax layers below show through).
-  scene.add
-    .rectangle(0, 0, worldWidth, worldHeight, themePalettes[resolvedTheme].sky)
-    .setOrigin(0)
-    .setScrollFactor(0)
-    .setDepth(-100);
-
-  const groundY = worldHeight - levelSpec.tileSizePixels;
-
-  // Underground and castle are a plain dark void in the original — no decoration.
-  if (resolvedTheme === "underground" || resolvedTheme === "castle") {
-    return;
-  }
-
-  if (resolvedTheme === "water") {
-    renderWaterParallax(scene, worldWidth, groundY);
-    return;
-  }
-
-  // A three-lobe mound (cloud / hill / bush share this silhouette in the
-  // original). `flatBaseY` is the flat bottom edge; lobes rise above it.
-  const addMound = (
-    cx: number,
-    flatBaseY: number,
-    scale: number,
-    color: number,
-    scroll: number,
-    depth: number,
-    dots: boolean,
-  ): void => {
-    const r = Math.round(9 * scale);
-    for (const [dx, lobe] of [
-      [-2 * r, r],
-      [0, Math.round(r * 1.4)],
-      [2 * r, r],
-    ] as const) {
-      scene.add
-        .ellipse(cx + dx, flatBaseY - lobe, lobe * 2, lobe * 2, color)
-        .setScrollFactor(scroll, 1)
-        .setDepth(depth);
-    }
-    scene.add
-      .rectangle(cx, flatBaseY - r, 5 * r, r, color)
-      .setOrigin(0.5, 0)
-      .setScrollFactor(scroll, 1)
-      .setDepth(depth);
-    if (dots) {
-      // Two-tone body: a darker band across the hill's lower portion, as in the
-      // original's shaded hills.
-      scene.add
-        .rectangle(
-          cx,
-          flatBaseY - Math.round(r * 0.5),
-          5 * r,
-          Math.round(r * 0.5),
-          parallaxHillShadeColor,
-        )
-        .setOrigin(0.5, 0)
-        .setScrollFactor(scroll, 1)
-        .setDepth(depth);
-      // Darker scalloped "feet" along the base give the original's hills their
-      // two-tone footed silhouette.
-      const footRadius = Math.round(r * 0.5);
-      for (const dx of [-2 * r, 0, 2 * r]) {
-        scene.add
-          .ellipse(
-            cx + dx,
-            flatBaseY,
-            footRadius * 2,
-            footRadius * 2,
-            parallaxHillShadeColor,
-          )
-          .setScrollFactor(scroll, 1)
-          .setDepth(depth);
-      }
-      // The two dark "eye" dots that give the original's hills their face.
-      for (const dx of [-Math.round(r * 0.6), Math.round(r * 0.6)]) {
-        scene.add
-          .ellipse(cx + dx, flatBaseY - r, 4, 4, parallaxHillDotColor)
-          .setScrollFactor(scroll, 1)
-          .setDepth(depth + 1);
-      }
-    }
-  };
-
-  // Distant hills sit just above the horizon, slow parallax, faded green.
-  for (let i = 40; i < worldWidth; i += 176) {
-    addMound(i, groundY, 1.3, parallaxDistantHillColor, 0.5, -90, false);
-  }
-  // Near hills with the face dots.
-  for (let i = 120; i < worldWidth; i += 176) {
-    addMound(i, groundY, 0.9, parallaxHillColor, 0.75, -85, true);
-  }
-  // Bushes sit on the ground plane and scroll almost with it.
-  for (let i = 80; i < worldWidth; i += 128) {
-    addMound(i, groundY, 0.6, parallaxBushColor, 0.9, -60, false);
-  }
-  // Flat-bottomed clouds drifting slowly overhead, up in the sky.
-  const cloudY = groundY - 120 - ((levelSpec.widthTiles * 3) % 24);
-  for (let i = 20; i < worldWidth; i += 176) {
-    addMound(
-      i,
-      cloudY + ((i * 11) % 24),
-      0.9,
-      parallaxCloudColor,
-      0.35,
-      -70,
-      false,
-    );
-  }
-}
-
 function makeBrowserCameraSnapshot(
   camera: Phaser.Cameras.Scene2D.Camera,
   levelSpec: LevelSpec,
@@ -7896,6 +7820,11 @@ function renderLevelTiles(
   userAssetBundle: UserAssetBundle | undefined,
   suppressTileArt: boolean,
 ): RenderedLevelSummary {
+  if (userAssetBundle === undefined) {
+    throw new Error(
+      "The authored asset bundle is required to render level tiles.",
+    );
+  }
   const collisionLookup = makeTileCollisionLookup(levelSpec);
   const collisionCounts = makeEmptyCollisionCounts();
   const castleBridgeTilesByColumn = new Map<
@@ -7907,9 +7836,7 @@ function renderLevelTiles(
     readonly Phaser.GameObjects.GameObject[]
   >();
   const usedBlockSwaps = new Map<string, UsedBlockSwap>();
-  const usedBlockImage = userAssetBundle?.tileImages.get(
-    "empty-question-block",
-  );
+  const usedBlockImage = userAssetBundle.tileImages.get("empty-question-block");
   // Hidden blocks are drawn nothing until bumped; remember where they are so a
   // solid block can be materialised when they are revealed.
   const hiddenBlockTiles = new Map<string, HiddenBlockTile>();
@@ -7918,7 +7845,7 @@ function renderLevelTiles(
   for (const [rowIndex, row] of levelSpec.tiles.entries()) {
     for (const [columnIndex, tileId] of row.entries()) {
       const collision = requireTileCollision(collisionLookup, tileId);
-      const userImage = userAssetBundle?.tileImages.get(tileId);
+      const userImage = userAssetBundle.tileImages.get(tileId);
       const childrenBeforeTileRender = new Set(scene.children.list);
 
       if (collision === TileCollisionKind.Hidden) {
@@ -7937,23 +7864,18 @@ function renderLevelTiles(
           );
           if (neighborSceneryId !== undefined) {
             const sceneryImage =
-              userAssetBundle?.tileImages.get(neighborSceneryId);
-            if (sceneryImage !== undefined) {
-              renderUserTileImage(
-                scene,
-                columnIndex * levelSpec.tileSizePixels,
-                rowIndex * levelSpec.tileSizePixels,
-                sceneryImage,
-              );
-            } else {
-              renderDecorativeSceneryTile(
-                scene,
-                columnIndex * levelSpec.tileSizePixels,
-                rowIndex * levelSpec.tileSizePixels,
-                levelSpec.tileSizePixels,
-                neighborSceneryId,
+              userAssetBundle.tileImages.get(neighborSceneryId);
+            if (sceneryImage === undefined) {
+              throw new Error(
+                `The authored asset bundle is missing scenery art for ${neighborSceneryId}.`,
               );
             }
+            renderUserTileImage(
+              scene,
+              columnIndex * levelSpec.tileSizePixels,
+              rowIndex * levelSpec.tileSizePixels,
+              sceneryImage,
+            );
           }
         }
         hiddenBlockTiles.set(makeTileRenderKey(columnIndex, rowIndex), {
@@ -7964,7 +7886,14 @@ function renderLevelTiles(
       } else if (suppressTileArt) {
         // Collision/debug accounting still comes from LevelSpec. A full-level
         // visual layer supplies the imported level art for this mode.
-      } else if (userImage !== undefined) {
+      } else if (isIntentionallyInvisibleTile(tileId)) {
+        // These collision cells intentionally have no display object.
+      } else {
+        if (userImage === undefined) {
+          throw new Error(
+            `The authored asset bundle is missing visible tile art for ${tileId}.`,
+          );
+        }
         const tileImage = renderUserTileImage(
           scene,
           columnIndex * levelSpec.tileSizePixels,
@@ -7979,25 +7908,18 @@ function renderLevelTiles(
               levelSpec.tileSizePixels,
             )
           : undefined;
-        if (
-          singleUseQuestionBlockTileIds.has(tileId) &&
-          usedBlockImage !== undefined
-        ) {
+        if (singleUseQuestionBlockTileIds.has(tileId)) {
+          if (usedBlockImage === undefined) {
+            throw new Error(
+              "The authored asset bundle is missing tile art for empty-question-block.",
+            );
+          }
           usedBlockSwaps.set(makeTileRenderKey(columnIndex, rowIndex), {
             image: tileImage,
             usedImage: usedBlockImage,
             glyph: questionGlyph,
           });
         }
-      } else {
-        renderAuthoredTile(
-          scene,
-          columnIndex * levelSpec.tileSizePixels,
-          rowIndex * levelSpec.tileSizePixels,
-          levelSpec.tileSizePixels,
-          tileId,
-          collision,
-        );
       }
 
       if (collision === TileCollisionKind.Breakable) {
@@ -8023,10 +7945,6 @@ function renderLevelTiles(
       collisionCounts[collision] += 1;
       renderedTileCount += 1;
     }
-  }
-
-  if (!suppressTileArt) {
-    renderPipeMouths(scene, levelSpec);
   }
 
   return {
@@ -8399,47 +8317,17 @@ function setGameObjectVisible(
 // a single teal one-tile box that looked like an unrelated block.) Only pipes
 // anchored on a top-mouth tile get the cue: side-entry warp shafts (anchored
 // on body tiles, entered walking left/right) have no top opening to mark.
-function renderPipeMouths(scene: Phaser.Scene, levelSpec: LevelSpec): void {
-  for (const pipe of levelSpec.pipes) {
-    const anchorTileId = levelSpec.tiles[pipe.position.y]?.[pipe.position.x];
-    let mouthColumn: number;
-    if (anchorTileId === "pipe-top-left") {
-      mouthColumn = pipe.position.x;
-    } else if (anchorTileId === "pipe-top-right") {
-      mouthColumn = pipe.position.x - 1;
-    } else {
-      continue;
-    }
-    const x = mouthColumn * levelSpec.tileSizePixels;
-    const y = pipe.position.y * levelSpec.tileSizePixels;
-    const size = levelSpec.tileSizePixels;
-
-    scene.add
-      .rectangle(
-        x + pipeMouthOpeningInsetPixels,
-        y + pipeMouthOpeningTopPixels,
-        size * pipeMouthWidthTiles - pipeMouthOpeningInsetPixels * 2,
-        pipeMouthOpeningHeightPixels,
-        pipeMouthOpeningColor,
-      )
-      .setOrigin(0);
-    scene.add
-      .rectangle(
-        x + pipeMouthOpeningInsetPixels * 2,
-        y + pipeMouthOpeningTopPixels + 1,
-        size * pipeMouthWidthTiles - pipeMouthOpeningInsetPixels * 4,
-        pipeMouthOpeningDepthHeightPixels,
-        pipeMouthOpeningDepthColor,
-      )
-      .setOrigin(0);
-  }
-}
 
 function renderNonPlayerActors(
   scene: Phaser.Scene,
   levelSpec: LevelSpec,
   userAssetBundle: UserAssetBundle | undefined,
 ): RenderedActorSummarySet {
+  if (userAssetBundle === undefined) {
+    throw new Error(
+      "The authored asset bundle is required to render level actors.",
+    );
+  }
   const actorRoleLookup = makeActorRoleLookup(levelSpec);
   const roleCounts = makeEmptyRenderedActorRoleCounts();
   const actors: RuntimeRenderedActor[] = [];
@@ -8464,31 +8352,25 @@ function renderNonPlayerActors(
       x: actor.position.x * levelSpec.tileSizePixels + actorRenderOffsetPixels,
       y: actor.position.y * levelSpec.tileSizePixels + actorRenderOffsetPixels,
     };
-    const userImage = userAssetBundle?.actorImages.get(actor.actorId);
+    const userImage = userAssetBundle.actorImages.get(actor.actorId);
+    if (userImage === undefined) {
+      throw new Error(
+        `The authored asset bundle is missing static actor art for ${actor.actorId}.`,
+      );
+    }
     // The 32x32 boss walks with his simulated 16px body at the sprite's lower
     // half: drop the baseline a tile so his feet stand on the bridge planks
     // rather than hovering a tile above them.
     const baselinePixels = actor.actorId.startsWith("vglc-smb-bowser")
       ? groundedActorSpriteHeightPixels * 2
       : groundedActorSpriteHeightPixels;
-    const renderedUserActor =
-      userImage === undefined
-        ? undefined
-        : renderUserActorImage(scene, pixelPosition, userImage, baselinePixels);
-    const renderObject =
-      renderedUserActor?.container ??
-      renderAuthoredActor(scene, pixelPosition, role);
-
-    // Fallback shapes get a small wing marker for winged armored enemies;
-    // toggled per frame by the winged behavior.
-    let wingObject: Phaser.GameObjects.Triangle | undefined;
-    if (role === ActorRole.ArmoredEnemy && renderedUserActor === undefined) {
-      wingObject = scene.add
-        .triangle(-2, 2, 0, 6, 6, 0, 6, 6, wingFallbackColor)
-        .setOrigin(0)
-        .setVisible(false);
-      renderObject.add(wingObject);
-    }
+    const renderedUserActor = renderUserActorImage(
+      scene,
+      pixelPosition,
+      userImage,
+      baselinePixels,
+    );
+    const renderObject = renderedUserActor.container;
 
     roleCounts[role] += 1;
     actors.push({
@@ -8501,9 +8383,9 @@ function renderNonPlayerActors(
       },
       pixelPosition,
       renderObject,
-      userImageObject: renderedUserActor?.image,
+      userImageObject: renderedUserActor.image,
       userImage,
-      wingObject,
+      wingObject: undefined,
     });
   }
 
@@ -8513,162 +8395,8 @@ function renderNonPlayerActors(
   };
 }
 
-function renderAuthoredTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-  collision: BrowserLevelCollisionKind,
-): void {
-  // Coin holders are authored as coin-block-<N> / coin-brick-<N> (hold N coins).
-  // The bump/dispense machinery is collision-based, so it already handles them
-  // without a per-id case; only the look differs — a "?" block, or a brick that
-  // keeps its brick appearance.
-  const coinHolder = /^coin-(block|brick)-\d+$/.exec(tileId);
-  if (coinHolder !== null) {
-    requireTileAssetCollision(tileId, collision, TileCollisionKind.Interactive);
-    if (coinHolder[1] === "brick") {
-      renderBrickTile(scene, x, y, size);
-    } else {
-      renderInteractiveTile(scene, x, y, size, false);
-    }
-    return;
-  }
-  if (tileId === "power-up-brick") {
-    // A brick with an embedded power-up keeps the plain brick look.
-    requireTileAssetCollision(tileId, collision, TileCollisionKind.Interactive);
-    renderBrickTile(scene, x, y, size);
-    return;
-  }
-  if (decorativeSceneryTileIds.has(tileId)) {
-    requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-    renderDecorativeSceneryTile(scene, x, y, size, tileId);
-    return;
-  }
-  switch (tileId) {
-    case "empty":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-      return;
-    case "sky":
-      // Empty cells paint nothing; the full-world backdrop + parallax layers
-      // behind the tiles supply the themed sky.
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Empty);
-      return;
-    case "goal-reach":
-      // The invisible finish trigger above a flagpole's authored art: goal
-      // contact with no visual, so the pole renders only where authored.
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
-      return;
-    case "ground":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderSolidTile(scene, x, y, size, "grass");
-      return;
-    case "grass":
-    case "stone":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderSolidTile(scene, x, y, size, tileId);
-      return;
-    case "pipe-top-left":
-    case "pipe-top-right":
-    case "pipe-left":
-    case "pipe-right":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderPipeTile(scene, x, y, size, tileId);
-      return;
-    case "breakable-block":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Breakable);
-      renderBrickTile(scene, x, y, size);
-      return;
-    case "castle-bridge":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderBrickTile(scene, x, y, size);
-      return;
-    case "cracked-stone":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Breakable);
-      renderSolidTile(scene, x, y, size, "stone");
-      return;
-    case "cannon-top":
-      // Editor-authored cannons are hazard-topped (touching hurts); decoded SMB
-      // cannons are safe to stand on — only their Bullet Bills harm.
-      if (
-        collision !== TileCollisionKind.SolidHazard &&
-        collision !== TileCollisionKind.Solid
-      ) {
-        requireTileAssetCollision(
-          tileId,
-          collision,
-          TileCollisionKind.SolidHazard,
-        );
-      }
-      renderCannonTile(scene, x, y, size, true);
-      return;
-    case "cannon-bottom":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderCannonTile(scene, x, y, size, false);
-      return;
-    case "empty-question-block":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderInteractiveTile(scene, x, y, size, true);
-      return;
-    case "thorn":
-    case "plant-hazard":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Hazard);
-      renderHazardTile(scene, x, y, size);
-      return;
-    case "spring-top":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Spring);
-      renderSpringTile(scene, x, y, size, true);
-      return;
-    case "spring-bottom":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Solid);
-      renderSpringTile(scene, x, y, size, false);
-      return;
-    case "mystery-box":
-    case "full-question-block-coin":
-    case "full-question-block-power-up":
-    case "extra-life-brick":
-    case "star-block":
-    case "beanstalk-block":
-    case "multi-coin-brick":
-      requireTileAssetCollision(
-        tileId,
-        collision,
-        TileCollisionKind.Interactive,
-      );
-      renderInteractiveTile(scene, x, y, size, false);
-      return;
-    case "used-box":
-      requireTileAssetCollision(
-        tileId,
-        collision,
-        TileCollisionKind.Interactive,
-      );
-      renderInteractiveTile(scene, x, y, size, true);
-      return;
-    case "gate":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
-      renderGoalTile(scene, x, y, size);
-      return;
-    case "flagpole":
-      requireTileAssetCollision(tileId, collision, TileCollisionKind.Goal);
-      renderFlagpoleSegment(scene, x, y, size);
-      return;
-    default:
-      throw new Error(`Unsupported authored tile asset id: ${tileId}`);
-  }
-}
-
-function requireTileAssetCollision(
-  tileId: string,
-  actualCollision: BrowserLevelCollisionKind,
-  expectedCollision: BrowserLevelCollisionKind,
-): void {
-  if (actualCollision !== expectedCollision) {
-    throw new Error(
-      `Authored tile asset ${tileId} expected ${expectedCollision} collision but received ${actualCollision}.`,
-    );
-  }
+function isIntentionallyInvisibleTile(tileId: string): boolean {
+  return tileId === "empty" || tileId === "sky" || tileId === "goal-reach";
 }
 
 // Decorative scenery tiles (Empty collision): the in-level clouds, bushes,
@@ -8702,511 +8430,6 @@ const decorativeSceneryTileIds: ReadonlySet<string> = new Set([
   "coral",
 ]);
 
-const sceneryCloudColor = 0xf7fbff;
-const sceneryBushColor = 0x2f9e44;
-const sceneryHillColor = 0x37b24d;
-const sceneryHillShadeColor = 0x2b8a3e;
-const sceneryFenceColor = 0xb08968;
-const sceneryTreeColor = 0x2b8a3e;
-const sceneryTrunkColor = 0xb08968;
-const sceneryMushroomStemColor = 0xf1e4d0;
-const sceneryRailColor = 0xd9a066;
-const sceneryCastleWallColor = 0x8d99ae;
-const sceneryCastleShadeColor = 0x5c677d;
-const sceneryCastleDoorColor = 0x1b263b;
-const sceneryWaterColor = 0x4dabf7;
-const sceneryCoralColor = 0x2f9e6e;
-const sceneryCoralGlintColor = 0x63e6be;
-const sceneryWaterDeepColor = 0x339af0;
-const sceneryLavaColor = 0xf03e3e;
-const sceneryLavaDeepColor = 0xc92a2a;
-
-function renderDecorativeSceneryTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-): void {
-  const half = Math.round(size / 2);
-  switch (tileId) {
-    case "scenery-cloud-left":
-    case "scenery-bush-left":
-      scene.add
-        .ellipse(
-          x + size,
-          y + size,
-          size * 2,
-          size * 1.6,
-          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
-        )
-        .setOrigin(1, 1)
-        .setDepth(-20);
-      return;
-    case "scenery-cloud-right":
-    case "scenery-bush-right":
-      scene.add
-        .ellipse(
-          x,
-          y + size,
-          size * 2,
-          size * 1.6,
-          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
-        )
-        .setOrigin(0, 1)
-        .setDepth(-20);
-      return;
-    case "scenery-cloud-middle":
-    case "scenery-bush-middle":
-      scene.add
-        .rectangle(
-          x,
-          y + Math.round(size * 0.2),
-          size,
-          Math.round(size * 0.8),
-          tileId.includes("bush") ? sceneryBushColor : sceneryCloudColor,
-        )
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-left":
-      scene.add
-        .triangle(x, y, 0, size, size, 0, size, size, sceneryHillColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-right":
-      scene.add
-        .triangle(x, y, 0, 0, size, size, 0, size, sceneryHillColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-peak":
-      scene.add
-        .triangle(x, y, half, 0, size, size, 0, size, sceneryHillShadeColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-hill-fill":
-      scene.add
-        .rectangle(x, y, size, size, sceneryHillColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-fence": {
-      for (const postX of [2, 7, 12]) {
-        scene.add
-          .rectangle(x + postX, y + 4, 2, size - 4, sceneryFenceColor)
-          .setOrigin(0)
-          .setDepth(-20);
-      }
-      scene.add
-        .rectangle(x, y + 6, size, 2, sceneryFenceColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    }
-    case "scenery-tree-top":
-    case "scenery-tree-top-small":
-      scene.add
-        .ellipse(x + half, y + half, size * 0.95, size * 1.1, sceneryTreeColor)
-        .setDepth(-20);
-      return;
-    case "scenery-trunk":
-      scene.add
-        .rectangle(x + half - 2, y, 4, size, sceneryTrunkColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-mushroom-stem":
-      scene.add
-        .rectangle(x + 3, y, size - 6, size, sceneryMushroomStemColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "scenery-rail":
-      scene.add
-        .rectangle(x, y + size - 4, size, 2, sceneryRailColor)
-        .setOrigin(0)
-        .setDepth(-20);
-      return;
-    case "castle-wall":
-      scene.add
-        .rectangle(x, y, size, size, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setStrokeStyle(1, sceneryCastleShadeColor)
-        .setDepth(-19);
-      return;
-    case "castle-battlement": {
-      scene.add
-        .rectangle(x, y + half, size, half, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + 1, y, half - 2, half, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + half + 1, y, half - 2, half, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      return;
-    }
-    case "castle-window":
-      scene.add
-        .rectangle(x, y, size, size, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + 5, y + 3, size - 10, size - 6, sceneryCastleDoorColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      return;
-    case "castle-door":
-      scene.add
-        .rectangle(x, y, size, size, sceneryCastleWallColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      scene.add
-        .rectangle(x + 3, y + 2, size - 6, size - 2, sceneryCastleDoorColor)
-        .setOrigin(0)
-        .setDepth(-19);
-      return;
-    case "water-surface":
-    case "lava-surface": {
-      const surfaceColor =
-        tileId === "lava-surface" ? sceneryLavaColor : sceneryWaterColor;
-      const glintColor = tileId === "lava-surface" ? 0xffc078 : 0xd0ebff;
-      scene.add
-        .rectangle(x, y + 4, size, size - 4, surfaceColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      scene.add
-        .rectangle(x, y + 2, size, 2, glintColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      return;
-    }
-    case "water-body":
-    case "lava-body":
-      scene.add
-        .rectangle(
-          x,
-          y,
-          size,
-          size,
-          tileId === "lava-body" ? sceneryLavaDeepColor : sceneryWaterDeepColor,
-        )
-        .setOrigin(0)
-        .setDepth(-18);
-      return;
-    case "coral":
-      // A swim-through coral bank: a solid-looking block the water palette
-      // renders behind the swimmer.
-      scene.add
-        .rectangle(x, y, size, size, sceneryCoralColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      scene.add
-        .rectangle(x + 2, y + 2, size - 4, 2, sceneryCoralGlintColor)
-        .setOrigin(0)
-        .setDepth(-18);
-      return;
-    default:
-      throw new Error(`Unsupported decorative scenery tile: ${tileId}`);
-  }
-}
-
-// A brown SMB brick with mortar lines: a centre course split, offset from the
-// half-height courses above and below.
-function renderBrickTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  const mortar = activeThemePalette.brickMortar;
-  scene.add
-    .rectangle(x, y, size, size, activeThemePalette.brick)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  const half = Math.round(size / 2);
-  scene.add.rectangle(x, y + half, size, 1, mortar).setOrigin(0);
-  scene.add.rectangle(x + half, y, 1, half, mortar).setOrigin(0);
-  scene.add
-    .rectangle(x + Math.round(size / 4), y + half, 1, half, mortar)
-    .setOrigin(0);
-  scene.add
-    .rectangle(x + Math.round((3 * size) / 4), y + half, 1, half, mortar)
-    .setOrigin(0);
-}
-
-function renderSolidTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-) {
-  switch (tileId) {
-    case "grass":
-      scene.add
-        .rectangle(x, y, size, size, activeThemePalette.ground)
-        .setOrigin(0)
-        .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-      if (activeThemePalette.grassyTop) {
-        scene.add
-          .rectangle(
-            x,
-            y,
-            size,
-            grassTopHeightPixels,
-            activeThemePalette.groundTop,
-          )
-          .setOrigin(0);
-        scene.add
-          .rectangle(
-            x + grassBladeOffsetX,
-            y + grassBladeOffsetY,
-            size - grassBladeInsetPixels,
-            grassBladeHeightPixels,
-            activeThemePalette.groundBlade,
-          )
-          .setOrigin(0);
-      }
-      scene.add
-        .rectangle(
-          x + grassDirtStoneOffsetX,
-          y + grassDirtStoneOffsetY,
-          grassDirtStoneWidthPixels,
-          grassDirtStoneHeightPixels,
-          activeThemePalette.groundDirt,
-        )
-        .setOrigin(0);
-      return;
-    case "stone":
-      scene.add
-        .rectangle(x, y, size, size, activeThemePalette.block)
-        .setOrigin(0)
-        .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-      scene.add
-        .rectangle(
-          x + stoneHighlightOffsetX,
-          y + stoneHighlightOffsetY,
-          size - stoneHighlightInsetPixels,
-          stoneHighlightHeightPixels,
-          activeThemePalette.blockHighlight,
-        )
-        .setOrigin(0);
-      return;
-    default:
-      throw new Error(`Unsupported solid tile asset id: ${tileId}`);
-  }
-}
-
-function renderHazardTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  scene.add
-    .rectangle(x, y, size, size, thornTileColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  scene.add.triangle(
-    x + hazardPointBaseOffsetX,
-    y + hazardPointBaseOffsetY,
-    hazardPointBaseX1,
-    hazardPointBaseY1,
-    hazardPointBaseX2,
-    hazardPointBaseY2,
-    hazardPointBaseX3,
-    hazardPointBaseY3,
-    thornPointColor,
-  );
-}
-
-function renderSpringTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  isTop: boolean,
-) {
-  scene.add
-    .rectangle(x, y, size, size, springBaseColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-
-  if (isTop) {
-    scene.add
-      .rectangle(
-        x + springInsetPixels,
-        y + springInsetPixels,
-        size - springInsetPixels * 2,
-        springTopHeightPixels,
-        springTopColor,
-      )
-      .setOrigin(0);
-  }
-
-  scene.add
-    .rectangle(
-      x + springCoilOffsetX,
-      y + springFirstCoilOffsetY,
-      springCoilWidthPixels,
-      springCoilHeightPixels,
-      springCoilColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + springCoilOffsetX,
-      y + springSecondCoilOffsetY,
-      springCoilWidthPixels,
-      springCoilHeightPixels,
-      springCoilColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + springInsetPixels,
-      y + size - springBaseHeightPixels,
-      size - springInsetPixels * 2,
-      springBaseHeightPixels,
-      springTopColor,
-    )
-    .setOrigin(0);
-}
-
-function renderPipeTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  tileId: string,
-) {
-  scene.add
-    .rectangle(x, y, size, size, pipeColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, pipeShadowColor);
-
-  if (tileId === "pipe-top-left" || tileId === "pipe-top-right") {
-    scene.add
-      .rectangle(x, y, size, pipeLipHeightPixels, pipeLipColor)
-      .setOrigin(0);
-  }
-
-  const highlightX =
-    tileId === "pipe-top-right" || tileId === "pipe-right"
-      ? x + size - pipeHighlightOffsetX
-      : x + pipeHighlightOffsetX;
-
-  scene.add
-    .rectangle(
-      highlightX,
-      y + pipeHighlightOffsetY,
-      pipeHighlightWidthPixels,
-      size - pipeHighlightOffsetY,
-      pipeHighlightColor,
-    )
-    .setOrigin(0);
-}
-
-function renderCannonTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  top: boolean,
-) {
-  scene.add
-    .rectangle(x, y, size, size, cannonTileColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  scene.add
-    .rectangle(
-      x,
-      y + cannonBandOffsetY,
-      size,
-      cannonBandHeightPixels,
-      cannonBandColor,
-    )
-    .setOrigin(0);
-
-  if (!top) {
-    return;
-  }
-
-  scene.add
-    .rectangle(
-      x + cannonMouthOffsetX,
-      y + cannonMouthOffsetY,
-      cannonMouthWidthPixels,
-      cannonMouthHeightPixels,
-      cannonMouthColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + cannonWarningLeftOffsetX,
-      y + cannonWarningOffsetY,
-      cannonWarningWidthPixels,
-      cannonWarningHeightPixels,
-      cannonWarningColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + cannonWarningRightOffsetX,
-      y + cannonWarningOffsetY,
-      cannonWarningWidthPixels,
-      cannonWarningHeightPixels,
-      cannonWarningColor,
-    )
-    .setOrigin(0);
-}
-
-function renderGoalTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  scene.add
-    .rectangle(x, y, size, size, gateFrameColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  scene.add
-    .rectangle(
-      x + tileStrokeWidth,
-      y + tileStrokeWidth,
-      size - tileStrokeWidth * 2,
-      size - tileStrokeWidth * 2,
-      gateTileColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + gateShineOffsetX,
-      y + gateShineOffsetY,
-      gateShineWidthPixels,
-      size - gateShineInsetPixels,
-      gateShineColor,
-    )
-    .setOrigin(0);
-  scene.add
-    .rectangle(
-      x + size / 2 - gateGemSizePixels / 2,
-      y + size / 2 - gateGemSizePixels / 2,
-      gateGemSizePixels,
-      gateGemSizePixels,
-      gateGemColor,
-    )
-    .setOrigin(0);
-}
-
 const flagpoleTileId = "flagpole";
 const flagpoleFurnitureDepth = 5;
 // The flag's height as a fraction of a tile (renderFlagpoleFurniture draws it
@@ -9238,112 +8461,12 @@ const blockNudgeFrames = 10;
 const springSquashColor = 0x2dd4bf;
 const castleFlagRisePixelsPerFrame = 0.5;
 const flagpoleWalkOffSpeedPixels = 1.25;
-const flagpolePoleColor = 0xc8d8c8;
 const flagpoleBallColor = 0x60a860;
 const flagFabricColor = 0x18c018;
 
 // The flagpole is a slim pole centred in its (goal-collision) column; a stack of
 // these segments reads as one continuous pole. The ball and flag are added once
 // per column by BootScene.renderFlagpoleFurniture.
-function renderFlagpoleSegment(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-) {
-  const poleWidth = Math.max(2, Math.round(size * 0.18));
-  scene.add
-    .rectangle(
-      x + size / 2 - poleWidth / 2,
-      y,
-      poleWidth,
-      size,
-      flagpolePoleColor,
-    )
-    .setOrigin(0);
-}
-
-function renderInteractiveTile(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  size: number,
-  used: boolean,
-) {
-  const fillColor = used ? usedBoxColor : interactiveBoxColor;
-
-  scene.add
-    .rectangle(x, y, size, size, fillColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-
-  if (!used) {
-    // Corner rivets, then a centered "?" — the classic question block. Every
-    // live "?" block looks the same in play; its contents are only a surprise.
-    const rivetInset = interactiveBoxQuestionOffsetX;
-    const rivets: readonly [number, number][] = [
-      [rivetInset, interactiveBoxQuestionOffsetY],
-      [size - rivetInset - 1, interactiveBoxQuestionOffsetY],
-      [rivetInset, size - interactiveBoxQuestionOffsetY - 1],
-      [size - rivetInset - 1, size - interactiveBoxQuestionOffsetY - 1],
-    ];
-    for (const [rx, ry] of rivets) {
-      scene.add
-        .rectangle(x + rx, y + ry, 1, 1, interactiveBoxShineColor)
-        .setOrigin(0);
-    }
-    scene.add
-      .text(x + size / 2, y + size / 2 - 1, "?", {
-        fontFamily: "monospace",
-        fontSize: `${String(Math.round(size * 0.72))}px`,
-        fontStyle: "bold",
-        color: "#fef3c7",
-      })
-      .setOrigin(0.5)
-      .setResolution(3);
-  }
-}
-
-function renderAuthoredActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-  role: BrowserRenderedActorRole,
-): Phaser.GameObjects.Container {
-  switch (role) {
-    case ActorRole.Enemy:
-      return renderEnemyActor(scene, pixelPosition);
-    case ActorRole.FlyingEnemy:
-      return renderFlyingEnemyActor(scene, pixelPosition);
-    case ActorRole.ChasingEnemy:
-      return renderChasingEnemyActor(scene, pixelPosition);
-    case ActorRole.ArmoredEnemy:
-      return renderArmoredEnemyActor(scene, pixelPosition);
-    case ActorRole.ThrowingEnemy:
-      return renderThrowingEnemyActor(scene, pixelPosition);
-    case ActorRole.AerialThrowingEnemy:
-      return renderAerialThrowingEnemyActor(scene, pixelPosition);
-    case ActorRole.PiranhaPlant:
-      return renderPiranhaPlantActor(scene, pixelPosition);
-    case ActorRole.Coin:
-      return renderCoinActor(scene, pixelPosition);
-    case ActorRole.Item:
-      return renderItemActor(scene, pixelPosition);
-    case ActorRole.PowerUp:
-      return renderPowerUpActor(scene, pixelPosition);
-    case ActorRole.ExtraLife:
-      return renderExtraLifeActor(scene, pixelPosition);
-    case ActorRole.InvincibilityPowerUp:
-      return renderInvincibilityPowerUpActor(scene, pixelPosition);
-    case ActorRole.Climbable:
-      return renderClimbableActor(scene, pixelPosition);
-    case ActorRole.Exit:
-      return renderExitActor(scene, pixelPosition);
-    default: {
-      const invalidRole: never = role;
-      throw new Error(`Invalid rendered actor role: ${String(invalidRole)}`);
-    }
-  }
-}
 
 function renderUserTileImage(
   scene: Phaser.Scene,
@@ -9488,682 +8611,6 @@ function registerUserSoundBuffers(
   }
 
   gameAudio.registerSoundBuffers(bufferMap);
-}
-
-function renderEnemyActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const body = scene.add
-    .rectangle(
-      0,
-      enemyBodyOffsetY,
-      enemyBodyWidthPixels,
-      enemyBodyHeightPixels,
-      enemyBodyColor,
-    )
-    .setOrigin(0);
-  const shell = scene.add
-    .rectangle(
-      enemyShellOffsetX,
-      0,
-      enemyShellWidthPixels,
-      enemyShellHeightPixels,
-      enemyShellColor,
-    )
-    .setOrigin(0);
-  const shellSpot = scene.add
-    .rectangle(
-      enemyShellOffsetX + enemyShellSpotOffsetX,
-      enemyShellSpotOffsetY,
-      enemyShellSpotSizePixels,
-      enemyShellSpotSizePixels,
-      enemyShellSpotColor,
-    )
-    .setOrigin(0);
-  const leftEyeWhite = scene.add
-    .rectangle(
-      enemyEyeOffsetX,
-      enemyEyeOffsetY,
-      enemyEyeSizePixels,
-      enemyEyeSizePixels,
-      enemyEyeWhiteColor,
-    )
-    .setOrigin(0);
-  const leftPupil = scene.add
-    .rectangle(
-      enemyEyeOffsetX,
-      enemyEyeOffsetY,
-      enemyPupilSizePixels,
-      enemyPupilSizePixels,
-      enemyEyePupilColor,
-    )
-    .setOrigin(0);
-  const rightEyeWhite = scene.add
-    .rectangle(
-      enemyEyeOffsetX + 3,
-      enemyEyeOffsetY,
-      enemyEyeSizePixels,
-      enemyEyeSizePixels,
-      enemyEyeWhiteColor,
-    )
-    .setOrigin(0);
-  const rightPupil = scene.add
-    .rectangle(
-      enemyEyeOffsetX + 3,
-      enemyEyeOffsetY,
-      enemyPupilSizePixels,
-      enemyPupilSizePixels,
-      enemyEyePupilColor,
-    )
-    .setOrigin(0);
-  const leftLeg = scene.add
-    .rectangle(
-      enemyLeftLegOffsetX,
-      enemyLegOffsetY,
-      enemyLegWidthPixels,
-      enemyLegHeightPixels,
-      enemyLegColor,
-    )
-    .setOrigin(0);
-  const rightLeg = scene.add
-    .rectangle(
-      enemyRightLegOffsetX,
-      enemyLegOffsetY,
-      enemyLegWidthPixels,
-      enemyLegHeightPixels,
-      enemyLegColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    body,
-    shell,
-    shellSpot,
-    leftEyeWhite,
-    leftPupil,
-    rightEyeWhite,
-    rightPupil,
-    leftLeg,
-    rightLeg,
-  ]);
-}
-
-function renderFlyingEnemyActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const body = scene.add
-    .rectangle(
-      flyingEnemyBodyOffsetX,
-      flyingEnemyBodyOffsetY,
-      flyingEnemyBodyWidthPixels,
-      flyingEnemyBodyHeightPixels,
-      flyingEnemyBodyColor,
-    )
-    .setOrigin(0);
-  const leftWing = scene.add
-    .rectangle(
-      flyingEnemyLeftWingOffsetX,
-      flyingEnemyWingOffsetY,
-      flyingEnemyWingWidthPixels,
-      flyingEnemyWingHeightPixels,
-      flyingEnemyWingColor,
-    )
-    .setOrigin(0);
-  const rightWing = scene.add
-    .rectangle(
-      flyingEnemyRightWingOffsetX,
-      flyingEnemyWingOffsetY,
-      flyingEnemyWingWidthPixels,
-      flyingEnemyWingHeightPixels,
-      flyingEnemyWingColor,
-    )
-    .setOrigin(0);
-  const stripe = scene.add
-    .rectangle(
-      flyingEnemyStripeOffsetX,
-      flyingEnemyStripeOffsetY,
-      flyingEnemyStripeWidthPixels,
-      flyingEnemyStripeHeightPixels,
-      flyingEnemyStripeColor,
-    )
-    .setOrigin(0);
-  const leftEye = scene.add
-    .rectangle(
-      flyingEnemyEyeOffsetX,
-      flyingEnemyEyeOffsetY,
-      flyingEnemyEyeSizePixels,
-      flyingEnemyEyeSizePixels,
-      flyingEnemyEyeColor,
-    )
-    .setOrigin(0);
-  const rightEye = scene.add
-    .rectangle(
-      flyingEnemyEyeOffsetX + 3,
-      flyingEnemyEyeOffsetY,
-      flyingEnemyEyeSizePixels,
-      flyingEnemyEyeSizePixels,
-      flyingEnemyEyeColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    body,
-    stripe,
-    leftWing,
-    rightWing,
-    leftEye,
-    rightEye,
-  ]);
-}
-
-function renderChasingEnemyActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const body = scene.add
-    .rectangle(
-      0,
-      chasingEnemyBodyOffsetY,
-      chasingEnemyBodyWidthPixels,
-      chasingEnemyBodyHeightPixels,
-      chasingEnemyBodyColor,
-    )
-    .setOrigin(0);
-  const leftSpike = scene.add
-    .triangle(
-      0,
-      chasingEnemySpikeOffsetY,
-      0,
-      chasingEnemySpikeSizePixels,
-      chasingEnemySpikeSizePixels,
-      0,
-      chasingEnemySpikeSizePixels * 2,
-      chasingEnemySpikeSizePixels,
-      chasingEnemySpikeColor,
-    )
-    .setOrigin(0);
-  const rightSpike = scene.add
-    .triangle(
-      chasingEnemyBodyWidthPixels - chasingEnemySpikeSizePixels * 2,
-      chasingEnemySpikeOffsetY,
-      0,
-      chasingEnemySpikeSizePixels,
-      chasingEnemySpikeSizePixels,
-      0,
-      chasingEnemySpikeSizePixels * 2,
-      chasingEnemySpikeSizePixels,
-      chasingEnemySpikeColor,
-    )
-    .setOrigin(0);
-  const leftEye = scene.add
-    .rectangle(
-      chasingEnemyEyeOffsetX,
-      chasingEnemyEyeOffsetY,
-      chasingEnemyEyeSizePixels,
-      chasingEnemyEyeSizePixels,
-      chasingEnemyEyeColor,
-    )
-    .setOrigin(0);
-  const rightEye = scene.add
-    .rectangle(
-      chasingEnemyEyeOffsetX + 3,
-      chasingEnemyEyeOffsetY,
-      chasingEnemyEyeSizePixels,
-      chasingEnemyEyeSizePixels,
-      chasingEnemyEyeColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    body,
-    leftSpike,
-    rightSpike,
-    leftEye,
-    rightEye,
-  ]);
-}
-
-function renderArmoredEnemyActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const shell = scene.add
-    .rectangle(
-      0,
-      armoredEnemyShellOffsetY,
-      armoredEnemyShellWidthPixels,
-      armoredEnemyShellHeightPixels,
-      armoredEnemyShellColor,
-    )
-    .setOrigin(0);
-  const segment = scene.add
-    .rectangle(
-      armoredEnemySegmentOffsetX,
-      armoredEnemySegmentOffsetY,
-      armoredEnemySegmentWidthPixels,
-      armoredEnemySegmentHeightPixels,
-      armoredEnemySegmentColor,
-    )
-    .setOrigin(0);
-  const leftClaw = scene.add
-    .rectangle(
-      armoredEnemyLeftClawOffsetX,
-      armoredEnemyClawOffsetY,
-      armoredEnemyClawWidthPixels,
-      armoredEnemyClawHeightPixels,
-      armoredEnemyClawColor,
-    )
-    .setOrigin(0);
-  const rightClaw = scene.add
-    .rectangle(
-      armoredEnemyRightClawOffsetX,
-      armoredEnemyClawOffsetY,
-      armoredEnemyClawWidthPixels,
-      armoredEnemyClawHeightPixels,
-      armoredEnemyClawColor,
-    )
-    .setOrigin(0);
-  const leftEye = scene.add
-    .rectangle(
-      armoredEnemyEyeOffsetX,
-      armoredEnemyEyeOffsetY,
-      armoredEnemyEyeSizePixels,
-      armoredEnemyEyeSizePixels,
-      armoredEnemyEyeColor,
-    )
-    .setOrigin(0);
-  const rightEye = scene.add
-    .rectangle(
-      armoredEnemyEyeOffsetX + 3,
-      armoredEnemyEyeOffsetY,
-      armoredEnemyEyeSizePixels,
-      armoredEnemyEyeSizePixels,
-      armoredEnemyEyeColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    shell,
-    segment,
-    leftClaw,
-    rightClaw,
-    leftEye,
-    rightEye,
-  ]);
-}
-
-function renderThrowingEnemyActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const body = scene.add
-    .rectangle(
-      1,
-      enemyBodyOffsetY,
-      enemyBodyWidthPixels,
-      enemyBodyHeightPixels,
-      chasingEnemyBodyColor,
-    )
-    .setOrigin(0);
-  const brow = scene.add
-    .rectangle(3, 1, 8, 2, armoredEnemySegmentColor)
-    .setOrigin(0);
-  const leftEye = scene.add
-    .rectangle(
-      enemyEyeOffsetX,
-      enemyEyeOffsetY + 2,
-      enemyEyeSizePixels,
-      enemyEyeSizePixels,
-      enemyEyeWhiteColor,
-    )
-    .setOrigin(0);
-  const rightEye = scene.add
-    .rectangle(
-      enemyEyeOffsetX + 4,
-      enemyEyeOffsetY + 2,
-      enemyEyeSizePixels,
-      enemyEyeSizePixels,
-      enemyEyeWhiteColor,
-    )
-    .setOrigin(0);
-  const projectileCue = scene.add
-    .rectangle(10, 7, 4, 4, enemyShellSpotColor)
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    body,
-    brow,
-    leftEye,
-    rightEye,
-    projectileCue,
-  ]);
-}
-
-// Castle-clear cinematic pacing and the bridge tile it chops.
-const castleBridgeTileId = "castle-bridge";
-const castleBridgeChopFrames = 5;
-const castleClearFallFrames = 120;
-const castleClearFallSpeedPerFrame = 3;
-// The hero's walk into the inner chamber after the fall, and where the freed
-// friend stands relative to where the walk ends.
-const castleClearWalkFrames = 110;
-const castleClearWalkSpeedPerFrame = 1.5;
-const castleClearFriendLeadPixels = 56;
-// A beat on the friend + message before the finish overlay may appear.
-const castleClearMessageHoldFrames = 90;
-
-const flameHazardCoreColor = 0xf97316;
-const platformFillColor = 0xd9a066;
-const platformEdgeColor = 0x8a5a2b;
-const platformRopeColor = 0xd6c4a0;
-const wingFallbackColor = 0xf8fafc;
-// Balance-lift ropes hang from the pulley band just below the HUD rows.
-const platformRopePulleyRowY = 2 * 16;
-const flameHazardRimColor = 0xfde047;
-const piranhaStalkColor = 0x15803d;
-const piranhaHeadColor = 0x22c55e;
-const piranhaMouthColor = 0x7f1d1d;
-
-// A carnivorous plant: a green stalk topped with a toothy open mouth.
-function renderPiranhaPlantActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const stalk = scene.add
-    .rectangle(6, 7, 4, 11, piranhaStalkColor)
-    .setOrigin(0);
-  const head = scene.add
-    .rectangle(1, 0, 14, 9, piranhaHeadColor)
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  const mouth = scene.add
-    .rectangle(2, 4, 12, 3, piranhaMouthColor)
-    .setOrigin(0);
-  const teeth = [3, 7, 11].map((toothX) =>
-    scene.add.rectangle(toothX, 4, 2, 2, 0xffffff).setOrigin(0),
-  );
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    stalk,
-    head,
-    mouth,
-    ...teeth,
-  ]);
-}
-
-function renderAerialThrowingEnemyActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const cloudBase = scene.add.ellipse(0, 8, 16, 8, skyCloudColor).setOrigin(0);
-  const cloudPuffLeft = scene.add
-    .ellipse(1, 5, 7, 7, skyCloudColor)
-    .setOrigin(0);
-  const cloudPuffRight = scene.add
-    .ellipse(8, 4, 7, 7, skyCloudColor)
-    .setOrigin(0);
-  const body = scene.add
-    .rectangle(5, 1, 7, 8, chasingEnemyBodyColor)
-    .setOrigin(0);
-  const eye = scene.add
-    .rectangle(9, 3, enemyEyeSizePixels, enemyEyeSizePixels, enemyEyeWhiteColor)
-    .setOrigin(0);
-  const dropCue = scene.add
-    .rectangle(7, 12, 3, 3, enemyShellSpotColor)
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    cloudBase,
-    cloudPuffLeft,
-    cloudPuffRight,
-    body,
-    eye,
-    dropCue,
-  ]);
-}
-
-function renderItemActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const core = scene.add
-    .rectangle(0, 0, itemCoreWidthPixels, itemCoreHeightPixels, itemCoreColor)
-    .setOrigin(0);
-  const shine = scene.add
-    .rectangle(
-      itemShineOffsetX,
-      itemShineOffsetY,
-      itemShineWidthPixels,
-      itemShineHeightPixels,
-      itemShineColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [core, shine]);
-}
-
-function renderCoinActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const core = scene.add
-    .circle(0, 0, coinCoreRadiusPixels, coinCoreColor)
-    .setOrigin(0.5)
-    .setStrokeStyle(tileStrokeWidth, scoreBadgeStrokeColor);
-  const shine = scene.add
-    .rectangle(
-      coinShineOffsetX,
-      coinShineOffsetY,
-      coinShineWidthPixels,
-      coinShineHeightPixels,
-      coinShineColor,
-    )
-    .setOrigin(0.5);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [core, shine]);
-}
-
-function renderPowerUpActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const core = scene.add
-    .rectangle(
-      0,
-      0,
-      powerUpCoreWidthPixels,
-      powerUpCoreHeightPixels,
-      powerUpCoreColor,
-    )
-    .setOrigin(0);
-  const gem = scene.add
-    .rectangle(
-      powerUpShineOffsetX,
-      powerUpShineOffsetY,
-      powerUpShineWidthPixels,
-      powerUpShineHeightPixels,
-      powerUpGemColor,
-    )
-    .setOrigin(0);
-  const shine = scene.add
-    .rectangle(
-      powerUpShineOffsetX + powerUpSparkleInsetPixels,
-      powerUpShineOffsetY + powerUpSparkleInsetPixels,
-      powerUpSparkleSizePixels,
-      powerUpSparkleSizePixels,
-      powerUpShineColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    core,
-    gem,
-    shine,
-  ]);
-}
-
-function renderExtraLifeActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const core = scene.add
-    .rectangle(
-      0,
-      0,
-      extraLifeCoreWidthPixels,
-      extraLifeCoreHeightPixels,
-      extraLifeCoreColor,
-    )
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  const stem = scene.add
-    .rectangle(
-      extraLifeStemOffsetX,
-      extraLifeStemOffsetY,
-      extraLifeStemWidthPixels,
-      extraLifeStemHeightPixels,
-      extraLifeMarkColor,
-    )
-    .setOrigin(0);
-  const bar = scene.add
-    .rectangle(
-      extraLifeBarOffsetX,
-      extraLifeBarOffsetY,
-      extraLifeBarWidthPixels,
-      extraLifeBarHeightPixels,
-      extraLifeMarkColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    core,
-    stem,
-    bar,
-  ]);
-}
-
-function renderInvincibilityPowerUpActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const core = scene.add
-    .rectangle(
-      invincibilityCoreOffsetX,
-      invincibilityCoreOffsetY,
-      invincibilityCoreWidthPixels,
-      invincibilityCoreHeightPixels,
-      invincibilityCoreColor,
-    )
-    .setOrigin(0)
-    .setStrokeStyle(tileStrokeWidth, tileStrokeColor);
-  const accent = scene.add
-    .rectangle(
-      invincibilityAccentOffsetX,
-      invincibilityAccentOffsetY,
-      invincibilityAccentWidthPixels,
-      invincibilityAccentHeightPixels,
-      invincibilityAccentColor,
-    )
-    .setOrigin(0);
-  const shine = scene.add
-    .rectangle(
-      invincibilityShineOffsetX,
-      invincibilityShineOffsetY,
-      invincibilityShineSizePixels,
-      invincibilityShineSizePixels,
-      invincibilityShineColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    core,
-    accent,
-    shine,
-  ]);
-}
-
-function renderClimbableActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const stem = scene.add
-    .rectangle(
-      climbableStemOffsetX,
-      0,
-      climbableStemWidthPixels,
-      climbableStemHeightPixels,
-      climbableStemColor,
-    )
-    .setOrigin(0);
-  const upperLeftLeaf = scene.add
-    .rectangle(
-      climbableLeftLeafOffsetX,
-      climbableUpperLeafOffsetY,
-      climbableLeafWidthPixels,
-      climbableLeafHeightPixels,
-      climbableLeafColor,
-    )
-    .setOrigin(0);
-  const lowerRightLeaf = scene.add
-    .rectangle(
-      climbableRightLeafOffsetX,
-      climbableLowerLeafOffsetY,
-      climbableLeafWidthPixels,
-      climbableLeafHeightPixels,
-      climbableLeafColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    stem,
-    upperLeftLeaf,
-    lowerRightLeaf,
-  ]);
-}
-
-function renderExitActor(
-  scene: Phaser.Scene,
-  pixelPosition: { readonly x: number; readonly y: number },
-): Phaser.GameObjects.Container {
-  const arch = scene.add
-    .rectangle(0, 0, exitArchWidthPixels, exitArchHeightPixels, exitArchColor)
-    .setOrigin(0);
-  const leftBanner = scene.add
-    .rectangle(
-      exitLeftBannerOffsetX,
-      exitBannerOffsetY,
-      exitBannerWidthPixels,
-      exitBannerHeightPixels,
-      exitBannerColor,
-    )
-    .setOrigin(0);
-  const rightBanner = scene.add
-    .rectangle(
-      exitRightBannerOffsetX,
-      exitBannerOffsetY,
-      exitBannerWidthPixels,
-      exitBannerHeightPixels,
-      exitBannerColor,
-    )
-    .setOrigin(0);
-  const glow = scene.add
-    .rectangle(
-      exitGlowOffsetX,
-      exitGlowOffsetY,
-      exitGlowWidthPixels,
-      exitGlowHeightPixels,
-      exitGlowColor,
-    )
-    .setOrigin(0);
-
-  return scene.add.container(pixelPosition.x, pixelPosition.y, [
-    leftBanner,
-    rightBanner,
-    arch,
-    glow,
-  ]);
 }
 
 function makeRuntimeRenderedActorPixelPosition(

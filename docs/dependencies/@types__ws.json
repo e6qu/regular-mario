@@ -1,0 +1,15 @@
+{
+  "name": "@types/ws",
+  "versionRange": "8.18.1",
+  "dependencySection": "devDependencies",
+  "purpose": "TypeScript declarations for the ws WebSocket transport used by the standalone multiplayer server.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `pnpm view @types/ws@8.18.1 license repository.url time --json` reported MIT and https://github.com/DefinitelyTyped/DefinitelyTyped.git.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "8.18.1",
+  "checkedVersionPublishedAt": "2025-04-01T02:59:54.693Z",
+  "checkedAt": "2026-08-04T19:06:00Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "DefinitelyTyped is the established source of TypeScript declarations for libraries that do not ship declarations; this package is build-time-only and pins the declarations matching ws major version 8."
+}

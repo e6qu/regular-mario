@@ -1,0 +1,15 @@
+{
+  "name": "ws",
+  "versionRange": "8.21.1",
+  "dependencySection": "dependencies",
+  "purpose": "Minimal RFC 6455 WebSocket server transport for the standalone trusted-friends multiplayer service.",
+  "license": "MIT",
+  "licenseEvidence": "npm registry metadata from `pnpm view ws@8.21.1 license repository.url time --json` reported MIT and git+https://github.com/websockets/ws.git; the project repository documents MIT licensing.",
+  "agplCompatibility": "compatible",
+  "registry": "npm",
+  "checkedVersion": "8.21.1",
+  "checkedVersionPublishedAt": "2026-07-14T17:12:25.599Z",
+  "checkedAt": "2026-08-04T18:58:00Z",
+  "latestCompatibleVersionKnown": true,
+  "wellKnownEvidence": "ws is the maintained WebSocket client/server implementation used directly with Node HTTP servers; version 8.21.2 was deliberately not adopted because it was published within the repository's three-day freshness exclusion window."
+}

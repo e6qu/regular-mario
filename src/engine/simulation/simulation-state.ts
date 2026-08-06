@@ -1,9 +1,13 @@
 import type { DomainResult } from "../domain/result";
 import { fail, succeed } from "../domain/result";
 import type { EntityId } from "../domain/identifiers";
-import type { LevelSpec } from "../domain/level-spec";
+import { ActorRole, type LevelSpec } from "../domain/level-spec";
 import type { FrameDurationMilliseconds, FrameIndex } from "../domain/units";
-import { makeFrameDurationMilliseconds, makeFrameIndex } from "../domain/units";
+import {
+  makeFrameDurationMilliseconds,
+  makeFrameIndex,
+  makePixelPosition,
+} from "../domain/units";
 import type { ValidationError } from "../domain/validation-error";
 import {
   makeCoopPlayerSimulationState,
@@ -121,6 +125,83 @@ export type PlayerRuntime = {
 // is no privileged singular "player" field.
 export type SimulationPlayers = readonly [PlayerRuntime, ...PlayerRuntime[]];
 
+// Add a player without rebuilding the world. Authoritative multiplayer uses
+// this when somebody joins an already-running game; their stable array slot is
+// retained after defeat so network identity never shifts.
+export function appendSimulationPlayerAt(
+  state: SimulationState,
+  spawnPosition: PlayerSimulationState["position"],
+): SimulationState {
+  if (state.players.length >= maxSimulationPlayers) {
+    throw new Error(
+      `Simulation cannot exceed ${maxSimulationPlayers} players.`,
+    );
+  }
+  const initialPlayer = makeCoopPlayerSimulationState(state.players.length - 1);
+  const player: PlayerSimulationState = {
+    ...initialPlayer,
+    position: spawnPosition,
+  };
+  return {
+    ...state,
+    players: [
+      ...state.players,
+      makeCoopPlayerRuntime(player),
+    ] as SimulationPlayers,
+  };
+}
+
+/** Remove a co-op player when its network member deliberately leaves. */
+export function removeSimulationPlayerAt(
+  state: SimulationState,
+  playerIndex: number,
+): SimulationState {
+  if (!Number.isInteger(playerIndex) || playerIndex < 0) {
+    throw new Error("Simulation player index must be a non-negative integer.");
+  }
+  if (state.players.length <= 1) {
+    throw new Error("Simulation must retain at least one player.");
+  }
+  if (playerIndex >= state.players.length) {
+    throw new Error("Simulation player index is outside the player list.");
+  }
+  const players = state.players.filter((_, index) => index !== playerIndex);
+  const firstPlayer = players[0];
+  if (firstPlayer === undefined) {
+    throw new Error("Simulation must retain at least one player.");
+  }
+  return {
+    ...state,
+    players: [firstPlayer, ...players.slice(1)] as SimulationPlayers,
+  };
+}
+
+/** Restore a retained co-op slot without rewinding the shared world. */
+export function reviveSimulationPlayerAt(
+  state: SimulationState,
+  playerIndex: number,
+  spawnPosition: PlayerSimulationState["position"],
+): SimulationState {
+  if (!Number.isInteger(playerIndex) || playerIndex < 0) {
+    throw new Error("Simulation player index must be a non-negative integer.");
+  }
+  if (playerIndex >= state.players.length) {
+    throw new Error("Simulation player index is outside the player list.");
+  }
+  const resetPlayer: PlayerSimulationState = {
+    ...makeInitialPlayerSimulationState(),
+    position: spawnPosition,
+  };
+  const players = state.players.map((runtime, index) =>
+    index === playerIndex ? makeCoopPlayerRuntime(resetPlayer) : runtime,
+  );
+  const firstPlayer = players[0];
+  if (firstPlayer === undefined) {
+    throw new Error("Simulation must retain at least one player.");
+  }
+  return { ...state, players: [firstPlayer, ...players.slice(1)] };
+}
+
 // Build a runtime for an additional co-op player from its kinematics. Co-op
 // players currently carry only kinematics; their vitality/outcome/reaction are
 // neutral (they use only the shared movement + the death/goal rules so far).
@@ -227,8 +308,31 @@ export function makeInitialSimulationStateWithPlayerVitality(
     return fail(errors);
   }
 
+  const playerStart = levelSpec.actors.find((actor) => {
+    const definition = levelSpec.actorDefinitions.find(
+      (candidate) => candidate.actorId === actor.actorId,
+    );
+    return definition?.role === ActorRole.PlayerStart;
+  });
+  if (playerStart === undefined) {
+    throw new Error("Validated level is missing its player-start actor.");
+  }
+  const spawnX = makePixelPosition(
+    Number(playerStart.position.x) * Number(levelSpec.tileSizePixels),
+    "player.position.x",
+  );
+  const spawnY = makePixelPosition(
+    Number(playerStart.position.y) * Number(levelSpec.tileSizePixels),
+    "player.position.y",
+  );
+  if (!spawnX.ok || !spawnY.ok) {
+    throw new Error("Validated level has an invalid player-start position.");
+  }
   const primaryRuntime: PlayerRuntime = {
-    player: makeInitialPlayerSimulationState(),
+    player: {
+      ...makeInitialPlayerSimulationState(),
+      position: { x: spawnX.value, y: spawnY.value },
+    },
     vitality: playerVitality,
     invincibility: makeEmptyPlayerInvincibilityState(),
     outcome: makeActivePlayerOutcomeState(),

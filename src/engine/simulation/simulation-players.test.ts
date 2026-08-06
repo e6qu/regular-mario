@@ -8,9 +8,11 @@ import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
 import { makeInitialPlayerVitalityState } from "./player-vitality";
 import {
+  appendSimulationPlayerAt,
   makeInitialSimulationState,
   makeInitialSimulationStateWithPlayerVitality,
   maxSimulationPlayers,
+  reviveSimulationPlayerAt,
   type SimulationState,
 } from "./simulation-state";
 import { stepSimulation } from "./step-simulation";
@@ -67,11 +69,57 @@ function neutral(): SimulationInputCommand {
   };
 }
 
+function expectCoopPlayerDefeatedAt(x: number, y: number): void {
+  const base = afterSpawnInvincibility(twoPlayerState());
+  const stepped = stepSimulation(
+    withCoopPlayerAt(base, x, y),
+    neutral(),
+    initialMovementConstants,
+    firstAuthoredLevelSpec(),
+    [neutral()],
+  );
+  expect(stepped.players).toHaveLength(2);
+  expect(stepped.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
+}
+
 // The uniform players array is the sole player store: players[0] is player one,
 // players[1..] the same-screen co-op players.
 describe("simulation players array", () => {
   it("supports up to sixteen players", () => {
     expect(maxSimulationPlayers).toBe(16);
+  });
+
+  it("appends a joining player at an authoritative in-screen position", () => {
+    const base = twoPlayerState();
+    const spawnPosition = {
+      x: requireSimulationPixelPosition(120, "spawn.x"),
+      y: requireSimulationPixelPosition(64, "spawn.y"),
+    };
+    const joined = appendSimulationPlayerAt(base, spawnPosition);
+    expect(joined.players).toHaveLength(3);
+    expect(joined.players[2]!.player.position).toEqual(spawnPosition);
+  });
+
+  it("revives a retained slot at an authoritative checkpoint without resetting the world", () => {
+    const base = twoPlayerState();
+    const checkpoint = {
+      x: requireSimulationPixelPosition(192, "checkpoint.x"),
+      y: requireSimulationPixelPosition(64, "checkpoint.y"),
+    };
+    const defeated = {
+      ...base,
+      players: [
+        base.players[0],
+        {
+          ...base.players[1]!,
+          outcome: { kind: "defeated", reason: "pit-contact" },
+        },
+      ] as SimulationState["players"],
+    };
+    const revived = reviveSimulationPlayerAt(defeated, 1, checkpoint);
+    expect(revived.players[0]).toBe(defeated.players[0]);
+    expect(revived.players[1]!.player.position).toEqual(checkpoint);
+    expect(revived.players[1]!.outcome).toEqual({ kind: "active" });
   });
 
   it("seeds additional co-op players beside the primary from the player count", () => {
@@ -159,30 +207,18 @@ describe("simulation players array", () => {
     expect(coop.players).toHaveLength(2);
   });
 
-  it("removes a co-op player that has fallen into a pit (dead until level ends)", () => {
+  it("keeps a pit-defeated co-op player in a stable spectator slot", () => {
     const base = afterSpawnInvincibility(twoPlayerState());
-    const stepped = stepSimulation(
-      withCoopPlayerAt(base, Number(base.players[1]!.player.position.x), 10000),
-      neutral(),
-      initialMovementConstants,
-      firstAuthoredLevelSpec(),
-      [neutral()],
+    expectCoopPlayerDefeatedAt(
+      Number(base.players[1]!.player.position.x),
+      10000,
     );
-    expect(stepped.players).toHaveLength(1);
   });
 
-  it("removes a co-op player that touches an enemy", () => {
+  it("keeps an enemy-defeated co-op player in a stable spectator slot", () => {
     // firstAuthored has an enemy (beetle-1) at pixel (96, 64); put a co-op
     // player right on it.
-    const base = afterSpawnInvincibility(twoPlayerState());
-    const stepped = stepSimulation(
-      withCoopPlayerAt(base, 96, 56),
-      neutral(),
-      initialMovementConstants,
-      firstAuthoredLevelSpec(),
-      [neutral()],
-    );
-    expect(stepped.players).toHaveLength(1);
+    expectCoopPlayerDefeatedAt(96, 56);
   });
 
   it("keeps a co-op player alive during the spawn-invincibility window", () => {

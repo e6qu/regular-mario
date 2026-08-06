@@ -54,7 +54,10 @@ describe("build-parody-asset-set", () => {
       readonly playerSprite: { stateSprites: Record<string, unknown> };
       readonly actorSprites: Record<
         string,
-        { stateSprites: Record<string, unknown> }
+        {
+          readonly source?: { readonly kind: string; readonly url: string };
+          readonly stateSprites: Record<string, unknown>;
+        }
       >;
     };
 
@@ -67,6 +70,10 @@ describe("build-parody-asset-set", () => {
     expect(
       descriptor.actorSprites["vglc-smb-enemy"]?.stateSprites["walk-left"],
     ).toBeDefined();
+    expect(descriptor.actorSprites["open-gate"]?.source).toEqual({
+      kind: "url",
+      url: "public-exit-arch.png",
+    });
 
     // The descriptor validates through the shared content-set model.
     const validation = validateAssetSetDescriptor(descriptor);

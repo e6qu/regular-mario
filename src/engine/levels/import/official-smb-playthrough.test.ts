@@ -7,6 +7,8 @@
 // This exercises movement, enemies, hazards, mechanisms, pipes, loop zones,
 // timers, and scoring end to end — everything but rendering.
 
+import { writeFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import { makeSimulationInputCommand } from "../../simulation/input-command";
@@ -275,6 +277,16 @@ type Checkpoint = {
   readonly levelName: string;
 };
 
+type RecordedInputRun = {
+  readonly count: number;
+  readonly horizontal: HorizontalInput;
+  readonly jump: boolean;
+  readonly down: boolean;
+  readonly run: boolean;
+};
+
+class RollbackDuringTraceDerivation extends Error {}
+
 function playLevel(
   startName: string,
   budgetSteps: number,
@@ -285,14 +297,21 @@ function playLevel(
   readonly lastLevel: string;
   readonly lastX: number;
   readonly restarts: number;
+  readonly rollbacks: number;
+  readonly trace?: readonly RecordedInputRun[];
 } {
+  const initialVitality =
+    process.env.SMB_PLAY_VITALITY === "small"
+      ? PlayerVitalityKind.Small
+      : PlayerVitalityKind.Fire;
   let restarts = 0;
+  let rollbacks = 0;
   let runtime = runtimeFor(startName);
   const initial = makeInitialSimulationStateWithPlayerVitality(
     nominalSixtyHertzFrameDurationMilliseconds,
     runtime.level.levelSpec,
     runtime.constants,
-    { kind: PlayerVitalityKind.Fire },
+    { kind: initialVitality },
   );
   if (!initial.ok) {
     throw new Error(`${startName} initial state invalid`);
@@ -388,10 +407,16 @@ function playLevel(
   // "Sky mode": an attempt that favors the high route from the start —
   // elevated loop gates need it.
   let skyMode = false;
+  const trace: RecordedInputRun[] = [];
+  const stopOnRollback = process.env.SMB_PLAY_STOP_ON_ROLLBACK === "1";
 
   // Shared reset after any rollback/re-entry: fresh seed, varied arrival
   // phase (hazard cycles are frame-locked), and a chance of ground mode.
   const resetExploration = (restore: Checkpoint): void => {
+    rollbacks += 1;
+    if (stopOnRollback) {
+      throw new RollbackDuringTraceDerivation();
+    }
     state = restore.state;
     previousX = restore.state.players[0].player.position.x;
     runtime = runtimeFor(restore.levelName);
@@ -705,6 +730,27 @@ function playLevel(
       pressingDown,
       !nearDownPipe,
     );
+    const previousRun = trace.at(-1);
+    if (
+      previousRun !== undefined &&
+      previousRun.horizontal === input.horizontal &&
+      previousRun.jump === input.jumpPressed &&
+      previousRun.down === input.downHeld &&
+      previousRun.run === input.runHeld
+    ) {
+      trace[trace.length - 1] = {
+        ...previousRun,
+        count: previousRun.count + 1,
+      };
+    } else {
+      trace.push({
+        count: 1,
+        horizontal: input.horizontal,
+        jump: input.jumpPressed,
+        down: input.downHeld,
+        run: input.runHeld,
+      });
+    }
     state = stepSimulation(
       state,
       input,
@@ -735,6 +781,8 @@ function playLevel(
         lastLevel: runtime.level.name,
         lastX: player.position.x,
         restarts,
+        rollbacks,
+        trace,
       };
     }
     // A live stall (wedged on geometry with nothing lethal around) never
@@ -815,6 +863,7 @@ function playLevel(
           lastLevel: runtime.level.name,
           lastX: state.players[0].player.position.x,
           restarts,
+          rollbacks,
         };
       }
       checkpoints.length = Math.max(1, checkpoints.length - back);
@@ -844,7 +893,7 @@ function playLevel(
           nominalSixtyHertzFrameDurationMilliseconds,
           runtime.level.levelSpec,
           runtime.constants,
-          { kind: PlayerVitalityKind.Fire },
+          { kind: initialVitality },
         );
         if (!fresh.ok) {
           throw new Error(`${warp.target} initial state invalid`);
@@ -877,6 +926,7 @@ function playLevel(
     lastLevel: runtime.level.name,
     lastX: state.players[0].player.position.x,
     restarts,
+    rollbacks,
   };
 }
 
@@ -904,11 +954,67 @@ describe("official-smb headless playthroughs", () => {
   ).sort();
 
   it("plays every selected level to a finish against the real engine", () => {
+    const seedSweep = Number(process.env.SMB_PLAY_SEED_SWEEP ?? "0");
+    if (seedSweep > 0) {
+      const originalSeed = process.env.SMB_PLAY_SEED;
+      try {
+        for (let seed = 1; seed <= seedSweep; seed += 1) {
+          process.env.SMB_PLAY_SEED = String(seed);
+          process.env.SMB_PLAY_STOP_ON_ROLLBACK = "1";
+          try {
+            const result = playLevel("smb-1-1", 200_000);
+            if (result.finished && result.rollbacks === 0) {
+              process.stdout.write(
+                `${JSON.stringify({
+                  seed,
+                  result: { ...result, trace: undefined },
+                })}\n`,
+              );
+              return;
+            }
+          } catch (error) {
+            if (!(error instanceof RollbackDuringTraceDerivation)) {
+              throw error;
+            }
+          }
+        }
+      } finally {
+        delete process.env.SMB_PLAY_STOP_ON_ROLLBACK;
+        if (originalSeed === undefined) {
+          delete process.env.SMB_PLAY_SEED;
+        } else {
+          process.env.SMB_PLAY_SEED = originalSeed;
+        }
+      }
+      throw new Error(
+        `No zero-rollback World 1-1 trace in ${String(seedSweep)} seeds.`,
+      );
+    }
     const failures: string[] = [];
     const budgetScale = Number(process.env.SMB_PLAY_BUDGET_SCALE ?? "3");
     for (const name of mains) {
       const budget = (name === "smb-8-4" ? 400_000 : 200_000) * budgetScale;
       const result = playLevel(name, budget);
+      if (process.env.SMB_PLAY_REPORT === "1") {
+        process.stdout.write(
+          `${JSON.stringify({
+            name,
+            result: { ...result, trace: undefined },
+          })}\n`,
+        );
+      }
+      const tracePath = process.env.SMB_PLAY_WRITE_TRACE;
+      if (
+        tracePath !== undefined &&
+        result.finished &&
+        result.restarts === 0 &&
+        result.rollbacks === 0
+      ) {
+        if (result.trace === undefined) {
+          throw new Error("finished zero-rollback run must provide a trace");
+        }
+        writeFileSync(tracePath, `${JSON.stringify(result.trace, null, 2)}\n`);
+      }
       if (!result.finished) {
         failures.push(
           `${name} (maxX=${String(Math.round(result.maxX))} ended in ${result.lastLevel} at x=${String(Math.round(result.lastX))} after ${String(result.restarts)} restarts)`,

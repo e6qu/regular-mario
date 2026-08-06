@@ -5,11 +5,15 @@ node_modules/
 
 # Build output
 dist/
+server-dist/
+.env
 build/
 out/
 coverage/
 playwright-report/
 test-results/
+screenshots/
+playwright_adhoc/
 
 # Generated caches
 .vite/

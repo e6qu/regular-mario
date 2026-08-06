@@ -1641,6 +1641,34 @@ describe("simulation primitives", () => {
     expect(nextState.players[0].outcome).toEqual({
       kind: "active",
     });
+    const separated = stepRightSideEnemyContactWithoutHazard(
+      withPlayerOverrides(nextState, {
+        player: playerWithTestState({
+          position: { x: 32, y: 64 },
+          velocity: { x: 0, y: 0 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Grounded,
+          },
+        }),
+      }),
+    );
+    const recontacted = stepRightSideEnemyContactWithoutHazard(
+      withPlayerOverrides(separated, {
+        player: playerWithTestState({
+          position: { x: 96, y: 64 },
+          velocity: { x: 0, y: 0 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Grounded,
+          },
+        }),
+      }),
+    );
+    expect(recontacted.players[0].outcome).toEqual({
+      kind: "defeated",
+      reason: PlayerDefeatReason.EnemyContact,
+    });
   });
 
   it("updates enemy interactions after movement and collision resolution", () => {
@@ -1952,12 +1980,27 @@ describe("simulation primitives", () => {
     });
   });
 
-  it("defeats a recovering player on the frame invulnerability expires while still touching an enemy", () => {
-    const nextState = stepRecoveringVitalityToSmall({ x: 96, y: 64 }, 0, 1);
+  it("does not defeat a shrinking player when recovery expires without a new enemy contact", () => {
+    const recoveringState = withPlayerOverrides(
+      stateWithPlayerAt({ x: 96, y: 64 }),
+      {
+        playerVitality: recoveringVitalityState(
+          EnemySideContactSide.Right,
+          0,
+          1,
+        ),
+      },
+    );
+    const nextState = stepRightSideEnemyContactWithoutHazard({
+      ...recoveringState,
+      enemyDamageContactFrameByEntityId: new Map([
+        [testEnemyEntityId("beetle-1"), testFrameIndex(0)],
+      ]),
+    });
 
+    expect(nextState.players[0].vitality).toEqual({ kind: "small" });
     expect(nextState.players[0].outcome).toEqual({
-      kind: "defeated",
-      reason: PlayerDefeatReason.EnemyContact,
+      kind: "active",
     });
   });
 

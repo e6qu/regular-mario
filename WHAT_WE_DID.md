@@ -5,6 +5,832 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-06 — revive lifecycle sweep
+
+- Removed stale client phase/menu gating from R; the server decides whether a
+  player is defeated.
+- Allowed revival in a paused authoritative game without implicitly resuming
+  the party, with a focused runner regression.
+
+## 2026-08-06 — exclusive multiplayer renderer teardown
+
+- Made a game mount own exactly one renderer/session; re-entry tears down the
+  predecessor before a replacement canvas can boot.
+- Explicitly silenced BootScene audio during renderer disposal.
+
+## 2026-08-06 — multiplayer completion presentation and Escape menu
+
+- Held a finished authoritative course for a protocol-defined seven-second
+  interval; the shared BootScene now plays its established flagpole or castle
+  completion sequence locally while server simulation remains frozen.
+- Avoided rendering both a server receipt and its predicted successor in the
+  same browser paint, removing an unnecessary full-scene redraw at snapshot
+  cadence.
+- Added an Escape menu with deliberate Leave and all-members Cancel actions;
+  cancellation removes the game and returns every connected member to lobby.
+
+## 2026-08-06 — corrected multiplayer pipe arrivals and revive-key routing
+
+- Preserved each authoritative cross-level pipe's declared destination tile
+  through runner replacement, so party members arrive at the connected pipe
+  exit rather than the destination area's ordinary player-start tile.
+- Made R a reliable live-game request: it is never silently gated by a stale
+  client spectator flag, while server authority still permits revival only for
+  defeated players. The browser surfaces rejected active-player requests.
+- Added exact pipe-arrival and physical-key browser regressions; focused core
+  tests and the six-journey real-browser multiplayer suite pass.
+
+## 2026-08-06 — completed a multiplayer UI and browser-proof sweep
+
+- Deleted the unmounted legacy game drawer and its obsolete waiting-room
+  controls; no gameplay path can construct a menu over the full-viewport
+  canvas. The only gameplay interaction surfaces are the T chat overlay and a
+  concise network-error notice.
+- Retained the typed server semantic tree as hidden, inspectable DOM data, so
+  JSON/debug automation survives without affecting rendering or input.
+- Rebased real browser assertions on authoritative canvas attributes and
+  semantic state rather than retired drawer text. Recording, stress, and
+  visual-parity fixtures now creator-end their own games, and the
+  administrator journey creates its own target game in an isolated browser
+  context.
+- Passed the full eleven-test production multiplayer browser suite, focused
+  pure multiplayer/server mechanics tests, type checking, formatting, lint,
+  and release/server builds.
+
+## 2026-08-05 — corrected multiplayer prediction and recovery contact semantics
+
+- Adopted the standard local-prediction/server-reconciliation split: input
+  edges, lifecycle transitions, and state baselines reconcile; held-key
+  heartbeats maintain server input without periodically resetting local paint.
+- Enforced one active game WebSocket per player session; a replacement socket
+  supersedes its predecessor rather than duplicating ordered input traffic.
+- Made live-game joining a transport lifecycle edge: it broadcasts the new
+  player-slot keyframe immediately rather than relying on a later delta.
+- Kept the damage source debounced through enlarged-to-small blinking. Small
+  form only dies after it has separated and makes a fresh damaging contact.
+- Added pure reconciliation/contact regressions plus real-browser checks for
+  heartbeat stability and superseded socket lifecycle.
+
+## 2026-08-05 — fixed stale client prediction after revive
+
+- Confirmed revival was already server-authoritative and preserved the shared
+  level/frame; the client incorrectly waited for a new input acknowledgement.
+- Made the spectator-to-active lifecycle transition a mandatory prediction
+  reconciliation, so `R` restores the player at the party checkpoint without
+  restarting the game or leaving a stale dead presentation on screen.
+- Added runner and client-prediction regressions, then rebuilt and ran the
+  real two-browser multiplayer lifecycle journey.
+
+## 2026-08-05 — fixed authoritative entry-pipe handoff
+
+- Kept public level selection restricted to main courses while registering all
+  linked bundled areas with the multiplayer server for pipe destinations.
+- The lobby records a valid target during the fixed pipe-entry animation and
+  atomically starts the target area's authoritative runner for the current
+  party when that animation completes.
+- Added regressions for cross-level pipe handoff and World 2-1 piranha
+  emergence in the authoritative simulation.
+
+## 2026-08-05 — proved live multiplayer pipe rendering
+
+- Confirmed that the shared World 1-1 data and release asset bundle contain
+  the pipe tiles; the first pipe is simply beyond the opening camera.
+- Added a physical-key multiplayer browser journey that reaches the first
+  pipe, proves its solid collision, pauses the live game, and writes a
+  diagnostic canvas capture of the authored pipe cap and shaft.
+
+## 2026-08-05 — restored input after rejoining an empty game
+
+- Distinguished an automatic pause caused by every member leaving from a
+  deliberate member P pause in the authoritative runner.
+- The first member to reclaim a dormant slot now resumes the retained running
+  world and can advance it with ordinary keyboard input; joining never
+  overrides a deliberate pause.
+- Passed focused server lifecycle tests, type checking, production builds, and
+  the real two-browser Playwright journey that leaves, rejoins, and proves the
+  authoritative frame advances after a physical ArrowRight input.
+
+## 2026-08-05 — fixed recovery contact re-arm and removed the game drawer
+
+- Re-armed an enemy's damage debounce on the exact recovery-to-small boundary.
+  The regression carries a real prior-contact map through recovery and proves
+  that continued contact defeats the now-vulnerable player.
+- Removed the in-game menu drawer from the mounted gameplay UI. Escape leaves
+  unless chat is active, T opens the chat overlay, P toggles pause/resume, and
+  R requests an authoritative revive. Paused play shows the frozen game view,
+  not a control screen.
+- Passed the 84-test mechanics suite, type checking, production build, and
+  the real multiplayer browser journey.
+
+## 2026-08-05 — added server-authoritative revive, pause, and usable game chat
+
+- Added a core retained-slot revival operation: it resets only the defeated
+  player's runtime at the furthest active party position while preserving the
+  shared world. The server exposes it as a player action and sends an ordered
+  keyframe to every connected client.
+- Added a game-member pause endpoint; it is not restricted to the creator or
+  admin. In-game chat is now a readable scrollable log and multiline composer;
+  Enter sends and Shift+Enter creates a newline.
+- Passed focused core tests, type checking, and the real three-browser
+  multiplayer journey. The all-left game persistence and measurable remote
+  desync journeys remain explicitly open rather than claimed complete.
+
+## 2026-08-05 — preserved games on leave and added gameplay shortcuts
+
+- A final departure no longer deletes a running party. The runner keeps a
+  disconnected dormant slot, reports zero public members, pauses the game,
+  and lets the next joiner reclaim the authoritative world state.
+- Escape leaves gameplay unless chat is active; T opens the in-world composer;
+  P pauses/resumes for any current member. Received messages appear in a
+  translucent gameplay feed for ten seconds.
+- Extended the real browser journey to cover T chat, Escape's chat-first and
+  leave-second behavior, shared P pause/resume, final-member persistence, and
+  a new player's join of the paused public game.
+
+## 2026-08-05 — fixed standalone multiplayer content loading
+
+- Found the actual browser request behind `not found (HTTP 400)`: a normal
+  `pnpm run build` had overwritten the release client with one that requested
+  development-only `/__user-level-cache/` content, which the standalone
+  service must not expose.
+- Made the normal production build emit static release-content URLs. Rebuilt
+  and restarted the service; an actual browser now loads the required manifest,
+  presents login, and reaches the lobby by submitting the password form.
+
+## 2026-08-05 — restored client-owned multiplayer death presentation
+
+- Wired authoritative-render presentation into the existing client-local
+  death-effect lifecycle, so a reconciled defeated player dismembers locally
+  instead of remaining without a death sequence.
+- Opened the in-game control drawer automatically for a defeated spectator,
+  exposing Leave game; leaving releases the one-game membership and rejoining
+  the live party creates a fresh active player in its current screen.
+
+## 2026-08-05 — separated authoritative world commits from predicted paint
+
+- Split the multiplayer Phaser scene's server-receipt and client-prediction
+  lanes. Persistent tiles commit only from ordered server state, while moving
+  world simulation continues to present at the client's fixed prediction rate.
+- Paused and finished snapshots explicitly block stale queued prediction,
+  preserving one canonical debug/parity frame for every connected browser.
+- Strengthened the two-client visual gate to require each canvas to have
+  actually rendered the paused authoritative frame, not merely received its
+  WebSocket metadata.
+
+## 2026-08-05 — made stomp presentation client-owned
+
+- Kept the deterministic stomp outcome authoritative, but removed server
+  reaction coordinates and remaining-frame values from the painted effect.
+  Each browser now derives the effect position from its rendered actor and
+  advances an independent fixed-duration visual timeline.
+
+## 2026-08-05 — reran real multi-client acceptance after presentation work
+
+- Ran the four independent, recorded browser journey and eight-client stress
+  journey against the rebuilt production client/server. Both passed; the
+  recorded first-level and post-handoff frames remain ignored under
+  `playwright_adhoc/multiplayer-full-run/`.
+
+## 2026-08-05 — corrected delayed-network cadence evidence
+
+- Made the live browser cadence observation window depend on the intentional
+  injected snapshot delay. A 3 s delayed transport cannot produce packets in
+  a two-second sample; the updated gate samples after delivery and passed the
+  rebuilt real 3 s journey.
+- Reran the full production browser suite at both 100 ms and 3 s injected
+  snapshot delay. All scenarios pass, including recordings, stress, visual
+  parity, local prediction and transport cadence.
+
+## 2026-08-05 — restored strict repository quality checks
+
+- Rebuilt missing lockfile-pinned pnpm store metadata so the transitive-license
+  check could execute again, without changing dependencies.
+- Extracted repeated multiplayer test setup after the zero-tolerance
+  copy-paste gate reported it. The focused test and copy-paste check pass.
+
+## 2026-08-05 — decoupled camera presentation from server receipts
+
+- Kept server simulation authoritative but moved viewport presentation to each
+  client's predicted local player with browser-frame smoothing, eliminating
+  20 Hz packet-driven camera jumps.
+
+## 2026-08-05 — made live world presentation and game entry immediate
+
+- Multiplayer now presents the full client-predicted deterministic simulation
+  every animation frame, not merely the local player transform. Coins, enemies
+  and other dynamic world actors therefore use the same 60 Hz visual cadence.
+- Re-baseline full-world prediction when an authoritative join changes player
+  membership, so existing clients render newly joined players immediately.
+- Converted password entry to a real form, so Enter logs into the lobby.
+- Lobby Create now creates, starts, and enters the game in one action; browser
+  journeys were updated to reject the obsolete waiting-room Start step.
+
+## 2026-08-05 — corrected live multiplayer presentation cadence
+
+- Fixed stomp/score effect durations to advance by authoritative simulation
+  frames, so 20 Hz snapshot delivery no longer stretches short visual effects.
+- Removed the redundant full Phaser display-list depth sort from every remote
+  receipt while retaining the stable depth assigned during object construction.
+- Added a real WebSocket-game browser gate that samples animation-frame timing,
+  browser long tasks, and live state-keyframe/delta delivery for two seconds.
+- Reclaimed only package-manager caches during QA; ignored ROM/reference
+  content under `.cache/user-levels` and all requested recordings were kept.
+
+## 2026-08-05 — verified Leave game in the live browser journey
+
+- Identified a stale local server process as the source of an inherited Guest
+  game after a manual start request; restarted it cleanly with no games.
+- Strengthened the production browser journey so a guest actually leaves a
+  running game, returns to the lobby, regains Create game, and leaves one
+  authoritative member in the creator's game.
+
+## 2026-08-05 — repaired the real four-player World 1-1 recording evidence
+
+- Found that the prior trace had a controller checkpoint rollback hidden inside
+  its recorded commands. That is invalid for a physical-key browser replay:
+  playback cannot restore a simulation checkpoint.
+- Re-derived a seed-56, small-player World 1-1 run with zero restarts and zero
+  rollbacks, stored it compactly, and made the recorder decode that exact
+  sequence. Added an authoritative four-player runner regression before the
+  recorded browser test.
+- Fresh separate Chromium recordings now move four real authenticated players
+  from World 1-1 to World 1-2. The screenshots/videos remain ignored in
+  `playwright_adhoc/multiplayer-full-run/`; 100 ms and 3 s browser parity
+  checks also pass.
+- Ran the complete `test:multiplayer-lag` production browser suite at both
+  configured delays, covering journeys, administration, stress, visual parity,
+  and recordings rather than only the focused replay test.
+
+## 2026-08-05 — restored the complete repository quality gate
+
+- Formatted the reported tracked files, made the catalogue list internal behind
+  its validated lookup, and excluded the data-only physical-key replay trace
+  from source-copy analysis without changing its zero-tolerance threshold.
+- Verified dependency/content/license/vulnerability policies, formatting,
+  lint, dead-code, copy-paste, typecheck, all 948 unit outcomes (947 pass,
+  one intentional skip), and the production client build.
+
+## 2026-08-05 — removed generic co-op reaction substitute art
+
+- Co-op robot explosions now require the corresponding robot's head, torso,
+  arm, and leg rasters; they no longer borrow generic body-part art. Burst art
+  is required as well.
+- Passed release build, eight independently connected real-browser players,
+  and local/server plus two-client raw-pixel parity.
+
+## 2026-08-05 — removed primary reaction-art substitutes
+
+- Made rescue, burn, explode body-parts, husk, and smoke use required authored
+  reaction images. Explosion no longer silently changes to a launch animation,
+  and a missing husk no longer draws a tinted player texture.
+- Production build, real multiplayer journey, and raw-pixel parity pass.
+
+## 2026-08-05 — enforced raster-only tile rendering
+
+- Removed the procedural tile, scenery, and pipe-mouth renderers. All visible
+  level cells now require an explicit authored tile image; only `empty`,
+  `sky`, invisible goal triggers, and hidden-until-revealed cells intentionally
+  paint nothing.
+- Passed release sprite coverage, release/server builds, actual mirrored-input
+  local/multiplayer play, and local/server plus two-client raw-pixel parity.
+
+## 2026-08-05 — deleted the obsolete procedural actor renderer
+
+- Removed the disconnected geometric actor-renderer implementation and its
+  associated actor-shape constants instead of retaining functionally dead
+  fallback code. The remaining castle-clear timing and authored-rope constants
+  remain as explicit presentation behavior, not substitute art.
+- Passed typecheck, release build, real multiplayer journey, and both
+  local/server and two-client raw-pixel parity browser checks.
+
+## 2026-08-05 — enforced raster-only dynamic actor rendering
+
+- Converted spawned actors, all projectile families, aerial/hatched/frenzy
+  enemies, flame hazards, and moving platforms from optional-image drawing to
+  required authored raster art. An unmapped runtime entity now raises its
+  specific asset error rather than appearing as a coloured geometric shape.
+- Verified the production two-player journey, eight-player WebSocket stress,
+  and local/server and two-client raw-pixel browser parity suites.
+
+## 2026-08-05 — enforced raster-only static actor rendering
+
+- Removed the static-actor procedural rendering branch. The boot scene now
+  requires the authored asset bundle and an explicit raster for each rendered
+  actor, including the generic exit; missing coverage is a visible startup
+  error rather than alternate vector art.
+- Added a generator assertion that `open-gate` maps to the authored
+  `public-exit-arch.png`, then passed release build and production raw-pixel
+  local/server and two-client parity browser checks.
+
+## 2026-08-05 — removed player-art rectangle substitutes
+
+- Removed the coloured primary and co-op player rectangle presentation path.
+  The existing rectangle is now invisible and serves only as the scene's
+  physics/camera anchor; visible gameplay requires authored player sprites and
+  fails loudly if they are unavailable.
+- Re-ran the production two-player journey plus exact local/server and
+  two-client raw-pixel parity checks after the removal.
+
+## 2026-08-05 — tightened release raster coverage
+
+- Changed release sprite validation so visible decorative Empty-collision tiles
+  cannot silently use the procedural scenery path. The only tile exemptions
+  are intentionally invisible cells.
+
+## 2026-08-05 — replaced generic exit axe art
+
+- Replaced the generated generic axe grid with an original raster signal-arch
+  sprite and retained the same `open-gate` manifest contract.
+
+## 2026-08-05 — completed the real four-player World 1-1 recording
+
+- Replaced the fragile relative-delay course driver with a checked-in,
+  zero-reset small-player input trace replayed as physical browser key edges
+  against the production WebSocket server. Absolute 60 Hz deadlines prevent
+  Playwright command overhead from accumulating into late jumps; `ShiftLeft`
+  preserves the input layer's exact run-key semantics.
+- Four isolated authenticated Chromium contexts now create/join one real game,
+  complete World 1-1, render World 1-2 from every perspective, and save four
+  ignored videos plus per-level screenshots in
+  `playwright_adhoc/multiplayer-full-run/`. Production stress, journey, visual
+  parity, and side-by-side lockstep regressions pass afterwards.
+
+## 2026-08-05 — corrected authoritative shared-camera ownership
+
+- Changed the multiplayer runner's camera selection from “first active slot”
+  to the active runtime with the greatest forward world position. An idle
+  creator therefore cannot pin a party's shared camera while a guest is the
+  one actually playing.
+- Added a pure runner regression for an idle creator plus moving guest.
+  The fresh World-map recording remains deliberately marked open until it
+  completes with four real browser videos.
+
+## 2026-08-05 — replaced multiplayer fixture rendering with the release World maps
+
+- The authoritative server parses the selected World map from the release
+  content-set bundle, and the multiplayer Phaser scene receives that same
+  bundle level input and metadata as normal play. The retired multiplayer-only
+  fixture catalogue is gone.
+- Deleted the procedural parallax world renderer rather than retaining it as a
+  hidden substitute. Multiplayer validates authored sprite coverage before it
+  boots a game scene.
+- Retargeted visual parity and mirrored-keyboard browser tests to actual World
+  1-1. The normal content-set route and a paused server frame produce identical
+  1280×720 canvases (zero pixel difference); authenticated two-player journey
+  and mirrored input checks pass.
+
+## 2026-08-05 — made authored skins mandatory at startup
+
+- Corrected local server startup to build the release-static client before
+  serving it. The normal development bundle refers to a cache-only asset URL
+  and cannot serve the required authored skin through the standalone server.
+- Removed the silent default/custom boot paths that continued with an absent
+  asset bundle. They now fail visibly instead of selecting placeholder/vector
+  rendering.
+- Rebuilt and restarted the standalone server; the real production
+  multiplayer login/create/join/admin browser journey passes.
+
+## 2026-08-05 — restored damage-tier test coverage after actor-spawn migration
+
+- Replaced the hazard test's obsolete hard-coded spawn coordinate with the
+  authored player-start actor footprint. This restores actual hazard contact in
+  the fixture without altering collision or vitality code.
+- The complete core test suite is green: 948 passing tests and one deliberate
+  skip; production browser build also passes.
+
+## 2026-08-05 — made delayed WebSocket prediction ordered and visible
+
+- Added a server-monotonic snapshot sequence to the real authoritative
+  protocol and to delta baselines. Frame numbers cannot order `waiting` versus
+  `playing` at frame zero or a new course after a frame-clock reset.
+- Broadcast an ordered state keyframe when an owner starts a game; a lifecycle
+  notification alone is not a simulation baseline.
+- Changed browser reconciliation to wait for acknowledgement progress. This
+  preserves the actual local 60 Hz simulation during a delayed stream instead
+  of rewinding it to a three-second-old server state every 50 ms.
+- Strengthened the production side-by-side test to require at least two pixels
+  of local predicted motion as well as a changed raw canvas. Full real-browser
+  suites pass at injected 100 ms and 3 s delay; recordings remain ignored in
+  `playwright_adhoc/`.
+
+## 2026-08-05 — unified local and multiplayer course sources
+
+- Added `publicOriginalLevels`, an engine catalogue whose exact source inputs
+  are used by both local browser selection and multiplayer server validation;
+  removed the parallel multiplayer onboarding map.
+- Made profile-save lobby refreshes atomic so a newly selected course cannot be
+  replaced by the old default between selection and Create. The side-by-side
+  real browser test asserts the outgoing POST body and authoritative snapshot.
+- Repaired the shared `pipe-route` source with its required goal tile. Four
+  separately recorded browser processes now complete it with real keyboard
+  input and all render `enemy-stomp-route`; exact raw canvas parity and the
+  eight-client WebSocket stress journey also pass. Artifacts remain ignored
+  under `playwright_adhoc/`.
+
+## 2026-08-05 — removed castle-only exit art from the public opening route
+
+- Prevented the generic simulation exit from consuming the bundle's legacy
+  axe asset. Party Runway now uses the authored public exit arch, keeping the
+  opening environment internally consistent.
+
+## 2026-08-05 — removed multiplayer rendering stalls and populated the opening course
+
+- Removed the duplicate forced Phaser frame, per-frame full-canvas readback,
+  and recurring debug PNG encoding that stalled local prediction and audio.
+  One bounded initial capture preserves the administrator screenshot workflow.
+- Added a browser regression that detects any subsequent canvas encoding during
+  normal play, and returned the renderer to Phaser's normal frame lifecycle.
+- Added visible original pipe scenery and elevated enemy encounters to Party
+  Runway without making the shared opening run a blind obstacle course.
+- The four-player recording then exposed a rapid-handoff socket-close
+  regression. Completion teardown now confirms against the current server
+  snapshot and debug PNGs are downscaled, but the recording remains marked
+  failed in `BUGS.md` until its close origin is measured.
+
+## 2026-08-05 — corrected the live multiplayer game, not just a frozen canvas
+
+- Replaced the waiting sidebar and blank control form with a purposeful game
+  room: party count, chat, owner Start/End, and Leave are visible before play;
+  the canvas is hidden but remains layout-sized for a clean Phaser handoff.
+  The actual playing canvas owns the full browser viewport and the drawer
+  remains hidden until `M` is pressed.
+- Removed primary-sprite fallback rectangles and made remote players use their
+  own authored images. Spawn labels stack cleanly for a same-screen party.
+- Converted the three multiplayer routes to a canonical 15-tile playfield and
+  fixed the deterministic initializer to honour the validated player-start
+  actor rather than a stale six-row fixture coordinate.
+- Reworked client reconciliation around the full authoritative simulation and
+  the authenticated player's own slot, with local fixed-step prediction between
+  snapshots. Added a guest-slot core regression.
+- Strengthened real-browser proof to require a full waiting view, a full
+  playing canvas, actual authored-sprite pixels, mirrored input, and production
+  recordings. Exact pixel parity, the four-browser two-course recording, and
+  eight-player stress pass; artifacts remain ignored under `playwright_adhoc/`.
+
+## 2026-08-05 — hardened the lobby's one-game lifecycle
+
+- Game creation now enters the authoritative waiting-game view directly,
+  instead of making a follow-up lobby render the only path to entry.
+- The lobby exposes a single Join action for each other public game; its owner
+  Start action lives only in the waiting-game controls and matching semantic
+  JSON tree.
+- Extended the real production Playwright journey to prove direct entry,
+  refresh resume, all three bundled course choices, guest joining, and start.
+
+## 2026-08-05 — made live local/multiplayer comparison repeatable
+
+- Reworked playing multiplayer so the canvas owns the whole browser viewport;
+  controls are an `M`-opened drawer after start, with no game-pixel overlay.
+- Updated exact raw-canvas parity to 1280×720 and added a real production
+  side-by-side harness that mirrors Shift/Right/Space to isolated local and
+  online sessions, captures before/after images, and asserts server movement,
+  rendered movement, and changed PNGs.
+- Added held-input resend/heartbeat and capped per-client debug screenshot
+  upload at one image per second. Focused production browser checks pass.
+- The four-browser recording exposed a post-level-handoff input failure: PNG
+  debug captures exceeded the server WebSocket's 64 KiB limit and closed every
+  gameplay socket with code 1009. A dedicated bounded 2 MiB payload budget and
+  one-image-per-second capture rate retain debug screenshots without starving
+  or disconnecting gameplay. The same recording now reaches Cavern Route with
+  open sockets and acknowledged inputs from all four players.
+
+## 2026-08-05 — added and closed an honest single-player/multiplayer lockstep harness
+
+- Added a production Playwright harness that opens isolated local and
+  authenticated multiplayer browser sessions at the same viewport, mirrors
+  actual Shift/Right/Space keyboard edges, and writes before/after screenshots
+  plus renderer receipts to ignored `playwright_adhoc/side-by-side-lockstep/`.
+- It checks server movement and the remote BootScene's applied player object
+  before comparing the actual canvas PNGs, so state-only success cannot hide a
+  frozen or wrong canvas.
+- The first honest run exposed a camera-coordinate defect: direct use of the
+  protocol's world-left value as zoomed Phaser scroll started the actual
+  viewport 403 pixels right. Converting that coordinate makes the real canvas
+  change, and inspected captures show the player moving and jumping.
+
+## 2026-08-05 — corrected the multiplayer completion scope
+
+- Audited the live protocol rather than relying on its intended architecture:
+  the server is authoritative and clients submit sequenced, expiring queued
+  input, but the regular stream still sends full JSON simulation snapshots.
+- Found that client prediction reconciles internally but is not applied to the
+  canvas; the visible renderer uses the authoritative snapshot directly and
+  the remote interpolation buffer is not rendered.
+- Recorded the resulting required completion phase in `PLAN.md`: payload
+  measurement, versioned keyframe/delta transport, explicit resync/coalescing,
+  rendered prediction/interpolation, and recorded four-browser proof at
+  100 ms, 500 ms, and 3 s delay. Prior documentation now distinguishes the
+  initial feature delivery from this unfinished latency contract.
+
+## 2026-08-05 — completed hybrid multiplayer transport and presentation
+
+- Replaced routine complete-state WebSocket broadcasts with structural deltas
+  between periodic full keyframes, plus baseline mismatch resync and stale
+  frame rejection; complete snapshots remain available for debug/API use.
+- Wired the reconciled deterministic local prediction and remote interpolation
+  into the actual Phaser presentation loop, repaired the post-create snapshot
+  handoff, eliminated stale multiplayer canvases, and used the server's shared
+  camera in the exact-parity reference.
+- Proved zero-pixel local/server canvas parity and recorded real four-browser,
+  two-transition runs at 100 ms, 500 ms, and 3 s injected delay.
+
+## 2026-08-05 — restored active multiplayer games after refresh
+
+- Added the authenticated active-game summary to the lobby response and route
+  restoration directly to the waiting or playing game instead of exposing
+  impossible create/join lobby controls.
+- Put Start game in the creator's waiting-game panel, which is now the normal
+  post-create and post-refresh location, and surface action failures as alerts.
+- Proved the full production flow with Playwright: create, reload, automatic
+  game resume, second-player join, and creator start.
+
+## 2026-08-05 — fixed the live first-frame multiplayer rendering race
+
+- Waited for BootScene's explicit post-create render-ready signal instead of
+  Phaser's earlier active-scene state, preventing an early authoritative frame
+  from being overwritten by the scene's empty local seed.
+- Re-ran the production standalone create/join/start journey and inspected its
+  browser capture: Party Runway now visibly contains the local party and its
+  collectible immediately after start.
+- Retargeted exact local/server raw-pixel parity to Party Runway, the actual
+  default public multiplayer course.
+
+## 2026-08-05 — verified four-player, two-course multiplayer completion
+
+- Strengthened the Playwright recording from isolated contexts to four separate
+  Chromium processes: one recorded authenticated session per player. The test
+  drives actual keyboard input, completes Party Runway, completes Coinbox
+  Crossing, and verifies all four players' authoritative entry into Cavern
+  Route.
+- Corrected Coinbox Crossing so its visible exit includes an actual goal tile;
+  server completion can no longer be blocked by an actor-only exit.
+- Reset the client intended-frame clock on a server level transition, preventing
+  the new runner from rejecting keyboard input as future-dated.
+- Made the multiplayer Phaser shell reliable over repeated transitions: mount
+  the host before boot, apply snapshots after explicit scene readiness, apply
+  server camera position, tear down old canvases, and size from the rendered
+  host rectangle. The acceptance test asserts one 1280×720 CSS/backing canvas
+  for every session before taking ignored screenshots and videos.
+
+## 2026-08-05 — multiplayer real-play, layout, and progression closure
+
+- Reworked the game view into a full-height canvas with an optional controls
+  drawer, so multiplayer controls do not cover or shrink gameplay.
+- Replaced the punishing opening screen with a safe runway and ground-level
+  goal. On completion, the same public game advances its existing party and
+  chat into the next bundled level rather than tearing down immediately.
+- Online co-op players now pass through one another. This avoids an idle
+  player blocking the shared screen while retaining the local co-op collision
+  implementation for modes that use it.
+- Added a production-server, four-independent-browser Playwright journey. It
+  records every browser, uses real login/create/join/start/key events, verifies
+  movement, four authoritative members after transition, a non-overlapping
+  layout, and captures all player views in ignored
+  `playwright_adhoc/multiplayer-full-run/`.
+
+## 2026-08-05 — multiplayer stress coverage and local diagnostics
+
+- Added an eight-independent-browser-player stress journey: distinct sessions
+  authenticate sequentially (preserving the login rate limit), join one game,
+  start it, send keyboard input, verify eight server players, wait for every
+  canvas to receive that eight-player snapshot, and save ignored local captures.
+- Added optional `LOG_FILE` diagnostics: timestamped, redacted JSON request,
+  WebSocket, and process/server errors. Passwords, cookies, chat text, and
+  simulation snapshots are excluded. The local server writes
+  `screenshots/server.log` for the pending Start-failure diagnosis.
+- The stress capture found and fixed a visibility gap: absent optional sprites,
+  local and remote primary/co-op players render as distinct pixel fallback
+  bodies instead of disappearing.
+
+## 2026-08-05 — corrected local/multiplayer visual proof
+
+- Found that the prior “parity” check compared two multiplayer fallback
+  renderers, not local play. Multiplayer now receives the same authored skin
+  bundle as local `BootScene`; a missing bundle fails visibly rather than
+  silently using placeholder art.
+- Changed Docker and standalone browser QA to build the release static content
+  required by that bundle. Added an actual local-`BootScene` versus paused
+  server-frame test that checks every 1280×720 gameplay pixel exactly, plus
+  ignored local and eight-player screenshots under `screenshots/`.
+
+## 2026-08-05 — full authored multiplayer visual parity
+
+- Replaced the reduced multiplayer canvas with the local authored Phaser
+  `BootScene` in authoritative-render mode. The server snapshot now includes a
+  JSON-safe complete simulation state, preserving map-backed engine state;
+  the scene renders it without stepping an independent simulation.
+- Bound each original multiplayer avatar to an authored player costume and
+  supplied ordered nickname/costume presentation for all same-screen players.
+  Two independently authenticated browser clients therefore render the same
+  game frame, including different selected characters, rather than generic
+  bot placeholders.
+- Added an exact local-core/server two-player trace test (12 frames) and a
+  real-server two-browser test that pauses an authoritative frame and compares
+  all 921,600 raw 1280×720 RGBA pixels with zero differences. It excludes DOM
+  controls by reading the canvas buffer itself, not by cropping or masking.
+- Admin pause/step/resume now broadcasts its changed snapshot immediately.
+  The complete real-server browser suite passes with injected 100 ms and
+  3,000 ms snapshot delay.
+
+## 2026-08-04 — multiplayer completion audit
+
+- Replaced the temporary multiplayer canvas with a snapshot-only Phaser
+  renderer that applies the authoritative shared camera, interpolated remote
+  positions, predicted local position, and bounded screenshot capture. Its
+  production-browser canvas output is asserted nonblank.
+- Made game chat readable and live-refreshed for game members, cleaned up game
+  WebSocket/input/polling resources on every leave/end/completion route, and
+  exposed authenticated transport cadence/protocol-error plus per-player input
+  acknowledgement-lag metrics.
+- Found and fixed a deterministic-core gap: additional co-op players now get a
+  finished outcome on goal contact, including the spawn-invincibility period.
+  Runner coverage now includes the hard cap, late-camera spawn, spectator,
+  and joined-player completion; browser coverage includes protocol mismatch,
+  retained screenshot, admin boot/expiry, and visible cross-client game chat.
+
+## 2026-08-04 — semantic browser rendering and hardened control boundary
+
+- Shared the typed semantic UI-node definition between the server layout
+  factory and the browser. Each multiplayer screen now fetches and recursively
+  renders its exact server-owned tree with stable role, label, action, and
+  value metadata, while the authenticated JSON endpoint remains the direct
+  machine-readable representation. The administrator login has its own tree.
+- Extracted protocol-version validation and the five-attempt-per-minute
+  password limiter into deterministic modules with boundary/expiry tests.
+  Added a protected admin input endpoint that validates the target player is a
+  member of the named game, then routes the command through the same typed
+  expiring input queue used by WebSocket players; it cannot mutate game state
+  directly.
+- Verified the final change with the full repository quality gate and the
+  standalone two-browser journey at injected 100 ms and 3,000 ms snapshot
+  delay; both desktop and mobile screenshots were captured by Playwright.
+
+## 2026-08-04 — real-server multiplayer browser QA
+
+- Added a separate Playwright configuration that launches the production-built
+  standalone service, with no Vite preview substitution. The two-client journey
+  proves password login, profile edits, level selection, create/join/start,
+  keyboard input, game chat, semantic game-layout JSON, and a desktop capture.
+  The administrator journey logs in separately, pauses/steps/resumes that game,
+  and captures a 390×844 mobile view. Both journeys pass.
+
+## 2026-08-04 — delayed multiplayer transport proof
+
+- Added a validated test-only standalone-server snapshot-delay switch and ran
+  the same two-browser journey at 100 ms and 3,000 ms. Once the WebSocket
+  connects, the client renders that pushed stream rather than masking delay
+  through polling; polling remains only the connection-establishment fallback.
+  Both delayed journeys pass.
+
+## 2026-08-04 — full quality gate restored
+
+- Registered the standalone server and multiplayer browser test entrypoints in
+  dead-code analysis, used the multiplayer frame-rate constants at their real
+  scheduler/broadcast boundaries, and made implementation-only public types
+  private. Refactored an existing duplicated spectator test setup into one
+  helper. `pnpm run check` now passes end to end.
+
+## 2026-08-04 — creator end-game control
+
+- Added the creator-authorized end-game service and HTTP route, plus the
+  matching browser action. Focused service/lobby tests, lint, typecheck, and
+  the production client build pass.
+
+## 2026-08-04 — protocol and password boundary
+
+- Added protocol version 1 enforcement to every authenticated HTTP request and
+  each WebSocket message; mismatches fail visibly. Browser QA now sends the
+  required header for agent layout inspection. Failed login attempts are
+  limited to five per address per minute in the intentionally ephemeral
+  standalone process. Full repository and real-server browser gates pass.
+
+## 2026-08-04 — multiplayer leave lifecycle
+
+- Added a deliberate Leave game operation through browser, HTTP, service,
+  lobby, authoritative runner, and deterministic simulation layers. Departing
+  members are removed and remaining simulation slots are compacted coherently;
+  the final departure clears its ephemeral game and releases the one-game
+  membership restriction. Focused runner/lobby/service tests, lint, typecheck,
+  and production server build pass.
+
+## 2026-08-04 — live client prediction
+
+- Connected the browser's keyboard commands to the same deterministic predictor
+  used by its unit tests. A command is validated once, sent with its sequence
+  number, applied immediately locally, then acknowledged server positions
+  correct and replay only outstanding inputs. The initial screenshot send is
+  also guarded until the WebSocket is actually open. Lint, typecheck, and the
+  production browser build pass.
+
+## 2026-08-04 — multiplayer completion and 20 Hz snapshot delivery
+
+- The authoritative service continues stepping at 60 Hz but broadcasts normal
+  WebSocket snapshots at 20 Hz. A final game frame bypasses that interval so
+  every connected participant can render it before the lobby removes the game
+  and releases all player memberships.
+- The browser now listens for its pushed snapshot stream as well as retaining
+  the HTTP polling fallback. On a final snapshot it stops polling, holds the
+  completed screen briefly, then returns to the lobby. Focused runner/lobby/
+  service tests, lint, typecheck, and production browser/server builds pass.
+
+## 2026-08-04 — remote snapshot interpolation
+
+- Added a small pure remote-player interpolator with a 100 ms render buffer,
+  midpoint and late-packet-clamp unit coverage, and browser-canvas integration.
+  Local prediction remains separate and authoritative positions still win on
+  reconciliation. Lint, typecheck, focused tests, and production build pass.
+
+## 2026-08-04 — local multiplayer audio
+
+- Wired the existing original synthesized `GameAudio` shell to local
+  prediction: it resolves sound events from predicted state transitions after
+  user input, while the completion snapshot produces one local victory cue.
+  The server never receives, stores, or streams audio. Existing audio and
+  prediction tests, lint, typecheck, and production build pass.
+
+## 2026-08-04 — shared bundled multiplayer catalogue
+
+- Added three validated, original authored multiplayer levels: Shoreline
+  Sprint, Cavern Route, and Coinbox Crossing. Production server configuration
+  advertises this catalogue and the browser resolves the selected ID to the
+  same deterministic level before creating its local predictor. Catalogue and
+  service tests, lint, typecheck, and client/server builds pass.
+
+## 2026-08-04 — dependency security maintenance
+
+- Updated Vite to 8.2.0 and ESLint to 10.8.0 after recording their MIT-license,
+  purpose, registry, and age evidence. The Vite update replaces the vulnerable
+  nested PostCSS version.
+- A scoped pnpm override pins the older TypeScript ESLint dependency edge to
+  patched `brace-expansion` 5.0.9 (published 2026-07-30); the newest direct
+  TypeScript ESLint release was still inside the project’s three-day adoption
+  gate. Dependency policy, vulnerability audit, format, lint, typecheck, and
+  browser/server production builds pass.
+
+## 2026-08-04 — trusted-friends multiplayer design approved
+
+- Recorded `PLAN.md` Milestone 9: a single password-gated public lobby;
+  creator-started, public, one-level 16-player games; ephemeral lobby/game
+  chats; shared current-screen spawning; spectator-on-death; completion when
+  any player reaches the finish; and local-only audio.
+- Selected a fool-proof first deployment: one standalone TypeScript/Node
+  process in Docker Compose behind user-provided Caddy, with no database or
+  broker. A bounded typed in-process input queue has sequence ordering and a
+  three-second message TTL; the queue boundary remains replaceable should
+  multi-instance hosting later require a broker.
+- Defined authoritative 60 Hz simulation, 20 Hz snapshots, client prediction
+  and acknowledgement replay, plus interpolation for remote players. The
+  intended smooth case is ~100 ms latency; server authority and explicit
+  correction remain safe through three seconds.
+- Defined separate expiring anonymous player/admin sessions and authenticated
+  semantic-layout JSON, state/network metrics, screenshots, pause, and
+  exact-frame stepping so browser automation and remote agents can inspect
+  and test the service. No implementation was included in this planning
+  change.
+- Reaffirmed the originality boundary: multiplayer avatar labels/art must be
+  original, so third-party character identities cannot be shipped as selectable
+  avatars.
+
+## 2026-08-04 — multiplayer authoritative-server foundation
+
+- Added original, typed multiplayer identities/avatar roster, a bounded
+  per-player ordered input queue with a three-second TTL, 16-player
+  authoritative runner, stable co-op spectator slots after death, and
+  explicit admin pause/exact-frame-step/resume support. Unit tests pin queue
+  rejection/expiry, join spawn, input acknowledgement, spectator retention,
+  and game lifecycle.
+- Added a single-process Node HTTP/WebSocket service with anonymous 24-hour
+  player sessions, separate one-hour admin sessions, password-safe comparison,
+  public one-game-per-player lobby, ephemeral rate-limited chats, profile
+  changes, game start/join, redacted debug snapshots, and bounded client-sent
+  PNG screenshot retention for admin inspection.
+- Added a semantic UI-tree API and a real process smoke test (health, password
+  login, authenticated layout JSON, profile, game creation). `ws@8.21.1` and
+  `@types/ws@8.18.1` are documented against the license/freshness policy.
+- Added `Dockerfile`, `compose.yaml`, `.env.example`, and deployment docs for
+  a one-container service behind externally supplied Caddy. The first service
+  exposes the initial authored bundled level while browser/client integration
+  and full bundled-level catalogue remain in progress.
+
+## 2026-08-04 — multiplayer browser route and prediction checkpoint
+
+- Added `#multiplayer`: password entry, profile/avatar picker, public game
+  cards, create/join/start controls, lobby/game chat, keyboard WebSocket input,
+  a live common-screen canvas, and client PNG screenshot reporting for the
+  authenticated admin debug endpoint.
+- Added a pure same-core client predictor that applies local commands
+  immediately, keeps sequence-numbered pending input, drops acknowledged input,
+  corrects from authoritative position, and replays the remaining history.
+  Focused unit tests plus lint/typecheck/client production build pass.
+
+## 2026-08-04 — multiplayer level and mode selection
+
+- Added the authenticated bundled-level catalogue endpoint and used it in the
+  browser lobby's game-creation controls. Players can now choose a server-
+  advertised bundled level and either regular or revenge mode rather than the
+  previous hard-coded regular first-authored game. Service tests, lint,
+  typecheck, and production client build pass.
+
 ## 2026-07-19 — fluid character animation: the drifting princess + Elvis koopa
 
 - The princess (revenge mode) is redrawn at 32x32 (2x detail at the same

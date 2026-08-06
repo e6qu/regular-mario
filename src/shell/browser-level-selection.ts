@@ -14,7 +14,6 @@ import { hardLandingRouteLevelInput } from "../engine/levels/hard-landing-route-
 import { hazardOnlyFeedbackLevelInput } from "../engine/levels/hazard-only-feedback-level";
 import { importedVglcRouteLevelInput } from "../engine/levels/imported-vglc-route-level";
 import { multiLevelRouteSequence } from "../engine/levels/multi-level-route-level";
-import { pipeRouteLevelInput } from "../engine/levels/pipe-route-level";
 import {
   warpRouteLevelInput,
   warpRouteUndergroundLevelInput,
@@ -23,6 +22,7 @@ import {
 import { warpZoneRouteLevelInput } from "../engine/levels/warp-zone-route-level";
 import { powerUpRouteLevelInput } from "../engine/levels/power-up-route-level";
 import { projectileRouteLevelInput } from "../engine/levels/projectile-route-level";
+import { requirePublicOriginalLevel } from "../engine/levels/public-level-catalog";
 import { showcaseSequence } from "../engine/levels/showcase-level";
 import {
   makeFirePlayerVitalityState,
@@ -122,6 +122,9 @@ export type BrowserGameBootstrap = {
   // enemies are re-skinned as half-height Mario/Luigi you stomp. Set from the
   // ?revenge= query parameter.
   readonly revengeMode?: boolean;
+  // Multiplayer's presentation scene receives complete state from the server.
+  // It must render that state, never advance a competing local simulation.
+  readonly authoritativeRenderOnly?: boolean;
 };
 
 export type BrowserGameViewport = {
@@ -276,7 +279,7 @@ function makeBrowserGameBootstrap(
       );
     case BrowserLevelKey.FirstAuthored:
       return makeSingleLevelBootstrap(
-        firstAuthoredLevelInput,
+        requirePublicOriginalLevel(BrowserLevelKey.FirstAuthored).levelInput,
         makeInitialPlayerVitalityState(),
       );
     case BrowserLevelKey.HardLandingRoute:
@@ -328,7 +331,7 @@ function makeBrowserGameBootstrap(
       );
     case BrowserLevelKey.PipeRoute:
       return makeSingleLevelBootstrap(
-        pipeRouteLevelInput,
+        requirePublicOriginalLevel(BrowserLevelKey.PipeRoute).levelInput,
         makeInitialPlayerVitalityState(),
       );
     case BrowserLevelKey.ProjectileRoute:

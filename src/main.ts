@@ -47,6 +47,10 @@ import {
 } from "./shell/user-asset-loader";
 import { validateDefaultVglcSmbSpriteCoverage } from "./shell/default-vglc-smb-sprite-coverage";
 import { parseContentSetIndex } from "./shell/content-set-index";
+import {
+  renderMultiplayerAdminUi,
+  renderMultiplayerUi,
+} from "./shell/multiplayer-ui";
 
 const appElement = document.querySelector<HTMLElement>("#app");
 
@@ -359,7 +363,7 @@ appElement.append(gameLayer, sessionBar, keymapOverlay, keymapHint);
 renderDeployInfoFooter();
 
 // ----- Routing: each area is a shareable URL hash --------------------------
-// #menu · #design · #play?skin=&map=&level=&mode=&sound= · #level=<code>
+// #menu · #design · #multiplayer · #play?skin=&map=&level=&mode=&sound= · #level=<code>
 type PlayRoute = {
   readonly skin: string;
   readonly map: string;
@@ -723,7 +727,7 @@ async function bootWithDefaultAssets(): Promise<void> {
   // The player (and every actor/tile) is authored sprite art — there is no
   // procedural fallback renderer — so even the debug `?browserLevel=` routes
   // load the default parody skin before the scene starts.
-  const bundle = await loadDefaultSkinBundle();
+  const bundle = await requireDefaultSkinBundle();
   startSession(
     { ...selectedBrowserGameBootstrap, userAssetBundle: bundle },
     "1-1",
@@ -734,25 +738,22 @@ async function bootWithDefaultAssets(): Promise<void> {
   );
 }
 
-// Load (and cache) the default parody skin bundle, or undefined if it fails.
-async function loadDefaultSkinBundle(): Promise<UserAssetBundle | undefined> {
+// Load and cache the only shipped skin. There is intentionally no visual
+// substitute: a missing authored bundle is a startup failure, not permission
+// to render a different game with rectangles and primitive shapes.
+async function requireDefaultSkinBundle(): Promise<UserAssetBundle> {
   const cached = skinBundleCache.get("castaway-parody");
   if (cached !== undefined) {
     return cached;
   }
-  try {
-    const bundle = await fetchAndLoadManifest(
-      contentSetBundleManifestUrl("castaway-parody", "official-smb"),
-    );
-    skinBundleCache.set("castaway-parody", bundle);
-    return bundle;
-  } catch {
-    return undefined;
-  }
+  const bundle = await fetchAndLoadManifest(
+    contentSetBundleManifestUrl("castaway-parody", "official-smb"),
+  );
+  skinBundleCache.set("castaway-parody", bundle);
+  return bundle;
 }
 
-// Boot a custom/uploaded/edited level. `skinId` is an asset-set id whose sprites
-// render the level (shapes are used only as a fallback if the set fails to load).
+// Boot a custom/uploaded/edited level with its selected authored asset set.
 // `onExit` (ESC / the overlay button / death) runs when the player leaves — the
 // editor passes a callback that reopens itself with the level.
 function bootCustomLevel(
@@ -763,7 +764,7 @@ function bootCustomLevel(
   warpLevels?: ReadonlyMap<string, LevelSpecInput>,
   theme?: LevelTheme,
 ): void {
-  const boot = (userAssetBundle: UserAssetBundle | undefined): void => {
+  const boot = (userAssetBundle: UserAssetBundle): void => {
     startSession(
       {
         levelInput,
@@ -799,7 +800,11 @@ function bootCustomLevel(
       skinBundleCache.set(skinId, bundle);
       boot(bundle);
     })
-    .catch(() => boot(undefined));
+    .catch((error: unknown) => {
+      throw new Error(
+        `The selected authored skin could not load: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    });
 }
 const skinBundleCache = new Map<string, UserAssetBundle>();
 
@@ -2838,12 +2843,11 @@ async function bootSelectedContentSet(
     const bundle = await fetchAndLoadManifest(
       contentSetBundleManifestUrl(assetSetId, mapSetId),
     );
-    // Boot the level the player picked; fall back to the first if the id is
-    // unknown (e.g. an empty selection).
-    const selectedLevel =
-      bundle.levels.get(levelName) ?? [...bundle.levels.values()][0];
+    const selectedLevel = bundle.levels.get(levelName);
     if (selectedLevel === undefined) {
-      throw new Error("manifest has no levels");
+      throw new Error(
+        `Selected level "${levelName}" is absent from this content set.`,
+      );
     }
 
     // Classic labels + the ordered main levels (intro fragments and pipe sub-
@@ -3033,6 +3037,25 @@ function applyRoute(): void {
   }
   if (raw === "design") {
     renderEditor();
+    return;
+  }
+  if (raw === "multiplayer") {
+    clearApp();
+    void requireDefaultSkinBundle()
+      .then((bundle) => renderMultiplayerUi(appElement!, bundle))
+      .catch((reason: unknown) => {
+        const error = document.createElement("p");
+        error.textContent =
+          reason instanceof Error
+            ? reason.message
+            : "Multiplayer failed to load.";
+        appElement!.replaceChildren(error);
+      });
+    return;
+  }
+  if (raw === "multiplayer-admin") {
+    clearApp();
+    void renderMultiplayerAdminUi(appElement!);
     return;
   }
   const shared = sharedLevelFromHash();

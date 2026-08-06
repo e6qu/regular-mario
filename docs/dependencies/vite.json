@@ -1,15 +1,15 @@
 {
   "name": "vite",
-  "versionRange": "8.0.16",
+  "versionRange": "8.2.0",
   "dependencySection": "devDependencies",
   "purpose": "Development server and production JavaScript bundle builder for the browser game.",
   "license": "MIT",
-  "licenseEvidence": "npm registry metadata from `npm view vite@8.0.16 license repository.url time --json` reported license `MIT` and repository `git+https://github.com/vitejs/vite.git`.",
+  "licenseEvidence": "npm registry metadata from `pnpm view vite@8.2.0 license repository.url time --json` reported license `MIT` and repository `git+https://github.com/vitejs/vite.git`.",
   "agplCompatibility": "compatible",
   "registry": "npm",
-  "checkedVersion": "8.0.16",
-  "checkedVersionPublishedAt": "2026-06-01T09:50:43.261Z",
-  "checkedAt": "2026-06-25T22:41:38Z",
+  "checkedVersion": "8.2.0",
+  "checkedVersionPublishedAt": "2026-07-30T12:03:27.021Z",
+  "checkedAt": "2026-08-04T19:25:00Z",
   "latestCompatibleVersionKnown": true,
   "wellKnownEvidence": "Vite is the selected build tool in PLAN.md and AGENTS.md and is a widely used modern frontend build tool."
 }

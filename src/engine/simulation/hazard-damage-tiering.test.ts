@@ -16,17 +16,17 @@ import type { PlayerVitalityState } from "./player-vitality";
 
 const nominalFrameMilliseconds = 1000 / 60;
 
-// The player spawns at the fixed initial simulation position (x=16, y=56 —
-// tile column 1, rows 3-5); a hazard tile placed in that footprint contacts
-// on the first step.
+// Initial position is derived from the level's player-start actor. Keep the
+// hazard in that actor's feet-anchored overlap footprint so this verifies the
+// damage tier rather than relying on an obsolete global spawn coordinate.
 function makeHazardLevelInput(): LevelSpecInput {
   const width = 16;
   const height = 15;
   const rows: string[][] = Array.from({ length: height }, (_, rowIndex) =>
     Array.from({ length: width }, () => (rowIndex >= 13 ? "ground" : "empty")),
   );
-  rows[4] = rows[4]!.map((tile, columnIndex) =>
-    columnIndex === 1 ? "thorns" : tile,
+  rows[11] = rows[11]!.map((tile, columnIndex) =>
+    columnIndex === 2 ? "thorns" : tile,
   );
   return {
     widthTiles: width,
