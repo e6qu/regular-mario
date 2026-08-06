@@ -1129,8 +1129,8 @@ export class BootScene extends Phaser.Scene {
       );
     }
     const isFinished =
-      state.players[0]?.outcome.kind === PlayerOutcomeKind.Finished ||
-      state.players[0]?.outcome.kind === PlayerOutcomeKind.DefeatedAndFinished;
+      state.players[0].outcome.kind === PlayerOutcomeKind.Finished ||
+      state.players[0].outcome.kind === PlayerOutcomeKind.DefeatedAndFinished;
     if (this.authoritativeCompletionPresentationActive && isFinished) {
       return;
     }
