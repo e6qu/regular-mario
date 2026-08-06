@@ -542,6 +542,27 @@ describe("authoritative multiplayer game runner", () => {
     ).toBe(PlayerOutcomeKind.Active);
   });
 
+  it("allows a defeated player to revive while the party is paused", () => {
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason: PlayerDefeatReason.PitContact,
+          },
+        },
+      ],
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+    runner.pause();
+    const revived = runner.revive(requireMultiplayerPlayerId("mira"));
+    expect(revived.phase).toBe(MultiplayerGamePhase.Paused);
+    expect(revived.players[0]?.spectator).toBe(false);
+  });
+
   it("enforces the hard sixteen-player game cap", () => {
     const runner = makeRunner();
     for (let playerNumber = 1; playerNumber < 16; playerNumber += 1) {

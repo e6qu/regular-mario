@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Revive is now independent of stale presentation state (2026-08-06).** R
+always reaches server authority for any non-finished game, including while the
+compact menu is open; a defeated player may also revive while the party is
+paused. The server retains pause state after revival.
+
 **Multiplayer session ownership is exclusive (2026-08-06).** Re-entering a
 game now disposes the prior Phaser renderer, WebSocket, frame loop, input
 listeners, and audio before mounting the replacement.

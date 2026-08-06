@@ -802,3 +802,8 @@ whole sequence, including the remaining visible-lag audit, is still required.
 `renderGame` replaced its DOM host without disposing the prior renderer. The
 detached scene retained audio and listeners, yielding double music and
 concurrent sessions. Each mount now has one explicit game owner.
+### R could be blocked by presentation/menu state — fixed (2026-08-06)
+
+The client gated R on a `playing` receipt and rejected all keys behind the
+Escape menu, while the server rejected paused games. R now reaches the server
+in any live state and the authoritative runner permits a paused defeat revive.

@@ -1176,6 +1176,28 @@ function renderGame(
     recordSocketLifecycle();
   });
   const keydown = (event: KeyboardEvent) => {
+    // R is a server-authoritative lifecycle request. It must work even when
+    // the pause menu is open or a stale receipt still says paused; the server
+    // alone determines whether this player is actually defeated.
+    if (
+      event.code === "KeyR" &&
+      !chatEditing &&
+      latestAuthoritativeSnapshot?.phase !== "finished"
+    ) {
+      event.preventDefault();
+      const reviveRequestCount = Number(
+        gameShell.getAttribute("data-debug-revive-request-count") ?? "0",
+      );
+      gameShell.setAttribute(
+        "data-debug-revive-request-count",
+        String(reviveRequestCount + 1),
+      );
+      void requestJson("/game/revive", { method: "POST" }).catch((error) => {
+        gameError.textContent =
+          error instanceof Error ? error.message : "Could not revive player.";
+      });
+      return;
+    }
     if (gameShell.getAttribute("data-menu-open") === "true") {
       return;
     }
@@ -1192,27 +1214,6 @@ function renderGame(
           : "/game/resume",
         { method: "POST" },
       );
-      return;
-    }
-    if (
-      event.code === "KeyR" &&
-      !chatEditing &&
-      latestAuthoritativeSnapshot?.phase === "playing"
-    ) {
-      event.preventDefault();
-      const reviveRequestCount = Number(
-        gameShell.getAttribute("data-debug-revive-request-count") ?? "0",
-      );
-      gameShell.setAttribute(
-        "data-debug-revive-request-count",
-        String(reviveRequestCount + 1),
-      );
-      void requestJson("/game/revive", { method: "POST" }).catch((error) => {
-        // R must never be silently ignored. The server remains the authority
-        // on whether this player is currently a defeated spectator.
-        gameError.textContent =
-          error instanceof Error ? error.message : "Could not revive player.";
-      });
       return;
     }
     if (

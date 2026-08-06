@@ -5,6 +5,13 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-06 — revive lifecycle sweep
+
+- Removed stale client phase/menu gating from R; the server decides whether a
+  player is defeated.
+- Allowed revival in a paused authoritative game without implicitly resuming
+  the party, with a focused runner regression.
+
 ## 2026-08-06 — exclusive multiplayer renderer teardown
 
 - Made a game mount own exactly one renderer/session; re-entry tears down the

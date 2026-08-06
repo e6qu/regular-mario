@@ -404,8 +404,11 @@ export function makeAuthoritativeGameRunner(
     },
     revive(playerId) {
       const player = requirePlayer(playerId);
-      if (phase !== MultiplayerGamePhase.Playing) {
-        throw new Error("Only playing games can revive a player.");
+      if (
+        phase !== MultiplayerGamePhase.Playing &&
+        phase !== MultiplayerGamePhase.Paused
+      ) {
+        throw new Error("Only live or paused games can revive a player.");
       }
       const runtime = state.players[player.slot];
       if (runtime === undefined) {
