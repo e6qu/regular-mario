@@ -496,6 +496,18 @@ describe("authoritative multiplayer game runner", () => {
     });
   });
 
+  it("toggles pause from authoritative phase rather than a client receipt", () => {
+    const runner = makeRunner();
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    expect(
+      runner.togglePauseByPlayer(requireMultiplayerPlayerId("mira")).phase,
+    ).toBe(MultiplayerGamePhase.Paused);
+    expect(
+      runner.togglePauseByPlayer(requireMultiplayerPlayerId("mira")).phase,
+    ).toBe(MultiplayerGamePhase.Playing);
+  });
+
   it("issues a strictly increasing snapshot sequence across same-frame lifecycle changes", () => {
     const runner = makeRunner();
     const waiting = runner.snapshot();
@@ -507,6 +519,26 @@ describe("authoritative multiplayer game runner", () => {
     expect(paused.frame).toBe(0);
     expect(waiting.snapshotSequence).toBeLessThan(playing.snapshotSequence);
     expect(playing.snapshotSequence).toBeLessThan(paused.snapshotSequence);
+  });
+
+  it("reuses an unchanged receipt while queued input waits for its frame", () => {
+    const runner = makeRunner();
+    const baseline = runner.snapshot();
+
+    const queued = runner.submitInput(
+      {
+        playerId: requireMultiplayerPlayerId("mira"),
+        sequence: 1,
+        intendedFrame: 1,
+        receivedAtMilliseconds: 0,
+        command: neutral,
+      },
+      0,
+    );
+
+    expect(queued).toBe(baseline);
+    expect(runner.snapshot()).toBe(baseline);
+    expect(runner.start(requireMultiplayerPlayerId("mira"))).not.toBe(baseline);
   });
 
   it("retains defeated members as spectators while active players continue", () => {

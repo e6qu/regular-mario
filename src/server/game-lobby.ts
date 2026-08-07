@@ -71,10 +71,15 @@ export type MultiplayerLobby = {
     player: MultiplayerPlayerProfile,
     gameId: MultiplayerGameId,
   ): PublicGameSummary;
-  leaveGame(playerId: MultiplayerPlayerId): void;
+  leaveGame(
+    playerId: MultiplayerPlayerId,
+  ): AuthoritativeGameSnapshot | undefined;
   revivePlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   pauseGameByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   resumeGameByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
+  toggleGamePauseByPlayer(
+    playerId: MultiplayerPlayerId,
+  ): AuthoritativeGameSnapshot;
   updatePlayerProfile(player: MultiplayerPlayerProfile): void;
   startGame(
     playerId: MultiplayerPlayerId,
@@ -333,11 +338,12 @@ export function makeMultiplayerLobby(
     leaveGame(playerId) {
       const gameId = gameIdByPlayerId.get(playerId);
       if (gameId === undefined) {
-        return;
+        return undefined;
       }
       const game = requireGame(gameId);
-      game.runner.leave(playerId);
+      const snapshot = game.runner.leave(playerId);
       gameIdByPlayerId.delete(playerId);
+      return snapshot;
     },
     revivePlayer(playerId) {
       const gameId = gameIdByPlayerId.get(playerId);
@@ -359,6 +365,13 @@ export function makeMultiplayerLobby(
         throw new Error("Only game members can resume.");
       }
       return requireGame(gameId).runner.resumeByPlayer(playerId);
+    },
+    toggleGamePauseByPlayer(playerId) {
+      const gameId = gameIdByPlayerId.get(playerId);
+      if (gameId === undefined) {
+        throw new Error("Only game members can toggle pause.");
+      }
+      return requireGame(gameId).runner.togglePauseByPlayer(playerId);
     },
     updatePlayerProfile(player) {
       const gameId = gameIdByPlayerId.get(player.playerId);

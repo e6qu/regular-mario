@@ -1,0 +1,85 @@
+name: Publish container
+
+# Publishes the multiplayer server image (which also serves the single-player
+# static build) to GHCR under an immutable per-commit tag, so a deployment pins
+# an exact revision rather than a moving `latest`.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# Never cancelled: a run interrupted after the push but before the tag exists
+# leaves a commit that looks published and is not.
+concurrency:
+  group: publish-container
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/e6qu/regular-mario
+
+jobs:
+  verify:
+    name: Verify the commit under publication
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The repository's own gate, including the content policy that keeps
+      # third-party expression out of what gets published.
+      - run: pnpm run check
+
+  publish:
+    name: Build and push
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the immutable tag
+        id: tag
+        run: echo "tag=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Immutability is the point of the per-commit tag: refuse rather than
+      # overwrite, so a published revision always means one exact image.
+      - name: Refuse to overwrite an existing tag
+        run: |
+          if docker manifest inspect "${IMAGE}:${{ steps.tag.outputs.tag }}" >/dev/null 2>&1; then
+            echo "::error::${IMAGE}:${{ steps.tag.outputs.tag }} already exists; tags are immutable"
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # linux/amd64 only: the deployment host is x86_64. Add a platform here
+      # when something that is not runs this image.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.tag }}
+          provenance: false
+
+      - name: Report the published reference
+        run: |
+          echo "published ${IMAGE}:${{ steps.tag.outputs.tag }}"
+          docker buildx imagetools inspect "${IMAGE}:${{ steps.tag.outputs.tag }}" \
+            --format '{{.Manifest.Digest}}'

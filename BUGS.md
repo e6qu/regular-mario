@@ -30,6 +30,22 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
+### Realtime state transport did redundant work and leaked unrelated game state — fixed (2026-08-07)
+
+The runner serialised a full simulation for every 60 Hz status inspection and
+every held-input heartbeat, the server delivered each public game's state to
+every connected socket, and the browser deep-cloned a full baseline for every
+delta. Immutable receipt caching, game-member routing, and copy-on-write delta
+application remove those three sources of avoidable CPU/allocation/bandwidth.
+Leaving now also broadcasts the changed membership receipt immediately.
+
+### Delayed P input could select the wrong pause endpoint — fixed (2026-08-07)
+
+The browser inferred pause versus resume from its displayed snapshot. With a
+three-second delivery delay, another member could already have changed the
+authoritative phase, turning P into an invalid opposite request. The browser
+now asks the server to toggle, and only the server selects the transition.
+
 ### Held-input acknowledgements visibly reset local prediction — fixed (2026-08-05)
 
 The 100 ms held-state heartbeat advanced the server acknowledgement and the

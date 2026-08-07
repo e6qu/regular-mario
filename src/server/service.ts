@@ -76,7 +76,10 @@ export type MultiplayerService = {
     gameId: string,
     nowMilliseconds: number,
   ): PublicGameSummary;
-  leaveGame(token: string | undefined, nowMilliseconds: number): void;
+  leaveGame(
+    token: string | undefined,
+    nowMilliseconds: number,
+  ): AuthoritativeGameSnapshot | undefined;
   revivePlayer(
     token: string | undefined,
     nowMilliseconds: number,
@@ -86,6 +89,10 @@ export type MultiplayerService = {
     nowMilliseconds: number,
   ): AuthoritativeGameSnapshot;
   resumeGameByPlayer(
+    token: string | undefined,
+    nowMilliseconds: number,
+  ): AuthoritativeGameSnapshot;
+  toggleGamePauseByPlayer(
     token: string | undefined,
     nowMilliseconds: number,
   ): AuthoritativeGameSnapshot;
@@ -332,7 +339,9 @@ export function makeMultiplayerService(
       );
     },
     leaveGame(token, nowMilliseconds) {
-      lobby.leaveGame(requirePlayerProfile(token, nowMilliseconds).playerId);
+      return lobby.leaveGame(
+        requirePlayerProfile(token, nowMilliseconds).playerId,
+      );
     },
     revivePlayer(token, nowMilliseconds) {
       return lobby.revivePlayer(
@@ -346,6 +355,11 @@ export function makeMultiplayerService(
     },
     resumeGameByPlayer(token, nowMilliseconds) {
       return lobby.resumeGameByPlayer(
+        requirePlayerProfile(token, nowMilliseconds).playerId,
+      );
+    },
+    toggleGamePauseByPlayer(token, nowMilliseconds) {
+      return lobby.toggleGamePauseByPlayer(
         requirePlayerProfile(token, nowMilliseconds).playerId,
       );
     },

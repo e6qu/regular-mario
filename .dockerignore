@@ -6,3 +6,12 @@ node_modules
 playwright-report
 test-results
 .env
+
+# ROM material and rips never enter an image. These are gitignored, so CI's
+# build context is already clean — this keeps a LOCAL `docker build` from
+# sweeping in a ROM or audio rip that happens to be sitting in the working
+# tree. The published build serves the authored skin only.
+smb.zip
+*.nes
+*.webm
+.cache

@@ -28,7 +28,13 @@ function cloneJson<Value>(value: Value): Value {
 }
 
 function sameJson(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  // `collectChanges` recursively compares distinct records and arrays. A
+  // JSON.stringify equality check here used to serialise the full simulation
+  // state at every recursive level of every 20 Hz receipt, which is both
+  // quadratic work and enough short-lived allocation to cause visible frame
+  // hitches. Referential equality safely skips immutable shared branches;
+  // primitives are the only other values that can be equal at this point.
+  return Object.is(left, right);
 }
 
 function collectChanges(
@@ -111,12 +117,39 @@ function writeContainerPart(
   container[String(part)] = value;
 }
 
+function copyContainer(
+  container: JsonRecord | unknown[],
+): JsonRecord | unknown[] {
+  return Array.isArray(container) ? [...container] : { ...container };
+}
+
+function copyPathForChange(
+  baseline: unknown,
+  path: readonly StateDeltaPathPart[],
+): {
+  readonly root: JsonRecord | unknown[];
+  readonly parent: JsonRecord | unknown[];
+} {
+  const root = copyContainer(requireContainer(baseline, path));
+  let source: unknown = baseline;
+  let target: JsonRecord | unknown[] = root;
+  for (const part of path.slice(0, -1)) {
+    const sourceContainer = requireContainer(source, path);
+    const sourceChild = readContainerPart(sourceContainer, part);
+    const targetChild = copyContainer(requireContainer(sourceChild, path));
+    writeContainerPart(target, part, targetChild);
+    source = sourceChild;
+    target = targetChild;
+  }
+  return { root, parent: target };
+}
+
 /** Apply a patch without mutating the retained keyframe/baseline. */
 export function applyStateDelta<Value>(
   baseline: Value,
   delta: StateDelta,
 ): Value {
-  let result: unknown = cloneJson(baseline);
+  let result: unknown = baseline;
   for (const change of delta.changes) {
     if (change.path.length === 0) {
       if (change.remove === true) {
@@ -125,11 +158,9 @@ export function applyStateDelta<Value>(
       result = cloneJson(change.value);
       continue;
     }
-    let parent = result;
-    for (const part of change.path.slice(0, -1)) {
-      parent = readContainerPart(requireContainer(parent, change.path), part);
-    }
-    const container = requireContainer(parent, change.path);
+    const copied = copyPathForChange(result, change.path);
+    result = copied.root;
+    const container = copied.parent;
     const finalPart = change.path.at(-1);
     if (finalPart === undefined) {
       throw new Error("State delta path is empty.");

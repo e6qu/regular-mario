@@ -328,6 +328,15 @@ export function makeMultiplayerHttpServer(
     }
   }
 
+  function socketsForSnapshot(
+    snapshot: AuthoritativeGameSnapshot,
+  ): readonly WebSocket[] {
+    return snapshot.players.flatMap((player) => {
+      const socket = socketByPlayerId.get(player.playerId);
+      return socket === undefined ? [] : [socket];
+    });
+  }
+
   function broadcastTransportState(
     snapshots: readonly AuthoritativeGameSnapshot[],
     nowMilliseconds: number,
@@ -336,7 +345,6 @@ export function makeMultiplayerHttpServer(
     for (const snapshot of snapshots) {
       latestSnapshotByGameId.set(snapshot.gameId, snapshot);
     }
-    const sockets = [...socketByPlayerId.values()];
     const keyframeDue =
       forceKeyframe ||
       nowMilliseconds - lastKeyframeBroadcastMilliseconds >=
@@ -345,36 +353,46 @@ export function makeMultiplayerHttpServer(
         (snapshot) => !lastSentSnapshotByGameId.has(snapshot.gameId),
       );
     if (keyframeDue) {
-      sendStateKeyframes(sockets, snapshots, snapshotDelayMilliseconds);
       for (const snapshot of snapshots) {
+        // A player can belong to only one game. Sending every public game's
+        // full world to every open socket multiplied bandwidth and JSON work
+        // by the number of concurrent parties; route the receipt strictly to
+        // the game's current members instead.
+        sendStateKeyframes(
+          socketsForSnapshot(snapshot),
+          [snapshot],
+          snapshotDelayMilliseconds,
+        );
         lastSentSnapshotByGameId.set(snapshot.gameId, snapshot);
       }
       lastKeyframeBroadcastMilliseconds = nowMilliseconds;
       return;
     }
-    const deltas = snapshots.flatMap((snapshot) => {
+    for (const snapshot of snapshots) {
       const baseline = lastSentSnapshotByGameId.get(snapshot.gameId);
       if (baseline === undefined) {
-        return [];
+        continue;
       }
       lastSentSnapshotByGameId.set(snapshot.gameId, snapshot);
-      return [
-        {
-          gameId: snapshot.gameId,
-          baselineFrame: baseline.frame,
-          baselineSnapshotSequence: baseline.snapshotSequence,
-          frame: snapshot.frame,
-          delta: makeStateDelta(baseline, snapshot),
-        },
-      ];
-    });
-    if (deltas.length === 0) {
-      return;
+      const message = {
+        type: "state-deltas",
+        deltas: [
+          {
+            gameId: snapshot.gameId,
+            baselineFrame: baseline.frame,
+            baselineSnapshotSequence: baseline.snapshotSequence,
+            frame: snapshot.frame,
+            delta: makeStateDelta(baseline, snapshot),
+          },
+        ],
+      };
+      deltaBroadcastCount += 1;
+      deltaBytes += stateTransportEncodedBytes(message);
+      const encoded = JSON.stringify(message);
+      for (const socket of socketsForSnapshot(snapshot)) {
+        sendEncodedWebSocketMessage(socket, encoded, snapshotDelayMilliseconds);
+      }
     }
-    const message = { type: "state-deltas", deltas };
-    deltaBroadcastCount += 1;
-    deltaBytes += stateTransportEncodedBytes(message);
-    broadcast(message, snapshotDelayMilliseconds);
   }
 
   function broadcastSnapshots(nowMilliseconds: number): void {
@@ -642,8 +660,15 @@ export function makeMultiplayerHttpServer(
         }
       }
       if (request.method === "POST" && url.pathname === "/api/game/leave") {
-        service.leaveGame(playerToken, now());
+        const leftAtMilliseconds = now();
+        const snapshot = service.leaveGame(playerToken, leftAtMilliseconds);
         json(response, 200, { ok: true });
+        if (snapshot !== undefined) {
+          // The departing client intentionally disposes its own socket, but
+          // everyone who remains needs the updated membership/empty-party
+          // pause immediately rather than waiting for a later world tick.
+          broadcastTransportState([snapshot], leftAtMilliseconds, true);
+        }
         broadcast({ type: "games-changed" });
         return;
       }
@@ -657,23 +682,16 @@ export function makeMultiplayerHttpServer(
         json(response, 200, snapshot);
         return;
       }
-      if (request.method === "POST" && url.pathname === "/api/game/pause") {
-        const pausedAtMilliseconds = now();
-        const snapshot = service.pauseGameByPlayer(
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/game/toggle-pause"
+      ) {
+        const toggledAtMilliseconds = now();
+        const snapshot = service.toggleGamePauseByPlayer(
           playerToken,
-          pausedAtMilliseconds,
+          toggledAtMilliseconds,
         );
-        broadcastTransportState([snapshot], pausedAtMilliseconds, true);
-        json(response, 200, snapshot);
-        return;
-      }
-      if (request.method === "POST" && url.pathname === "/api/game/resume") {
-        const resumedAtMilliseconds = now();
-        const snapshot = service.resumeGameByPlayer(
-          playerToken,
-          resumedAtMilliseconds,
-        );
-        broadcastTransportState([snapshot], resumedAtMilliseconds, true);
+        broadcastTransportState([snapshot], toggledAtMilliseconds, true);
         json(response, 200, snapshot);
         return;
       }
