@@ -80,11 +80,11 @@ function installMultiplayerVisualLanguage(): void {
   style.id = multiplayerVisualStyleId;
   style.textContent = `
     .multiplayer-panel, .multiplayer-panel *, .multiplayer-game-shell, .multiplayer-game-shell * { box-sizing: border-box; }
-    .multiplayer-panel { width: min(980px, calc(100% - 48px)); margin: 24px auto; padding: 22px;
-      color: #172033; background: linear-gradient(#8ed4ea 0 18%, #dff4ee 18% 100%);
+    .multiplayer-panel { width: min(980px, calc(100% - 48px)); margin: 24px auto; padding: clamp(18px, 3vw, 32px);
+      color: #172033; background: linear-gradient(135deg, #8ed4ea 0 26%, #dff4ee 26% 100%);
       font-family: monospace; border: 5px solid #172033; box-shadow: 9px 9px 0 #285a37; }
     .multiplayer-panel h1, .multiplayer-panel h2 { margin: 0 0 14px; letter-spacing: .08em; }
-    .multiplayer-panel h1 { color: #172033; text-shadow: 2px 2px #f5f7fb; }
+    .multiplayer-panel h1 { color: #172033; font-size: clamp(1.45rem, 4vw, 2.35rem); text-shadow: 3px 3px #f5f7fb; }
     .multiplayer-panel section, .multiplayer-panel form, .multiplayer-panel [role=log] {
       display: block; margin: 12px 0; padding: 12px; background: #f5f7fb;
       border: 3px solid #172033; box-shadow: 4px 4px 0 #6ca83f; }
@@ -93,6 +93,19 @@ function installMultiplayerVisualLanguage(): void {
       box-shadow: 3px 3px 0 #b9682f; }
     .multiplayer-panel button:hover, .multiplayer-panel button:focus-visible { background: #ff9d2e; outline: 3px solid #f5f7fb; outline-offset: 2px; }
     .multiplayer-panel input, .multiplayer-panel select { margin: 4px; padding: 8px; border: 2px solid #172033; font: inherit; background: #fffef6; }
+    .multiplayer-profile-card, .multiplayer-create-card { display: flex !important; flex-wrap: wrap; align-items: end; gap: 8px; }
+    .multiplayer-profile-card > label, .multiplayer-create-card > label { display: grid; gap: 5px; font-weight: 800; }
+    .multiplayer-profile-card input, .multiplayer-profile-card select, .multiplayer-create-card select { min-width: 9rem; max-width: 100%; margin: 0; }
+    .multiplayer-profile-card button, .multiplayer-create-card button { margin: 0; min-height: 42px; }
+    .multiplayer-games { display: grid !important; gap: 10px; }
+    .multiplayer-games h2 { grid-column: 1 / -1; }
+    .multiplayer-game-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 2px solid #172033; background: #fffef6; box-shadow: inset 0 -3px #d6e4d1; }
+    .multiplayer-game-card__summary { min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+    .multiplayer-game-card button { flex: 0 0 auto; margin: 0; }
+    .multiplayer-lobby-chat { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+    .multiplayer-lobby-chat [role=log] { grid-column: 1 / -1; margin: 0; min-height: 4.2em; max-height: 12em; overflow: auto; white-space: pre-wrap; }
+    .multiplayer-lobby-chat input { width: 100%; min-width: 0; margin: 0; }
+    .multiplayer-lobby-chat button { margin: 0; }
     .multiplayer-game-shell { position: relative; height: 100vh; min-height: 0; overflow: hidden; background: #172033; }
     .multiplayer-game-host { position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
     .multiplayer-game-host canvas { display: block; }
@@ -122,6 +135,9 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
     .multiplayer-game-error:empty { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { width: calc(100% - 16px); margin: 8px auto; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
+      .multiplayer-profile-card, .multiplayer-create-card { flex-direction: column; align-items: stretch; }
+      .multiplayer-game-card { align-items: stretch; flex-direction: column; }
+      .multiplayer-game-card button { width: 100%; }
       .multiplayer-game-shell { height: 100vh; min-height: 0; } }
     @media (max-height: 540px) and (orientation: landscape) {
       .multiplayer-panel { width: calc(100% - 16px); margin: 5px auto; padding: 9px; box-shadow: 4px 4px 0 #285a37; }
@@ -129,6 +145,10 @@ function installMultiplayerVisualLanguage(): void {
       .multiplayer-panel section, .multiplayer-panel form, .multiplayer-panel [role=log] { margin: 6px 0; padding: 7px; box-shadow: 3px 3px 0 #6ca83f; }
       .multiplayer-panel input, .multiplayer-panel select { max-width: 100%; min-width: 0; margin: 2px; padding: 5px; }
       .multiplayer-panel button { margin: 3px; padding: 6px 8px; }
+      .multiplayer-profile-card, .multiplayer-create-card { flex-direction: row; gap: 6px; }
+      .multiplayer-profile-card button, .multiplayer-create-card button { min-height: 34px; }
+      .multiplayer-game-card { flex-direction: row; padding: 7px; }
+      .multiplayer-game-card button { width: auto; }
       .multiplayer-game-chat-overlay, .multiplayer-game-chat-feed { left: 8px; bottom: 8px; width: min(360px, calc(100vw - 16px)); }
       .multiplayer-game-chat-feed p { padding: 5px 7px; font-size: 12px; }
       .multiplayer-game-menu > section { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 10px; font-size: 13px; box-shadow: 4px 4px 0 #285a37; }
@@ -287,6 +307,7 @@ async function renderLobby(
   panel.append(heading);
 
   const profileForm = document.createElement("form");
+  profileForm.className = "multiplayer-profile-card";
   const nickname = document.createElement("input");
   nickname.value = lobby.profile.nickname;
   nickname.setAttribute("aria-label", "Nickname");
@@ -385,7 +406,9 @@ async function renderLobby(
         reason instanceof Error ? reason.message : "Could not create game.";
     }
   });
-  panel.append(
+  const createCard = document.createElement("section");
+  createCard.className = "multiplayer-create-card";
+  createCard.append(
     "Level ",
     levelSelect,
     " Mode ",
@@ -393,12 +416,15 @@ async function renderLobby(
     create,
     actionError,
   );
+  panel.append(createCard);
   const games = document.createElement("section");
+  games.className = "multiplayer-games";
   const gamesHeading = document.createElement("h2");
   gamesHeading.textContent = "Public games";
   games.append(gamesHeading);
   for (const game of lobby.games) {
     const row = document.createElement("div");
+    row.className = "multiplayer-game-card";
     row.textContent = `${game.creator.nickname} · ${game.levelId} · ${game.mode} · ${game.phase} · ${game.playerCount}/${game.maximumPlayerCount}`;
     row.append(
       makeButton("Join", async () => {
@@ -434,7 +460,9 @@ async function renderLobby(
   const chatInput = document.createElement("input");
   chatInput.maxLength = 256;
   chatInput.setAttribute("aria-label", "Lobby chat message");
-  panel.append(
+  const lobbyChat = document.createElement("section");
+  lobbyChat.className = "multiplayer-lobby-chat";
+  lobbyChat.append(
     chat,
     chatInput,
     makeButton("Send lobby chat", async () => {
@@ -445,6 +473,7 @@ async function renderLobby(
       await renderLobby(mount, userAssetBundle);
     }),
   );
+  panel.append(lobbyChat);
   mount.append(panel);
   await appendSemanticLayout(panel);
 }
