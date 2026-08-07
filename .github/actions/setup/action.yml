@@ -1,0 +1,18 @@
+name: Set up the toolchain
+description: >-
+  Checkout, pnpm, Node and a frozen install — the toolchain every workflow needs,
+  declared once so the pinned versions cannot drift apart between them.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 10.33.3
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
