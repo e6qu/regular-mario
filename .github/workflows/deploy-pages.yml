@@ -23,6 +23,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       # Generates public/game-content (authored sprites + composed manifest +
       # committed numeric levels + synthesized sound), then `vite build`.

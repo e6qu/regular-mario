@@ -1,12 +1,13 @@
 name: Set up the toolchain
 description: >-
-  Checkout, pnpm, Node and a frozen install — the toolchain every workflow needs,
-  declared once so the pinned versions cannot drift apart between them.
+  pnpm, Node and a frozen install — the toolchain every workflow needs, declared
+  once so the pinned versions cannot drift apart between them. Checkout is NOT
+  part of this: a local action cannot run before the checkout that fetches it,
+  so each workflow checks out first and then uses this.
 
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v4
     - uses: pnpm/action-setup@v4
       with:
         version: 10.33.3
