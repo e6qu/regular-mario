@@ -27,6 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       # The repository's own gate, including the content policy that keeps
       # third-party expression out of what gets published.
