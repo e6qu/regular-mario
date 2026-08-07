@@ -71,7 +71,9 @@ export type MultiplayerLobby = {
     player: MultiplayerPlayerProfile,
     gameId: MultiplayerGameId,
   ): PublicGameSummary;
-  leaveGame(playerId: MultiplayerPlayerId): void;
+  leaveGame(
+    playerId: MultiplayerPlayerId,
+  ): AuthoritativeGameSnapshot | undefined;
   revivePlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   pauseGameByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   resumeGameByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
@@ -333,11 +335,12 @@ export function makeMultiplayerLobby(
     leaveGame(playerId) {
       const gameId = gameIdByPlayerId.get(playerId);
       if (gameId === undefined) {
-        return;
+        return undefined;
       }
       const game = requireGame(gameId);
-      game.runner.leave(playerId);
+      const snapshot = game.runner.leave(playerId);
       gameIdByPlayerId.delete(playerId);
+      return snapshot;
     },
     revivePlayer(playerId) {
       const gameId = gameIdByPlayerId.get(playerId);

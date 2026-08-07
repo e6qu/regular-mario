@@ -136,6 +136,12 @@ export function makeAuthoritativeGameRunner(
   let pausedBecausePartyIsEmpty = false;
   let cameraLeftPixels = 0;
   let snapshotSequence = 0;
+  // Serialising a complete immutable simulation is intentionally reserved for
+  // a state receipt.  The authoritative loop and input queue both query game
+  // state more often than the 20 Hz transport publishes it; rebuilding the
+  // exact same JSON receipt on those reads used enough CPU to delay the fixed
+  // frame clock under a few active games.
+  let cachedSnapshot: AuthoritativeGameSnapshot | undefined;
   // This is a party checkpoint, not a rendered camera target: it advances
   // only from an active member, and a revive never rewinds the shared world.
   let partyCheckpoint = config.initialState.players[0].player.position;
@@ -198,8 +204,15 @@ export function makeAuthoritativeGameRunner(
     );
   }
 
+  function invalidateSnapshot(): void {
+    cachedSnapshot = undefined;
+  }
+
   function makeSnapshot(): AuthoritativeGameSnapshot {
-    return {
+    if (cachedSnapshot !== undefined) {
+      return cachedSnapshot;
+    }
+    cachedSnapshot = {
       gameId: config.gameId,
       snapshotSequence: (snapshotSequence += 1),
       levelId: config.levelId,
@@ -233,6 +246,7 @@ export function makeAuthoritativeGameRunner(
         }),
       queue: inputQueue.metrics(),
     };
+    return cachedSnapshot;
   }
 
   function advance(nowMilliseconds: number): AuthoritativeGameSnapshot {
@@ -275,6 +289,7 @@ export function makeAuthoritativeGameRunner(
     ) {
       phase = MultiplayerGamePhase.Finished;
     }
+    invalidateSnapshot();
     return makeSnapshot();
   }
 
@@ -309,6 +324,7 @@ export function makeAuthoritativeGameRunner(
           phase = MultiplayerGamePhase.Playing;
           pausedBecausePartyIsEmpty = false;
         }
+        invalidateSnapshot();
         return makeSnapshot();
       }
       if (
@@ -330,6 +346,7 @@ export function makeAuthoritativeGameRunner(
         { ...player, slot: players.length, connected: true },
       ];
       commandByPlayerId.set(player.playerId, neutralCommand);
+      invalidateSnapshot();
       return makeSnapshot();
     },
     leave(playerId) {
@@ -347,6 +364,7 @@ export function makeAuthoritativeGameRunner(
           phase = MultiplayerGamePhase.Paused;
           pausedBecausePartyIsEmpty = true;
         }
+        invalidateSnapshot();
         return makeSnapshot();
       }
       state = removeSimulationPlayerAt(state, leaving.slot);
@@ -356,6 +374,7 @@ export function makeAuthoritativeGameRunner(
       commandByPlayerId.delete(playerId);
       acknowledgedInputSequenceByPlayerId.delete(playerId);
       acknowledgementLagByPlayerId.delete(playerId);
+      invalidateSnapshot();
       return makeSnapshot();
     },
     updateProfile(player) {
@@ -365,6 +384,7 @@ export function makeAuthoritativeGameRunner(
           ? { ...player, slot: candidate.slot, connected: candidate.connected }
           : candidate,
       );
+      invalidateSnapshot();
       return makeSnapshot();
     },
     start(requestedBy) {
@@ -376,6 +396,7 @@ export function makeAuthoritativeGameRunner(
       }
       phase = MultiplayerGamePhase.Playing;
       pausedBecausePartyIsEmpty = false;
+      invalidateSnapshot();
       return makeSnapshot();
     },
     pause() {
@@ -384,6 +405,7 @@ export function makeAuthoritativeGameRunner(
       }
       phase = MultiplayerGamePhase.Paused;
       pausedBecausePartyIsEmpty = false;
+      invalidateSnapshot();
       return makeSnapshot();
     },
     pauseByPlayer(playerId) {
@@ -396,6 +418,7 @@ export function makeAuthoritativeGameRunner(
       }
       phase = MultiplayerGamePhase.Playing;
       pausedBecausePartyIsEmpty = false;
+      invalidateSnapshot();
       return makeSnapshot();
     },
     resumeByPlayer(playerId) {
@@ -421,6 +444,7 @@ export function makeAuthoritativeGameRunner(
       }
       state = reviveSimulationPlayerAt(state, player.slot, partyCheckpoint);
       commandByPlayerId.set(playerId, neutralCommand);
+      invalidateSnapshot();
       return makeSnapshot();
     },
     submitInput(input, nowMilliseconds) {
@@ -447,6 +471,7 @@ export function makeAuthoritativeGameRunner(
       const advancedSnapshot = advance(nowMilliseconds);
       if (advancedSnapshot.phase !== MultiplayerGamePhase.Finished) {
         phase = MultiplayerGamePhase.Paused;
+        invalidateSnapshot();
       }
       return makeSnapshot();
     },

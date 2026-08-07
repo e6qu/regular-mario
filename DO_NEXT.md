@@ -4,6 +4,12 @@
   contract. Any future runner replacement must preserve the connected exit,
   not use an implicit player-start position.
 
+- Keep multiplayer receipts immutable and game-scoped. Do not reintroduce
+  whole-world serialisation on input ingestion/status reads, all-socket game
+  broadcasts, or browser deep clones while applying deltas. Profile any new
+  state field under the 16-player multi-game load before adding it to realtime
+  transport.
+
 - Preserve the full-viewport game contract: gameplay controls must remain
   keyboard/chat overlays and semantic inspection must never affect canvas
   layout. Keep browser assertions on live state attributes rather than hidden

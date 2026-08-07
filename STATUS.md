@@ -2,6 +2,16 @@
 
 ## Current State
 
+**Multiplayer transport avoids redundant world copies (2026-08-07).** The
+authoritative runner caches its immutable receipt between actual world or
+lifecycle changes, so 60 Hz server inspection and 100 ms held-input heartbeats
+no longer repeatedly serialise a complete simulation. State packets now go
+only to their current game members, and browser delta application uses
+copy-on-write paths rather than deep-cloning the whole received world. A
+departure immediately broadcasts the changed membership/empty-party pause to
+the players who remain. Focused transport tests, typecheck, and the 13-test
+production Playwright multiplayer suite pass.
+
 **Revive is now independent of stale presentation state (2026-08-06).** R
 always reaches server authority for any non-finished game, including while the
 compact menu is open; a defeated player may also revive while the party is

@@ -509,6 +509,26 @@ describe("authoritative multiplayer game runner", () => {
     expect(playing.snapshotSequence).toBeLessThan(paused.snapshotSequence);
   });
 
+  it("reuses an unchanged receipt while queued input waits for its frame", () => {
+    const runner = makeRunner();
+    const baseline = runner.snapshot();
+
+    const queued = runner.submitInput(
+      {
+        playerId: requireMultiplayerPlayerId("mira"),
+        sequence: 1,
+        intendedFrame: 1,
+        receivedAtMilliseconds: 0,
+        command: neutral,
+      },
+      0,
+    );
+
+    expect(queued).toBe(baseline);
+    expect(runner.snapshot()).toBe(baseline);
+    expect(runner.start(requireMultiplayerPlayerId("mira"))).not.toBe(baseline);
+  });
+
   it("retains defeated members as spectators while active players continue", () => {
     const runner = makeDefeatedPlayerRunner();
     const snapshot = runner.snapshot();

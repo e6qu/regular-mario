@@ -5,6 +5,21 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-07 — multiplayer transport/performance sweep
+
+- Cached the immutable authoritative snapshot receipt until the simulation or
+  lifecycle actually changes. Input enqueue and repeated status/debug reads no
+  longer encode the same world JSON repeatedly.
+- Restricted keyframes and deltas to the sockets of the relevant game's
+  current members; a lobby user or member of another game no longer receives
+  unrelated world state.
+- Replaced browser delta application’s full JSON deep clone with copy-on-write
+  patches, preserving unchanged branches between 20 Hz receipts.
+- Made leave return and broadcast the changed authoritative receipt immediately
+  to remaining members, including an automatic empty-party pause.
+- Passed focused runner/transport/service tests, typecheck, and the 13-test
+  production multiplayer Playwright suite.
+
 ## 2026-08-06 — revive lifecycle sweep
 
 - Removed stale client phase/menu gating from R; the server decides whether a

@@ -30,6 +30,15 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
+### Realtime state transport did redundant work and leaked unrelated game state — fixed (2026-08-07)
+
+The runner serialised a full simulation for every 60 Hz status inspection and
+every held-input heartbeat, the server delivered each public game's state to
+every connected socket, and the browser deep-cloned a full baseline for every
+delta. Immutable receipt caching, game-member routing, and copy-on-write delta
+application remove those three sources of avoidable CPU/allocation/bandwidth.
+Leaving now also broadcasts the changed membership receipt immediately.
+
 ### Held-input acknowledgements visibly reset local prediction — fixed (2026-08-05)
 
 The 100 ms held-state heartbeat advanced the server acknowledgement and the

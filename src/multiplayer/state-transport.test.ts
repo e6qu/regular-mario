@@ -39,4 +39,23 @@ describe("state transport", () => {
     });
     expect(stateTransportEncodedBytes(delta)).toBeGreaterThan(0);
   });
+
+  it("copy-on-write applies only changed branches", () => {
+    const baseline = {
+      frame: 10,
+      moving: { player: { x: 16, y: 64 } },
+      unchangedWorld: { tiles: [1, 2, 3] },
+    };
+    const target = {
+      ...baseline,
+      frame: 11,
+      moving: { player: { x: 18, y: 64 } },
+    };
+
+    const applied = applyStateDelta(baseline, makeStateDelta(baseline, target));
+
+    expect(applied).toEqual(target);
+    expect(applied.unchangedWorld).toBe(baseline.unchangedWorld);
+    expect(applied.moving).not.toBe(baseline.moving);
+  });
 });
