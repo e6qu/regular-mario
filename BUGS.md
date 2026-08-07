@@ -30,6 +30,16 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
+### Full-course recording no longer completes World 1-1 — open (2026-08-07)
+
+`full-run-recording.spec.ts` drove four real WebSocket browsers to frame 1891
+but never observed the required World 1-2 handoff within 20 seconds. Because
+that test leaves its public game after failure, later broad-suite journeys also
+encounter an unexpected extra Join target. This is a real release-gate failure,
+not a lobby UI failure: repair the physical input trace or its authoritative
+completion path, and make fixture cleanup run in `finally` before relying on
+the broad suite again.
+
 ### Multiplayer overlays could overflow a mobile landscape viewport — fixed (2026-08-07)
 
 Chat and menu widths subtracted viewport margins but used content-box sizing,
@@ -52,6 +62,7 @@ The browser inferred pause versus resume from its displayed snapshot. With a
 three-second delivery delay, another member could already have changed the
 authoritative phase, turning P into an invalid opposite request. The browser
 now asks the server to toggle, and only the server selects the transition.
+
 ### Held-input acknowledgements visibly reset local prediction — fixed (2026-08-05)
 
 The 100 ms held-state heartbeat advanced the server acknowledgement and the

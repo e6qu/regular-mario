@@ -2,6 +2,14 @@
 
 ## Current State
 
+**Multiplayer lobby visual language is structured and responsive (2026-08-07).**
+The trusted-friends lobby now uses labelled profile and run controls, semantic
+card headings, an explicit empty-run invitation, and a keyboard-visible button
+system. Its sea/foam/sand palette and tide-line header extend the original
+game's pixel-world without entering the full-viewport play surface. Typecheck
+and the isolated 568×320 production browser journey pass. The broad browser
+suite presently has an unrelated full-course recording failure; see BUGS.md.
+
 **Mobile landscape multiplayer UI fits the viewport (2026-08-07).** The lobby,
 chat overlay, Escape menu, and error surface use border-box sizing and compact
 short-landscape dimensions. A 568×320 production browser journey asserts no

@@ -80,28 +80,37 @@ function installMultiplayerVisualLanguage(): void {
   style.id = multiplayerVisualStyleId;
   style.textContent = `
     .multiplayer-panel, .multiplayer-panel *, .multiplayer-game-shell, .multiplayer-game-shell * { box-sizing: border-box; }
-    .multiplayer-panel { width: min(980px, calc(100% - 48px)); margin: 24px auto; padding: clamp(18px, 3vw, 32px);
-      color: #172033; background: linear-gradient(135deg, #8ed4ea 0 26%, #dff4ee 26% 100%);
-      font-family: monospace; border: 5px solid #172033; box-shadow: 9px 9px 0 #285a37; }
-    .multiplayer-panel h1, .multiplayer-panel h2 { margin: 0 0 14px; letter-spacing: .08em; }
-    .multiplayer-panel h1 { color: #172033; font-size: clamp(1.45rem, 4vw, 2.35rem); text-shadow: 3px 3px #f5f7fb; }
+    .multiplayer-panel { --mp-ink: #172033; --mp-sea: #8ed4ea; --mp-foam: #e8f7f2; --mp-sand: #fff9e9; --mp-sun: #ffd54a; --mp-leaf: #285a37; --mp-clay: #b9682f;
+      width: min(980px, calc(100% - 48px)); margin: 24px auto; padding: clamp(18px, 3vw, 32px); color: var(--mp-ink);
+      background: linear-gradient(160deg, var(--mp-sea) 0 9.5rem, var(--mp-foam) 9.5rem 100%); font-family: monospace;
+      border: 5px solid var(--mp-ink); box-shadow: 9px 9px 0 var(--mp-leaf); }
+    .multiplayer-panel h1, .multiplayer-panel h2 { margin: 0; letter-spacing: .08em; }
+    .multiplayer-lobby-heading { margin-bottom: 22px; padding: 2px 0 15px; border-bottom: 4px solid var(--mp-ink); box-shadow: 0 5px 0 var(--mp-sun); }
+    .multiplayer-lobby-heading__eyebrow { margin: 0 0 6px; color: var(--mp-leaf); font-size: .78rem; font-weight: 900; letter-spacing: .17em; }
+    .multiplayer-panel h1 { color: var(--mp-ink); font-size: clamp(1.55rem, 4vw, 2.45rem); line-height: 1; text-shadow: 3px 3px #f5f7fb; }
+    .multiplayer-lobby-heading__lead { max-width: 58ch; margin: 10px 0 0; line-height: 1.45; }
     .multiplayer-panel section, .multiplayer-panel form, .multiplayer-panel [role=log] {
-      display: block; margin: 12px 0; padding: 12px; background: #f5f7fb;
-      border: 3px solid #172033; box-shadow: 4px 4px 0 #6ca83f; }
-    .multiplayer-panel button { margin: 5px; padding: 9px 13px; border: 3px solid #172033;
-      background: #ffd54a; color: #172033; font: inherit; font-weight: 800; cursor: pointer;
-      box-shadow: 3px 3px 0 #b9682f; }
-    .multiplayer-panel button:hover, .multiplayer-panel button:focus-visible { background: #ff9d2e; outline: 3px solid #f5f7fb; outline-offset: 2px; }
-    .multiplayer-panel input, .multiplayer-panel select { margin: 4px; padding: 8px; border: 2px solid #172033; font: inherit; background: #fffef6; }
+      display: block; margin: 14px 0; padding: 14px; background: #f5f7fb; border: 3px solid var(--mp-ink); box-shadow: 4px 4px 0 #6ca83f; }
+    .multiplayer-panel h2 { font-size: clamp(1.05rem, 2.4vw, 1.3rem); }
+    .multiplayer-card-heading { margin-bottom: 12px !important; }
+    .multiplayer-button { margin: 0; padding: 9px 13px; border: 3px solid var(--mp-ink); background: var(--mp-sun); color: var(--mp-ink);
+      font: inherit; font-weight: 800; cursor: pointer; box-shadow: 3px 3px 0 var(--mp-clay); transition: transform 80ms ease-out, box-shadow 80ms ease-out, background 80ms ease-out; }
+    .multiplayer-button:hover { background: #ff9d2e; transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--mp-clay); }
+    .multiplayer-button:focus-visible { outline: 3px solid var(--mp-ink); outline-offset: 3px; }
+    .multiplayer-button:active { transform: translate(3px, 3px); box-shadow: none; }
+    .multiplayer-panel input, .multiplayer-panel select { padding: 8px; border: 2px solid var(--mp-ink); font: inherit; background: #fffef6; }
     .multiplayer-profile-card, .multiplayer-create-card { display: flex !important; flex-wrap: wrap; align-items: end; gap: 8px; }
     .multiplayer-profile-card > label, .multiplayer-create-card > label { display: grid; gap: 5px; font-weight: 800; }
     .multiplayer-profile-card input, .multiplayer-profile-card select, .multiplayer-create-card select { min-width: 9rem; max-width: 100%; margin: 0; }
-    .multiplayer-profile-card button, .multiplayer-create-card button { margin: 0; min-height: 42px; }
+    .multiplayer-profile-card .multiplayer-card-heading, .multiplayer-create-card .multiplayer-card-heading, .multiplayer-lobby-chat .multiplayer-card-heading { flex-basis: 100%; }
+    .multiplayer-profile-card button, .multiplayer-create-card button { min-height: 42px; }
+    .multiplayer-action-error { flex-basis: 100%; margin: 0; color: #8b241c; font-weight: 800; }
     .multiplayer-games { display: grid !important; gap: 10px; }
     .multiplayer-games h2 { grid-column: 1 / -1; }
     .multiplayer-game-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 2px solid #172033; background: #fffef6; box-shadow: inset 0 -3px #d6e4d1; }
     .multiplayer-game-card__summary { min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
-    .multiplayer-game-card button { flex: 0 0 auto; margin: 0; }
+    .multiplayer-game-card button { flex: 0 0 auto; }
+    .multiplayer-empty-games { margin: 0; padding: 8px 0 2px; line-height: 1.45; }
     .multiplayer-lobby-chat { display: grid !important; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
     .multiplayer-lobby-chat [role=log] { grid-column: 1 / -1; margin: 0; min-height: 4.2em; max-height: 12em; overflow: auto; white-space: pre-wrap; }
     .multiplayer-lobby-chat input { width: 100%; min-width: 0; margin: 0; }
@@ -142,6 +151,8 @@ function installMultiplayerVisualLanguage(): void {
     @media (max-height: 540px) and (orientation: landscape) {
       .multiplayer-panel { width: calc(100% - 16px); margin: 5px auto; padding: 9px; box-shadow: 4px 4px 0 #285a37; }
       .multiplayer-panel h1, .multiplayer-panel h2 { margin-bottom: 7px; font-size: 1rem; }
+      .multiplayer-lobby-heading { margin-bottom: 10px; padding-bottom: 7px; box-shadow: 0 3px 0 var(--mp-sun); }
+      .multiplayer-lobby-heading__eyebrow, .multiplayer-lobby-heading__lead { display: none; }
       .multiplayer-panel section, .multiplayer-panel form, .multiplayer-panel [role=log] { margin: 6px 0; padding: 7px; box-shadow: 3px 3px 0 #6ca83f; }
       .multiplayer-panel input, .multiplayer-panel select { max-width: 100%; min-width: 0; margin: 2px; padding: 5px; }
       .multiplayer-panel button { margin: 3px; padding: 6px 8px; }
@@ -254,9 +265,8 @@ function makeButton(
 ): HTMLButtonElement {
   const button = document.createElement("button");
   button.type = "button";
+  button.className = "multiplayer-button";
   button.textContent = label;
-  button.style.cssText =
-    "margin:6px;padding:8px 12px;font:inherit;cursor:pointer;";
   button.addEventListener("click", () => void onClick());
   return button;
 }
@@ -302,15 +312,31 @@ async function renderLobby(
   }
   mount.replaceChildren();
   const panel = makePanel();
+  const lobbyHeading = document.createElement("header");
+  lobbyHeading.className = "multiplayer-lobby-heading";
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "multiplayer-lobby-heading__eyebrow";
+  eyebrow.textContent = "CO-OP FIELD HOUSE";
   const heading = document.createElement("h1");
   heading.textContent = "Trusted friends lobby";
-  panel.append(heading);
+  const lead = document.createElement("p");
+  lead.className = "multiplayer-lobby-heading__lead";
+  lead.textContent =
+    "Choose your crew, open a course, and meet everyone on the same screen.";
+  lobbyHeading.append(eyebrow, heading, lead);
+  panel.append(lobbyHeading);
 
   const profileForm = document.createElement("form");
   profileForm.className = "multiplayer-profile-card";
+  const profileHeading = document.createElement("h2");
+  profileHeading.className = "multiplayer-card-heading";
+  profileHeading.textContent = "Your crew card";
   const nickname = document.createElement("input");
   nickname.value = lobby.profile.nickname;
   nickname.setAttribute("aria-label", "Nickname");
+  const nicknameLabel = document.createElement("label");
+  nicknameLabel.textContent = "Nickname";
+  nicknameLabel.append(nickname);
   const avatar = document.createElement("select");
   avatar.setAttribute("aria-label", "Avatar");
   for (const avatarId of [
@@ -329,11 +355,13 @@ async function renderLobby(
     );
     avatar.append(option);
   }
+  const avatarLabel = document.createElement("label");
+  avatarLabel.textContent = "Avatar";
+  avatarLabel.append(avatar);
   profileForm.append(
-    "Nickname ",
-    nickname,
-    " Avatar ",
-    avatar,
+    profileHeading,
+    nicknameLabel,
+    avatarLabel,
     makeButton("Save profile", async () => {
       // The profile mutation refreshes all lobby data. Do not leave the old
       // level selector live during that refresh: otherwise a quick select and
@@ -360,6 +388,7 @@ async function renderLobby(
   );
   panel.append(profileForm);
   const actionError = document.createElement("p");
+  actionError.className = "multiplayer-action-error";
   actionError.setAttribute("role", "alert");
 
   const levelSelect = document.createElement("select");
@@ -373,6 +402,12 @@ async function renderLobby(
     new Option("Regular", "regular"),
     new Option("Revenge", "revenge"),
   );
+  const levelLabel = document.createElement("label");
+  levelLabel.textContent = "Course";
+  levelLabel.append(levelSelect);
+  const modeLabel = document.createElement("label");
+  modeLabel.textContent = "Rules";
+  modeLabel.append(modeSelect);
   const create = makeButton("Create game", async () => {
     try {
       const created = await requestJson<{ readonly game: GameSummary }>(
@@ -408,25 +443,31 @@ async function renderLobby(
   });
   const createCard = document.createElement("section");
   createCard.className = "multiplayer-create-card";
-  createCard.append(
-    "Level ",
-    levelSelect,
-    " Mode ",
-    modeSelect,
-    create,
-    actionError,
-  );
+  const createHeading = document.createElement("h2");
+  createHeading.className = "multiplayer-card-heading";
+  createHeading.textContent = "Open a run";
+  createCard.append(createHeading, levelLabel, modeLabel, create, actionError);
   panel.append(createCard);
   const games = document.createElement("section");
   games.className = "multiplayer-games";
   const gamesHeading = document.createElement("h2");
-  gamesHeading.textContent = "Public games";
+  gamesHeading.textContent = "Open runs";
   games.append(gamesHeading);
+  if (lobby.games.length === 0) {
+    const emptyGames = document.createElement("p");
+    emptyGames.className = "multiplayer-empty-games";
+    emptyGames.textContent =
+      "No run is open yet. Choose a course above and bring the first crew together.";
+    games.append(emptyGames);
+  }
   for (const game of lobby.games) {
     const row = document.createElement("div");
     row.className = "multiplayer-game-card";
-    row.textContent = `${game.creator.nickname} · ${game.levelId} · ${game.mode} · ${game.phase} · ${game.playerCount}/${game.maximumPlayerCount}`;
+    const summary = document.createElement("div");
+    summary.className = "multiplayer-game-card__summary";
+    summary.textContent = `${game.creator.nickname} · ${game.levelId} · ${game.mode} · ${game.phase} · ${game.playerCount}/${game.maximumPlayerCount}`;
     row.append(
+      summary,
       makeButton("Join", async () => {
         try {
           const joined = await requestJson<{ readonly game: GameSummary }>(
@@ -460,9 +501,14 @@ async function renderLobby(
   const chatInput = document.createElement("input");
   chatInput.maxLength = 256;
   chatInput.setAttribute("aria-label", "Lobby chat message");
+  chatInput.placeholder = "Say hello to the lobby";
   const lobbyChat = document.createElement("section");
   lobbyChat.className = "multiplayer-lobby-chat";
+  const lobbyChatHeading = document.createElement("h2");
+  lobbyChatHeading.className = "multiplayer-card-heading";
+  lobbyChatHeading.textContent = "Lobby chat";
   lobbyChat.append(
+    lobbyChatHeading,
     chat,
     chatInput,
     makeButton("Send lobby chat", async () => {
