@@ -45,7 +45,6 @@ The browser inferred pause versus resume from its displayed snapshot. With a
 three-second delivery delay, another member could already have changed the
 authoritative phase, turning P into an invalid opposite request. The browser
 now asks the server to toggle, and only the server selects the transition.
-
 ### Held-input acknowledgements visibly reset local prediction — fixed (2026-08-05)
 
 The 100 ms held-state heartbeat advanced the server acknowledgement and the

@@ -16,7 +16,6 @@ production Playwright multiplayer suite pass.
 single toggle request; it never decides between pause and resume from a stale
 browser receipt. This prevents a delayed client from issuing the opposite
 lifecycle action after another member has already changed the game phase.
-
 **Revive is now independent of stale presentation state (2026-08-06).** R
 always reaches server authority for any non-finished game, including while the
 compact menu is open; a defeated player may also revive while the party is
