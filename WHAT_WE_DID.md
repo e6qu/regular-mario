@@ -5,6 +5,14 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-07 — mobile landscape multiplayer layout
+
+- Made multiplayer panels and gameplay overlays border-box, preventing padded
+  chat/menu surfaces from exceeding their viewport-derived widths.
+- Added compact landscape rules for the short lobby, chat, Escape menu, and
+  error surface, with a real 568×320 production-browser no-horizontal-overflow
+  regression.
+
 ## 2026-08-07 — multiplayer transport/performance sweep
 
 - Cached the immutable authoritative snapshot receipt until the simulation or

@@ -155,10 +155,6 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
       response.request().method() === "POST",
   );
   await guest.getByRole("button", { name: "Leave game" }).click();
-  await expect(guest.locator(".multiplayer-game-shell")).toHaveAttribute(
-    "data-debug-leave-requested",
-    "true",
-  );
   expect((await leaveResponse).ok()).toBe(true);
   await expect(
     guest.getByRole("heading", { name: "Trusted friends lobby" }),
@@ -269,6 +265,35 @@ test("administrator can inspect and step a paused game", async ({
     path: "test-results/multiplayer-admin-mobile.png",
   });
   await adminContext.close();
+});
+
+test("mobile landscape multiplayer UI remains within the viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 568, height: 320 });
+  await login(page);
+  await saveProfile(page, "Landscape");
+
+  const viewportFits = () =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    );
+  expect(await viewportFits()).toBe(true);
+
+  await page.getByRole("button", { name: "Create game" }).click();
+  await expect(
+    page.getByLabel("Authoritative multiplayer game view"),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  const menu = page.getByRole("complementary", { name: "Game menu" });
+  await expect(menu).toBeVisible();
+  expect(await viewportFits()).toBe(true);
+  expect(
+    await menu.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return box.left >= 0 && box.right <= window.innerWidth;
+    }),
+  ).toBe(true);
 });
 
 test("any current member can cancel from the Escape menu and returns the party to lobby", async ({

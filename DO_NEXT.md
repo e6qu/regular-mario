@@ -4,6 +4,11 @@
   contract. Any future runner replacement must preserve the connected exit,
   not use an implicit player-start position.
 
+- Preserve the mobile-landscape viewport contract: multiplayer panels and
+  overlays must use border-box dimensions and fit at 568×320 without horizontal
+  document scrolling. Extend the browser regression whenever a new overlay is
+  introduced.
+
 - Keep multiplayer receipts immutable and game-scoped. Do not reintroduce
   whole-world serialisation on input ingestion/status reads, all-socket game
   broadcasts, or browser deep clones while applying deltas. Profile any new

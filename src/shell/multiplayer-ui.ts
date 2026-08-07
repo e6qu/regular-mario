@@ -79,7 +79,8 @@ function installMultiplayerVisualLanguage(): void {
   const style = document.createElement("style");
   style.id = multiplayerVisualStyleId;
   style.textContent = `
-    .multiplayer-panel { max-width: 980px; margin: 24px auto; padding: 22px;
+    .multiplayer-panel, .multiplayer-panel *, .multiplayer-game-shell, .multiplayer-game-shell * { box-sizing: border-box; }
+    .multiplayer-panel { width: min(980px, calc(100% - 48px)); margin: 24px auto; padding: 22px;
       color: #172033; background: linear-gradient(#8ed4ea 0 18%, #dff4ee 18% 100%);
       font-family: monospace; border: 5px solid #172033; box-shadow: 9px 9px 0 #285a37; }
     .multiplayer-panel h1, .multiplayer-panel h2 { margin: 0 0 14px; letter-spacing: .08em; }
@@ -113,15 +114,27 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-shell[data-chat-open=true] .multiplayer-game-chat-feed { visibility: hidden; }
     .multiplayer-game-menu { position: absolute; z-index: 5; inset: 0; display: none; place-items: center; background: rgb(23 32 51 / 40%); }
     .multiplayer-game-shell[data-menu-open=true] .multiplayer-game-menu { display: grid; }
-    .multiplayer-game-menu > section { min-width: min(330px, calc(100vw - 36px)); padding: 18px; border: 4px solid #172033; background: #f5f7fb; box-shadow: 7px 7px 0 #285a37; color: #172033; font: 700 16px/1.35 monospace; }
+    .multiplayer-game-menu > section { width: min(430px, calc(100vw - 36px)); min-width: 0; max-height: calc(100vh - 36px); overflow: auto; padding: 18px; border: 4px solid #172033; background: #f5f7fb; box-shadow: 7px 7px 0 #285a37; color: #172033; font: 700 16px/1.35 monospace; }
     .multiplayer-game-menu h2 { margin: 0 0 8px; }
     .multiplayer-game-menu p { margin: 0 0 12px; }
     .multiplayer-game-menu button { margin: 4px; padding: 8px 11px; border: 3px solid #172033; background: #ffd54a; color: #172033; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 3px 3px 0 #b9682f; }
     .multiplayer-game-menu button[data-danger=true] { background: #ef7860; }
     .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
     .multiplayer-game-error:empty { display: none; }
-    @media (max-width: 620px) { .multiplayer-panel { margin: 8px; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
+    @media (max-width: 620px) { .multiplayer-panel { width: calc(100% - 16px); margin: 8px auto; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
       .multiplayer-game-shell { height: 100vh; min-height: 0; } }
+    @media (max-height: 540px) and (orientation: landscape) {
+      .multiplayer-panel { width: calc(100% - 16px); margin: 5px auto; padding: 9px; box-shadow: 4px 4px 0 #285a37; }
+      .multiplayer-panel h1, .multiplayer-panel h2 { margin-bottom: 7px; font-size: 1rem; }
+      .multiplayer-panel section, .multiplayer-panel form, .multiplayer-panel [role=log] { margin: 6px 0; padding: 7px; box-shadow: 3px 3px 0 #6ca83f; }
+      .multiplayer-panel input, .multiplayer-panel select { max-width: 100%; min-width: 0; margin: 2px; padding: 5px; }
+      .multiplayer-panel button { margin: 3px; padding: 6px 8px; }
+      .multiplayer-game-chat-overlay, .multiplayer-game-chat-feed { left: 8px; bottom: 8px; width: min(360px, calc(100vw - 16px)); }
+      .multiplayer-game-chat-feed p { padding: 5px 7px; font-size: 12px; }
+      .multiplayer-game-menu > section { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 10px; font-size: 13px; box-shadow: 4px 4px 0 #285a37; }
+      .multiplayer-game-menu button { margin: 2px; padding: 6px 8px; }
+      .multiplayer-game-error { top: 8px; left: 8px; max-width: calc(100vw - 16px); font-size: 12px; }
+    }
   `;
   document.head.append(style);
 }

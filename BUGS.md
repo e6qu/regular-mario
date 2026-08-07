@@ -30,6 +30,13 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
+### Multiplayer overlays could overflow a mobile landscape viewport — fixed (2026-08-07)
+
+Chat and menu widths subtracted viewport margins but used content-box sizing,
+so their border and padding still extended beyond a small landscape screen.
+Multiplayer UI now uses border-box sizing and dedicated short-landscape rules;
+a real 568×320 browser journey checks both lobby and open-menu bounds.
+
 ### Realtime state transport did redundant work and leaked unrelated game state — fixed (2026-08-07)
 
 The runner serialised a full simulation for every 60 Hz status inspection and

@@ -2,6 +2,11 @@
 
 ## Current State
 
+**Mobile landscape multiplayer UI fits the viewport (2026-08-07).** The lobby,
+chat overlay, Escape menu, and error surface use border-box sizing and compact
+short-landscape dimensions. A 568×320 production browser journey asserts no
+horizontal document overflow and keeps the open game menu within the screen.
+
 **Multiplayer transport avoids redundant world copies (2026-08-07).** The
 authoritative runner caches its immutable receipt between actual world or
 lifecycle changes, so 60 Hz server inspection and 100 ms held-input heartbeats
