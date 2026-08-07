@@ -10,6 +10,10 @@
   state field under the 16-player multi-game load before adding it to realtime
   transport.
 
+- Model lifecycle commands as server-selected transitions when a browser can
+  hold a stale receipt. In particular, retain P as an authoritative toggle;
+  a client must not choose pause versus resume from a delayed phase.
+
 - Preserve the full-viewport game contract: gameplay controls must remain
   keyboard/chat overlays and semantic inspection must never affect canvas
   layout. Keep browser assertions on live state attributes rather than hidden

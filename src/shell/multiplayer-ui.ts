@@ -1226,12 +1226,10 @@ function renderGame(
         latestAuthoritativeSnapshot?.phase === "paused")
     ) {
       event.preventDefault();
-      void requestJson(
-        latestAuthoritativeSnapshot.phase === "playing"
-          ? "/game/pause"
-          : "/game/resume",
-        { method: "POST" },
-      );
+      // The displayed receipt can be seconds behind over the supported delay
+      // range. The server owns the current phase and chooses pause or resume;
+      // a client must never infer that lifecycle transition from a stale view.
+      void requestJson("/game/toggle-pause", { method: "POST" });
       return;
     }
     if (

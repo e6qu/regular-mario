@@ -92,6 +92,10 @@ export type MultiplayerService = {
     token: string | undefined,
     nowMilliseconds: number,
   ): AuthoritativeGameSnapshot;
+  toggleGamePauseByPlayer(
+    token: string | undefined,
+    nowMilliseconds: number,
+  ): AuthoritativeGameSnapshot;
   startGame(
     token: string | undefined,
     gameId: string,
@@ -351,6 +355,11 @@ export function makeMultiplayerService(
     },
     resumeGameByPlayer(token, nowMilliseconds) {
       return lobby.resumeGameByPlayer(
+        requirePlayerProfile(token, nowMilliseconds).playerId,
+      );
+    },
+    toggleGamePauseByPlayer(token, nowMilliseconds) {
+      return lobby.toggleGamePauseByPlayer(
         requirePlayerProfile(token, nowMilliseconds).playerId,
       );
     },

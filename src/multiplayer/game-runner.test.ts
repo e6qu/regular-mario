@@ -496,6 +496,18 @@ describe("authoritative multiplayer game runner", () => {
     });
   });
 
+  it("toggles pause from authoritative phase rather than a client receipt", () => {
+    const runner = makeRunner();
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    expect(
+      runner.togglePauseByPlayer(requireMultiplayerPlayerId("mira")).phase,
+    ).toBe(MultiplayerGamePhase.Paused);
+    expect(
+      runner.togglePauseByPlayer(requireMultiplayerPlayerId("mira")).phase,
+    ).toBe(MultiplayerGamePhase.Playing);
+  });
+
   it("issues a strictly increasing snapshot sequence across same-frame lifecycle changes", () => {
     const runner = makeRunner();
     const waiting = runner.snapshot();

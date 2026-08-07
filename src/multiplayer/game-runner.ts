@@ -91,6 +91,7 @@ export type AuthoritativeGameRunner = {
   pauseByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   resume(): AuthoritativeGameSnapshot;
   resumeByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
+  togglePauseByPlayer(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   revive(playerId: MultiplayerPlayerId): AuthoritativeGameSnapshot;
   submitInput(
     input: QueuedSimulationInput,
@@ -424,6 +425,16 @@ export function makeAuthoritativeGameRunner(
     resumeByPlayer(playerId) {
       requirePlayer(playerId);
       return this.resume();
+    },
+    togglePauseByPlayer(playerId) {
+      requirePlayer(playerId);
+      if (phase === MultiplayerGamePhase.Playing) {
+        return this.pause();
+      }
+      if (phase === MultiplayerGamePhase.Paused) {
+        return this.resume();
+      }
+      throw new Error("Only live games can toggle pause.");
     },
     revive(playerId) {
       const player = requirePlayer(playerId);

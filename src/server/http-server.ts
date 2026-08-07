@@ -682,23 +682,16 @@ export function makeMultiplayerHttpServer(
         json(response, 200, snapshot);
         return;
       }
-      if (request.method === "POST" && url.pathname === "/api/game/pause") {
-        const pausedAtMilliseconds = now();
-        const snapshot = service.pauseGameByPlayer(
+      if (
+        request.method === "POST" &&
+        url.pathname === "/api/game/toggle-pause"
+      ) {
+        const toggledAtMilliseconds = now();
+        const snapshot = service.toggleGamePauseByPlayer(
           playerToken,
-          pausedAtMilliseconds,
+          toggledAtMilliseconds,
         );
-        broadcastTransportState([snapshot], pausedAtMilliseconds, true);
-        json(response, 200, snapshot);
-        return;
-      }
-      if (request.method === "POST" && url.pathname === "/api/game/resume") {
-        const resumedAtMilliseconds = now();
-        const snapshot = service.resumeGameByPlayer(
-          playerToken,
-          resumedAtMilliseconds,
-        );
-        broadcastTransportState([snapshot], resumedAtMilliseconds, true);
+        broadcastTransportState([snapshot], toggledAtMilliseconds, true);
         json(response, 200, snapshot);
         return;
       }

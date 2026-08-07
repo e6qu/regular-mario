@@ -19,6 +19,9 @@ committed — only numeric metadata, code, docs, and scripts.
   to remaining members, including an automatic empty-party pause.
 - Passed focused runner/transport/service tests, typecheck, and the 13-test
   production multiplayer Playwright suite.
+- Replaced the client-selected P pause/resume endpoint with one
+  server-authoritative toggle. This makes delayed clients request an action,
+  not guess the current phase from an old receipt.
 
 ## 2026-08-06 — revive lifecycle sweep
 
