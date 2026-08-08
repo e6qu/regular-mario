@@ -46,6 +46,13 @@ export function createGameConfig(
     width: browserGameBootstrap.viewport.widthPixels,
     height: browserGameBootstrap.viewport.heightPixels,
     backgroundColor,
+    // Every sound this game makes is synthesised by GameAudio; nothing anywhere
+    // calls `scene.sound`. Phaser's sound manager was therefore pure overhead
+    // that still opened a WebAudio context per game and did not reliably close
+    // it — and browsers cap live contexts at roughly six, after which `new
+    // AudioContext()` throws and ALL audio silently dies. A player who left and
+    // rejoined a few times lost sound entirely for the rest of the session.
+    audio: { noAudio: true },
     // Crisp pixel art: disable smoothing and snap to integer pixels so the
     // 16x16 sprites/tiles stay sharp. The scene sizes the canvas backing store
     // to the window size × devicePixelRatio (see resizeToDisplay) so it renders

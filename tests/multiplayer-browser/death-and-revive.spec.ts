@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { createGameOnLevel, login, saveProfile } from "./support";
+import { cancelGame, createGameOnLevel, login, saveProfile } from "./support";
 
 // No browser spec has ever driven a player to an actual death, which is why the
 // reported revive failures were never caught here: the one existing revive test
@@ -47,6 +47,10 @@ test("a defeated player can revive with R and stops being a spectator", async ({
   await expect(shell.locator(".multiplayer-game-error")).not.toContainText(
     "Only defeated players can revive.",
   );
+
+  // Hand the lobby back empty. A spec that ends still holding a game leaves it
+  // listed for everything that runs afterwards.
+  await cancelGame(page);
 });
 
 test("a revived player is painted, not merely marked active", async ({
@@ -87,4 +91,6 @@ test("a revived player is painted, not merely marked active", async ({
   );
   expect(Number(laterFrame)).toBeGreaterThan(Number(firstFrame));
   await expect(canvas).toHaveAttribute("data-rendered-primary-visible", "true");
+
+  await cancelGame(page);
 });

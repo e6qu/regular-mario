@@ -53,9 +53,20 @@ class FakeBiquadFilterNode {
 class FakeAudioContext {
   public static createdOscillators: FakeOscillatorNode[] = [];
   public static createdFilters: FakeBiquadFilterNode[] = [];
+  public static createdContexts: FakeAudioContext[] = [];
 
   public readonly currentTime = 0;
   public readonly destination = {};
+  public state: AudioContextState = "running";
+
+  public constructor() {
+    FakeAudioContext.createdContexts.push(this);
+  }
+
+  public close(): Promise<void> {
+    this.state = "closed";
+    return Promise.resolve();
+  }
 
   public createOscillator(): FakeOscillatorNode {
     const oscillator = new FakeOscillatorNode();
@@ -77,6 +88,7 @@ class FakeAudioContext {
 function installFakeAudioContext(): void {
   FakeAudioContext.createdOscillators = [];
   FakeAudioContext.createdFilters = [];
+  FakeAudioContext.createdContexts = [];
   Object.defineProperty(globalThis, "window", {
     configurable: true,
     value: {
@@ -269,5 +281,52 @@ describe("GameAudio background music", () => {
     const normal = FakeAudioContext.createdOscillators.length - baseline;
 
     expect(fast).toBeGreaterThan(normal);
+  });
+});
+
+describe("GameAudio disposal", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    uninstallFakeAudioContext();
+  });
+
+  // Stopping the music left the AudioContext open for the life of the page, so
+  // every game a player mounted kept one. Leaving a multiplayer game and
+  // rejoining then played the game you left underneath the one you returned to.
+  it("closes the audio context it opened", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("overworld");
+    expect(FakeAudioContext.createdContexts).toHaveLength(1);
+
+    gameAudio.dispose();
+
+    expect(FakeAudioContext.createdContexts[0]?.state).toBe("closed");
+  });
+
+  it("stays silent afterwards instead of opening a replacement", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("overworld");
+    gameAudio.dispose();
+
+    // A disposed instance belongs to a scene that is gone. Lazily opening a
+    // second context here would resurrect exactly the leak being fixed.
+    expect(gameAudio.startBackgroundMusic("overworld")).toBe(false);
+    vi.advanceTimersByTime(1000);
+    expect(FakeAudioContext.createdContexts).toHaveLength(1);
+  });
+
+  it("can be disposed twice without reopening or throwing", () => {
+    vi.useFakeTimers();
+    installFakeAudioContext();
+    const gameAudio = new GameAudio();
+    gameAudio.startBackgroundMusic("overworld");
+
+    gameAudio.dispose();
+    expect(() => gameAudio.dispose()).not.toThrow();
+    expect(FakeAudioContext.createdContexts).toHaveLength(1);
   });
 });

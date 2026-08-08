@@ -154,7 +154,10 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   await expect(
     creator.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toBeVisible();
-  await expect(creator.getByText(/paused · 0\/16/)).toBeVisible();
+  // Qualified by this test's own creator. A bare /paused · 0\/16/ means "the
+  // only paused game", which is a strict-mode violation the moment any other
+  // spec leaves one listed.
+  await expect(creator.getByText(/^Mira · .* · paused · 0\/16/)).toBeVisible();
   await guest.getByRole("button", { name: "Join" }).click();
   await expect(
     guest.getByLabel("Authoritative multiplayer game view"),
