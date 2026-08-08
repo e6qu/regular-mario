@@ -44,7 +44,9 @@ describe("staticContentType", () => {
   it("serves audio and image assets as types the loader accepts", () => {
     // The regression: each of these is a source the loader is willing to take,
     // and each was served as application/octet-stream instead.
-    expect(staticContentType("/game-content/sound-packs/shabby/player-ouch.wav")).toBe("audio/wav");
+    expect(
+      staticContentType("/game-content/sound-packs/shabby/player-ouch.wav"),
+    ).toBe("audio/wav");
     expect(staticContentType("/sprites/mario.png")).toBe("image/png");
     expect(staticContentType("/sprites/mario.webp")).toBe("image/webp");
 
@@ -69,11 +71,13 @@ describe("staticContentType", () => {
       return;
     }
     const unmapped = [...shipped].filter(
-      (extension) => staticContentType(`file${extension}`) === "application/octet-stream",
+      (extension) =>
+        staticContentType(`file${extension}`) === "application/octet-stream",
     );
-    expect(unmapped, `extensions served as application/octet-stream: ${unmapped.join(", ")}`).toEqual(
-      [],
-    );
+    expect(
+      unmapped,
+      `extensions served as application/octet-stream: ${unmapped.join(", ")}`,
+    ).toEqual([]);
   });
 
   it("still falls back to octet-stream for an unknown extension", () => {

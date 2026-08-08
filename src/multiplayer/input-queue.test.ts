@@ -77,7 +77,9 @@ describe("forgetting a player", () => {
     }
 
     // Without forget(), this is what a rejoin looks like to the server.
-    expect(queue.enqueue(input(1, 6, 0), 0)).toBe(InputQueueRejection.OutOfOrder);
+    expect(queue.enqueue(input(1, 6, 0), 0)).toBe(
+      InputQueueRejection.OutOfOrder,
+    );
 
     queue.forget(playerId);
     expect(queue.enqueue(input(1, 6, 0), 0)).toBeUndefined();
