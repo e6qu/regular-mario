@@ -652,10 +652,15 @@ describe("authoritative multiplayer game runner", () => {
       );
       runner.step(frame);
     }
-    const leaderX = Number(
-      decodeMultiplayerSimulationState(runner.snapshot().simulationState)
-        .players[1].player.position.x,
-    );
+    // players[1] is Ari's slot; assert rather than index blindly so a runner
+    // that silently dropped the join fails here with a clear reason.
+    const leader = decodeMultiplayerSimulationState(
+      runner.snapshot().simulationState,
+    ).players[1];
+    if (leader === undefined) {
+      throw new Error("The joined player must occupy slot 1.");
+    }
+    const leaderX = Number(leader.player.position.x);
     expect(leaderX).toBeGreaterThan(Number(startPosition.x));
 
     const revived = runner.revive(mira);
