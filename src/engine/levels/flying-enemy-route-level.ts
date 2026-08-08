@@ -15,7 +15,7 @@ export const flyingEnemyRouteLevelInput: LevelSpecInput = {
       role: ActorRole.PlayerStart,
     },
     {
-      actorId: "glide-wasp",
+      actorId: "flutterby",
       role: ActorRole.FlyingEnemy,
     },
     {
@@ -40,7 +40,7 @@ export const flyingEnemyRouteLevelInput: LevelSpecInput = {
     },
     {
       entityId: "wasp-1",
-      actorId: "glide-wasp",
+      actorId: "flutterby",
       x: 6,
       y: 2,
     },

@@ -11,7 +11,11 @@ import {
   type Page,
 } from "@playwright/test";
 
-import { enterMultiplayerLobby, findGameIdByCreatorNickname } from "./support";
+import {
+  enterMultiplayerLobby,
+  findGameIdByCreatorNickname,
+  joinHostedGame,
+} from "./support";
 
 const playerCount = 4;
 const recordingDirectory = "playwright_adhoc/multiplayer-full-run";
@@ -183,7 +187,7 @@ test("four separate browser sessions complete a shared course and enter the next
     );
     for (const player of players.slice(1)) {
       await player.page.reload();
-      await player.page.getByRole("button", { name: "Join" }).click();
+      await joinHostedGame(player.page, "RunPlayer1");
     }
     await Promise.all(
       players.map((player) =>

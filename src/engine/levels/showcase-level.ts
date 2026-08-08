@@ -33,7 +33,7 @@ const showcaseOverworldInput: LevelSpecInput = {
   actorDefinitions: [
     { actorId: "runner-start", role: ActorRole.PlayerStart },
     { actorId: "beetle", role: ActorRole.Enemy },
-    { actorId: "glide-wasp", role: ActorRole.FlyingEnemy },
+    { actorId: "flutterby", role: ActorRole.FlyingEnemy },
     { actorId: "spike-hunter", role: ActorRole.ChasingEnemy },
     { actorId: "star-shard", role: ActorRole.Item },
     { actorId: "spark-cap", role: ActorRole.PowerUp },
@@ -77,7 +77,7 @@ const showcaseOverworldInput: LevelSpecInput = {
     { entityId: "shard-1", actorId: "star-shard", x: 5, y: 4 },
     { entityId: "beetle-1", actorId: "beetle", x: 9, y: 5 },
     { entityId: "spark-1", actorId: "spark-cap", x: 14, y: 3 },
-    { entityId: "wasp-1", actorId: "glide-wasp", x: 18, y: 2 },
+    { entityId: "wasp-1", actorId: "flutterby", x: 18, y: 2 },
     { entityId: "hunter-1", actorId: "spike-hunter", x: 22, y: 5 },
     {
       entityId: "warp-pipe-1",
@@ -102,7 +102,7 @@ const showcaseUndergroundInput: LevelSpecInput = {
   tileDefinitions: showcaseTileDefinitions,
   actorDefinitions: makeEnemyChallengeActorDefinitions([
     { actorId: "beetle", role: ActorRole.Enemy },
-    { actorId: "shell-crab", role: ActorRole.ArmoredEnemy },
+    { actorId: "shellback", role: ActorRole.ArmoredEnemy },
   ]),
   tiles: [
     sky(28),
@@ -147,7 +147,7 @@ const showcaseUndergroundInput: LevelSpecInput = {
     { entityId: "shard-1", actorId: "star-shard", x: 5, y: 3 },
     { entityId: "beetle-1", actorId: "beetle", x: 8, y: 5 },
     { entityId: "spark-1", actorId: "spark-cap", x: 13, y: 4 },
-    { entityId: "crab-1", actorId: "shell-crab", x: 18, y: 5 },
+    { entityId: "crab-1", actorId: "shellback", x: 18, y: 5 },
     { entityId: "gate-1", actorId: "open-gate", x: 25, y: 5 },
   ],
   enemyPatrolSpeedByEntityId: {

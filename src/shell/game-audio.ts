@@ -252,6 +252,8 @@ type AudioContextConstructor = typeof AudioContext;
 
 export class GameAudio {
   private audioContext: AudioContext | undefined;
+  /** Once disposed this instance never opens another context. */
+  private disposed = false;
   private soundBuffers: ReadonlyMap<SoundEvent, AudioBuffer> = new Map();
   private musicEnabled = false;
   // When true, the melody channel is sung as a baritone "ba ba ba" vocal (the
@@ -320,6 +322,40 @@ export class GameAudio {
       this.playVoiceNote(voiceIndex, 0);
     });
     return true;
+  }
+
+  /**
+   * Release the audio hardware this game claimed, permanently.
+   *
+   * `stopBackgroundMusic` silences the current tune but leaves the AudioContext
+   * open, and nothing used to close it — so every game a player mounted kept a
+   * live context for the lifetime of the page. Leaving a multiplayer game and
+   * rejoining left the previous game's context running alongside the new one:
+   * two level themes at once, and every effect heard twice, which reads as a
+   * duplicated character rather than duplicated sound.
+   *
+   * Deliberately terminal. A disposed instance stays silent instead of lazily
+   * opening a replacement context on the next sound, because the only caller is
+   * a scene that is going away and any sound after that belongs to nobody.
+   */
+  public dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    this.stopBackgroundMusic();
+    this.setLavaSizzle(false);
+    const audioContext = this.audioContext;
+    this.audioContext = undefined;
+    // These caches are nodes and buffers belonging to the context being closed.
+    this.soundBuffers = new Map();
+    this.noiseBuffer = undefined;
+    this.glottalWave = undefined;
+    if (audioContext !== undefined && audioContext.state !== "closed") {
+      // Best-effort: a context already closing rejects, and there is nothing
+      // useful to do about it while tearing down.
+      void audioContext.close().catch(() => undefined);
+    }
   }
 
   public stopBackgroundMusic(): void {
@@ -729,6 +765,9 @@ export class GameAudio {
   }
 
   private requireAudioContext(): AudioContext | undefined {
+    if (this.disposed) {
+      return undefined;
+    }
     if (this.audioContext !== undefined) {
       // Autoplay policy can leave the context suspended until a user gesture;
       // resume it (best-effort) so sound isn't silently inaudible.

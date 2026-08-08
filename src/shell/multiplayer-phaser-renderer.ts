@@ -229,8 +229,14 @@ export function makeMultiplayerPhaserRenderer(
     },
     destroy() {
       destroyed = true;
-      if (ready) {
-        requireRemoteScene(game).stopAuthoritativeRenderAudio();
+      // Silence whatever scene exists, ready or not. The readiness gate meant a
+      // game torn down mid-boot — the common case when a player leaves quickly —
+      // was never told to stop, and Phaser's destruction is asynchronous, so
+      // nothing else silenced it either. The scene's own teardown then releases
+      // the AudioContext for good.
+      const scene = game.scene.scenes[0];
+      if (scene instanceof BootScene) {
+        scene.releaseAuthoritativeRenderAudio();
       }
       game.destroy(true);
       // Phaser's asynchronous destruction does not consistently detach the

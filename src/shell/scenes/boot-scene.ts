@@ -1201,15 +1201,22 @@ export class BootScene extends Phaser.Scene {
     this.authoritativeCompletionPresentationRequested = true;
   }
 
-  /** Explicitly silence a detached multiplayer renderer before Phaser tears it down. */
-  public stopAuthoritativeRenderAudio(): void {
+  /**
+   * Release a detached multiplayer renderer's audio before Phaser tears it down.
+   *
+   * This must free the AudioContext rather than only stop the tune, and it must
+   * happen here rather than in the scene's own teardown: `game.destroy()` is
+   * asynchronous, so the SHUTDOWN/DESTROY event that runs the teardown may not
+   * fire before the replacement game is mounted and singing. Disposal is
+   * idempotent, so the teardown running later as well costs nothing.
+   */
+  public releaseAuthoritativeRenderAudio(): void {
     if (this.browserGameBootstrap.authoritativeRenderOnly !== true) {
       throw new Error(
         "Only an authoritative-render scene can be explicitly silenced.",
       );
     }
-    this.gameAudio.stopBackgroundMusic();
-    this.gameAudio.setLavaSizzle(false);
+    this.gameAudio.dispose();
   }
 
   /** Narrow paint receipt for production browser diagnostics. */
@@ -1307,8 +1314,14 @@ export class BootScene extends Phaser.Scene {
         panel.remove();
       }
       this.touchControlPanels = [];
-      this.gameAudio.stopBackgroundMusic();
-      this.gameAudio.setLavaSizzle(false);
+      // Release the audio hardware, not merely the current tune. Stopping the
+      // music left this scene's AudioContext open for the life of the page, so
+      // a player who left a game and rejoined heard the one they left playing
+      // underneath the one they came back to. This teardown is the general
+      // owner (it also covers single player and page unload); the multiplayer
+      // renderer disposes as well, because Phaser's destroy is deferred and the
+      // replacement game must never mount while this one is still singing.
+      this.gameAudio.dispose();
     });
 
     // Player presentation requires the authored bundle; there is no vector
