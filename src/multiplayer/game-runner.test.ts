@@ -33,6 +33,7 @@ import {
   requireMultiplayerPlayerId,
 } from "./domain";
 import {
+  type AuthoritativeGameSnapshot,
   makeAuthoritativeGameRunner,
   MultiplayerGamePhase,
   type AuthoritativeGameRunner,
@@ -86,6 +87,15 @@ function makeInitialState(): SimulationState {
     throw new Error("Expected a valid simulation state.");
   }
   return initial.value;
+}
+
+/** A revive must return the player to play: no longer a spectator, active again. */
+function expectRevivedToActivePlay(revived: AuthoritativeGameSnapshot): void {
+  expect(revived.players[0]?.spectator).toBe(false);
+  expect(
+    decodeMultiplayerSimulationState(revived.simulationState).players[0].outcome
+      .kind,
+  ).toBe(PlayerOutcomeKind.Active);
 }
 
 function makeDefeatedPlayerRunner(): AuthoritativeGameRunner {
@@ -559,41 +569,41 @@ describe("authoritative multiplayer game runner", () => {
 
     expect(revived.phase).toBe(MultiplayerGamePhase.Playing);
     expect(revived.frame).toBe(beforeRevive.frame);
-    expect(revived.players[0]?.spectator).toBe(false);
-    expect(
-      decodeMultiplayerSimulationState(revived.simulationState).players[0]
-        .outcome.kind,
-    ).toBe(PlayerOutcomeKind.Active);
+    expectRevivedToActivePlay(revived);
   });
 
   // Defeat lives in two variants: a player killed ON the goal is
   // DefeatedAndFinished, not Defeated. revive() compared `kind === Defeated`
   // and refused them with "Only defeated players can revive." — the report
-  // from the deployed game.
-  it("revives a player defeated at the goal, not only a plain defeat", () => {
+  // from the deployed game. Both variants must revive, so both are asserted
+  // through one path rather than two near-identical tests.
+  it.each([
+    [
+      "a plain defeat",
+      {
+        kind: PlayerOutcomeKind.Defeated,
+        reason: PlayerDefeatReason.PitContact,
+      } as const,
+    ],
+    [
+      "a defeat at the goal",
+      {
+        kind: PlayerOutcomeKind.DefeatedAndFinished,
+        defeatReason: PlayerDefeatReason.EnemyContact,
+        finishReason: PlayerFinishReason.GoalContact,
+      } as const,
+    ],
+  ])("revives a player after %s", (_label, outcome) => {
     const initial = makeInitialState();
     const runner = makeRunnerWithInitialState({
       ...initial,
-      players: [
-        {
-          ...initial.players[0],
-          outcome: {
-            kind: PlayerOutcomeKind.DefeatedAndFinished,
-            defeatReason: PlayerDefeatReason.EnemyContact,
-            finishReason: PlayerFinishReason.GoalContact,
-          },
-        },
-      ],
+      players: [{ ...initial.players[0], outcome }],
     });
     runner.start(requireMultiplayerPlayerId("mira"));
 
     const revived = runner.revive(requireMultiplayerPlayerId("mira"));
 
-    expect(revived.players[0]?.spectator).toBe(false);
-    expect(
-      decodeMultiplayerSimulationState(revived.simulationState).players[0]
-        .outcome.kind,
-    ).toBe(PlayerOutcomeKind.Active);
+    expectRevivedToActivePlay(revived);
   });
 
   it("allows a defeated player to revive while the party is paused", () => {

@@ -1,27 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { enterMultiplayerLobby } from "./support";
+import { createGameOnLevel, login, saveProfile } from "./support";
 
 // No browser spec has ever driven a player to an actual death, which is why the
 // reported revive failures were never caught here: the one existing revive test
 // presses R while ALIVE and asserts the refusal. These reach a real defeat and
 // then exercise what a player actually does next.
-
-async function login(page: Page): Promise<void> {
-  await page.goto("/#multiplayer");
-  await enterMultiplayerLobby(page);
-}
-
-async function saveProfile(page: Page, nickname: string): Promise<void> {
-  await page.getByLabel("Nickname").fill(nickname);
-  const saved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/profile") &&
-      response.request().method() === "PATCH",
-  );
-  await page.getByRole("button", { name: "Save profile" }).click();
-  expect((await saved).ok()).toBe(true);
-}
 
 /**
  * Walk right until the authoritative snapshot marks this player a spectator.
@@ -48,10 +32,8 @@ test("a defeated player can revive with R and stops being a spectator", async ({
 }) => {
   await login(page);
   await saveProfile(page, "Reviver");
-  await page.getByLabel("Bundled level").selectOption("smb-1-1");
-  await page.getByRole("button", { name: "Create game" }).click();
+  await createGameOnLevel(page, "smb-1-1");
   const shell = page.locator(".multiplayer-game-shell");
-  await expect(shell).toHaveAttribute("data-game-phase", "playing");
 
   await walkRightUntilDefeated(page);
 
