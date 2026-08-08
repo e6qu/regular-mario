@@ -13,6 +13,7 @@ import {
 
 import {
   enterMultiplayerLobby,
+  endGameQuietly,
   findGameIdByCreatorNickname,
   joinHostedGame,
 } from "./support";
@@ -174,6 +175,7 @@ test("four separate browser sessions complete a shared course and enter the next
   const players = await Promise.all(
     browsers.map((browser, index) => makeRecordedPlayer(browser, index)),
   );
+  let createdGameId: string | undefined;
   try {
     const creator = players[0];
     if (creator === undefined) {
@@ -185,6 +187,7 @@ test("four separate browser sessions complete a shared course and enter the next
       creator.page,
       "RunPlayer1",
     );
+    createdGameId = gameId;
     for (const player of players.slice(1)) {
       await player.page.reload();
       await joinHostedGame(player.page, "RunPlayer1");
@@ -365,6 +368,11 @@ test("four separate browser sessions complete a shared course and enter the next
     });
     expect(ended.ok()).toBe(true);
   } finally {
+    // Before the browsers go: this game outlives them, and once its members are
+    // gone nobody is allowed to cancel it.
+    if (createdGameId !== undefined && players[0] !== undefined) {
+      await endGameQuietly(players[0].page, createdGameId);
+    }
     await Promise.all(players.map(closeAndNameRecording));
     await Promise.all(browsers.map((browser) => browser.close()));
   }

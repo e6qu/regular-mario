@@ -8,8 +8,11 @@ type GameSummary = {
   readonly gameId: string;
   readonly creator: PlayerProfile;
   readonly levelId: string;
-  readonly mode: "regular" | "revenge";
-  readonly phase: "waiting" | "playing" | "paused" | "finished";
+  // The enums, not copies of their values. Two spellings of the same closed set
+  // can drift apart silently, and only one of them is checked when the runner
+  // adds a phase.
+  readonly mode: MultiplayerGameMode;
+  readonly phase: MultiplayerGamePhase;
   readonly playerCount: number;
   readonly maximumPlayerCount: number;
 };
@@ -538,8 +541,8 @@ function renderGame(
   const gameShell = document.createElement("section");
   gameShell.className = "multiplayer-game-shell";
   gameShell.setAttribute("aria-label", "Multiplayer game layout");
-  gameShell.setAttribute("data-game-phase", "waiting");
-  gameShell.setAttribute("data-chat-open", "false");
+  // Publish every instrument up front, so no reader can meet a missing one.
+  mountGameShellInstruments(gameShell);
   const gameHost = document.createElement("div");
   gameHost.className = "multiplayer-game-host";
   let currentLevelId = levelId;
@@ -571,11 +574,11 @@ function renderGame(
     chatInputs.push(input);
     input.addEventListener("focus", () => {
       chatEditing = true;
-      gameShell.setAttribute("data-chat-open", "true");
+      setGameShellInstrument(gameShell, "data-chat-open", "true");
     });
     input.addEventListener("blur", () => {
       chatEditing = false;
-      gameShell.setAttribute("data-chat-open", "false");
+      setGameShellInstrument(gameShell, "data-chat-open", "false");
     });
     const row = document.createElement("form");
     row.className = "multiplayer-game-room__chat-row";
@@ -770,8 +773,18 @@ function renderGame(
         error instanceof Error ? error.message : "Could not cancel game.";
     }
   }
+  // The menu's open state lives here, not in the attribute. It used to be read
+  // back out of the DOM — `getAttribute("data-menu-open") !== "true"` — which
+  // treated a missing attribute as "closed" and so depended on the attribute
+  // having been written already. The attribute is a report, never the truth.
+  let gameMenuOpen = false;
   const setGameMenuOpen = (open: boolean): void => {
-    gameShell.setAttribute("data-menu-open", String(open));
+    gameMenuOpen = open;
+    setGameShellInstrument(
+      gameShell,
+      "data-menu-open",
+      instrumentBoolean(open),
+    );
   };
   const cancelButton = makeButton(
     "Cancel game for everyone",
@@ -796,7 +809,7 @@ function renderGame(
       return;
     }
     event.preventDefault();
-    setGameMenuOpen(gameShell.getAttribute("data-menu-open") !== "true");
+    setGameMenuOpen(!gameMenuOpen);
   };
   window.addEventListener("keydown", escapeLeave);
   function renderPresentation(): void {
@@ -859,11 +872,10 @@ function renderGame(
       (player) => player.playerId === profile.playerId,
     );
     const localPosition = localIndex < 0 ? undefined : positions[localIndex];
-    gameShell.setAttribute(
+    setGameShellInstrument(
+      gameShell,
       "data-local-player-rendered",
-      localPosition === undefined
-        ? "absent"
-        : `${String(Math.round(localPosition.x))},${String(Math.round(localPosition.y))}`,
+      renderedPositionInstrument(localPosition),
     );
   }
   function animatePresentation(nowMilliseconds: number): void {
@@ -1033,10 +1045,16 @@ function renderGame(
       "data-debug-authoritative-frame",
       String(snapshot.frame),
     );
-    gameShell.setAttribute("data-game-phase", snapshot.phase);
-    gameShell.setAttribute(
+    setGameShellInstrument(gameShell, "data-game-phase", snapshot.phase);
+    // Three states, not two. `String(local?.spectator === true)` reported a
+    // confident "false" for a snapshot that did not contain this client at all,
+    // which reads as "playing" — the one thing it certainly is not.
+    setGameShellInstrument(
+      gameShell,
       "data-local-player-spectator",
-      String(local?.spectator === true),
+      local === undefined
+        ? instrumentAbsent
+        : instrumentBoolean(local.spectator),
     );
     latestAuthoritativeSnapshot = snapshot;
     // Complete map/entity state is authoritative and changes at the network
@@ -1336,7 +1354,7 @@ function renderGame(
       });
       return;
     }
-    if (gameShell.getAttribute("data-menu-open") === "true") {
+    if (gameMenuOpen) {
       return;
     }
     if (
@@ -1358,7 +1376,7 @@ function renderGame(
       latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing
     ) {
       event.preventDefault();
-      gameShell.setAttribute("data-chat-open", "true");
+      setGameShellInstrument(gameShell, "data-chat-open", "true");
       chatInputs.at(-1)?.focus();
       return;
     }
@@ -1589,6 +1607,14 @@ export async function renderMultiplayerAdminUi(
     void appendSemanticLayout(panel, "/layout?screen=admin");
   }
 }
+import type { MultiplayerGameMode } from "../multiplayer/domain";
+import {
+  instrumentAbsent,
+  instrumentBoolean,
+  mountGameShellInstruments,
+  renderedPositionInstrument,
+  setGameShellInstrument,
+} from "./game-shell-instruments";
 import {
   makeSimulationInputCommand,
   type SimulationInputCommand,
