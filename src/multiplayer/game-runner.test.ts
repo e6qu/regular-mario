@@ -606,6 +606,68 @@ describe("authoritative multiplayer game runner", () => {
     expectRevivedToActivePlay(revived);
   });
 
+  // Revive returns a player to the party's furthest progress, not to the level
+  // start: if a team-mate has pushed ahead, dying should not cost the party the
+  // ground they gained. The checkpoint advances only from an ACTIVE member and
+  // never rewinds, so a revive cannot drag the run backwards either.
+  it("revives a player at the party checkpoint rather than the level start", () => {
+    const initial = makeInitialState();
+    const startPosition = initial.players[0].player.position;
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason: PlayerDefeatReason.PitContact,
+          },
+        },
+      ],
+    });
+    const mira = requireMultiplayerPlayerId("mira");
+    const ari = requireMultiplayerPlayerId("ari");
+    runner.join({
+      playerId: ari,
+      nickname: requireMultiplayerNickname("Ari"),
+      avatarId: requireMultiplayerAvatar("castaway"),
+    });
+    runner.start(mira);
+
+    // Ari runs ahead while Mira lies defeated; the checkpoint follows the leader.
+    for (let frame = 1; frame <= 120; frame += 1) {
+      runner.submitInput(
+        {
+          playerId: ari,
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: {
+            ...neutral,
+            horizontal: HorizontalInput.Right,
+            runHeld: true,
+          },
+        },
+        frame,
+      );
+      runner.step(frame);
+    }
+    const leaderX = Number(
+      decodeMultiplayerSimulationState(runner.snapshot().simulationState)
+        .players[1].player.position.x,
+    );
+    expect(leaderX).toBeGreaterThan(Number(startPosition.x));
+
+    const revived = runner.revive(mira);
+
+    const revivedX = Number(
+      decodeMultiplayerSimulationState(revived.simulationState).players[0]
+        .player.position.x,
+    );
+    expect(revivedX).toBe(leaderX);
+    expect(revivedX).toBeGreaterThan(Number(startPosition.x));
+  });
+
   it("allows a defeated player to revive while the party is paused", () => {
     const runner = makeDefeatedPlayerRunner();
     runner.start(requireMultiplayerPlayerId("mira"));
