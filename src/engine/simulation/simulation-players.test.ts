@@ -216,9 +216,32 @@ describe("simulation players array", () => {
   });
 
   it("keeps an enemy-defeated co-op player in a stable spectator slot", () => {
-    // firstAuthored has an enemy (beetle-1) at pixel (96, 64); put a co-op
-    // player right on it.
-    expectCoopPlayerDefeatedAt(96, 56);
+    // firstAuthored has an enemy (beetle-1) at pixel (96, 64). Level with it,
+    // not above it: that is a side contact, which damages. Dropping onto it
+    // from above is a stomp now that co-op players interact with enemies at
+    // all, and is covered by its own test below.
+    expectCoopPlayerDefeatedAt(96, 64);
+  });
+
+  // Co-op players used to pass straight through enemies: enemy interaction ran
+  // for slot 0 only, so the identical player state stomping the identical enemy
+  // defeated it from slot 0 and did nothing from any other slot. Everyone but
+  // the host was unable to stomp anything.
+  it("lets a co-op player stomp an enemy, and rebounds them off it", () => {
+    const base = afterSpawnInvincibility(twoPlayerState());
+    const stepped = stepSimulation(
+      withCoopPlayerAt(base, 96, 56),
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+
+    expect(stepped.enemies.defeatedEnemyEntityIds).toContain("beetle-1");
+    // Stomping is not dying: the stomper stays in play...
+    expect(stepped.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+    // ...and bounces, exactly as slot 0 does.
+    expect(Number(stepped.players[1]!.player.velocity.y)).toBeLessThan(0);
   });
 
   it("keeps a co-op player alive during the spawn-invincibility window", () => {
