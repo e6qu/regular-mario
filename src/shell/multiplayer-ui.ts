@@ -851,6 +851,20 @@ function renderGame(
         : { x: Number(position.x), y: Number(position.y) };
     });
     renderer.presentPlayerPositions(positions);
+    // What this browser paints for ITS OWN player. The canvas reports slot 0,
+    // which is the party creator — on a guest's screen that is somebody else,
+    // often off-camera, so it cannot answer "am I visible?" for the player
+    // sitting here. Every reported bug in this area is about the local player.
+    const localIndex = snapshot.players.findIndex(
+      (player) => player.playerId === profile.playerId,
+    );
+    const localPosition = localIndex < 0 ? undefined : positions[localIndex];
+    gameShell.setAttribute(
+      "data-local-player-rendered",
+      localPosition === undefined
+        ? "absent"
+        : `${String(Math.round(localPosition.x))},${String(Math.round(localPosition.y))}`,
+    );
   }
   function animatePresentation(nowMilliseconds: number): void {
     const elapsedMilliseconds = Math.min(
