@@ -39,6 +39,19 @@ export type ExpiringInputQueue = {
     authoritativeFrame: number,
     nowMilliseconds: number,
   ): readonly QueuedSimulationInput[];
+  /**
+   * Drop everything remembered about a player, including the highest input
+   * sequence seen from them.
+   *
+   * The sequence mark is why this exists. It is a high-water mark that rejects
+   * replays and reordering, and a reconnecting client starts counting from zero
+   * again — so unless the old mark is forgotten, every input from a rejoining
+   * player is refused as out-of-order until it climbs back past wherever the
+   * previous session left off. How long that takes depends on how far they got
+   * last time, which is why the symptom is "rejoining sometimes doesn't work"
+   * rather than "never".
+   */
+  forget(playerId: MultiplayerPlayerId): void;
   metrics(): InputQueueMetrics;
 };
 
@@ -133,6 +146,14 @@ export function makeExpiringInputQueue(
         messagesByPlayerId.set(playerId, deferred);
       }
       return accepted;
+    },
+    forget(playerId) {
+      const messages = messagesByPlayerId.get(playerId);
+      if (messages !== undefined) {
+        mutableMetrics.depth -= messages.length;
+        messagesByPlayerId.delete(playerId);
+      }
+      lastSequenceByPlayerId.delete(playerId);
     },
     metrics() {
       return { ...mutableMetrics };

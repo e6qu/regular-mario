@@ -4,6 +4,17 @@
   contract. Any future runner replacement must preserve the connected exit,
   not use an implicit player-start position.
 
+- Preserve the mobile-landscape viewport contract: multiplayer panels and
+  overlays must use border-box dimensions and fit at 568×320 without horizontal
+  document scrolling. Extend the browser regression whenever a new overlay is
+  introduced.
+
+- Keep the lobby's co-op field-house structure: real label/input associations,
+  a short action-focused heading, grouped profile/run/chat cards, and a clear
+  empty-run invitation. Any new lobby action must use the shared
+  `multiplayer-button` class so focus, pressed-state, and compact-landscape
+  behaviour remain consistent.
+
 - Keep multiplayer receipts immutable and game-scoped. Do not reintroduce
   whole-world serialisation on input ingestion/status reads, all-socket game
   broadcasts, or browser deep clones while applying deltas. Profile any new
@@ -13,7 +24,6 @@
 - Model lifecycle commands as server-selected transitions when a browser can
   hold a stale receipt. In particular, retain P as an authoritative toggle;
   a client must not choose pause versus resume from a delayed phase.
-
 - Preserve the full-viewport game contract: gameplay controls must remain
   keyboard/chat overlays and semantic inspection must never affect canvas
   layout. Keep browser assertions on live state attributes rather than hidden
@@ -83,10 +93,12 @@ Transient visuals must remain client-owned. The server may establish gameplay
 outcomes, but browser effect positions and durations must be derived locally
 from presented actors, never replay server reaction coordinates or countdowns.
 
-The post-presentation-change acceptance baseline is a passed four-player,
-recorded World 1-1-to-1-2 run plus eight live WebSocket clients. Keep the
-recording artifacts ignored beneath `playwright_adhoc/` and inspect a real
-post-handoff frame when altering rendering or input reconciliation.
+The post-presentation-change acceptance baseline is a four-player, recorded
+World 1-1-to-1-2 run plus eight live WebSocket clients. Keep the recording
+artifacts ignored beneath `playwright_adhoc/` and inspect a real post-handoff
+frame when altering rendering or input reconciliation. The latest complete
+browser run does not currently meet that baseline; repair the physical-input
+completion trace before treating it as release evidence.
 
 Delay-aware browser gates must sample beyond their injected delivery delay.
 Do not interpret intentionally unavailable packets during the delay window as

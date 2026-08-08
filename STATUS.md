@@ -2,6 +2,19 @@
 
 ## Current State
 
+**Multiplayer lobby visual language is structured and responsive (2026-08-07).**
+The trusted-friends lobby now uses labelled profile and run controls, semantic
+card headings, an explicit empty-run invitation, and a keyboard-visible button
+system. Its sea/foam/sand palette and tide-line header extend the original
+game's pixel-world without entering the full-viewport play surface. Typecheck
+and the isolated 568×320 production browser journey pass. The broad browser
+suite presently has an unrelated full-course recording failure; see BUGS.md.
+
+**Mobile landscape multiplayer UI fits the viewport (2026-08-07).** The lobby,
+chat overlay, Escape menu, and error surface use border-box sizing and compact
+short-landscape dimensions. A 568×320 production browser journey asserts no
+horizontal document overflow and keeps the open game menu within the screen.
+
 **Multiplayer transport avoids redundant world copies (2026-08-07).** The
 authoritative runner caches its immutable receipt between actual world or
 lifecycle changes, so 60 Hz server inspection and 100 ms held-input heartbeats
@@ -16,7 +29,6 @@ production Playwright multiplayer suite pass.
 single toggle request; it never decides between pause and resume from a stale
 browser receipt. This prevents a delayed client from issuing the opposite
 lifecycle action after another member has already changed the game phase.
-
 **Revive is now independent of stale presentation state (2026-08-06).** R
 always reaches server authority for any non-finished game, including while the
 compact menu is open; a defeated player may also revive while the party is

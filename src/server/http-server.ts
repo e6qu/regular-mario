@@ -214,7 +214,21 @@ function clearedCookie(name: string, secureCookies: boolean): string {
   return `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureCookies ? "; Secure" : ""}`;
 }
 
-function staticContentType(path: string): string {
+/**
+ * The content type served for a static file.
+ *
+ * This is not cosmetic. The user-asset loader checks `content-type` against the
+ * set of types it accepts and refuses anything else, and a single refused sprite
+ * or sound aborts the whole boot with "Could not start" — so a file this
+ * function does not recognise is a file the game cannot load, however correct
+ * its bytes are. `.wav` fell through to `application/octet-stream` and took the
+ * shipped sound pack, and with it single-player startup, down with it.
+ *
+ * Every extension shipped under `dist/` must appear here, and so must every type
+ * the loader accepts (`image/png`, `image/webp` and the audio set), or a sound
+ * pack that is legal to author cannot be served.
+ */
+export function staticContentType(path: string): string {
   switch (extname(path)) {
     case ".html":
       return "text/html; charset=utf-8";
@@ -224,10 +238,22 @@ function staticContentType(path: string): string {
       return "text/css; charset=utf-8";
     case ".json":
       return "application/json; charset=utf-8";
+    case ".txt":
+      return "text/plain; charset=utf-8";
     case ".png":
       return "image/png";
+    case ".webp":
+      return "image/webp";
     case ".svg":
       return "image/svg+xml";
+    case ".ico":
+      return "image/x-icon";
+    case ".wav":
+      return "audio/wav";
+    case ".mp3":
+      return "audio/mpeg";
+    case ".ogg":
+      return "audio/ogg";
     default:
       return "application/octet-stream";
   }

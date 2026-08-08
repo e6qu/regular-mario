@@ -5,6 +5,28 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-07 — frontend-designed multiplayer lobby
+
+- Installed and applied the `frontend-design` skill to the trusted-friends
+  lobby. The resulting co-op field-house treatment has a deliberately small
+  game-world palette, a tide-line heading, grouped controls, explicit labels,
+  readable run cards, and an actionable empty state instead of unstructured
+  controls and raw text nodes.
+- Replaced inline button presentation with a shared multiplayer button class,
+  retaining visible keyboard focus and respecting the existing compact mobile
+  landscape rules. Typecheck and an isolated real-browser 568×320 journey pass.
+- A full browser run revealed that the existing recorded World 1-1 completion
+  no longer reaches World 1-2 and leaves state for later tests; recorded in
+  BUGS.md rather than misattributing it to the lobby work.
+
+## 2026-08-07 — mobile landscape multiplayer layout
+
+- Made multiplayer panels and gameplay overlays border-box, preventing padded
+  chat/menu surfaces from exceeding their viewport-derived widths.
+- Added compact landscape rules for the short lobby, chat, Escape menu, and
+  error surface, with a real 568×320 production-browser no-horizontal-overflow
+  regression.
+
 ## 2026-08-07 — multiplayer transport/performance sweep
 
 - Cached the immutable authoritative snapshot receipt until the simulation or

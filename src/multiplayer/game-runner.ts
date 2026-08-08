@@ -318,6 +318,10 @@ export function makeAuthoritativeGameRunner(
             : candidate,
         );
         commandByPlayerId.set(player.playerId, neutralCommand);
+        // This client is starting a fresh input sequence at zero. Anything the
+        // queue still remembers from its previous session would reject the
+        // whole of the new one as out-of-order.
+        inputQueue.forget(player.playerId);
         if (
           phase === MultiplayerGamePhase.Paused &&
           pausedBecausePartyIsEmpty
@@ -361,6 +365,7 @@ export function makeAuthoritativeGameRunner(
         commandByPlayerId.delete(playerId);
         acknowledgedInputSequenceByPlayerId.delete(playerId);
         acknowledgementLagByPlayerId.delete(playerId);
+        inputQueue.forget(playerId);
         if (phase === MultiplayerGamePhase.Playing) {
           phase = MultiplayerGamePhase.Paused;
           pausedBecausePartyIsEmpty = true;
@@ -375,6 +380,7 @@ export function makeAuthoritativeGameRunner(
       commandByPlayerId.delete(playerId);
       acknowledgedInputSequenceByPlayerId.delete(playerId);
       acknowledgementLagByPlayerId.delete(playerId);
+      inputQueue.forget(playerId);
       invalidateSnapshot();
       return makeSnapshot();
     },
