@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { makeLevelSpec } from "../domain/level-spec";
 import { finishRouteLevelInput } from "../levels/finish-route-level";
+import { powerUpRouteLevelInput } from "../levels/power-up-route-level";
 import { firstAuthoredLevelSpec } from "./level-test-support";
 import { PlayerOutcomeKind } from "./player-outcome";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
-import { makeInitialPlayerVitalityState } from "./player-vitality";
+import {
+  makeInitialPlayerVitalityState,
+  PlayerVitalityKind,
+} from "./player-vitality";
 import {
   appendSimulationPlayerAt,
   makeInitialSimulationState,
@@ -242,6 +246,47 @@ describe("simulation players array", () => {
     expect(stepped.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
     // ...and bounces, exactly as slot 0 does.
     expect(Number(stepped.players[1]!.player.velocity.y)).toBeLessThan(0);
+  });
+
+  // Coins and power-ups reached the primary alone: a co-op player walked through
+  // a mushroom without collecting it and stayed small for the whole level —
+  // unable to break a brick, and killed by any contact.
+  it("lets a co-op player collect a power-up and grow from it", () => {
+    const levelResult = makeLevelSpec(powerUpRouteLevelInput);
+    if (!levelResult.ok) {
+      throw new Error("expected a valid power-up route level");
+    }
+    const level = levelResult.value;
+    const stateResult = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!stateResult.ok) {
+      throw new Error("expected a valid two-player state");
+    }
+    // The power-up sits at tile (4, 4); stand the co-op player on it while the
+    // primary stays at spawn, so only the co-op player can have collected it.
+    const onThePowerUp = withCoopPlayerAt(stateResult.value, 4 * 16, 4 * 16);
+    expect(onThePowerUp.players[1]!.vitality.kind).toBe(
+      PlayerVitalityKind.Small,
+    );
+
+    const stepped = stepSimulation(
+      onThePowerUp,
+      neutral(),
+      initialMovementConstants,
+      level,
+      [neutral()],
+    );
+
+    expect(stepped.players[1]!.vitality.kind).not.toBe(
+      PlayerVitalityKind.Small,
+    );
+    // The primary did not silently grow from somebody else's mushroom.
+    expect(stepped.players[0].vitality.kind).toBe(PlayerVitalityKind.Small);
   });
 
   it("keeps a co-op player alive during the spawn-invincibility window", () => {

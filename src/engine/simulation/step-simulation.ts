@@ -944,6 +944,42 @@ function stepActiveSimulation(
     playerVitalityAfterPowerUp,
     crouching,
   );
+  // Coins and power-ups reach everybody. These ran for the primary alone, so a
+  // co-op player walked through coins without collecting them and could never
+  // grow: permanently small, unable to break a brick, and killed by contact
+  // with anything. Folded one player at a time against the running state, so
+  // two players cannot both collect the same mushroom, and each player's own
+  // vitality grows from what that player picked up.
+  let partyCollectibles = collectibles;
+  let partyPowerUps = powerUpResolution.state;
+  const coopAfterPickups = coopSteps.map((step) => {
+    if (step.runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return step.runtime;
+    }
+    partyCollectibles = resolveCollectibleInteractionState(
+      step.runtime.player,
+      levelSpec,
+      spawnedActors.spawnedActors,
+      partyCollectibles,
+    );
+    const collected = resolvePowerUpInteractionState(
+      step.runtime.player,
+      levelSpec,
+      spawnedActors.spawnedActors,
+      partyPowerUps,
+    );
+    partyPowerUps = collected.state;
+    const vitality = applyPowerUpCollectionToVitality(
+      step.runtime.vitality,
+      collected.newlyCollectedPowerUpEntityIds.length,
+    );
+    return {
+      ...step.runtime,
+      vitality,
+      // Co-op players have no crouch yet, so they are never crouch-sized.
+      player: resizePlayerForVitality(step.runtime.player, vitality, false),
+    };
+  });
   const playerInvincibility = resolvePlayerInvincibilityState(
     playerAfterPowerUpResize,
     levelSpec,
@@ -996,14 +1032,15 @@ function stepActiveSimulation(
   // stomp rebounds the player who actually landed on the enemy rather than
   // whoever happens to be first in the array.
   let enemiesAfterEveryPlayer = enemiesBeforeProjectileMerge;
-  const coopRuntimesAfterEnemies = coopSteps.map((step) => {
-    if (step.runtime.outcome.kind !== PlayerOutcomeKind.Active) {
-      return step.runtime;
+  const coopRuntimesAfterEnemies = coopSteps.map((step, index) => {
+    const runtime = coopAfterPickups[index] ?? step.runtime;
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return runtime;
     }
     const enemiesBeforeThisPlayer = enemiesAfterEveryPlayer;
     enemiesAfterEveryPlayer = resolveEnemyInteractionState(
       step.previousPlayer,
-      step.runtime.player,
+      runtime.player,
       levelSpec,
       enemyMotion,
       movementConstants,
@@ -1011,9 +1048,9 @@ function stepActiveSimulation(
       Number(nextClock.frameIndex),
     );
     return {
-      ...step.runtime,
+      ...runtime,
       player: applyEnemyStompRebound(
-        step.runtime.player,
+        runtime.player,
         enemiesBeforeThisPlayer,
         enemiesAfterEveryPlayer,
         movementConstants,
@@ -1392,8 +1429,8 @@ function stepActiveSimulation(
       ...coopRuntimesAfterEnemies,
     ],
     levelContacts: outcomeLevelContacts,
-    collectibles,
-    powerUps: powerUpResolution.state,
+    collectibles: partyCollectibles,
+    powerUps: partyPowerUps,
     enemies,
     enemyDamageContactFrameByEntityId: nextEnemyDamageFrames,
     enemyContactResponse,
