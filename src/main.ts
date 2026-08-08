@@ -408,10 +408,13 @@ const manifestFileName = "manifest.json";
 const customAssetSetId = "custom";
 const defaultLocalAssetSetId = "vglc-smb-local-cache";
 const defaultLocalAssetSetLevelName = "vglc-smb-processed-mario-1-1";
-// The release build (`build:release`, VITE_STATIC_CONTENT=1) emits the composed
-// content to `public/game-content/` and serves it as relative-path static files
-// (works under any GitHub Pages base). Dev and the test/preview build serve it
-// from `.cache/user-levels` via the Vite middleware at `/__user-level-cache/`.
+// Both built variants (`build` and `build:release`) set VITE_STATIC_CONTENT and
+// emit the composed content to `public/game-content/`, served as relative-path
+// static files so it works under any GitHub Pages base. Only the dev server
+// serves it from `.cache/user-levels` via the Vite middleware at
+// `/__user-level-cache/`. This comment used to say the test/preview build took
+// the middleware path too; that stopped being true in #2, and the browser tests
+// were still intercepting that URL — so their fixtures never applied.
 const contentBaseUrl = import.meta.env.VITE_STATIC_CONTENT
   ? "game-content/"
   : "/__user-level-cache/";

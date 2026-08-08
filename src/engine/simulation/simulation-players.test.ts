@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import { makeLevelSpec } from "../domain/level-spec";
 import { finishRouteLevelInput } from "../levels/finish-route-level";
+import { powerUpRouteLevelInput } from "../levels/power-up-route-level";
 import { firstAuthoredLevelSpec } from "./level-test-support";
 import { PlayerOutcomeKind } from "./player-outcome";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
-import { makeInitialPlayerVitalityState } from "./player-vitality";
+import {
+  makeInitialPlayerVitalityState,
+  PlayerVitalityKind,
+} from "./player-vitality";
 import {
   appendSimulationPlayerAt,
   makeInitialSimulationState,
@@ -216,9 +220,73 @@ describe("simulation players array", () => {
   });
 
   it("keeps an enemy-defeated co-op player in a stable spectator slot", () => {
-    // firstAuthored has an enemy (beetle-1) at pixel (96, 64); put a co-op
-    // player right on it.
-    expectCoopPlayerDefeatedAt(96, 56);
+    // firstAuthored has an enemy (beetle-1) at pixel (96, 64). Level with it,
+    // not above it: that is a side contact, which damages. Dropping onto it
+    // from above is a stomp now that co-op players interact with enemies at
+    // all, and is covered by its own test below.
+    expectCoopPlayerDefeatedAt(96, 64);
+  });
+
+  // Co-op players used to pass straight through enemies: enemy interaction ran
+  // for slot 0 only, so the identical player state stomping the identical enemy
+  // defeated it from slot 0 and did nothing from any other slot. Everyone but
+  // the host was unable to stomp anything.
+  it("lets a co-op player stomp an enemy, and rebounds them off it", () => {
+    const base = afterSpawnInvincibility(twoPlayerState());
+    const stepped = stepSimulation(
+      withCoopPlayerAt(base, 96, 56),
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+
+    expect(stepped.enemies.defeatedEnemyEntityIds).toContain("beetle-1");
+    // Stomping is not dying: the stomper stays in play...
+    expect(stepped.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+    // ...and bounces, exactly as slot 0 does.
+    expect(Number(stepped.players[1]!.player.velocity.y)).toBeLessThan(0);
+  });
+
+  // Coins and power-ups reached the primary alone: a co-op player walked through
+  // a mushroom without collecting it and stayed small for the whole level —
+  // unable to break a brick, and killed by any contact.
+  it("lets a co-op player collect a power-up and grow from it", () => {
+    const levelResult = makeLevelSpec(powerUpRouteLevelInput);
+    if (!levelResult.ok) {
+      throw new Error("expected a valid power-up route level");
+    }
+    const level = levelResult.value;
+    const stateResult = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!stateResult.ok) {
+      throw new Error("expected a valid two-player state");
+    }
+    // The power-up sits at tile (4, 4); stand the co-op player on it while the
+    // primary stays at spawn, so only the co-op player can have collected it.
+    const onThePowerUp = withCoopPlayerAt(stateResult.value, 4 * 16, 4 * 16);
+    expect(onThePowerUp.players[1]!.vitality.kind).toBe(
+      PlayerVitalityKind.Small,
+    );
+
+    const stepped = stepSimulation(
+      onThePowerUp,
+      neutral(),
+      initialMovementConstants,
+      level,
+      [neutral()],
+    );
+
+    expect(stepped.players[1]!.vitality.kind).not.toBe(
+      PlayerVitalityKind.Small,
+    );
+    // The primary did not silently grow from somebody else's mushroom.
+    expect(stepped.players[0].vitality.kind).toBe(PlayerVitalityKind.Small);
   });
 
   it("keeps a co-op player alive during the spawn-invincibility window", () => {

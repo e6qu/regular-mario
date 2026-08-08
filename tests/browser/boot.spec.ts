@@ -86,14 +86,21 @@ const expectedInitialPlayerPosition = {
   y: 64,
 } as const;
 const firstAuthoredBrowserUrl = "/?browserLevel=first-authored";
+// Matched without the base path on purpose. The app serves content from
+// `/__user-level-cache/` in dev and from `game-content/` when built with
+// VITE_STATIC_CONTENT — which the preview build these tests run against has done
+// ever since #2 set that flag on `build`. Pinning the dev prefix meant every one
+// of these interceptions silently stopped matching: the tests quietly exercised
+// the real bundled content instead of their fixtures, and compared it against
+// expectations that no longer described anything.
 const localVglcSmbManifestRoute =
-  "**/__user-level-cache/vglc-smb-browser-demo/remote-manifest.json";
+  "**/vglc-smb-browser-demo/remote-manifest.json";
 const localVglcSmbLevelOneRoute =
-  "**/__user-level-cache/vglc-smb-browser-demo/levels/mario-1-1.json";
+  "**/vglc-smb-browser-demo/levels/mario-1-1.json";
 const localVglcSmbLevelTwoRoute =
-  "**/__user-level-cache/vglc-smb-browser-demo/levels/mario-1-2.json";
+  "**/vglc-smb-browser-demo/levels/mario-1-2.json";
 const localVglcSmbPlayerSpriteRoute =
-  "**/__user-level-cache/vglc-smb-browser-demo/assets/player.png";
+  "**/vglc-smb-browser-demo/assets/player.png";
 const expectedEnemySideContactKnockbackSpeed = 150;
 const expectedDamageRecoveryKnockbackFrames = 18;
 const expectedDamageRecoveryInvulnerabilityFrames = 120;
@@ -192,16 +199,13 @@ const selectableContentSetMaps = [
 ];
 
 async function routeContentSetIndex(page: Page, body: unknown): Promise<void> {
-  await page.route(
-    "**/__user-level-cache/content-sets-index.json",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(body),
-      });
-    },
-  );
+  await page.route("**/content-sets-index.json", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
 }
 
 async function routeLocalVglcSmbManifest(

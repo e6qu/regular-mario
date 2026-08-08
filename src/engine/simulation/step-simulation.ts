@@ -244,7 +244,7 @@ export function stepSimulation(
   // state is resolved. Their *outcomes* still resolve afterwards, because
   // whether a co-op player was killed depends on where the primary step left
   // the enemies. Only movement is hoisted, not the fate of anybody.
-  const coopMovement = stepCoopPlayerMovement(
+  const coopSteps = stepCoopPlayerMovement(
     state.players.slice(1),
     coopInputCommands,
     state.clock.frameDurationMilliseconds,
@@ -258,11 +258,13 @@ export function stepSimulation(
     movementConstants,
     levelSpec,
     nextClock,
-    coopMovement.blockBumps,
+    coopSteps,
   );
   const primaryRuntime = primaryStepped.players[0];
+  // Co-op runtimes come back out of the world step, not straight from movement:
+  // a co-op player who stomped an enemy has been rebounded upward by it.
   const coopRuntimes = resolveCoopPlayerOutcomes(
-    coopMovement.runtimes,
+    primaryStepped.players.slice(1),
     state.clock.frameDurationMilliseconds,
     Number(nextClock.frameIndex),
     levelSpec,
@@ -328,17 +330,26 @@ function stepPrimaryPlayer(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   nextClock: SimulationClock,
-  coopBlockBumps: readonly CoopBlockBump[],
+  coopSteps: readonly CoopPlayerStep[],
 ): SimulationState {
+  // Whatever happens to slot 0, the co-op players have already moved; the state
+  // the world is stepped against must show them where they now are.
+  const stateWithMovedCoop: SimulationState = {
+    ...state,
+    players: [
+      state.players[0],
+      ...coopSteps.map((step) => step.runtime),
+    ] as SimulationState["players"],
+  };
   switch (state.players[0].outcome.kind) {
     case PlayerOutcomeKind.Active:
       return stepActiveSimulation(
-        state,
+        stateWithMovedCoop,
         inputCommand,
         movementConstants,
         levelSpec,
         nextClock,
-        coopBlockBumps,
+        coopSteps,
       );
     case PlayerOutcomeKind.Defeated:
     case PlayerOutcomeKind.Finished:
@@ -348,10 +359,10 @@ function stepPrimaryPlayer(
       // inside the active branch meant one dead player froze the level's blocks
       // for everybody still playing.
       return applyBlockBumps(
-        { ...state, clock: nextClock },
+        { ...stateWithMovedCoop, clock: nextClock },
         levelSpec,
         nextClock,
-        coopBlockBumps,
+        coopBlockBumpsOf(coopSteps),
       );
     default: {
       const invalidOutcome: never = state.players[0].outcome;
@@ -383,9 +394,32 @@ interface CoopBlockBump {
   readonly bumpedBreakableBlocks: readonly TilePoint[];
 }
 
-interface CoopPlayersMovement {
-  readonly runtimes: readonly PlayerRuntime[];
-  readonly blockBumps: readonly CoopBlockBump[];
+/**
+ * One co-op player's movement this frame, with everything the world needs from
+ * it: where the player was before moving (enemy interaction is judged on the
+ * *crossing*, not the destination), where they are now, and what they bumped.
+ */
+interface CoopPlayerStep {
+  readonly runtime: PlayerRuntime;
+  readonly previousPlayer: PlayerSimulationState;
+  readonly bumpedInteractiveBlocks: readonly TilePoint[];
+  readonly bumpedBreakableBlocks: readonly TilePoint[];
+}
+
+function coopBlockBumpsOf(
+  steps: readonly CoopPlayerStep[],
+): readonly CoopBlockBump[] {
+  return steps
+    .filter(
+      (step) =>
+        step.bumpedInteractiveBlocks.length > 0 ||
+        step.bumpedBreakableBlocks.length > 0,
+    )
+    .map((step) => ({
+      vitality: step.runtime.vitality,
+      bumpedInteractiveBlocks: step.bumpedInteractiveBlocks,
+      bumpedBreakableBlocks: step.bumpedBreakableBlocks,
+    }));
 }
 
 interface BumpedBlocksResolution {
@@ -476,17 +510,15 @@ function stepCoopPlayerMovement(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
-): CoopPlayersMovement {
-  if (coopRuntimes.length === 0) {
-    return { runtimes: coopRuntimes, blockBumps: [] };
-  }
-  // Each co-op player's head bumps are kept beside that player's own vitality:
-  // whether a bumped brick breaks is a property of who hit it, not of whoever
-  // happens to occupy slot 0.
-  const blockBumps: CoopBlockBump[] = [];
-  const moved = coopRuntimes.map((runtime, index) => {
+): readonly CoopPlayerStep[] {
+  return coopRuntimes.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
-      return runtime;
+      return {
+        runtime,
+        previousPlayer: runtime.player,
+        bumpedInteractiveBlocks: [],
+        bumpedBreakableBlocks: [],
+      };
     }
     const stepped = stepCoopPlayerKinematics(
       runtime.player,
@@ -496,19 +528,13 @@ function stepCoopPlayerMovement(
       levelSpec,
       breakableBlocks,
     );
-    if (
-      stepped.bumpedInteractiveBlocks.length > 0 ||
-      stepped.bumpedBreakableBlocks.length > 0
-    ) {
-      blockBumps.push({
-        vitality: runtime.vitality,
-        bumpedInteractiveBlocks: stepped.bumpedInteractiveBlocks,
-        bumpedBreakableBlocks: stepped.bumpedBreakableBlocks,
-      });
-    }
-    return { ...runtime, player: stepped.player };
+    return {
+      runtime: { ...runtime, player: stepped.player },
+      previousPlayer: runtime.player,
+      bumpedInteractiveBlocks: stepped.bumpedInteractiveBlocks,
+      bumpedBreakableBlocks: stepped.bumpedBreakableBlocks,
+    };
   });
-  return { runtimes: moved, blockBumps };
 }
 
 // Decide what became of each co-op player after everything else moved: reaching
@@ -643,7 +669,7 @@ function stepActiveSimulation(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   nextClock: SimulationClock,
-  coopBlockBumps: readonly CoopBlockBump[],
+  coopSteps: readonly CoopPlayerStep[],
 ): SimulationState {
   const playerVitalityAfterRecoveryTick = stepPlayerVitalityRecovery(
     state.players[0].vitality,
@@ -864,7 +890,7 @@ function stepActiveSimulation(
       bumpedInteractiveBlocks: resolvedPlayerWithBumps.bumpedInteractiveBlocks,
       bumpedBreakableBlocks: resolvedPlayerWithBumps.bumpedBreakableBlocks,
     },
-    ...coopBlockBumps,
+    ...coopBlockBumpsOf(coopSteps),
   ]);
   const { interactiveBlocks, breakableBlocks } = bumpedBlocks;
   const spawnedActors = stepSpawnedActorsState(
@@ -918,6 +944,42 @@ function stepActiveSimulation(
     playerVitalityAfterPowerUp,
     crouching,
   );
+  // Coins and power-ups reach everybody. These ran for the primary alone, so a
+  // co-op player walked through coins without collecting them and could never
+  // grow: permanently small, unable to break a brick, and killed by contact
+  // with anything. Folded one player at a time against the running state, so
+  // two players cannot both collect the same mushroom, and each player's own
+  // vitality grows from what that player picked up.
+  let partyCollectibles = collectibles;
+  let partyPowerUps = powerUpResolution.state;
+  const coopAfterPickups = coopSteps.map((step) => {
+    if (step.runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return step.runtime;
+    }
+    partyCollectibles = resolveCollectibleInteractionState(
+      step.runtime.player,
+      levelSpec,
+      spawnedActors.spawnedActors,
+      partyCollectibles,
+    );
+    const collected = resolvePowerUpInteractionState(
+      step.runtime.player,
+      levelSpec,
+      spawnedActors.spawnedActors,
+      partyPowerUps,
+    );
+    partyPowerUps = collected.state;
+    const vitality = applyPowerUpCollectionToVitality(
+      step.runtime.vitality,
+      collected.newlyCollectedPowerUpEntityIds.length,
+    );
+    return {
+      ...step.runtime,
+      vitality,
+      // Co-op players have no crouch yet, so they are never crouch-sized.
+      player: resizePlayerForVitality(step.runtime.player, vitality, false),
+    };
+  });
   const playerInvincibility = resolvePlayerInvincibilityState(
     playerAfterPowerUpResize,
     levelSpec,
@@ -959,8 +1021,44 @@ function stepActiveSimulation(
     state.enemies,
     Number(nextClock.frameIndex),
   );
+  // Every player meets the enemies, not just slot 0. This used to run for the
+  // primary alone, so a co-op player falling onto a goomba passed straight
+  // through it — measurably: the identical player state stomping the identical
+  // enemy defeated it from slot 0 and did nothing from any other slot. That made
+  // co-op unplayable for everyone but the host, and it is the same shape of bug
+  // as the blocks only slot 0 could break.
+  //
+  // Folded one player at a time, each against their own before/after pair, so a
+  // stomp rebounds the player who actually landed on the enemy rather than
+  // whoever happens to be first in the array.
+  let enemiesAfterEveryPlayer = enemiesBeforeProjectileMerge;
+  const coopRuntimesAfterEnemies = coopSteps.map((step, index) => {
+    const runtime = coopAfterPickups[index] ?? step.runtime;
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return runtime;
+    }
+    const enemiesBeforeThisPlayer = enemiesAfterEveryPlayer;
+    enemiesAfterEveryPlayer = resolveEnemyInteractionState(
+      step.previousPlayer,
+      runtime.player,
+      levelSpec,
+      enemyMotion,
+      movementConstants,
+      enemiesBeforeThisPlayer,
+      Number(nextClock.frameIndex),
+    );
+    return {
+      ...runtime,
+      player: applyEnemyStompRebound(
+        runtime.player,
+        enemiesBeforeThisPlayer,
+        enemiesAfterEveryPlayer,
+        movementConstants,
+      ),
+    };
+  });
   const enemiesAfterInvincibility = applyInvincibilityEnemyDefeats(
-    enemiesBeforeProjectileMerge,
+    enemiesAfterEveryPlayer,
     playerInvincibility,
   );
   const anyShellMoving = enemyMotion.armoredActors.some(
@@ -1317,8 +1415,9 @@ function stepActiveSimulation(
 
   return {
     clock: nextClock,
-    // Player one's freshly-computed runtime at index 0; the co-op players are
-    // carried through unchanged here and re-stepped by the outer stepSimulation.
+    // Player one's freshly-computed runtime at index 0, then the co-op players
+    // as the world left them — moved, and rebounded off anything they stomped.
+    // Their outcomes are settled afterwards by the outer stepSimulation.
     players: [
       {
         player: finalPlayer,
@@ -1327,11 +1426,11 @@ function stepActiveSimulation(
         outcome: playerOutcome,
         reaction: playerReaction,
       },
-      ...state.players.slice(1),
+      ...coopRuntimesAfterEnemies,
     ],
     levelContacts: outcomeLevelContacts,
-    collectibles,
-    powerUps: powerUpResolution.state,
+    collectibles: partyCollectibles,
+    powerUps: partyPowerUps,
     enemies,
     enemyDamageContactFrameByEntityId: nextEnemyDamageFrames,
     enemyContactResponse,
