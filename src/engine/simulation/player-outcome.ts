@@ -52,11 +52,15 @@ export type PlayerOutcomeState =
  * misses the second. `revive()` did exactly that and refused to revive a player
  * defeated at the flagpole with "Only defeated players can revive."
  *
+ * Reached through isPlayerOutcomeDefeated below rather than exported: the
+ * question callers ask is "is this player defeated?", and the dead-code gate
+ * rightly rejects an export nothing consumes.
+ *
  * Ask through this instead of comparing `kind`. The switch is exhaustive over
  * the union with a `never` default, so a new outcome kind is a compile error
  * here rather than a wrong answer at a call site.
  */
-export function playerOutcomeDefeat(
+function playerOutcomeDefeat(
   outcome: PlayerOutcomeState,
 ): PlayerDefeatReason | undefined {
   switch (outcome.kind) {
@@ -81,7 +85,7 @@ export function playerOutcomeDefeat(
  * finished. The mirror of {@link playerOutcomeDefeat}: finishing also lives in
  * two variants, `Finished` and `DefeatedAndFinished`.
  */
-export function playerOutcomeFinish(
+function playerOutcomeFinish(
   outcome: PlayerOutcomeState,
 ): PlayerFinishReason | undefined {
   switch (outcome.kind) {
