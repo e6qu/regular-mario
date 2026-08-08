@@ -121,6 +121,36 @@ function withPlayerOverrides(
   };
 }
 
+// Append a second player to a state, so a test can drive a co-op member rather
+// than only slot 0.
+//
+// `vitality` is required rather than defaulted to the primary's. These tests
+// exist precisely to prove the two players' sizes are judged separately, and a
+// default that quietly copies slot 0 turns "small co-op player" into "whatever
+// the primary happens to be" — the test then passes for the wrong reason.
+function withCoopPlayer(
+  state: SimulationState,
+  coop: {
+    readonly player: SimulationState["players"][0]["player"];
+    readonly vitality: SimulationState["players"][0]["vitality"];
+  },
+): SimulationState {
+  const primary = state.players[0];
+  return {
+    ...state,
+    players: [
+      ...state.players,
+      {
+        player: coop.player,
+        vitality: coop.vitality,
+        invincibility: primary.invincibility,
+        outcome: { kind: PlayerOutcomeKind.Active },
+        reaction: primary.reaction,
+      },
+    ] as unknown as SimulationState["players"],
+  };
+}
+
 // Build a deliberately-invalid simulation state for validation tests: the
 // primary player's outcome (and optionally vitality) is corrupted, plus any
 // top-level interaction fields, all cast past the type system on purpose.
@@ -934,6 +964,94 @@ describe("simulation primitives", () => {
     expect(nextState.breakableBlocks.brokenBlockTilePositions).toEqual([]);
     expect(nextState.breakableBlockScore).toBe(0);
   });
+
+  // A co-op player's head bumps used to be discarded outright: the shared
+  // kinematics called a collision helper that threw its bumps away and was
+  // handed an *empty* breakable-block state, so only slot 0 could ever break a
+  // brick or pop a block. In a multiplayer party that meant everyone but one
+  // player pounded blocks that never reacted.
+  //
+  // Each case drives the *co-op* player into the brick from below and varies
+  // who is standing where, because breaking is decided by the size of whoever
+  // swung — never pooled across the party, and never gated on slot 0 being
+  // alive.
+  const brokenBrickTile = { x: 2, y: 4 };
+  const coopBrickCases = [
+    {
+      description: "breaks a brick a powered co-op player hits from below",
+      primary: {},
+      coopVitality: PlayerVitalityKind.Powered,
+      expectedBroken: [brokenBrickTile],
+    },
+    {
+      // The mirror of the case above, so nobody "fixes" the authentic rule
+      // away: a small player bumps a brick and it stays put.
+      description: "leaves the brick intact when the co-op player is small",
+      primary: {},
+      coopVitality: PlayerVitalityKind.Small,
+      expectedBroken: [],
+    },
+    {
+      // A small primary standing around cannot veto a powered team-mate's
+      // break, which is what resolving every bump against slot 0 would do.
+      description: "lets a powered co-op player break past a small primary",
+      primary: { playerVitality: { kind: PlayerVitalityKind.Small } },
+      coopVitality: PlayerVitalityKind.Powered,
+      expectedBroken: [brokenBrickTile],
+    },
+    {
+      // And the reverse: a powered primary must not lend its size to a small
+      // team-mate's bump.
+      description:
+        "does not lend a powered primary's size to a small co-op bump",
+      primary: { playerVitality: { kind: PlayerVitalityKind.Powered } },
+      coopVitality: PlayerVitalityKind.Small,
+      expectedBroken: [],
+    },
+    {
+      // The party's blocks used to freeze the moment slot 0 died, because the
+      // primary step returned early and block resolution lived inside it. The
+      // survivors are still playing; their bricks must still break.
+      description:
+        "still breaks blocks for the party when the primary is defeated",
+      primary: {
+        playerOutcome: {
+          kind: PlayerOutcomeKind.Defeated,
+          reason: PlayerDefeatReason.EnemyContact,
+        },
+      },
+      coopVitality: PlayerVitalityKind.Powered,
+      expectedBroken: [brokenBrickTile],
+    },
+  ] as const;
+
+  for (const testCase of coopBrickCases) {
+    it(testCase.description, () => {
+      const levelSpec = breakableBlockLevelSpec();
+      const nextState = stepSimulation(
+        withCoopPlayer(
+          withPlayerOverrides(
+            initialStateForLevel(
+              levelSpec,
+              "Expected breakable block initial state to validate.",
+            ),
+            testCase.primary,
+          ),
+          {
+            player: upwardBlockHitPlayer(),
+            vitality: { kind: testCase.coopVitality },
+          },
+        ),
+        validInputCommand(),
+        initialMovementConstants,
+        levelSpec,
+      );
+
+      expect(nextState.breakableBlocks.brokenBlockTilePositions).toEqual(
+        testCase.expectedBroken,
+      );
+    });
+  }
 
   it("starts with the initial lives count", () => {
     expect(validInitialState().livesRemaining).toBe(initialLivesCount);

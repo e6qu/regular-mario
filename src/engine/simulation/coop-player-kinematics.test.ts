@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { stepCoopPlayerKinematics } from "./coop-player-kinematics";
+import {
+  type CoopPlayerKinematicsResult,
+  stepCoopPlayerKinematics,
+} from "./coop-player-kinematics";
+import { makeEmptyBreakableBlockState } from "./breakable-block-state";
 import {
   firstAuthoredLevelSpec,
   spawnedPrimaryPlayer,
@@ -32,12 +36,20 @@ function step(
   player: PlayerSimulationState,
   command: SimulationInputCommand,
 ): PlayerSimulationState {
+  return stepWithBumps(player, command).player;
+}
+
+function stepWithBumps(
+  player: PlayerSimulationState,
+  command: SimulationInputCommand,
+): CoopPlayerKinematicsResult {
   return stepCoopPlayerKinematics(
     player,
     command,
     nominalSixtyHertzFrameDurationMilliseconds,
     initialMovementConstants,
     firstAuthoredLevelSpec(),
+    makeEmptyBreakableBlockState(),
   );
 }
 

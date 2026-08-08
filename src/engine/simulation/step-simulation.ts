@@ -1,5 +1,5 @@
 import { makeFrameIndex } from "../domain/units";
-import type { FrameIndex } from "../domain/units";
+import type { FrameIndex, TilePoint } from "../domain/units";
 import type { EntityId } from "../domain/identifiers";
 import {
   assertValidCollectibleInteractionState,
@@ -32,14 +32,17 @@ import { HorizontalInput } from "./input-command";
 import type { SimulationInputCommand } from "./input-command";
 import {
   assertValidBreakableBlockState,
+  type BreakableBlockState,
   resolveBreakableBlockState,
 } from "./breakable-block-state";
 import {
   assertValidInteractiveBlockInteractionState,
   assertValidSpawnedActorsState,
+  type InteractiveBlockInteractionState,
   resolveInteractiveBlockInteractionState,
   resolveSpawnedActorsState,
   type SpawnedActor,
+  type SpawnedActorsState,
   stepSpawnedActorsState,
 } from "./interactive-block-state";
 import {
@@ -237,20 +240,31 @@ export function stepSimulation(
   assertValidLoopZoneState(state.loopZones);
   assertValidHatchedSpinyState(state.hatchedSpinies);
 
+  // Co-op players move first, so their head bumps are known before the block
+  // state is resolved. Their *outcomes* still resolve afterwards, because
+  // whether a co-op player was killed depends on where the primary step left
+  // the enemies. Only movement is hoisted, not the fate of anybody.
+  const coopMovement = stepCoopPlayerMovement(
+    state.players.slice(1),
+    coopInputCommands,
+    state.clock.frameDurationMilliseconds,
+    movementConstants,
+    levelSpec,
+    state.breakableBlocks,
+  );
   const primaryStepped = stepPrimaryPlayer(
     state,
     inputCommand,
     movementConstants,
     levelSpec,
     nextClock,
+    coopMovement.blockBumps,
   );
   const primaryRuntime = primaryStepped.players[0];
-  const coopRuntimes = stepCoopPlayers(
-    state.players.slice(1),
-    coopInputCommands,
+  const coopRuntimes = resolveCoopPlayerOutcomes(
+    coopMovement.runtimes,
     state.clock.frameDurationMilliseconds,
     Number(nextClock.frameIndex),
-    movementConstants,
     levelSpec,
     primaryStepped.enemyMotion,
     primaryStepped.enemies.defeatedEnemyEntityIds,
@@ -314,6 +328,7 @@ function stepPrimaryPlayer(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   nextClock: SimulationClock,
+  coopBlockBumps: readonly CoopBlockBump[],
 ): SimulationState {
   switch (state.players[0].outcome.kind) {
     case PlayerOutcomeKind.Active:
@@ -323,11 +338,21 @@ function stepPrimaryPlayer(
         movementConstants,
         levelSpec,
         nextClock,
+        coopBlockBumps,
       );
     case PlayerOutcomeKind.Defeated:
     case PlayerOutcomeKind.Finished:
     case PlayerOutcomeKind.DefeatedAndFinished:
-      return { ...state, clock: nextClock };
+      // The primary is out, but the party is not: a surviving team-mate's head
+      // bumps must still break bricks and pop power-ups. Resolving blocks only
+      // inside the active branch meant one dead player froze the level's blocks
+      // for everybody still playing.
+      return applyBlockBumps(
+        { ...state, clock: nextClock },
+        levelSpec,
+        nextClock,
+        coopBlockBumps,
+      );
     default: {
       const invalidOutcome: never = state.players[0].outcome;
       throw new Error(
@@ -344,34 +369,163 @@ function stepPrimaryPlayer(
 // first enemy/pit before anyone gets moving).
 const coopSpawnInvincibilityMilliseconds = 10000;
 
-function stepCoopPlayers(
+/**
+ * One co-op player's head bumps this frame, tagged with that player's vitality.
+ *
+ * The vitality travels with the bumps because the block rules read it: a small
+ * player nudges a brick and it stays, an enlarged one breaks it. Merging every
+ * player's bumps into one flat list and resolving them against slot 0's vitality
+ * would let a small primary veto a super team-mate's break — and vice versa.
+ */
+interface CoopBlockBump {
+  readonly vitality: PlayerVitalityState;
+  readonly bumpedInteractiveBlocks: readonly TilePoint[];
+  readonly bumpedBreakableBlocks: readonly TilePoint[];
+}
+
+interface CoopPlayersMovement {
+  readonly runtimes: readonly PlayerRuntime[];
+  readonly blockBumps: readonly CoopBlockBump[];
+}
+
+interface BumpedBlocksResolution {
+  readonly interactiveBlocks: InteractiveBlockInteractionState;
+  readonly breakableBlocks: BreakableBlockState;
+  readonly spawnedActors: SpawnedActorsState;
+}
+
+/**
+ * Apply every player's head bumps to the world's blocks, in one place.
+ *
+ * `?` blocks are position-only, so those bumps merge into one list. Bricks and
+ * block contents are not: both read the vitality of whoever swung, so the
+ * bumpers are folded one at a time. Flattening them and resolving against a
+ * single vitality would let a small player veto a super team-mate's break, or
+ * quietly upgrade a small player's nudge into a break because somebody else in
+ * the party happened to be big.
+ */
+function resolveBumpedBlocks(
+  state: SimulationState,
+  levelSpec: LevelSpec,
+  nextClock: SimulationClock,
+  bumpers: readonly CoopBlockBump[],
+): BumpedBlocksResolution {
+  return {
+    interactiveBlocks: resolveInteractiveBlockInteractionState(
+      state.interactiveBlocks,
+      bumpers.flatMap((bumper) => bumper.bumpedInteractiveBlocks),
+    ),
+    breakableBlocks: bumpers.reduce(
+      (blocks, bumper) =>
+        resolveBreakableBlockState(
+          blocks,
+          bumper.bumpedBreakableBlocks,
+          bumper.vitality,
+        ),
+      state.breakableBlocks,
+    ),
+    spawnedActors: bumpers.reduce(
+      (spawned, bumper) =>
+        resolveSpawnedActorsState(
+          spawned,
+          levelSpec,
+          bumper.bumpedInteractiveBlocks,
+          nextClock.frameIndex,
+          // A super player's power-up block yields the fire flower (ROM
+          // size-dependent contents) — again per bumper, not per slot 0.
+          bumper.vitality.kind !== PlayerVitalityKind.Small,
+        ),
+      state.spawnedActors,
+    ),
+  };
+}
+
+/**
+ * Fold co-op head bumps into a state whose primary player is not being stepped.
+ *
+ * Used when slot 0 is defeated or finished: the rest of the party is still
+ * playing, and their bumps have to land somewhere.
+ */
+function applyBlockBumps(
+  state: SimulationState,
+  levelSpec: LevelSpec,
+  nextClock: SimulationClock,
+  bumpers: readonly CoopBlockBump[],
+): SimulationState {
+  if (bumpers.length === 0) {
+    return state;
+  }
+  const resolved = resolveBumpedBlocks(state, levelSpec, nextClock, bumpers);
+  return {
+    ...state,
+    interactiveBlocks: resolved.interactiveBlocks,
+    breakableBlocks: resolved.breakableBlocks,
+    spawnedActors: stepSpawnedActorsState(
+      resolved.spawnedActors,
+      state.clock.frameDurationMilliseconds,
+      levelSpec,
+      resolved.breakableBlocks,
+    ),
+  };
+}
+
+function stepCoopPlayerMovement(
   coopRuntimes: readonly PlayerRuntime[],
   coopInputCommands: readonly SimulationInputCommand[],
   frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
-  frameIndex: number,
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
-  enemyMotion: EnemyMotionState,
-  defeatedEnemyEntityIds: readonly EntityId[],
-): readonly PlayerRuntime[] {
+  breakableBlocks: BreakableBlockState,
+): CoopPlayersMovement {
   if (coopRuntimes.length === 0) {
-    return coopRuntimes;
+    return { runtimes: coopRuntimes, blockBumps: [] };
   }
+  // Each co-op player's head bumps are kept beside that player's own vitality:
+  // whether a bumped brick breaks is a property of who hit it, not of whoever
+  // happens to occupy slot 0.
+  const blockBumps: CoopBlockBump[] = [];
   const moved = coopRuntimes.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
-    return {
-      ...runtime,
-      player: stepCoopPlayerKinematics(
-        runtime.player,
-        coopInputCommands[index] ?? neutralInputCommand,
-        frameDurationMilliseconds,
-        movementConstants,
-        levelSpec,
-      ),
-    };
+    const stepped = stepCoopPlayerKinematics(
+      runtime.player,
+      coopInputCommands[index] ?? neutralInputCommand,
+      frameDurationMilliseconds,
+      movementConstants,
+      levelSpec,
+      breakableBlocks,
+    );
+    if (
+      stepped.bumpedInteractiveBlocks.length > 0 ||
+      stepped.bumpedBreakableBlocks.length > 0
+    ) {
+      blockBumps.push({
+        vitality: runtime.vitality,
+        bumpedInteractiveBlocks: stepped.bumpedInteractiveBlocks,
+        bumpedBreakableBlocks: stepped.bumpedBreakableBlocks,
+      });
+    }
+    return { ...runtime, player: stepped.player };
   });
+  return { runtimes: moved, blockBumps };
+}
+
+// Decide what became of each co-op player after everything else moved: reaching
+// the goal, touching an enemy the primary step may just have stomped, falling
+// into a pit. Split from the movement above so head bumps are available before
+// the block state is resolved, while fates still settle against the final world.
+function resolveCoopPlayerOutcomes(
+  moved: readonly PlayerRuntime[],
+  frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
+  frameIndex: number,
+  levelSpec: LevelSpec,
+  enemyMotion: EnemyMotionState,
+  defeatedEnemyEntityIds: readonly EntityId[],
+): readonly PlayerRuntime[] {
+  if (moved.length === 0) {
+    return moved;
+  }
   // A co-op member reaching the goal completes the shared level immediately,
   // including during the brief spawn-invincibility window. The authoritative
   // multiplayer runner ends the whole game when any runtime is finished.
@@ -401,7 +555,7 @@ function stepCoopPlayers(
   // until the level ends. Keeping the stable slot is required by authoritative
   // multiplayer: network player IDs must never silently shift when somebody
   // dies. Defeated runtimes no longer collide or consume input above.
-  return moved.map<PlayerRuntime>((runtime) => {
+  const runtimes = moved.map<PlayerRuntime>((runtime) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
@@ -449,6 +603,7 @@ function stepCoopPlayers(
           },
     };
   });
+  return runtimes;
 }
 
 const neutralInputCommand: SimulationInputCommand = {
@@ -488,6 +643,7 @@ function stepActiveSimulation(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   nextClock: SimulationClock,
+  coopBlockBumps: readonly CoopBlockBump[],
 ): SimulationState {
   const playerVitalityAfterRecoveryTick = stepPlayerVitalityRecovery(
     state.players[0].vitality,
@@ -698,26 +854,21 @@ function stepActiveSimulation(
     ? { ...teleportedPlayerBase, crouching: true }
     : teleportedPlayerBase;
 
-  const interactiveBlocks = resolveInteractiveBlockInteractionState(
-    state.interactiveBlocks,
-    resolvedPlayerWithBumps.bumpedInteractiveBlocks,
-  );
-  const breakableBlocks = resolveBreakableBlockState(
-    state.breakableBlocks,
-    resolvedPlayerWithBumps.bumpedBreakableBlocks,
-    playerVitalityAfterRecoveryTick,
-  );
-  const spawnedActorsAfterBlockBumps = resolveSpawnedActorsState(
-    state.spawnedActors,
-    levelSpec,
-    resolvedPlayerWithBumps.bumpedInteractiveBlocks,
-    nextClock.frameIndex,
-    // A super player's power-up block yields the fire flower (ROM
-    // size-dependent contents).
-    state.players[0].vitality.kind !== PlayerVitalityKind.Small,
-  );
+  // Everybody who bumped a block this frame, primary first, each carrying the
+  // vitality the block rules must judge them by. Co-op bumps used to be dropped
+  // on the floor, so a team-mate could stand under a brick and pound it forever
+  // while only slot 0's hits ever registered.
+  const bumpedBlocks = resolveBumpedBlocks(state, levelSpec, nextClock, [
+    {
+      vitality: playerVitalityAfterRecoveryTick,
+      bumpedInteractiveBlocks: resolvedPlayerWithBumps.bumpedInteractiveBlocks,
+      bumpedBreakableBlocks: resolvedPlayerWithBumps.bumpedBreakableBlocks,
+    },
+    ...coopBlockBumps,
+  ]);
+  const { interactiveBlocks, breakableBlocks } = bumpedBlocks;
   const spawnedActors = stepSpawnedActorsState(
-    spawnedActorsAfterBlockBumps,
+    bumpedBlocks.spawnedActors,
     state.clock.frameDurationMilliseconds,
     levelSpec,
     breakableBlocks,
