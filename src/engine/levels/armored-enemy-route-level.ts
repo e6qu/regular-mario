@@ -15,7 +15,7 @@ export const armoredEnemyRouteLevelInput: LevelSpecInput = {
       role: ActorRole.PlayerStart,
     },
     {
-      actorId: "shell-crab",
+      actorId: "shellback",
       role: ActorRole.ArmoredEnemy,
     },
     {
@@ -40,7 +40,7 @@ export const armoredEnemyRouteLevelInput: LevelSpecInput = {
     },
     {
       entityId: "crab-1",
-      actorId: "shell-crab",
+      actorId: "shellback",
       x: 6,
       y: 4,
     },

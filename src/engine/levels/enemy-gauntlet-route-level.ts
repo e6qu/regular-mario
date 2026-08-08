@@ -25,9 +25,9 @@ export const enemyGauntletRouteLevelInput: LevelSpecInput = {
   tileSizePixels: 16,
   tileDefinitions: standardSurfaceTileDefinitions,
   actorDefinitions: makeEnemyChallengeActorDefinitions([
-    { actorId: "glide-wasp", role: ActorRole.FlyingEnemy },
+    { actorId: "flutterby", role: ActorRole.FlyingEnemy },
     { actorId: "spike-hunter", role: ActorRole.ChasingEnemy },
-    { actorId: "shell-crab", role: ActorRole.ArmoredEnemy },
+    { actorId: "shellback", role: ActorRole.ArmoredEnemy },
   ]),
   tiles: [
     skyRow(),
@@ -61,10 +61,10 @@ export const enemyGauntletRouteLevelInput: LevelSpecInput = {
   actors: [
     { entityId: "runner-1", actorId: "runner-start", x: 1, y: 5 },
     { entityId: "shard-1", actorId: "star-shard", x: 5, y: 4 },
-    { entityId: "wasp-1", actorId: "glide-wasp", x: 10, y: 1 },
+    { entityId: "wasp-1", actorId: "flutterby", x: 10, y: 1 },
     { entityId: "spark-1", actorId: "spark-cap", x: 13, y: 4 },
     { entityId: "hunter-1", actorId: "spike-hunter", x: 22, y: 5 },
-    { entityId: "crab-1", actorId: "shell-crab", x: 25, y: 5 },
+    { entityId: "crab-1", actorId: "shellback", x: 25, y: 5 },
     { entityId: "gate-1", actorId: "open-gate", x: 27, y: 5 },
   ],
   enemyPatrolSpeedByEntityId: {

@@ -1308,9 +1308,12 @@ test("boots and plays the cavern route level", async ({ page }) => {
   await expectBootsAndPlaysLevel(page, {
     url: "/?browserLevel=cavern-route",
     widthTiles: 24,
-    heightTiles: 6,
+    // The cavern route grew nine sky rows above its floor (6 -> 15) when the
+    // level was reworked; this expectation was left behind because no CI job
+    // runs this suite.
+    heightTiles: 15,
     worldWidthPixels: 384,
-    worldHeightPixels: 96,
+    worldHeightPixels: 240,
   });
 });
 
