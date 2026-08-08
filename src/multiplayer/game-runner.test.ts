@@ -566,6 +566,36 @@ describe("authoritative multiplayer game runner", () => {
     ).toBe(PlayerOutcomeKind.Active);
   });
 
+  // Defeat lives in two variants: a player killed ON the goal is
+  // DefeatedAndFinished, not Defeated. revive() compared `kind === Defeated`
+  // and refused them with "Only defeated players can revive." — the report
+  // from the deployed game.
+  it("revives a player defeated at the goal, not only a plain defeat", () => {
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          outcome: {
+            kind: PlayerOutcomeKind.DefeatedAndFinished,
+            defeatReason: PlayerDefeatReason.EnemyContact,
+            finishReason: PlayerFinishReason.GoalContact,
+          },
+        },
+      ],
+    });
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    const revived = runner.revive(requireMultiplayerPlayerId("mira"));
+
+    expect(revived.players[0]?.spectator).toBe(false);
+    expect(
+      decodeMultiplayerSimulationState(revived.simulationState).players[0]
+        .outcome.kind,
+    ).toBe(PlayerOutcomeKind.Active);
+  });
+
   it("allows a defeated player to revive while the party is paused", () => {
     const runner = makeDefeatedPlayerRunner();
     runner.start(requireMultiplayerPlayerId("mira"));

@@ -1,6 +1,9 @@
 import type { LevelSpec } from "../engine/domain/level-spec";
 import type { MovementConstants } from "../engine/simulation/movement-model";
-import { PlayerOutcomeKind } from "../engine/simulation/player-outcome";
+import {
+  isPlayerOutcomeDefeated,
+  PlayerOutcomeKind,
+} from "../engine/simulation/player-outcome";
 import {
   HorizontalInput,
   type SimulationInputCommand,
@@ -456,7 +459,9 @@ export function makeAuthoritativeGameRunner(
           "Player slot is missing from authoritative simulation.",
         );
       }
-      if (runtime.outcome.kind !== PlayerOutcomeKind.Defeated) {
+      // Both defeat-carrying variants revive, not just `Defeated`: a player
+      // killed on the goal is `DefeatedAndFinished` and was refused here.
+      if (!isPlayerOutcomeDefeated(runtime.outcome)) {
         throw new Error("Only defeated players can revive.");
       }
       state = reviveSimulationPlayerAt(state, player.slot, partyCheckpoint);

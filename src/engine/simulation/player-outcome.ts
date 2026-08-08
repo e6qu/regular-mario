@@ -43,6 +43,74 @@ export type PlayerOutcomeState =
       readonly finishReason: PlayerFinishReason;
     };
 
+/**
+ * The defeat carried by an outcome, or undefined when the player is not
+ * defeated.
+ *
+ * Defeat lives in TWO variants — `Defeated`, and `DefeatedAndFinished` for a
+ * player killed on the goal — so every `kind === Defeated` comparison silently
+ * misses the second. `revive()` did exactly that and refused to revive a player
+ * defeated at the flagpole with "Only defeated players can revive."
+ *
+ * Ask through this instead of comparing `kind`. The switch is exhaustive over
+ * the union with a `never` default, so a new outcome kind is a compile error
+ * here rather than a wrong answer at a call site.
+ */
+export function playerOutcomeDefeat(
+  outcome: PlayerOutcomeState,
+): PlayerDefeatReason | undefined {
+  switch (outcome.kind) {
+    case PlayerOutcomeKind.Active:
+    case PlayerOutcomeKind.Finished:
+      return undefined;
+    case PlayerOutcomeKind.Defeated:
+      return outcome.reason;
+    case PlayerOutcomeKind.DefeatedAndFinished:
+      return outcome.defeatReason;
+    default: {
+      const invalidOutcome: never = outcome;
+      throw new Error(
+        `Invalid player outcome state: ${String(invalidOutcome)}`,
+      );
+    }
+  }
+}
+
+/**
+ * The finish carried by an outcome, or undefined when the player has not
+ * finished. The mirror of {@link playerOutcomeDefeat}: finishing also lives in
+ * two variants, `Finished` and `DefeatedAndFinished`.
+ */
+export function playerOutcomeFinish(
+  outcome: PlayerOutcomeState,
+): PlayerFinishReason | undefined {
+  switch (outcome.kind) {
+    case PlayerOutcomeKind.Active:
+    case PlayerOutcomeKind.Defeated:
+      return undefined;
+    case PlayerOutcomeKind.Finished:
+      return outcome.reason;
+    case PlayerOutcomeKind.DefeatedAndFinished:
+      return outcome.finishReason;
+    default: {
+      const invalidOutcome: never = outcome;
+      throw new Error(
+        `Invalid player outcome state: ${String(invalidOutcome)}`,
+      );
+    }
+  }
+}
+
+/** Whether the player has finished, in either variant that carries a finish. */
+export function isPlayerOutcomeFinished(outcome: PlayerOutcomeState): boolean {
+  return playerOutcomeFinish(outcome) !== undefined;
+}
+
+/** Whether the player is defeated, in either variant that carries a defeat. */
+export function isPlayerOutcomeDefeated(outcome: PlayerOutcomeState): boolean {
+  return playerOutcomeDefeat(outcome) !== undefined;
+}
+
 export function makeActivePlayerOutcomeState(): PlayerOutcomeState {
   return {
     kind: PlayerOutcomeKind.Active,

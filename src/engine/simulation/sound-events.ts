@@ -1,4 +1,7 @@
-import { PlayerOutcomeKind } from "./player-outcome";
+import {
+  isPlayerOutcomeDefeated,
+  isPlayerOutcomeFinished,
+} from "./player-outcome";
 import { ActorRole } from "../domain/level-spec";
 import {
   initialMovementConstants,
@@ -216,19 +219,28 @@ export function resolveSoundEvents(
     events.push(SoundEvent.BlockBreak);
   }
 
-  const previousOutcomeKind = previousState.players[0].outcome.kind;
-  const currentOutcomeKind = currentState.players[0].outcome.kind;
+  // Ask whether the player IS defeated / finished rather than comparing the
+  // outcome kind. Both facts live in two variants each — a player killed on the
+  // goal is `DefeatedAndFinished` — so kind comparisons silently skipped that
+  // case and it played neither the death sound nor the finish sound.
+  const previousOutcome = previousState.players[0].outcome;
+  const currentOutcome = currentState.players[0].outcome;
 
+  // Finishing takes precedence over dying, which is the convention the rest of
+  // the game already follows: hasFinishedOutcome() and the flagpole cinematic
+  // both treat DefeatedAndFinished as a finish and advance the level. Firing
+  // both cues would contradict that and stack two sounds on one frame.
   if (
-    previousOutcomeKind !== PlayerOutcomeKind.Defeated &&
-    currentOutcomeKind === PlayerOutcomeKind.Defeated
+    !isPlayerOutcomeDefeated(previousOutcome) &&
+    isPlayerOutcomeDefeated(currentOutcome) &&
+    !isPlayerOutcomeFinished(currentOutcome)
   ) {
     events.push(SoundEvent.Defeat);
   }
 
   if (
-    previousOutcomeKind !== PlayerOutcomeKind.Finished &&
-    currentOutcomeKind === PlayerOutcomeKind.Finished
+    !isPlayerOutcomeFinished(previousOutcome) &&
+    isPlayerOutcomeFinished(currentOutcome)
   ) {
     events.push(SoundEvent.Finish);
   }
