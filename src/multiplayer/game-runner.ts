@@ -46,6 +46,46 @@ export enum MultiplayerGamePhase {
   Finished = "finished",
 }
 
+/**
+ * Whether a phase can take input at all.
+ *
+ * Stated once and enforced at both ends. The runner refuses input outside these
+ * phases — that refusal stays an error, because a client sending into a phase
+ * that cannot accept it is a bug worth surfacing, not something to swallow. The
+ * browser asks the same question before sending, so it never provokes the
+ * refusal in the first place.
+ *
+ * The case this fixes: when one player reaches the goal the party's game becomes
+ * Finished while the completion presentation plays and the lobby prepares the
+ * next level. Everyone else is still holding keys, and the held-input heartbeat
+ * kept firing into a finished game — so mid-level-2 the other players were shown
+ * "Finished games cannot accept input."
+ *
+ * Exhaustive with a `never` default: a new phase must decide this explicitly
+ * rather than inherit an answer.
+ */
+export function multiplayerPhaseAcceptsInput(
+  phase: MultiplayerGamePhase,
+): boolean {
+  switch (phase) {
+    case MultiplayerGamePhase.Waiting:
+    case MultiplayerGamePhase.Playing:
+    case MultiplayerGamePhase.Paused:
+      // Waiting accepts input too: a player may already be holding a key when
+      // the party starts, and that input queues for the first frame. Widening
+      // the refusal to Waiting broke exactly that, which its test caught.
+      return true;
+    case MultiplayerGamePhase.Finished:
+      return false;
+    default: {
+      const invalidPhase: never = phase;
+      throw new Error(
+        `Invalid multiplayer game phase: ${String(invalidPhase)}`,
+      );
+    }
+  }
+}
+
 export type MultiplayerPlayerProfile = {
   readonly playerId: MultiplayerPlayerId;
   readonly nickname: MultiplayerNickname;
@@ -471,7 +511,7 @@ export function makeAuthoritativeGameRunner(
     },
     submitInput(input, nowMilliseconds) {
       requirePlayer(input.playerId);
-      if (phase === MultiplayerGamePhase.Finished) {
+      if (!multiplayerPhaseAcceptsInput(phase)) {
         throw new Error("Finished games cannot accept input.");
       }
       const rejection = inputQueue.enqueue(input, nowMilliseconds);

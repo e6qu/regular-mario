@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 
 import { requireCharacterForMultiplayerAvatar } from "../multiplayer/avatar-character";
 import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
@@ -134,12 +135,12 @@ export function makeMultiplayerPhaserRenderer(
       canvas.focus();
       if (latestSnapshot !== undefined) {
         candidate.setPredictedPresentationEnabled(
-          latestSnapshot.phase === "playing",
+          latestSnapshot.phase === MultiplayerGamePhase.Playing,
         );
         applySnapshot(
           candidate,
           latestSnapshot,
-          latestSnapshot.phase === "playing"
+          latestSnapshot.phase === MultiplayerGamePhase.Playing
             ? (latestPresentationState?.cameraLeftPixels ?? 0)
             : latestSnapshot.cameraLeftPixels,
         );
@@ -195,9 +196,11 @@ export function makeMultiplayerPhaserRenderer(
         // A pending rAF prediction can otherwise paint over a just-paused
         // canonical frame, making two clients show different worlds despite
         // receiving the same server snapshot.
-        scene.setPredictedPresentationEnabled(snapshot.phase === "playing");
+        scene.setPredictedPresentationEnabled(
+          snapshot.phase === MultiplayerGamePhase.Playing,
+        );
         const presentationCameraLeftPixels =
-          snapshot.phase === "playing"
+          snapshot.phase === MultiplayerGamePhase.Playing
             ? (latestPresentationState?.cameraLeftPixels ?? 0)
             : snapshot.cameraLeftPixels;
         applySnapshot(scene, snapshot, presentationCameraLeftPixels);
