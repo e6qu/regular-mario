@@ -334,3 +334,49 @@ describe("resolveSoundEvents", () => {
     ).toContain(SoundEvent.Finish);
   });
 });
+
+describe("an outcome that is both a defeat and a finish", () => {
+  // Dying ON the goal produces DefeatedAndFinished, which is neither
+  // `kind === Defeated` nor `kind === Finished`. The cues were selected by
+  // comparing the kind, so this state played NOTHING at all.
+  //
+  // Which cue it should play is settled by the rest of the game rather than by
+  // preference: hasFinishedOutcome() and the flagpole cinematic both treat
+  // DefeatedAndFinished as a finish and advance the level, so the finish cue
+  // wins and the defeat cue yields — one sound, not two.
+  function withOutcome(
+    state: SimulationState,
+    outcome: SimulationState["players"][0]["outcome"],
+  ): SimulationState {
+    return {
+      ...state,
+      players: [{ ...state.players[0], outcome }],
+    };
+  }
+
+  it("plays the finish cue and not the defeat cue", () => {
+    const events = resolveSoundEvents(
+      baseState(),
+      withOutcome(baseState(), {
+        kind: PlayerOutcomeKind.DefeatedAndFinished,
+        defeatReason: PlayerDefeatReason.EnemyContact,
+        finishReason: PlayerFinishReason.GoalContact,
+      }),
+    );
+
+    expect(events).toContain(SoundEvent.Finish);
+    expect(events).not.toContain(SoundEvent.Defeat);
+  });
+
+  it("still plays the defeat cue for a plain defeat", () => {
+    const events = resolveSoundEvents(
+      baseState(),
+      withOutcome(baseState(), {
+        kind: PlayerOutcomeKind.Defeated,
+        reason: PlayerDefeatReason.PitContact,
+      }),
+    );
+
+    expect(events).toContain(SoundEvent.Defeat);
+  });
+});
