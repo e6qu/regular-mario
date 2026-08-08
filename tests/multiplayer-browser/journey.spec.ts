@@ -1,36 +1,10 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser } from "@playwright/test";
 
-import { enterMultiplayerLobby, findGameIdByCreatorNickname } from "./support";
+import { findGameIdByCreatorNickname, login, saveProfile } from "./support";
 
 const injectedSnapshotDelayMilliseconds = Number(
   process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"] ?? "0",
 );
-
-async function login(page: Page): Promise<void> {
-  await page.goto("/#multiplayer");
-  const unsupportedProtocol = await page.request.get("/api/lobby", {
-    headers: { "x-multiplayer-protocol-version": "0" },
-  });
-  expect(unsupportedProtocol.status()).toBe(400);
-  expect(await unsupportedProtocol.json()).toMatchObject({
-    error: "Unsupported multiplayer protocol version.",
-  });
-  await enterMultiplayerLobby(page);
-}
-
-async function saveProfile(page: Page, nickname: string): Promise<void> {
-  await page.getByLabel("Nickname").fill(nickname);
-  const saved = page.waitForResponse(
-    (response) =>
-      response.url().endsWith("/api/profile") &&
-      response.request().method() === "PATCH",
-  );
-  await page.getByRole("button", { name: "Save profile" }).click();
-  expect((await saved).ok()).toBe(true);
-  await expect(
-    page.getByRole("heading", { name: "Trusted friends lobby" }),
-  ).toBeVisible();
-}
 
 async function makeTwoPlayerPages(browser: Browser) {
   const creatorContext = await browser.newContext();
