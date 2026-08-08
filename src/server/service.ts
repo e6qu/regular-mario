@@ -1,4 +1,5 @@
 import type { MovementConstants } from "../engine/simulation/movement-model";
+import { makeArrivalNickname } from "./player-names";
 import {
   requireMultiplayerAvatar,
   requireMultiplayerGameMode,
@@ -201,7 +202,9 @@ function defaultProfile(
 ): MultiplayerPlayerProfile {
   return {
     playerId,
-    nickname: requireMultiplayerNickname("Guest"),
+    // Everyone used to arrive as "Guest", so a lobby of four was four Guests
+    // and neither the roster nor the scoreboard told you who was who.
+    nickname: makeArrivalNickname(),
     avatarId: requireMultiplayerAvatar("castaway"),
   };
 }

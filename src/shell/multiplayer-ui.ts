@@ -807,7 +807,7 @@ function renderGame(
     // A paused/finished server receipt is a named authoritative frame used by
     // debugging and parity tooling. Do not immediately cover it with a stale
     // local prediction; there is no live input to hide in those phases.
-    if (snapshot.phase !== "playing") {
+    if (snapshot.phase !== MultiplayerGamePhase.Playing) {
       return;
     }
     if (prediction === undefined || localPlayerSlot === undefined) {
@@ -862,8 +862,8 @@ function renderGame(
     if (
       prediction !== undefined &&
       latestPredictionCommand !== undefined &&
-      (latestAuthoritativeSnapshot?.phase === "playing" ||
-        latestAuthoritativeSnapshot?.phase === "paused")
+      (latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing ||
+        latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Paused)
     ) {
       while (
         predictionFrameRemainderMilliseconds >=
@@ -915,7 +915,10 @@ function renderGame(
     // A course handoff emits a new-level frame with a fresh frame clock. A
     // delayed `finished` state for the prior course must never dispose this
     // client after it has already entered that new course.
-    if (snapshot.levelId !== currentLevelId && snapshot.phase === "finished") {
+    if (
+      snapshot.levelId !== currentLevelId &&
+      snapshot.phase === MultiplayerGamePhase.Finished
+    ) {
       return;
     }
     const known = snapshotsByGameId.get(snapshot.gameId);
@@ -1027,7 +1030,10 @@ function renderGame(
     // lightweight predicted/interpolated player transforms.
     renderer.render(snapshot);
     renderPresentation();
-    if (snapshot.phase === "finished" && !completionPresentationStarted) {
+    if (
+      snapshot.phase === MultiplayerGamePhase.Finished &&
+      !completionPresentationStarted
+    ) {
       completionPresentationStarted = true;
       renderer.beginCompletionPresentation();
       window.setTimeout(() => {
@@ -1042,7 +1048,7 @@ function renderGame(
     // readback and encoding caused visible input and audio stalls.
     if (
       socket.readyState === WebSocket.OPEN &&
-      snapshot.phase === "playing" &&
+      snapshot.phase === MultiplayerGamePhase.Playing &&
       !initialDebugScreenshotSubmitted
     ) {
       initialDebugScreenshotSubmitted = true;
@@ -1065,7 +1071,7 @@ function renderGame(
       );
       if (
         !disposed &&
-        (current.phase !== "finished" ||
+        (current.phase !== MultiplayerGamePhase.Finished ||
           current.levelId !== finishedSnapshot.levelId)
       ) {
         completionConfirmationInFlight = false;
@@ -1221,6 +1227,18 @@ function renderGame(
     if (socket.readyState !== WebSocket.OPEN) {
       return;
     }
+    // Do not send into a phase the authoritative runner refuses. When one player
+    // reaches the goal the party's game is Finished while the completion
+    // presentation plays and the next level is prepared; everyone else is still
+    // holding keys, and the held-input heartbeat kept firing into it — so the
+    // others were shown "Finished games cannot accept input." mid-level.
+    //
+    // The runner still refuses, loudly. This asks the same question first rather
+    // than provoking the refusal and swallowing it.
+    const phase = latestAuthoritativeSnapshot?.phase;
+    if (phase !== undefined && !multiplayerPhaseAcceptsInput(phase)) {
+      return;
+    }
     sequence += 1;
     sentInputCount += 1;
     const command = currentHeldInputCommand();
@@ -1288,7 +1306,7 @@ function renderGame(
     if (
       event.code === "KeyR" &&
       !chatEditing &&
-      latestAuthoritativeSnapshot?.phase !== "finished"
+      latestAuthoritativeSnapshot?.phase !== MultiplayerGamePhase.Finished
     ) {
       event.preventDefault();
       const reviveRequestCount = Number(
@@ -1310,8 +1328,8 @@ function renderGame(
     if (
       event.code === "KeyP" &&
       !chatEditing &&
-      (latestAuthoritativeSnapshot?.phase === "playing" ||
-        latestAuthoritativeSnapshot?.phase === "paused")
+      (latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing ||
+        latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Paused)
     ) {
       event.preventDefault();
       // The displayed receipt can be seconds behind over the supported delay
@@ -1323,7 +1341,7 @@ function renderGame(
     if (
       event.code === "KeyT" &&
       !chatEditing &&
-      latestAuthoritativeSnapshot?.phase === "playing"
+      latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing
     ) {
       event.preventDefault();
       gameShell.setAttribute("data-chat-open", "true");
@@ -1570,6 +1588,10 @@ import {
   makeClientPrediction,
   predictionRequiresLifecycleReconcile,
 } from "../multiplayer/client-prediction";
+import {
+  MultiplayerGamePhase,
+  multiplayerPhaseAcceptsInput,
+} from "../multiplayer/game-runner";
 import { makeRemotePlayerInterpolator } from "../multiplayer/remote-interpolation";
 import { shouldReconcilePrediction } from "../multiplayer/reconciliation-policy";
 import { multiplayerProtocolVersion } from "../multiplayer/protocol";

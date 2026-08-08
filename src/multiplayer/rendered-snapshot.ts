@@ -1,4 +1,5 @@
 /** Read-only protocol view consumed by the browser multiplayer renderer. */
+import type { MultiplayerGamePhase } from "./game-runner";
 import type { MultiplayerSimulationWireState } from "./simulation-wire";
 type MultiplayerRenderedPlayer = {
   readonly playerId: string;
@@ -16,7 +17,10 @@ export type MultiplayerRenderedSnapshot = {
   /** Server-monotonic ordering token; unlike `frame`, it never resets. */
   readonly snapshotSequence: number;
   readonly levelId: string;
-  readonly phase: string;
+  // The phase, not a string spelling of it. As `string` the browser compared
+  // magic literals — `phase === "playing"` — which typecheck against any typo
+  // and against phases that no longer exist.
+  readonly phase: MultiplayerGamePhase;
   readonly frame: number;
   readonly cameraLeftPixels: number;
   readonly simulationState: MultiplayerSimulationWireState;

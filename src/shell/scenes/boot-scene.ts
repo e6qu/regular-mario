@@ -64,6 +64,8 @@ import {
 } from "../../engine/simulation/movement-model";
 import { SpawnedActorCollectionMode } from "../../engine/simulation/interactive-block-state";
 import {
+  isPlayerOutcomeDefeated,
+  isPlayerOutcomeFinished,
   assertValidPlayerOutcomeState,
   PlayerDefeatReason,
   PlayerOutcomeKind,
@@ -1128,11 +1130,23 @@ export class BootScene extends Phaser.Scene {
         "Only an authoritative-render scene can accept remote state.",
       );
     }
-    const isFinished =
-      state.players[0].outcome.kind === PlayerOutcomeKind.Finished ||
-      state.players[0].outcome.kind === PlayerOutcomeKind.DefeatedAndFinished;
+    // Both variants that carry a finish, asked once rather than compared by kind.
+    const isFinished = isPlayerOutcomeFinished(state.players[0].outcome);
     if (this.authoritativeCompletionPresentationActive && isFinished) {
       return;
+    }
+    // A revive: the party brought this player back, so the death presentation
+    // that hid their sprite must end. Nothing else does it — a multiplayer
+    // revive keeps the same scene, and only a scene rebuild used to restore the
+    // sprite, so the revived player stayed invisible.
+    const wasDefeated = isPlayerOutcomeDefeated(
+      this.simulationState.players[0].outcome,
+    );
+    const isDefeated = isPlayerOutcomeDefeated(state.players[0].outcome);
+    if (wasDefeated && !isDefeated) {
+      this.deathArcStarted = false;
+      this.deathArcActive = false;
+      this.clearDeathEffect();
     }
     this.pendingAuthoritativeState = { state, cameraLeftPixels };
   }
@@ -3852,6 +3866,12 @@ export class BootScene extends Phaser.Scene {
   // Tear down any in-flight death effect and restore the player sprite so a
   // retry / next level starts from a clean, upright, visible body.
   private clearDeathEffect(): void {
+    // The death effects hide the player sprite — beginExplodeEffect replaces it
+    // with body parts, beginHuskRagdoll with a charred husk — so clearing the
+    // effect must put it back. Without this the sprite stays hidden for the life
+    // of the scene, and since a multiplayer revive does NOT rebuild the scene,
+    // the revived player was invisible: authoritatively alive, painted nowhere.
+    this.playerImageObject?.setVisible(true);
     for (const piece of this.deathPieces) {
       piece.image.destroy();
       piece.eyes?.destroy();
@@ -5266,6 +5286,23 @@ export class BootScene extends Phaser.Scene {
     this.game.canvas.setAttribute(
       "data-rendered-primary-y",
       String(this.simulationState.players[0].player.position.y),
+    );
+    // How many players this frame actually paints, and whether the primary
+    // sprite is on screen. "Revived but invisible" is indistinguishable from
+    // "revived and fine" through the server's spectator flag alone — that flag
+    // describes the authoritative view, not what Phaser drew. Without this a
+    // test asserting visibility has nothing to read.
+    this.game.canvas.setAttribute(
+      "data-rendered-players",
+      String(this.simulationState.players.length),
+    );
+    // "absent" and "false" are different faults — never created versus created
+    // and hidden — so they are reported separately rather than collapsed.
+    this.game.canvas.setAttribute(
+      "data-rendered-primary-visible",
+      this.playerImageObject === undefined
+        ? "absent"
+        : String(this.playerImageObject.visible),
     );
     const currentRenderedSimulationFrame = Number(
       this.simulationState.clock.frameIndex,

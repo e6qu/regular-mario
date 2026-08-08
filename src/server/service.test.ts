@@ -51,7 +51,12 @@ describe("multiplayer service", () => {
     const service = makeService();
     const player = service.loginPlayer("friends", 0);
     const admin = service.loginAdmin("administrator", 0);
-    expect(service.requirePlayer(player.token, 0).nickname).toBe("Guest");
+    // Arrivals are given a readable two-word name rather than all being
+    // "Guest", so the shape is asserted rather than a literal — pinning the
+    // literal would make this test depend on which name was dealt.
+    const nickname = service.requirePlayer(player.token, 0).nickname;
+    expect(nickname).toMatch(/^[A-Z][a-z]+ [A-Z][a-z]+$/);
+    expect(nickname).not.toBe("Guest");
     expect(service.levels(player.token, 0)).toEqual([
       { id: "first-authored", label: "First Authored" },
     ]);

@@ -48,3 +48,43 @@ test("a defeated player can revive with R and stops being a spectator", async ({
     "Only defeated players can revive.",
   );
 });
+
+test("a revived player is painted, not merely marked active", async ({
+  page,
+}) => {
+  await login(page);
+  await saveProfile(page, "Visible");
+  await createGameOnLevel(page, "smb-1-1");
+  const shell = page.locator(".multiplayer-game-shell");
+  const canvas = page.locator(".multiplayer-game-shell canvas");
+
+  await walkRightUntilDefeated(page);
+  await page.keyboard.press("KeyR");
+  await expect(shell).toHaveAttribute("data-local-player-spectator", "false", {
+    timeout: 15_000,
+  });
+
+  // The server's spectator flag says the party accepted the revive. It says
+  // nothing about whether Phaser drew anybody, which is what "revived but
+  // invisible" means — so read what the renderer painted.
+  await expect(canvas).toHaveAttribute(
+    "data-rendered-primary-visible",
+    "true",
+    {
+      timeout: 15_000,
+    },
+  );
+  await expect(canvas).toHaveAttribute("data-rendered-players", "1");
+
+  // And it must keep painting: a sprite that appears for one frame and then
+  // stops is still invisible to the player.
+  const firstFrame = await canvas.getAttribute(
+    "data-rendered-simulation-frame",
+  );
+  await page.waitForTimeout(1_000);
+  const laterFrame = await canvas.getAttribute(
+    "data-rendered-simulation-frame",
+  );
+  expect(Number(laterFrame)).toBeGreaterThan(Number(firstFrame));
+  await expect(canvas).toHaveAttribute("data-rendered-primary-visible", "true");
+});
