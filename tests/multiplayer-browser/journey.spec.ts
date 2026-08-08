@@ -1,6 +1,11 @@
 import { expect, test, type Browser } from "@playwright/test";
 
-import { findGameIdByCreatorNickname, login, saveProfile } from "./support";
+import {
+  endGameQuietly,
+  findGameIdByCreatorNickname,
+  login,
+  saveProfile,
+} from "./support";
 
 const injectedSnapshotDelayMilliseconds = Number(
   process.env["MULTIPLAYER_TEST_SNAPSHOT_DELAY_MS"] ?? "0",
@@ -186,6 +191,9 @@ test("two trusted friends create, join, chat, and inspect a game", async ({
   ).toBeVisible();
   await expect(guest.getByText(/paused · 0\/16/)).toBeVisible();
   await creator.screenshot({ path: "test-results/multiplayer-desktop.png" });
+  // Unconditional: this game outlives the browsers, and once its members are
+  // gone nobody is allowed to cancel it — the next spec would inherit it.
+  await endGameQuietly(creator, gameId);
   await creatorContext.close();
   await guestContext.close();
 });

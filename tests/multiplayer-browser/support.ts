@@ -205,3 +205,28 @@ export async function leaveGame(page: Page): Promise<void> {
     page.getByRole("heading", { name: "Trusted friends lobby" }),
   ).toBeVisible();
 }
+
+/**
+ * End a game through its own member's session, swallowing any failure.
+ *
+ * Cleanup that only runs when a test succeeds is not cleanup. Only a current
+ * member may cancel a game, and a game whose members have all gone is listed as
+ * `paused · 0/16` with nobody left who is allowed to remove it — so one spec
+ * that fails halfway leaves a permanent fixture in the lobby and the *next*
+ * spec is the one that reports a failure. Call this from a `finally`, while the
+ * pages that belong to the game still exist.
+ */
+export async function endGameQuietly(
+  page: Page,
+  gameId: string,
+): Promise<void> {
+  try {
+    await page.request.post(`/api/games/${gameId}/end`, {
+      headers: { "x-multiplayer-protocol-version": "1" },
+    });
+  } catch {
+    // The page may already be closed, or the game already gone. Either way the
+    // lobby is in the state this wanted, and a teardown must never be the thing
+    // that fails a run.
+  }
+}
