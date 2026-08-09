@@ -1,15 +1,12 @@
 import { globSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import {
-  ActorRole,
-  makeLevelSpec,
-  TileCollisionKind,
-} from "../engine/domain/level-spec";
+import { makeLevelSpec } from "../engine/domain/level-spec";
 import {
   BrowserLevelKey,
   selectBrowserGameBootstrap,
 } from "./browser-level-selection";
+import { drawnActorIds, drawnTileIds } from "./level-art-requirements";
 
 /**
  * Every id a level names must be drawable by the shipped content set.
@@ -48,61 +45,19 @@ function loadShippedManifest(): Manifest {
 }
 
 /**
- * Tiles the scene draws. An empty tile is background and has no art, which is
- * why `sky` is absent from every bundle and correctly so.
+ * The level as the renderer will see it.
+ *
+ * Validating first matters: `drawnTileIds` and `drawnActorIds` answer the same
+ * question the scene asks, and the scene only ever asks it of a validated spec.
  */
-function drawnTileIds(
-  levelInput: Parameters<typeof makeLevelSpec>[0],
-): readonly string[] {
+function requireLevelSpec(levelInput: Parameters<typeof makeLevelSpec>[0]) {
   const result = makeLevelSpec(levelInput);
   if (!result.ok) {
     throw new Error(
       `Level does not validate: ${result.errors.map((e) => e.message).join(" ")}`,
     );
   }
-  const spec = result.value;
-  const drawn = new Set<string>();
-  for (const definition of spec.tileDefinitions) {
-    if (definition.collision !== TileCollisionKind.Empty) {
-      drawn.add(definition.tileId);
-    }
-  }
-  return [...drawn];
-}
-
-/**
- * Actors the scene draws, and the contents blocks spawn.
- *
- * Mirrors `isRenderedActorRole`: a player start is where the player begins
- * rather than something drawn, and a pipe is drawn from its tiles. Block
- * contents are included because a coin that appears when a block is bumped is
- * every bit as rendered as one placed by hand — the distinction I got wrong
- * when I first scanned for this and concluded `coin` was safe.
- */
-function drawnActorIds(
-  levelInput: Parameters<typeof makeLevelSpec>[0],
-): readonly string[] {
-  const result = makeLevelSpec(levelInput);
-  if (!result.ok) {
-    throw new Error("Level does not validate.");
-  }
-  const spec = result.value;
-  const drawn = new Set<string>();
-  for (const definition of spec.actorDefinitions) {
-    if (
-      definition.role !== ActorRole.PlayerStart &&
-      definition.role !== ActorRole.Pipe
-    ) {
-      drawn.add(definition.actorId);
-    }
-  }
-  for (const definition of spec.tileDefinitions) {
-    const contents = definition.contentsActorId;
-    if (contents !== undefined) {
-      drawn.add(contents);
-    }
-  }
-  return [...drawn];
+  return result.value;
 }
 
 describe("every bundled level can be drawn by the shipped content set", () => {
@@ -123,12 +78,13 @@ describe("every bundled level can be drawn by the shipped content set", () => {
       const missingTiles = new Set<string>();
       const missingActors = new Set<string>();
       for (const level of levels) {
-        for (const tileId of drawnTileIds(level)) {
+        const spec = requireLevelSpec(level);
+        for (const tileId of drawnTileIds(spec)) {
           if (!tileArt.has(tileId)) {
             missingTiles.add(tileId);
           }
         }
-        for (const actorId of drawnActorIds(level)) {
+        for (const actorId of drawnActorIds(spec)) {
           if (!actorArt.has(actorId)) {
             missingActors.add(actorId);
           }

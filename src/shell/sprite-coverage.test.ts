@@ -10,7 +10,7 @@ import {
   type UserAssetManifest,
   type UserBaseSpriteEntry,
 } from "../engine/domain/user-asset-manifest";
-import { validateDefaultVglcSmbSpriteCoverage } from "./default-vglc-smb-sprite-coverage";
+import { validateDefaultVglcSmbSpriteCoverage } from "./sprite-coverage";
 
 const onePixelSpriteEntry: UserBaseSpriteEntry = {
   source: { kind: UserAssetSourceKind.Url, url: "assets/sprite.png" },

@@ -457,6 +457,11 @@ async function main() {
       ...mapTileSprites(extraTileSpriteSources),
       // Authored floor-spike tile (no CHR source; SMB has none).
       thorn: spriteEntry("smb-spikes.png"),
+      // The multi-layer VGLC import paints its V/X piranha squares as a
+      // `plant-hazard` tile rather than an actor, so the tile needs art of its
+      // own. The plant's sprite is 16x24; a tile is one 16x16 square, so this
+      // takes the head — the jaws are what the player must read.
+      "plant-hazard": spriteEntry("piranha-plant.png"),
       // The extracted flag is a single 8x8 sprite tile.
       "flagpole-flag": {
         source: { kind: "url", url: "flag-pennant.png" },

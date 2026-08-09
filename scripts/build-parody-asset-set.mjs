@@ -2500,6 +2500,11 @@ async function main() {
     stone: spriteEntry("tile-crate.png"),
     thorn: spriteEntry("tile-spikes.png"),
     gate: spriteEntry("tile-none.png"),
+    // The multi-layer VGLC import paints its V/X piranha squares as a
+    // `plant-hazard` tile rather than an actor, so the tile needs art of its
+    // own: without it every level containing one throws while the scene builds.
+    // The same kelp trap the piranha actor already uses.
+    "plant-hazard": spriteEntry("kelp-trap.png"),
     // Decoded background scenery (empty-collision decorative tiles).
     "scenery-cloud-left": spriteEntry("scenery-cloud-left.png"),
     "scenery-cloud-middle": spriteEntry("scenery-cloud-middle.png"),

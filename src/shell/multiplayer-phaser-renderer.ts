@@ -9,7 +9,7 @@ import {
   makeFirePlayerVitalityState,
   makeInitialPlayerVitalityState,
 } from "../engine/simulation/player-vitality";
-import { validateDefaultVglcSmbSpriteCoverage } from "./default-vglc-smb-sprite-coverage";
+import { validateDefaultVglcSmbSpriteCoverage } from "./sprite-coverage";
 import { selectBrowserGameBootstrap } from "./browser-level-selection";
 import { createGameConfig } from "./create-game-config";
 import { BootScene } from "./scenes/boot-scene";

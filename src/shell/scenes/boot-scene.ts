@@ -163,6 +163,12 @@ import type {
   LoadedStatefulImageAsset,
   UserAssetBundle,
 } from "../user-asset-loader";
+import {
+  flagpoleTileId,
+  isIntentionallyInvisibleTile,
+  isRenderedActorRole as isDrawnActorRole,
+  levelDrawsExitActors,
+} from "../level-art-requirements";
 
 const initialFrameDurationMilliseconds =
   nominalSixtyHertzFrameDurationMilliseconds;
@@ -7865,10 +7871,12 @@ function requireActorRole(
   return role;
 }
 
+// Narrows to the roles the renderer draws; the rule itself lives in
+// level-art-requirements, shared with the checks that ask the same question.
 function isRenderedActorRole(
   role: BrowserActorRole,
 ): role is BrowserRenderedActorRole {
-  return role !== ActorRole.PlayerStart && role !== ActorRole.Pipe;
+  return isDrawnActorRole(role);
 }
 
 function renderLevelTiles(
@@ -8389,11 +8397,7 @@ function renderNonPlayerActors(
   const roleCounts = makeEmptyRenderedActorRoleCounts();
   const actors: RuntimeRenderedActor[] = [];
 
-  // A level with an authored flagpole marks its exit with the pole itself;
-  // the gate-axe visual is for castle exits (where the gate IS the axe).
-  const hasFlagpole = levelSpec.tiles.some((row) =>
-    row.some((tileId) => tileId === flagpoleTileId),
-  );
+  const drawsExits = levelDrawsExitActors(levelSpec.tiles);
 
   for (const actor of levelSpec.actors) {
     const role = requireActorRole(actorRoleLookup, actor.actorId);
@@ -8401,7 +8405,7 @@ function renderNonPlayerActors(
     if (!isRenderedActorRole(role)) {
       continue;
     }
-    if (role === ActorRole.Exit && hasFlagpole) {
+    if (role === ActorRole.Exit && !drawsExits) {
       continue;
     }
 
@@ -8452,10 +8456,6 @@ function renderNonPlayerActors(
   };
 }
 
-function isIntentionallyInvisibleTile(tileId: string): boolean {
-  return tileId === "empty" || tileId === "sky" || tileId === "goal-reach";
-}
-
 // Decorative scenery tiles (Empty collision): the in-level clouds, bushes,
 // hills, fences, trees, water bands and castle masonry. Simple flat shapes
 // behind the action — sprites can override them per skin.
@@ -8487,7 +8487,6 @@ const decorativeSceneryTileIds: ReadonlySet<string> = new Set([
   "coral",
 ]);
 
-const flagpoleTileId = "flagpole";
 const flagpoleFurnitureDepth = 5;
 // The flag's height as a fraction of a tile (renderFlagpoleFurniture draws it
 // at this size; the slide caps its drop above the ground line with it).
