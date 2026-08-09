@@ -1,21 +1,6 @@
-import { expect, test, type TestInfo } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import {
-  cancelGame,
-  createGameOnLevel,
-  findGameIdByCreatorNickname,
-  joinHostedGame,
-  login,
-  saveProfile,
-} from "./support";
-
-function report(
-  info: TestInfo,
-  name: string,
-  values: Readonly<Record<string, unknown>>,
-): void {
-  info.annotations.push({ type: name, description: JSON.stringify(values) });
-}
+import { cancelGame, openTwoPlayerGame, report } from "./support";
 
 /**
  * How smoothly one player sees another move.
@@ -33,21 +18,13 @@ function report(
 test("another player's movement is not seen in 20 Hz jumps", async ({
   browser,
 }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
+  const { hostContext, guestContext, host, guest } = await openTwoPlayerGame(
+    browser,
+    "MoverHost",
+    "WatcherGuest",
+  );
 
   try {
-    await login(host);
-    await saveProfile(host, "MoverHost");
-    await createGameOnLevel(host, "smb-1-1");
-    await findGameIdByCreatorNickname(host, "MoverHost");
-
-    await login(guest);
-    await saveProfile(guest, "WatcherGuest");
-    await joinHostedGame(guest, "MoverHost");
-
     const watcher = guest.locator(".multiplayer-game-shell");
     await guest.waitForTimeout(1_000);
 

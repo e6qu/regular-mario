@@ -363,7 +363,6 @@ export function makeMultiplayerHttpServer(
     });
   }
 
-
   /**
    * Send one player's command to the rest of their party.
    *

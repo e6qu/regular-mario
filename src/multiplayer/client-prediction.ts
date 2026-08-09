@@ -114,7 +114,9 @@ export function makeClientPrediction(
       commandForSlot(0),
       movementConstants,
       levelSpec,
-      source.players.slice(1).map((_player, index) => commandForSlot(index + 1)),
+      source.players
+        .slice(1)
+        .map((_player, index) => commandForSlot(index + 1)),
       false,
     );
   }

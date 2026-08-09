@@ -1,4 +1,10 @@
-import { expect, type Page } from "@playwright/test";
+import {
+  expect,
+  type Browser,
+  type BrowserContext,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 export async function enterMultiplayerLobby(page: Page): Promise<void> {
   await page.goto("/#multiplayer");
@@ -229,4 +235,64 @@ export async function endGameQuietly(
     // lobby is in the state this wanted, and a teardown must never be the thing
     // that fails a run.
   }
+}
+
+/**
+ * Attach a measurement to the test report.
+ *
+ * The performance specs exist to produce numbers, and a number that only
+ * reaches a console is a number nobody reads when the run fails. Annotations
+ * travel with the report.
+ */
+export function report(
+  info: TestInfo,
+  name: string,
+  values: Readonly<Record<string, unknown>>,
+): void {
+  info.annotations.push({ type: name, description: JSON.stringify(values) });
+}
+
+/** A host with a live game on `smb-1-1`, and a guest who has joined it. */
+export type TwoPlayerGame = {
+  readonly hostContext: BrowserContext;
+  readonly guestContext: BrowserContext;
+  readonly host: Page;
+  readonly guest: Page;
+};
+
+/**
+ * Open a two-player game: host creates, guest joins, both playing.
+ *
+ * Shared because every measurement spec needs the same eight steps, and eight
+ * copied steps drift apart. Nicknames are per-spec because the server holds
+ * them globally unique and a profile outlives the context that made it.
+ */
+export async function openTwoPlayerGame(
+  browser: Browser,
+  hostNickname: string,
+  guestNickname: string,
+  // Runs against the guest page before it navigates anywhere. Instrumentation
+  // that has to be installed ahead of the app's own scripts — recording frame
+  // timings, wrapping WebSocket — has nowhere else to go.
+  prepareGuest?: (page: Page) => Promise<void>,
+): Promise<TwoPlayerGame> {
+  const hostContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const guest = await guestContext.newPage();
+
+  if (prepareGuest !== undefined) {
+    await prepareGuest(guest);
+  }
+
+  await login(host);
+  await saveProfile(host, hostNickname);
+  await createGameOnLevel(host, "smb-1-1");
+  await findGameIdByCreatorNickname(host, hostNickname);
+
+  await login(guest);
+  await saveProfile(guest, guestNickname);
+  await joinHostedGame(guest, hostNickname);
+
+  return { hostContext, guestContext, host, guest };
 }
