@@ -108,17 +108,61 @@ describe("platform state", () => {
     const resolution = resolvePlatformsState(
       state,
       levelSpec,
-      falling,
+      [falling],
       nominalFrameMilliseconds,
       frame(0),
     );
-    expect(resolution.playerRiding).toBe(true);
-    expect(resolution.player.movement.vertical).toBe(
-      VerticalMovementState.Grounded,
-    );
-    expect(resolution.player.velocity.y).toBe(0);
+    expect(resolution.riding[0]).toBe(true);
+    const ridden = resolution.players[0];
+    if (ridden === undefined) {
+      throw new Error("Expected the ridden player to be resolved.");
+    }
+    expect(ridden.movement.vertical).toBe(VerticalMovementState.Grounded);
+    expect(ridden.velocity.y).toBe(0);
     // Carried horizontally by the platform's motion between frames 0 and 1.
-    expect(resolution.player.position.x).not.toBe(falling.position.x);
+    expect(ridden.position.x).not.toBe(falling.position.x);
+  });
+
+  // Platforms used to be resolved for slot 0 alone, so a co-op player stood
+  // still while the plank slid out from under them. A level built around a lift
+  // was unfinishable by anybody but the host.
+  it("carries every rider, not only the first", () => {
+    const levelSpec = requireLevelSpec(
+      makePlatformLevelInput([
+        {
+          platformId: "lift-0",
+          kind: "horizontal",
+          x: 8,
+          y: 6,
+          widthTiles: 3,
+        },
+      ]),
+    );
+    const state = makeEmptyPlatformsState(levelSpec);
+    // Two friends standing on the same plank, a few pixels apart.
+    const first = playerAt(140, 96 - 14);
+    const second = playerAt(160, 96 - 14);
+
+    const resolution = resolvePlatformsState(
+      state,
+      levelSpec,
+      [first, second],
+      nominalFrameMilliseconds,
+      frame(0),
+    );
+
+    expect(resolution.riding).toEqual([true, true]);
+    const [carriedFirst, carriedSecond] = resolution.players;
+    if (carriedFirst === undefined || carriedSecond === undefined) {
+      throw new Error("Expected both riders to be resolved.");
+    }
+    // Both moved with the plank, and by the same amount: one platform, one
+    // motion, however many people are standing on it.
+    expect(carriedFirst.position.x).not.toBe(first.position.x);
+    expect(carriedSecond.position.x).not.toBe(second.position.x);
+    expect(Number(carriedFirst.position.x) - Number(first.position.x)).toBe(
+      Number(carriedSecond.position.x) - Number(second.position.x),
+    );
   });
 
   it("drops a drop-lift only while ridden", () => {
@@ -132,7 +176,7 @@ describe("platform state", () => {
     state = resolvePlatformsState(
       state,
       levelSpec,
-      bystander,
+      [bystander],
       nominalFrameMilliseconds,
       frame(0),
     ).state;
@@ -143,7 +187,7 @@ describe("platform state", () => {
       state = resolvePlatformsState(
         state,
         levelSpec,
-        rider,
+        [rider],
         nominalFrameMilliseconds,
         frame(i),
       ).state;
@@ -187,7 +231,7 @@ describe("platform state", () => {
         state = resolvePlatformsState(
           state,
           levelSpec,
-          rider,
+          [rider],
           nominalFrameMilliseconds,
           frame(i),
         ).state;

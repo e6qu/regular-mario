@@ -246,24 +246,38 @@ function playerRidesPlacement(
 
 export type PlatformsResolution = {
   readonly state: PlatformsState;
-  readonly player: PlayerSimulationState;
-  readonly playerRiding: boolean;
+  /** One entry per player passed in, in the same order. */
+  readonly players: readonly PlayerSimulationState[];
+  /** Whether each player is standing on a platform, in the same order. */
+  readonly riding: readonly boolean[];
 };
 
-// Advance every platform one frame and settle the player onto whichever
+// Advance every platform one frame and settle each player onto whichever
 // platform they ride. Riding a drop lift makes it fall; riding a balance
 // platform pulls it down and its rope partner up, detaching both past the
 // rope limit.
+//
+// Takes the whole party rather than one player. A platform is one piece of the
+// world: it must advance exactly once per frame no matter how many people are
+// standing on it, so the riders are gathered first and the platforms stepped
+// once against that set. Resolving per player in a loop would step every
+// platform once per player. It also means a balance platform weighed down by
+// two friends behaves like a platform two friends are standing on, rather than
+// like one occupied by whoever happens to hold slot 0.
 export function resolvePlatformsState(
   previousState: PlatformsState,
   levelSpec: LevelSpec,
-  player: PlayerSimulationState,
+  players: readonly PlayerSimulationState[],
   frameDurationMilliseconds: number,
   frameIndex: FrameIndex,
 ): PlatformsResolution {
   assertValidPlatformsState(previousState, levelSpec);
   if (levelSpec.platforms.length === 0) {
-    return { state: previousState, player, playerRiding: false };
+    return {
+      state: previousState,
+      players,
+      riding: players.map(() => false),
+    };
   }
 
   const frameSeconds = frameDurationMilliseconds / 1000;
@@ -274,7 +288,9 @@ export function resolvePlatformsState(
   );
   const riddenIds = new Set(
     previousPlacements
-      .filter((placement) => playerRidesPlacement(player, placement))
+      .filter((placement) =>
+        players.some((rider) => playerRidesPlacement(rider, placement)),
+      )
       .map((placement) => placement.platformId),
   );
 
@@ -342,47 +358,59 @@ export function resolvePlatformsState(
     (Number(frameIndex) + 1) as FrameIndex,
   );
 
-  // Settle the player onto the ridden platform's new top, carried by its
+  // Settle each player onto the ridden platform's new top, carried by its
   // horizontal motion.
-  let adjustedPlayer = player;
-  let playerRiding = false;
-  for (const placement of nextPlacements) {
-    const previous = previousPlacements.find(
-      (candidate) => candidate.platformId === placement.platformId,
-    );
-    if (previous === undefined) {
-      continue;
+  const settled = players.map((player) => {
+    for (const placement of nextPlacements) {
+      const previous = previousPlacements.find(
+        (candidate) => candidate.platformId === placement.platformId,
+      );
+      if (previous === undefined) {
+        continue;
+      }
+      const wasRiding =
+        riddenIds.has(placement.platformId) &&
+        previousPlacements.some(
+          (candidate) =>
+            candidate.platformId === placement.platformId &&
+            playerRidesPlacement(player, candidate),
+        );
+      const landsNow = playerRidesPlacement(player, placement);
+      if (!wasRiding && !landsNow) {
+        continue;
+      }
+      const deltaX = placement.x - previous.x;
+      return {
+        riding: true,
+        player: {
+          ...player,
+          position: {
+            x: requireSimulationPixelPosition(
+              player.position.x + deltaX,
+              "player.position.x",
+            ),
+            y: requireSimulationPixelPosition(
+              placement.y - player.collider.height,
+              "player.position.y",
+            ),
+          },
+          velocity: {
+            x: player.velocity.x,
+            y: requireSimulationVelocity(0, "player.velocity.y"),
+          },
+          movement: {
+            ...player.movement,
+            vertical: VerticalMovementState.Grounded,
+          },
+        },
+      };
     }
-    const wasRiding = riddenIds.has(placement.platformId);
-    const landsNow = playerRidesPlacement(player, placement);
-    if (!wasRiding && !landsNow) {
-      continue;
-    }
-    const deltaX = placement.x - previous.x;
-    playerRiding = true;
-    adjustedPlayer = {
-      ...player,
-      position: {
-        x: requireSimulationPixelPosition(
-          player.position.x + deltaX,
-          "player.position.x",
-        ),
-        y: requireSimulationPixelPosition(
-          placement.y - player.collider.height,
-          "player.position.y",
-        ),
-      },
-      velocity: {
-        x: player.velocity.x,
-        y: requireSimulationVelocity(0, "player.velocity.y"),
-      },
-      movement: {
-        ...player.movement,
-        vertical: VerticalMovementState.Grounded,
-      },
-    };
-    break;
-  }
+    return { riding: false, player };
+  });
 
-  return { state: nextState, player: adjustedPlayer, playerRiding };
+  return {
+    state: nextState,
+    players: settled.map((entry) => entry.player),
+    riding: settled.map((entry) => entry.riding),
+  };
 }

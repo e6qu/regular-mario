@@ -50,6 +50,7 @@ function stepWithBumps(
     initialMovementConstants,
     firstAuthoredLevelSpec(),
     makeEmptyBreakableBlockState(),
+    [],
   );
 }
 

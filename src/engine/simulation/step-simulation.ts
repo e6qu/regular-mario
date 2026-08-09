@@ -251,6 +251,7 @@ export function stepSimulation(
     movementConstants,
     levelSpec,
     state.breakableBlocks,
+    state.spawnedActors.spawnedActors,
   );
   const primaryStepped = stepPrimaryPlayer(
     state,
@@ -510,6 +511,7 @@ function stepCoopPlayerMovement(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
+  spawnedActors: readonly SpawnedActor[],
 ): readonly CoopPlayerStep[] {
   return coopRuntimes.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
@@ -527,6 +529,7 @@ function stepCoopPlayerMovement(
       movementConstants,
       levelSpec,
       breakableBlocks,
+      spawnedActors,
     );
     return {
       runtime: { ...runtime, player: stepped.player },
@@ -832,22 +835,32 @@ function stepActiveSimulation(
   // Moving platforms: advance the lifts and settle the player onto whichever
   // one they ride (carried by its motion). Runs after tile collision so solid
   // ground still wins where both apply.
+  // The whole party rides. Platforms used to be resolved for slot 0 alone, so a
+  // co-op player stood still while the plank slid out from under them and then
+  // fell — a level built around a lift was unfinishable by anyone else.
+  const ridingPlayers = [
+    resolvedPlayer,
+    ...coopSteps.map((step) => step.runtime.player),
+  ];
   const platformsResolution = resolvePlatformsState(
     state.platforms,
     levelSpec,
-    resolvedPlayer,
+    ridingPlayers,
     Number(state.clock.frameDurationMilliseconds),
     state.clock.frameIndex,
   );
   // A platform carry is a positional shove outside the movement integration —
   // re-resolve it against solids so a plank sweeping toward a wall can never
   // embed its rider inside the tiles (8-4's lava shuttle did exactly that).
-  const platformAdjustedPlayer =
-    platformsResolution.player === resolvedPlayer
-      ? resolvedPlayer
+  const settleAfterPlatformCarry = (
+    before: PlayerSimulationState,
+    after: PlayerSimulationState,
+  ): PlayerSimulationState =>
+    after === before
+      ? before
       : resolveSolidTileCollisionWithBlockBumps(
-          resolvedPlayer,
-          platformsResolution.player,
+          before,
+          after,
           levelSpec,
           state.breakableBlocks,
           movementConstants.springLaunchSpeed,
@@ -855,6 +868,19 @@ function stepActiveSimulation(
           walkableHazardTileIds,
           effectiveInputCommand.jumpPressed,
         ).player;
+  const platformAdjustedPlayer = settleAfterPlatformCarry(
+    resolvedPlayer,
+    platformsResolution.players[0] ?? resolvedPlayer,
+  );
+  const coopAfterPlatforms = coopSteps.map((step, index) => {
+    const carried = platformsResolution.players[index + 1];
+    return carried === undefined
+      ? step.runtime
+      : {
+          ...step.runtime,
+          player: settleAfterPlatformCarry(step.runtime.player, carried),
+        };
+  });
 
   // Castle maze checkpoints: crossing on the wrong row loops the player back
   // four pages.
@@ -952,32 +978,32 @@ function stepActiveSimulation(
   // vitality grows from what that player picked up.
   let partyCollectibles = collectibles;
   let partyPowerUps = powerUpResolution.state;
-  const coopAfterPickups = coopSteps.map((step) => {
-    if (step.runtime.outcome.kind !== PlayerOutcomeKind.Active) {
-      return step.runtime;
+  const coopAfterPickups = coopAfterPlatforms.map((runtime) => {
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+      return runtime;
     }
     partyCollectibles = resolveCollectibleInteractionState(
-      step.runtime.player,
+      runtime.player,
       levelSpec,
       spawnedActors.spawnedActors,
       partyCollectibles,
     );
     const collected = resolvePowerUpInteractionState(
-      step.runtime.player,
+      runtime.player,
       levelSpec,
       spawnedActors.spawnedActors,
       partyPowerUps,
     );
     partyPowerUps = collected.state;
     const vitality = applyPowerUpCollectionToVitality(
-      step.runtime.vitality,
+      runtime.vitality,
       collected.newlyCollectedPowerUpEntityIds.length,
     );
     return {
-      ...step.runtime,
+      ...runtime,
       vitality,
       // Co-op players have no crouch yet, so they are never crouch-sized.
-      player: resizePlayerForVitality(step.runtime.player, vitality, false),
+      player: resizePlayerForVitality(runtime.player, vitality, false),
     };
   });
   const playerInvincibility = resolvePlayerInvincibilityState(
@@ -985,6 +1011,23 @@ function stepActiveSimulation(
     levelSpec,
     spawnedActors.spawnedActors,
     state.players[0].invincibility,
+  );
+  // A star belongs to whoever ran into it. Invincibility resolved for the
+  // primary alone, so a co-op player passed through a star and gained nothing —
+  // and, since the star also clears enemies on contact, the party lost the
+  // clearing too whenever anybody but the host picked it up.
+  const coopAfterInvincibility = coopAfterPickups.map((runtime) =>
+    runtime.outcome.kind === PlayerOutcomeKind.Active
+      ? {
+          ...runtime,
+          invincibility: resolvePlayerInvincibilityState(
+            runtime.player,
+            levelSpec,
+            spawnedActors.spawnedActors,
+            runtime.invincibility,
+          ),
+        }
+      : runtime,
   );
   const enemyMotion = stepEnemyMotionState(
     state.enemyMotion,
@@ -1033,7 +1076,7 @@ function stepActiveSimulation(
   // whoever happens to be first in the array.
   let enemiesAfterEveryPlayer = enemiesBeforeProjectileMerge;
   const coopRuntimesAfterEnemies = coopSteps.map((step, index) => {
-    const runtime = coopAfterPickups[index] ?? step.runtime;
+    const runtime = coopAfterInvincibility[index] ?? step.runtime;
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
@@ -1057,9 +1100,13 @@ function stepActiveSimulation(
       ),
     };
   });
-  const enemiesAfterInvincibility = applyInvincibilityEnemyDefeats(
-    enemiesAfterEveryPlayer,
-    playerInvincibility,
+  const enemiesAfterInvincibility = coopAfterInvincibility.reduce(
+    (enemies, runtime) =>
+      applyInvincibilityEnemyDefeats(enemies, runtime.invincibility),
+    applyInvincibilityEnemyDefeats(
+      enemiesAfterEveryPlayer,
+      playerInvincibility,
+    ),
   );
   const anyShellMoving = enemyMotion.armoredActors.some(
     (shellActor) =>
