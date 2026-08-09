@@ -233,7 +233,13 @@ function expectedActorPositions(spec: {
     readonly actorId: string;
     readonly role: ActorRole;
   }[];
+  readonly tiles: readonly (readonly string[])[];
 }): string[] {
+  // A level with an authored flagpole marks its exit with the pole itself, so
+  // the scene deliberately does not draw the gate actor as well (boot-scene's
+  // `role === ActorRole.Exit && hasFlagpole` skip). This list is compared
+  // against what the game rendered, so it must observe the same rule.
+  const hasFlagpole = spec.tiles.some((row) => row.includes("flagpole"));
   return spec.actors
     .filter((actor) => {
       const definition = spec.actorDefinitions.find(
@@ -242,7 +248,8 @@ function expectedActorPositions(spec: {
       return (
         definition !== undefined &&
         definition.role !== ActorRole.PlayerStart &&
-        definition.role !== ActorRole.Pipe
+        definition.role !== ActorRole.Pipe &&
+        !(definition.role === ActorRole.Exit && hasFlagpole)
       );
     })
     .map((actor) => `${actor.actorId}@${actor.position.x},${actor.position.y}`)
