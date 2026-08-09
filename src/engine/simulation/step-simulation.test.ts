@@ -1905,6 +1905,40 @@ describe("simulation primitives", () => {
     );
   });
 
+  // Climbing ran for the primary player alone, so a vine was climbable only by
+  // slot 0 and a level gated behind a beanstalk was impassable for everyone
+  // else in the party.
+  it("lets a co-op player climb a vine", () => {
+    const levelSpec = climbableLevelSpec();
+    const nextState = stepSimulation(
+      withCoopPlayer(
+        initialStateForLevel(levelSpec, "Expected climbable initial state."),
+        {
+          player: playerWithTestState({
+            position: { x: 16, y: 64 },
+            velocity: { x: 0, y: 0 },
+            movement: {
+              horizontal: HorizontalMovementState.Idle,
+              vertical: VerticalMovementState.Falling,
+            },
+          }),
+          vitality: { kind: PlayerVitalityKind.Small },
+        },
+      ),
+      validInputCommand(),
+      initialMovementConstants,
+      levelSpec,
+      [climbingInputCommand({ upHeld: true, downHeld: false })],
+    );
+
+    expect(nextState.players[1]!.player.movement.vertical).toBe(
+      VerticalMovementState.Climbing,
+    );
+    expect(Number(nextState.players[1]!.player.velocity.y)).toBe(
+      0 - Number(initialMovementConstants.climbSpeed),
+    );
+  });
+
   it("preserves previous enemy contacts while adding newly contacted enemies", () => {
     const levelSpec = firstAuthoredLevelSpec();
     const firstEnemyPlayer = playerWithTestState({

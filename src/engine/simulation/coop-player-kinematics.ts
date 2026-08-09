@@ -1,12 +1,14 @@
 import type { BreakableBlockState } from "./breakable-block-state";
 import type { FrameDurationMilliseconds, TilePoint } from "../domain/units";
 import type { LevelSpec } from "../domain/level-spec";
+import { applyClimbableMovement } from "./climbable-interaction";
 import { applyHorizontalMovement } from "./horizontal-movement";
 import type { SimulationInputCommand } from "./input-command";
 import type { MovementConstants } from "./movement-model";
 import type { PlayerSimulationState } from "./player-state";
 import { applyPositionMovement } from "./position-movement";
 import { resolveSolidTileCollisionWithBlockBumps } from "./solid-tile-collision";
+import type { SpawnedActor } from "./interactive-block-state";
 import { applyVerticalMovement } from "./vertical-movement";
 
 /** What a co-op player did to the world this frame, besides moving. */
@@ -30,8 +32,11 @@ export interface CoopPlayerKinematicsResult {
 // everybody else, because a collision told there are no broken blocks still
 // treats their tiles as walls. Passing the live state fixes both directions.
 //
-// Still deliberately terrain-only beyond blocks: no climbing, pipes, crouch or
-// enemy/collectible interaction.
+// Climbing is here too, in the same position the primary player applies it, so
+// a vine is climbable by whoever grabs it rather than only by slot 0 — a level
+// gated behind a beanstalk was otherwise impassable for everybody else.
+//
+// Still missing, and still needless variance: pipes and crouch.
 export function stepCoopPlayerKinematics(
   player: PlayerSimulationState,
   inputCommand: SimulationInputCommand,
@@ -39,6 +44,7 @@ export function stepCoopPlayerKinematics(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
+  spawnedActors: readonly SpawnedActor[],
 ): CoopPlayerKinematicsResult {
   const horizontallyMoved = applyHorizontalMovement(
     player,
@@ -46,12 +52,21 @@ export function stepCoopPlayerKinematics(
     frameDurationMilliseconds,
     movementConstants,
   );
-  const verticallyMoved = applyVerticalMovement(
+  const climbableMovement = applyClimbableMovement(
     horizontallyMoved,
     inputCommand,
-    frameDurationMilliseconds,
+    levelSpec,
+    spawnedActors,
     movementConstants,
   );
+  const verticallyMoved = climbableMovement.climbing
+    ? climbableMovement.player
+    : applyVerticalMovement(
+        horizontallyMoved,
+        inputCommand,
+        frameDurationMilliseconds,
+        movementConstants,
+      );
   const moved = applyPositionMovement(
     verticallyMoved,
     frameDurationMilliseconds,
