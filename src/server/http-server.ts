@@ -363,6 +363,38 @@ export function makeMultiplayerHttpServer(
     });
   }
 
+
+  /**
+   * Send one player's command to the rest of their party.
+   *
+   * Immediate rather than batched onto the 20 Hz state tick, because the point
+   * is that intent reaches the others sooner than the state it produces. A
+   * command is also a fraction of the size of the world it changes.
+   */
+  function relayPlayerInput(
+    snapshot: AuthoritativeGameSnapshot,
+    playerId: string,
+    input: QueuedSimulationInput,
+  ): void {
+    const slot = snapshot.players.findIndex(
+      (player) => player.playerId === playerId,
+    );
+    if (slot < 0) {
+      return;
+    }
+    const payload = JSON.stringify({
+      type: "player-input",
+      gameId: snapshot.gameId,
+      slot,
+      command: input.command,
+    });
+    for (const player of snapshot.players) {
+      if (player.playerId !== playerId) {
+        socketByPlayerId.get(player.playerId)?.send(payload);
+      }
+    }
+  }
+
   function broadcastTransportState(
     snapshots: readonly AuthoritativeGameSnapshot[],
     nowMilliseconds: number,
@@ -898,11 +930,9 @@ export function makeMultiplayerHttpServer(
         requireMultiplayerProtocolVersion(message["protocolVersion"]);
         const token = parseCookies(request).get(sessionCookieName);
         if (type === "input") {
-          service.submitInput(
-            token,
-            requireQueuedInput(message, profile.playerId, now()),
-            now(),
-          );
+          const queued = requireQueuedInput(message, profile.playerId, now());
+          const accepted = service.submitInput(token, queued, now());
+          relayPlayerInput(accepted, profile.playerId, queued);
         } else if (type === "lobby-chat") {
           service.sendLobbyChat(token, requireString(message, "text"), now());
         } else if (type === "game-chat") {

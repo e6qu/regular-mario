@@ -1,6 +1,9 @@
 import type { LevelSpec } from "../engine/domain/level-spec";
 import type { MovementConstants } from "../engine/simulation/movement-model";
-import type { SimulationInputCommand } from "../engine/simulation/input-command";
+import {
+  HorizontalInput,
+  type SimulationInputCommand,
+} from "../engine/simulation/input-command";
 import type { SimulationState } from "../engine/simulation/simulation-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
 import { requireSimulationPixelPosition } from "../engine/simulation/simulation-units";
@@ -29,6 +32,16 @@ export type ClientPrediction = {
     authoritativeState: SimulationState,
   ): LocalPredictionSnapshot;
   advance(command: SimulationInputCommand): LocalPredictionSnapshot;
+  /**
+   * Remember what another player is doing.
+   *
+   * Held until replaced, because a command is the state of a controller rather
+   * than an event: a player holding right is still holding right on the frames
+   * between the messages that say so. Without this a client knows only where
+   * other players *were* when the last snapshot was cut, and can do no better
+   * than replay those positions at the rate they arrive.
+   */
+  setRemoteCommand(slot: number, command: SimulationInputCommand): void;
   snapshot(): LocalPredictionSnapshot;
 };
 
@@ -68,70 +81,47 @@ export function makeClientPrediction(
   let state = initialState;
   let pendingInputs: readonly PendingPredictedInput[] = [];
 
-  function requireSimulationPlayers(
-    players: readonly SimulationState["players"][number][],
-  ): SimulationState["players"] {
-    const first = players[0];
-    if (first === undefined) {
-      throw new Error("Predicted simulation state has no players.");
-    }
-    return [first, ...players.slice(1)];
-  }
+  const neutralCommand: SimulationInputCommand = {
+    horizontal: HorizontalInput.Neutral,
+    jumpPressed: false,
+    runHeld: false,
+    firePressed: false,
+    upHeld: false,
+    downHeld: false,
+  };
+  const remoteCommands = new Map<number, SimulationInputCommand>();
 
-  function stepLocalPlayer(
+  /**
+   * Step the whole party: this client's command for its own slot, and the last
+   * command each other player was known to be holding for theirs.
+   *
+   * This used to rotate the local player into slot 0, step, and rotate back — a
+   * workaround from when only slot 0 ran the full simulation. Every player runs
+   * it now, so the rotation is unnecessary, and it was harmful: the world folds
+   * its interactions player-by-player in slot order, so reordering made the
+   * client resolve them in a different order from the server.
+   */
+  function stepPlayers(
     source: SimulationState,
-    command: SimulationInputCommand,
+    localCommand: SimulationInputCommand,
   ): SimulationState {
-    if (localPlayerSlot === 0) {
-      return stepSimulation(source, command, movementConstants, levelSpec);
-    }
-    const local = source.players[localPlayerSlot];
-    if (local === undefined) {
-      throw new Error("Predicted local player slot is absent from state.");
-    }
-    const orderedSlots = [
-      localPlayerSlot,
-      ...source.players
-        .map((_player, slot) => slot)
-        .filter((slot) => slot !== localPlayerSlot),
-    ];
-    const orderedState: SimulationState = {
-      ...source,
-      players: requireSimulationPlayers(
-        orderedSlots.map((slot) => {
-          const player = source.players[slot];
-          if (player === undefined) {
-            throw new Error("Predicted player slot is absent from state.");
-          }
-          return player;
-        }),
-      ),
-    };
-    const stepped = stepSimulation(
-      orderedState,
-      command,
+    const commandForSlot = (slot: number): SimulationInputCommand =>
+      slot === localPlayerSlot
+        ? localCommand
+        : (remoteCommands.get(slot) ?? neutralCommand);
+    return stepSimulation(
+      source,
+      commandForSlot(0),
       movementConstants,
       levelSpec,
-      undefined,
+      source.players.slice(1).map((_player, index) => commandForSlot(index + 1)),
       false,
     );
-    const restoredPlayers = [...source.players];
-    orderedSlots.forEach((slot, orderedSlot) => {
-      const player = stepped.players[orderedSlot];
-      if (player === undefined) {
-        throw new Error("Predicted stepped player slot is absent from state.");
-      }
-      restoredPlayers[slot] = player;
-    });
-    return {
-      ...stepped,
-      players: requireSimulationPlayers(restoredPlayers),
-    };
   }
 
   function replayPending(fromState: SimulationState): SimulationState {
     return pendingInputs.reduce(
-      (replayed, input) => stepLocalPlayer(replayed, input.command),
+      (replayed, input) => stepPlayers(replayed, input.command),
       fromState,
     );
   }
@@ -149,7 +139,7 @@ export function makeClientPrediction(
         );
       }
       pendingInputs = [...pendingInputs, { sequence, command }];
-      state = stepLocalPlayer(state, command);
+      state = stepPlayers(state, command);
       return snapshot();
     },
     reconcile(acknowledgedSequence, authoritativePosition) {
@@ -195,8 +185,13 @@ export function makeClientPrediction(
       return snapshot();
     },
     advance(command) {
-      state = stepLocalPlayer(state, command);
+      state = stepPlayers(state, command);
       return snapshot();
+    },
+    setRemoteCommand(slot, command) {
+      if (slot !== localPlayerSlot) {
+        remoteCommands.set(slot, command);
+      }
     },
     snapshot,
   };

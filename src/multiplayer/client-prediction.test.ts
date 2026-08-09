@@ -6,9 +6,11 @@ import {
 } from "../engine/simulation/input-command";
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
+import { makeInitialPlayerVitalityState } from "../engine/simulation/player-vitality";
 import {
   appendSimulationPlayerAt,
   makeInitialSimulationState,
+  makeInitialSimulationStateWithPlayerVitality,
   type SimulationState,
 } from "../engine/simulation/simulation-state";
 import {
@@ -26,6 +28,15 @@ import {
 
 const right: SimulationInputCommand = {
   horizontal: HorizontalInput.Right,
+  jumpPressed: false,
+  runHeld: false,
+  firePressed: false,
+  upHeld: false,
+  downHeld: false,
+};
+
+const neutral: SimulationInputCommand = {
+  horizontal: HorizontalInput.Neutral,
   jumpPressed: false,
   runHeld: false,
   firePressed: false,
@@ -54,6 +65,48 @@ function requirePlayerAt(state: SimulationState, slot: number) {
 }
 
 describe("client prediction", () => {
+  // A client is sent positions and nothing else, so it can only replay them at
+  // the rate they arrive. Given the other player's command it can simulate them
+  // every frame instead. This is that capability in isolation.
+  it("simulates another player from their relayed command", () => {
+    const twoPlayers = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!twoPlayers.ok) {
+      throw new Error("Expected a valid two-player prediction state.");
+    }
+    // This client is slot 1; slot 0 is somebody else.
+    const prediction = makeClientPrediction(
+      twoPlayers.value,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      1,
+    );
+    const remoteBefore = Number(
+      requirePlayerAt(prediction.snapshot().state, 0).player.position.x,
+    );
+
+    prediction.setRemoteCommand(0, right);
+    for (let frame = 0; frame < 20; frame += 1) {
+      prediction.advance(neutral);
+    }
+
+    const remoteAfter = Number(
+      requirePlayerAt(prediction.snapshot().state, 0).player.position.x,
+    );
+    expect(remoteAfter).toBeGreaterThan(remoteBefore);
+    // And this client's own player, holding nothing, stayed put.
+    expect(
+      Number(requirePlayerAt(prediction.snapshot().state, 1).player.position.x),
+    ).toBe(
+      Number(requirePlayerAt(twoPlayers.value, 1).player.position.x),
+    );
+  });
+
   it("applies local commands immediately and retains unacknowledged history", () => {
     const prediction = makeClientPrediction(
       initialState(),
