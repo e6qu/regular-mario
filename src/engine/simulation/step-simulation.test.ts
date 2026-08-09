@@ -55,7 +55,10 @@ import {
   makeInitialSimulationState,
   type SimulationState,
 } from "./simulation-state";
-import { makeEmptySpawnedActorsState } from "./interactive-block-state";
+import {
+  makeEmptySpawnedActorsState,
+  resolveSpawnedActorsState,
+} from "./interactive-block-state";
 import {
   nominalSixtyHertzFrameDurationMilliseconds,
   requireSimulationVelocity,
@@ -65,6 +68,8 @@ import { runtimeLevelTimerId } from "./level-timer-state";
 import type { PlayerVitalityState } from "./player-vitality";
 import { PlayerVitalityKind, makeRecoveryFrameCount } from "./player-vitality";
 import { makeInvincibilityFrameCount } from "./player-invincibility";
+import { interactiveInvincibilityBlockLevelSpec } from "./level-test-support";
+import type { TilePoint } from "../domain/units";
 import {
   aerialThrowingEnemyLevelSpec,
   exitActorWithoutGoalTileLevelSpec,
@@ -1937,6 +1942,62 @@ describe("simulation primitives", () => {
     expect(Number(nextState.players[1]!.player.velocity.y)).toBe(
       0 - Number(initialMovementConstants.climbSpeed),
     );
+  });
+
+  // A star belongs to whoever ran into it. Invincibility resolved for the
+  // primary alone, so a co-op player passed through a star and gained nothing.
+  it("gives a co-op player the star they collect", () => {
+    const levelSpec = interactiveInvincibilityBlockLevelSpec();
+    const spawned = resolveSpawnedActorsState(
+      makeEmptySpawnedActorsState(),
+      levelSpec,
+      [{ x: 2, y: 4 } as TilePoint],
+    );
+    const star = spawned.spawnedActors[0];
+    if (star === undefined) {
+      throw new Error("Expected the invincibility block to spawn its star.");
+    }
+    const emerged = {
+      spawnedActors: [{ ...star, remainingPopupFrames: 0 as never }],
+      lastSpawnFrameIndexByBlockKey: spawned.lastSpawnFrameIndexByBlockKey,
+    };
+    const base = initialStateForLevel(
+      levelSpec,
+      "Expected invincibility block initial state.",
+    );
+    // Stand the co-op player on the star; the primary stays at spawn, so only
+    // the co-op player can have taken it.
+    const state = withCoopPlayer(
+      { ...base, spawnedActors: emerged },
+      {
+        player: playerWithTestState({
+          position: {
+            x: Number(star.position.x),
+            y: Number(star.position.y),
+          },
+          velocity: { x: 0, y: 0 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Grounded,
+          },
+        }),
+        vitality: { kind: PlayerVitalityKind.Small },
+      },
+    );
+
+    const nextState = stepSimulation(
+      state,
+      validInputCommand(),
+      initialMovementConstants,
+      levelSpec,
+      [validInputCommand()],
+    );
+
+    expect(
+      Number(nextState.players[1]!.invincibility.remainingFrames),
+    ).toBeGreaterThan(0);
+    // And the primary did not take somebody else's star.
+    expect(Number(nextState.players[0].invincibility.remainingFrames)).toBe(0);
   });
 
   it("preserves previous enemy contacts while adding newly contacted enemies", () => {

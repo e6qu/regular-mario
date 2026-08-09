@@ -1012,6 +1012,23 @@ function stepActiveSimulation(
     spawnedActors.spawnedActors,
     state.players[0].invincibility,
   );
+  // A star belongs to whoever ran into it. Invincibility resolved for the
+  // primary alone, so a co-op player passed through a star and gained nothing —
+  // and, since the star also clears enemies on contact, the party lost the
+  // clearing too whenever anybody but the host picked it up.
+  const coopAfterInvincibility = coopAfterPickups.map((runtime) =>
+    runtime.outcome.kind === PlayerOutcomeKind.Active
+      ? {
+          ...runtime,
+          invincibility: resolvePlayerInvincibilityState(
+            runtime.player,
+            levelSpec,
+            spawnedActors.spawnedActors,
+            runtime.invincibility,
+          ),
+        }
+      : runtime,
+  );
   const enemyMotion = stepEnemyMotionState(
     state.enemyMotion,
     levelSpec,
@@ -1059,7 +1076,7 @@ function stepActiveSimulation(
   // whoever happens to be first in the array.
   let enemiesAfterEveryPlayer = enemiesBeforeProjectileMerge;
   const coopRuntimesAfterEnemies = coopSteps.map((step, index) => {
-    const runtime = coopAfterPickups[index] ?? step.runtime;
+    const runtime = coopAfterInvincibility[index] ?? step.runtime;
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
@@ -1083,9 +1100,13 @@ function stepActiveSimulation(
       ),
     };
   });
-  const enemiesAfterInvincibility = applyInvincibilityEnemyDefeats(
-    enemiesAfterEveryPlayer,
-    playerInvincibility,
+  const enemiesAfterInvincibility = coopAfterInvincibility.reduce(
+    (enemies, runtime) =>
+      applyInvincibilityEnemyDefeats(enemies, runtime.invincibility),
+    applyInvincibilityEnemyDefeats(
+      enemiesAfterEveryPlayer,
+      playerInvincibility,
+    ),
   );
   const anyShellMoving = enemyMotion.armoredActors.some(
     (shellActor) =>
