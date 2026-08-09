@@ -158,6 +158,17 @@ async function stopRunning(players: readonly RecordedPlayer[]): Promise<void> {
  * The fallback when the recorded replay does not reach the goal. Returns a
  * stop function so the caller can end it the moment the course advances.
  */
+/** The player's rendered world x, or undefined if the canvas is not up yet. */
+async function renderedPrimaryX(
+  player: RecordedPlayer,
+): Promise<number | undefined> {
+  const value = await player.page
+    .getByLabel("Authoritative multiplayer game view")
+    .getAttribute("data-rendered-primary-x");
+  const parsed = Number(value);
+  return value === null || Number.isNaN(parsed) ? undefined : parsed;
+}
+
 function driveRightward(player: RecordedPlayer): () => Promise<void> {
   // A holder rather than a bare `let`: the flag is set from the returned stop
   // function, which the checker cannot see, so a plain boolean reads as a
@@ -168,6 +179,7 @@ function driveRightward(player: RecordedPlayer): () => Promise<void> {
     // from a standing start drops straight into it.
     await player.page.keyboard.down("ArrowRight");
     await player.page.keyboard.down("ShiftLeft");
+    let previousX: number | undefined;
     while (control.running) {
       await player.page.keyboard.down("Space");
       await player.page.waitForTimeout(260);
@@ -178,6 +190,22 @@ function driveRightward(player: RecordedPlayer): () => Promise<void> {
       // wanted here: it revives whoever needs it and does nothing otherwise.
       await player.page.keyboard.press("KeyR");
       await player.page.waitForTimeout(440);
+
+      // Back off when the run has stopped advancing. Pressed against a pipe
+      // there is no run-up left, and every jump from a standstill hits the same
+      // wall: the party jammed at one x for the full ninety seconds while the
+      // frame counter kept climbing. Stepping back buys the run-up that clears
+      // it — and if the block was something else, a moment of walking left
+      // costs a run that is already stuck nothing.
+      const x = await renderedPrimaryX(player).catch(() => undefined);
+      if (x !== undefined && previousX !== undefined && x <= previousX) {
+        await player.page.keyboard.up("ArrowRight");
+        await player.page.keyboard.down("ArrowLeft");
+        await player.page.waitForTimeout(300);
+        await player.page.keyboard.up("ArrowLeft");
+        await player.page.keyboard.down("ArrowRight");
+      }
+      previousX = x;
     }
   })().catch(() => undefined);
   return async () => {
