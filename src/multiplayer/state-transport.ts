@@ -13,9 +13,42 @@ type StateDeltaChange = {
   readonly remove?: true;
 };
 
-export type StateDelta = {
-  readonly changes: readonly StateDeltaChange[];
+/**
+ * A change with its path shortened against the one before it.
+ *
+ * Every change used to carry its whole path from the root, which is what a
+ * delta actually spends its bytes on: measured on a live game, 69 bytes of
+ * addressing carried 9 bytes of data. Changes arrive in depth-first order, so
+ * neighbours share nearly all of their path — `shared` says how many leading
+ * parts to reuse from the previous change and `path` carries only the rest.
+ *
+ * Named tersely on purpose. These three keys repeat once per change, so their
+ * spelling is itself a measurable share of the message.
+ */
+type WireStateDeltaChange = {
+  /** Leading path parts reused from the previous change. */
+  readonly s?: number;
+  /** The remaining path parts, after the shared prefix. */
+  readonly p: readonly StateDeltaPathPart[];
+  readonly v?: unknown;
+  readonly r?: true;
 };
+
+export type StateDelta = {
+  readonly changes: readonly WireStateDeltaChange[];
+};
+
+function sharedPrefixLength(
+  left: readonly StateDeltaPathPart[],
+  right: readonly StateDeltaPathPart[],
+): number {
+  const limit = Math.min(left.length, right.length);
+  let shared = 0;
+  while (shared < limit && left[shared] === right[shared]) {
+    shared += 1;
+  }
+  return shared;
+}
 
 type JsonRecord = Record<string, unknown>;
 
@@ -76,7 +109,18 @@ function collectChanges(
 export function makeStateDelta(baseline: unknown, target: unknown): StateDelta {
   const changes: StateDeltaChange[] = [];
   collectChanges(baseline, target, [], changes);
-  return { changes };
+  let previous: readonly StateDeltaPathPart[] = [];
+  const wire = changes.map((change) => {
+    const shared = sharedPrefixLength(previous, change.path);
+    previous = change.path;
+    const tail = change.path.slice(shared);
+    return {
+      ...(shared === 0 ? {} : { s: shared }),
+      p: tail,
+      ...(change.remove === true ? { r: true as const } : { v: change.value }),
+    };
+  });
+  return { changes: wire };
 }
 
 function requireContainer(
@@ -150,7 +194,22 @@ export function applyStateDelta<Value>(
   delta: StateDelta,
 ): Value {
   let result: unknown = baseline;
-  for (const change of delta.changes) {
+  // Rebuild each full path from the shared prefix the encoder recorded.
+  let previousPath: readonly StateDeltaPathPart[] = [];
+  for (const wireChange of delta.changes) {
+    const shared = wireChange.s ?? 0;
+    if (shared > previousPath.length) {
+      throw new Error(
+        "State delta reuses more path parts than the previous change had.",
+      );
+    }
+    const change: StateDeltaChange = {
+      path: [...previousPath.slice(0, shared), ...wireChange.p],
+      ...(wireChange.r === true
+        ? { remove: true as const }
+        : { value: wireChange.v }),
+    };
+    previousPath = change.path;
     if (change.path.length === 0) {
       if (change.remove === true) {
         throw new Error("A state delta cannot remove its root.");
