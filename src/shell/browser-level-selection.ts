@@ -34,7 +34,7 @@ import { parsePlayerCharacter, type PlayerCharacter } from "./player-character";
 import { maxSimulationPlayers } from "../engine/simulation/simulation-state";
 import type { UserAssetBundle } from "./user-asset-loader";
 
-enum BrowserLevelKey {
+export enum BrowserLevelKey {
   ArmoredEnemyRoute = "armored-enemy-route",
   ChasingEnemyRoute = "chasing-enemy-route",
   CoinBlockRoute = "coin-block-route",
