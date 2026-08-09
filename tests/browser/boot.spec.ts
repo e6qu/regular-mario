@@ -1220,9 +1220,15 @@ test("moves authored enemy patrols while simulation is active", async ({
 
   // Let the patrol run, then confirm it has moved left — read atomically so the
   // moving enemy can't slip between the position and the sample.
+  //
+  // 40 frames, not 80: this patrol walks into the spawn and defeats an idle
+  // runner around frame 107, so waiting 80 frames from a first sample the boot
+  // had already pushed past frame 25 asserted "active" on a runner that was
+  // already dead. Half the wait still moves the enemy a clear ~26px and leaves
+  // the margin wide enough that a slow boot cannot eat it.
   const movedSnapshot = await waitForSimulationSnapshotAtFrame(
     page,
-    initial.frameIndex + 80,
+    initial.frameIndex + 40,
   );
   expect(movedSnapshot.playerOutcome).toEqual({ kind: "active" });
 
@@ -2825,6 +2831,12 @@ test("loads a remote manifest with relative map and sprite URLs", async ({
  * act, not a side effect of this check.
  */
 function hasScreenshotBaseline(name: string): boolean {
+  // Never skip while generating: the guard is about "there is nothing to
+  // compare against", and skipping a --update-snapshots run would make that
+  // permanent — no baseline can ever be produced for a platform that has none.
+  if (test.info().config.updateSnapshots !== "none") {
+    return true;
+  }
   return existsSync(
     join(
       dirname(fileURLToPath(import.meta.url)),
