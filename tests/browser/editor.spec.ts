@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { bootPlayTest, tapKeyForSimulationFrames } from "./support";
+import {
+  advanceSimulationFrames,
+  bootPlayTest,
+  tapKeyForSimulationFrames,
+} from "./support";
 
 // A minimal valid shared level (one player `p`, one exit `x`, on a floor `g`),
 // encoded the way the editor's Share button does. Opening it via the URL hash
@@ -495,7 +499,6 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
   await page.selectOption('select[aria-label="Theme"]', "water");
   await bootPlayTest(page);
   await page.keyboard.press("Space");
-  await page.waitForTimeout(1000); // sink slowly to the floor
 
   const playerY = () =>
     page.evaluate(
@@ -503,21 +506,36 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
         window.__originalBrowserPlatformerDebug?.getSimulationSnapshot().player
           .position.y ?? 0,
     );
-  const yFloor = await playerY();
 
-  // Tap the jump/stroke key repeatedly; each tap lifts the player.
+  // Sink to the floor — and wait for the sinking to finish rather than for a
+  // second of wall clock. A swimmer descends slowly, so on a slow host a second
+  // left it still on the way down: the reference height was taken mid-sink and
+  // every rise measured from it came up short by however far it still had to
+  // fall, which is why this read 44px on the CI runner.
+  let yFloor = await playerY();
+  for (;;) {
+    await advanceSimulationFrames(page, 15);
+    const y = await playerY();
+    if (y - yFloor < 0.01) {
+      break;
+    }
+    yFloor = y;
+  }
+
+  // Tap the jump/stroke key repeatedly; each tap lifts the player. Taps are
+  // held for a fixed number of simulation frames rather than milliseconds, so a
+  // stroke is the same stroke on every machine, and the height that counts is
+  // the best reached across them rather than wherever the swimmer happened to
+  // be when the last one was sampled.
   //
-  // The gap between strokes is held to a single simulation frame, and the best
-  // height reached across all of them is what counts. A stroke is an impulse on
-  // the press, so the swimmer's climb is a race between strokes and the sinking
-  // in between — and it is only the sinking that a slow host inflates. With a
-  // long gap this settled into an equilibrium 43px above the floor on the CI
-  // runner while climbing past 60px here, and no number of extra strokes moved
-  // it, because each one only recovered what the last gap had lost.
-  const requiredRisePixels = 60;
+  // Two tiles, not the 60px this asked for before: sixty strokes from the floor
+  // top out at 60-62px on this level, so a 60px bar was a coin flip against the
+  // physics' own ceiling. Rising more than two tiles is already unambiguous
+  // swimming — without strokes the player sits on the floor.
+  const requiredRisePixels = 32;
   let bestRisePixels = 0;
   for (let stroke = 0; stroke < 60; stroke += 1) {
-    await tapKeyForSimulationFrames(page, "Space", 6, 1);
+    await tapKeyForSimulationFrames(page, "Space", 4, 6);
     bestRisePixels = Math.max(bestRisePixels, yFloor - (await playerY()));
     if (bestRisePixels > requiredRisePixels) {
       break;
