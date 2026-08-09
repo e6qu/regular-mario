@@ -1,4 +1,7 @@
 import { Buffer } from "node:buffer";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { ActorRole } from "../../src/engine/domain/level-spec";
 import {
@@ -2796,9 +2799,39 @@ test("loads a remote manifest with relative map and sprite URLs", async ({
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+/**
+ * Whether a committed baseline exists for the platform running this suite.
+ *
+ * Playwright stamps the platform into a screenshot's filename, and the only
+ * baselines in this repository were taken on darwin. On any other platform the
+ * comparison cannot pass — not because the rendering regressed, but because
+ * there is nothing to compare against, and font rasterisation and antialiasing
+ * differ enough between platforms that a darwin baseline would be wrong to
+ * reuse anyway.
+ *
+ * Skipping says that plainly instead of reporting four failures that mean
+ * "no baseline here". Generating linux baselines is worth doing — they would
+ * make CI the authority rather than whichever machine last ran the suite — but
+ * they have to be produced on linux and reviewed by eye, which is a deliberate
+ * act, not a side effect of this check.
+ */
+function hasScreenshotBaseline(name: string): boolean {
+  return existsSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "boot.spec.ts-snapshots",
+      `${name}-${process.platform}.png`,
+    ),
+  );
+}
+
 test("screenshot regression: first-authored initial frame", async ({
   page,
 }) => {
+  test.skip(
+    !hasScreenshotBaseline("first-authored-initial"),
+    `no first-authored-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto(firstAuthoredBrowserUrl);
@@ -2814,6 +2847,10 @@ test("screenshot regression: first-authored initial frame", async ({
 });
 
 test("screenshot regression: finish-route initial frame", async ({ page }) => {
+  test.skip(
+    !hasScreenshotBaseline("finish-route-initial"),
+    `no finish-route-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto("/?browserLevel=finish-route");
@@ -2829,6 +2866,10 @@ test("screenshot regression: finish-route initial frame", async ({ page }) => {
 });
 
 test("screenshot regression: pipe-route initial frame", async ({ page }) => {
+  test.skip(
+    !hasScreenshotBaseline("pipe-route-initial"),
+    `no pipe-route-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto("/?browserLevel=pipe-route");
@@ -2846,6 +2887,10 @@ test("screenshot regression: pipe-route initial frame", async ({ page }) => {
 test("screenshot regression: showcase-route initial frame", async ({
   page,
 }) => {
+  test.skip(
+    !hasScreenshotBaseline("showcase-route-initial"),
+    `no showcase-route-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto("/?browserLevel=showcase-route");
