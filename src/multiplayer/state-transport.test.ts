@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyStateDelta,
+  isSupersededDelta,
   makeStateDelta,
   stateTransportEncodedBytes,
 } from "./state-transport";
@@ -95,5 +96,24 @@ describe("state delta path compression", () => {
     expect(() =>
       applyStateDelta({ a: 1 }, { changes: [{ s: 2, p: ["b"], v: 1 }] }),
     ).toThrow("reuses more path parts");
+  });
+});
+
+describe("superseded deltas", () => {
+  // A client that has fallen behind must not make the server send it more. The
+  // alternative to dropping a late delta is asking for a keyframe, which is
+  // several times larger, at the worst possible moment.
+  it("drops a delta built on a baseline the client has moved past", () => {
+    expect(isSupersededDelta(41, 42)).toBe(true);
+  });
+
+  it("keeps a delta built on the baseline the client holds", () => {
+    expect(isSupersededDelta(42, 42)).toBe(false);
+  });
+
+  // Ahead of the client's baseline means something was genuinely missed, and
+  // that is the case a resync exists for.
+  it("keeps a delta from ahead of the client, which is a real desync", () => {
+    expect(isSupersededDelta(43, 42)).toBe(false);
   });
 });

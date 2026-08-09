@@ -239,3 +239,24 @@ export function applyStateDelta<Value>(
 export function stateTransportEncodedBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
 }
+
+/**
+ * Whether a delta has been overtaken by state the client already holds.
+ *
+ * A delta names the snapshot it was built against. If the client has since
+ * applied something newer, everything this delta carried is already contained
+ * in that newer state and it can simply be dropped.
+ *
+ * The distinction matters because the alternative is expensive: treating every
+ * baseline mismatch as "I have lost sync" makes the client ask for a full
+ * keyframe, which is several times the size of the delta, at exactly the moment
+ * it was already struggling to keep up. Arriving late is normal on a slow or
+ * jittery link; only arriving *ahead* of the client's baseline means something
+ * was genuinely missed.
+ */
+export function isSupersededDelta(
+  deltaBaselineSnapshotSequence: number,
+  heldSnapshotSequence: number,
+): boolean {
+  return deltaBaselineSnapshotSequence < heldSnapshotSequence;
+}

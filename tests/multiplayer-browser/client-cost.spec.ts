@@ -67,9 +67,12 @@ async function recordSocketTraffic(page: Page): Promise<void> {
               byType[type] = entry;
             }
           }
-          // Keep the most recent message: the typical steady-state one, not
-          // the periodic keyframe, is what dominates the bandwidth bill.
-          if (typeof event.data === "string") {
+          // Keep the largest message seen: keyframes are now the biggest
+          // single payload, and this measures where their bytes go.
+          if (
+            typeof event.data === "string" &&
+            size > (window.__socketSample?.length ?? 0)
+          ) {
             window.__socketSample = event.data;
           }
         });
@@ -147,6 +150,33 @@ test("reports what a live game costs the client", async ({ browser }) => {
             3,
           ),
           sample: JSON.stringify(changes.slice(0, 3)),
+        });
+      }
+      // Inside enemyMotion, which is the largest field of a keyframe: how many
+      // actors of each kind, and what an empty array still costs.
+      const kfSnapshots = (
+        parsed as {
+          snapshots?: readonly {
+            readonly simulationState?: {
+              readonly enemyMotion?: Record<string, unknown>;
+            };
+          }[];
+        }
+      ).snapshots;
+      const motion = kfSnapshots?.[0]?.simulationState?.enemyMotion;
+      if (motion !== undefined) {
+        const perKey: Record<string, string> = {};
+        for (const [key, value] of Object.entries(motion)) {
+          const count = Array.isArray(value) ? value.length : -1;
+          perKey[key] = `${JSON.stringify(value).length}b/${count}`;
+        }
+        report(test.info(), "enemy-motion", {
+          totalBytes: JSON.stringify(motion).length,
+          perKeyBytesAndCount: perKey,
+          firstActor: JSON.stringify(
+            (motion["patrolActors"] as readonly unknown[] | undefined)?.[0] ??
+              null,
+          ).slice(0, 320),
         });
       }
       report(test.info(), "message-shape", {
