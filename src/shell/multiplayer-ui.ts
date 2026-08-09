@@ -29,6 +29,34 @@ const neutralInputCommand: SimulationInputCommand = {
   downHeld: false,
 };
 
+/**
+ * Rebuild a relayed command, refusing anything malformed.
+ *
+ * It arrives off the wire, so it goes through the same constructor local input
+ * uses rather than being trusted into the simulation.
+ */
+function makeRelayedInputCommand(
+  value: Readonly<Record<string, unknown>>,
+): SimulationInputCommand | undefined {
+  const horizontal = value["horizontal"];
+  if (
+    horizontal !== "left" &&
+    horizontal !== "right" &&
+    horizontal !== "neutral"
+  ) {
+    return undefined;
+  }
+  const result = makeSimulationInputCommand(
+    horizontal,
+    value["jumpPressed"] === true,
+    value["runHeld"] === true,
+    value["firePressed"] === true,
+    value["upHeld"] === true,
+    value["downHeld"] === true,
+  );
+  return result.ok ? result.value : undefined;
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -1173,6 +1201,27 @@ function renderGame(
       message.gameId === gameId
     ) {
       void refreshGameChat();
+      return;
+    }
+    // Another player's command. Fed to the prediction so this client simulates
+    // them rather than treating them as scenery: they share the world, so what
+    // they touch changes what the local player runs into. Rendering still reads
+    // interpolated positions — switching that over is the next step, and needs
+    // its own measurement.
+    if (message.type === "player-input") {
+      const relayedMessage: Readonly<Record<string, unknown>> = message;
+      const slot = relayedMessage["slot"];
+      const command = relayedMessage["command"];
+      if (
+        prediction !== undefined &&
+        typeof slot === "number" &&
+        isRecord(command)
+      ) {
+        const relayed = makeRelayedInputCommand(command);
+        if (relayed !== undefined) {
+          prediction.setRemoteCommand(slot, relayed);
+        }
+      }
       return;
     }
     if (message.type === "state-keyframes") {
