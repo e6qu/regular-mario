@@ -58,13 +58,12 @@ import type { MovementConstants } from "./movement-model";
 import { VerticalMovementState } from "./movement-model";
 import { applyPositionMovement } from "./position-movement";
 import { makeActorColliderSizePixels } from "./actor-interaction";
+import { resolveCrouchState } from "./crouch-state";
 import {
   assertValidPowerUpInteractionState,
   resolvePowerUpInteractionState,
 } from "./power-up-interaction";
 import {
-  applyCrouchResize,
-  poweredPlayerColliderDimensions,
   resizePlayerForVitality,
   type PlayerSimulationState,
 } from "./player-state";
@@ -143,10 +142,7 @@ import {
 import type { LevelSpec } from "../domain/level-spec";
 import { ActorRole } from "../domain/level-spec";
 import type { TileId } from "../domain/identifiers";
-import {
-  playerHasStandingHeadroom,
-  resolveSolidTileCollisionWithBlockBumps,
-} from "./solid-tile-collision";
+import { resolveSolidTileCollisionWithBlockBumps } from "./solid-tile-collision";
 import {
   hiddenBlockPositionKey,
   makeLavaTileIds,
@@ -403,6 +399,8 @@ interface CoopBlockBump {
 interface CoopPlayerStep {
   readonly runtime: PlayerRuntime;
   readonly previousPlayer: PlayerSimulationState;
+  /** The command this player acted on, for the phases that read input again. */
+  readonly inputCommand: SimulationInputCommand;
   readonly bumpedInteractiveBlocks: readonly TilePoint[];
   readonly bumpedBreakableBlocks: readonly TilePoint[];
 }
@@ -518,22 +516,27 @@ function stepCoopPlayerMovement(
       return {
         runtime,
         previousPlayer: runtime.player,
+        inputCommand: neutralInputCommand,
         bumpedInteractiveBlocks: [],
         bumpedBreakableBlocks: [],
       };
     }
+    const inputCommand = coopInputCommands[index] ?? neutralInputCommand;
     const stepped = stepCoopPlayerKinematics(
       runtime.player,
-      coopInputCommands[index] ?? neutralInputCommand,
+      inputCommand,
       frameDurationMilliseconds,
       movementConstants,
       levelSpec,
       breakableBlocks,
       spawnedActors,
+      runtime.vitality,
+      makeCrawlMovementConstants,
     );
     return {
       runtime: { ...runtime, player: stepped.player },
       previousPlayer: runtime.player,
+      inputCommand,
       bumpedInteractiveBlocks: stepped.bumpedInteractiveBlocks,
       bumpedBreakableBlocks: stepped.bumpedBreakableBlocks,
     };
@@ -694,63 +697,26 @@ function stepActiveSimulation(
   // pipe (the pipe entry also reads Down and takes precedence). Ducking stops
   // the walk and — via the player's `crouching` flag stamped below — shrinks the
   // hurtbox to the ROM's 12×12 crouch box.
-  const isBigVitality =
-    playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Powered ||
-    playerVitalityAfterRecoveryTick.kind === PlayerVitalityKind.Fire;
-  const wantsCrouch =
-    isBigVitality &&
-    state.players[0].player.movement.vertical ===
-      VerticalMovementState.Grounded &&
-    inputCommand.downHeld &&
-    !isPlayerFrozenByPipeEntry(pipeState.pipeEntry);
-  // A ducked player under a low ceiling stays ducked (no standing up inside a
-  // one-tile crawl) until the standing box has headroom again. Only a player
-  // whose collider is actually the ducked size can be held crouched — the
-  // headroom probe assumes the small box, and a standing player near a low
-  // ceiling must never be pulled back into a crouch.
-  const mustStayCrouched =
-    state.players[0].player.crouching === true &&
-    isBigVitality &&
-    state.players[0].player.collider.height <
-      Number(poweredPlayerColliderDimensions.height) &&
-    !playerHasStandingHeadroom(
-      state.players[0].player,
-      Number(poweredPlayerColliderDimensions.height),
-      levelSpec,
-      state.breakableBlocks,
-    );
-  const crouching = wantsCrouch || mustStayCrouched;
-  // Ducking shrinks the terrain collider to the small one-tile box
-  // (feet-anchored) like the ROM's lowered duck probes; standing back up
-  // restores the big box. This is what lets a running duck slide through the
-  // canonical 1-2/4-2 one-tile crawls as big Mario.
-  const crouchSizedPlayer = applyCrouchResize(
+  const crouchResolution = resolveCrouchState(
     state.players[0].player,
-    crouching,
     playerVitalityAfterRecoveryTick,
+    inputCommand,
+    isPlayerFrozenByPipeEntry(pipeState.pipeEntry)
+      ? freezePlayerInputCommand(inputCommand)
+      : makeRecoveryAdjustedInputCommand(
+          inputCommand,
+          playerVitalityAfterRecoveryTick,
+        ),
+    levelSpec,
+    state.breakableBlocks,
+    movementConstants,
+    makeCrawlMovementConstants,
+    isPlayerFrozenByPipeEntry(pipeState.pipeEntry),
   );
-
-  const baseInputCommand = isPlayerFrozenByPipeEntry(pipeState.pipeEntry)
-    ? freezePlayerInputCommand(inputCommand)
-    : makeRecoveryAdjustedInputCommand(
-        inputCommand,
-        playerVitalityAfterRecoveryTick,
-      );
-  // Ducked movement is a slow crawl (the ROM forbids walking while ducked
-  // entirely, but that makes the 1-2/4-2 one-tile crawls unusable from a
-  // standstill and lets you soft-lock mid-slide — deliberate deviation).
-  // A duck-slide above crawl speed keeps its momentum: input is neutralized
-  // so friction plays out exactly like the original's slide.
-  const crouchSliding =
-    crouching &&
-    Math.abs(Number(state.players[0].player.velocity.x)) > crawlSpeedPixels;
-  const effectiveInputCommand = crouchSliding
-    ? { ...baseInputCommand, horizontal: HorizontalInput.Neutral }
-    : baseInputCommand;
-  const effectiveMovementConstants =
-    crouching && !crouchSliding
-      ? makeCrawlMovementConstants(movementConstants)
-      : movementConstants;
+  const crouching = crouchResolution.crouching;
+  const crouchSizedPlayer = crouchResolution.player;
+  const effectiveInputCommand = crouchResolution.inputCommand;
+  const effectiveMovementConstants = crouchResolution.movementConstants;
 
   const horizontallyMovedPlayer = applyHorizontalMovement(
     crouchSizedPlayer,
@@ -1055,6 +1021,42 @@ function stepActiveSimulation(
     state.clock.frameDurationMilliseconds,
     nextClock.frameIndex,
   );
+  // Fireballs belong to whoever pressed fire. Projectiles resolved for the
+  // primary alone, so a co-op player who had earned a fire flower still could
+  // not throw anything — the power-up was collectable and inert.
+  const partyProjectiles = coopAfterInvincibility.reduce(
+    (carried, runtime, index) => {
+      const step = coopSteps[index];
+      if (
+        step === undefined ||
+        runtime.outcome.kind !== PlayerOutcomeKind.Active
+      ) {
+        return carried;
+      }
+      const resolved = resolveProjectilesState(
+        step.inputCommand,
+        runtime.player,
+        runtime.vitality,
+        enemyMotion,
+        projectileEnemies,
+        carried.state,
+        breakableBlocks,
+        movementConstants,
+        levelSpec,
+        state.clock.frameDurationMilliseconds,
+        nextClock.frameIndex,
+      );
+      return {
+        state: resolved.state,
+        newlyDefeatedEnemyEntityIds: [
+          ...carried.newlyDefeatedEnemyEntityIds,
+          ...resolved.newlyDefeatedEnemyEntityIds,
+        ],
+        firedProjectile: carried.firedProjectile || resolved.firedProjectile,
+      };
+    },
+    projectiles,
+  );
   const enemiesBeforeProjectileMerge = resolveEnemyInteractionState(
     state.players[0].player,
     playerAfterPowerUpResize,
@@ -1124,7 +1126,7 @@ function stepActiveSimulation(
   );
   const enemies = mergeProjectileDefeatedEnemies(
     enemiesAfterShellCollisions,
-    projectiles.newlyDefeatedEnemyEntityIds,
+    partyProjectiles.newlyDefeatedEnemyEntityIds,
     levelSpec,
   );
   // Per-enemy damage debounce: an enemy that has already landed a damaging hit
@@ -1279,17 +1281,17 @@ function stepActiveSimulation(
     state.hatchedSpinies,
     levelSpec,
     playerAfterAerialStomp,
-    projectiles.state.projectiles,
+    partyProjectiles.state.projectiles,
     timedHazardProjectiles.hatchedPositions,
     Number(state.clock.frameDurationMilliseconds) / 1000,
     Number(nextClock.frameIndex),
   );
   const projectilesAfterSpinyKills =
     hatchedSpinies.consumedProjectileIds.length === 0
-      ? projectiles.state
+      ? partyProjectiles.state
       : {
-          ...projectiles.state,
-          projectiles: projectiles.state.projectiles.filter(
+          ...partyProjectiles.state,
+          projectiles: partyProjectiles.state.projectiles.filter(
             (projectile) =>
               !hatchedSpinies.consumedProjectileIds.includes(projectile.id),
           ),

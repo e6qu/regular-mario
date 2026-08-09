@@ -2000,6 +2000,79 @@ describe("simulation primitives", () => {
     expect(Number(nextState.players[0].invincibility.remainingFrames)).toBe(0);
   });
 
+  // Projectiles resolved for the primary alone, so a co-op player who had
+  // earned a fire flower still could not throw anything: the power-up was
+  // collectable and inert for everybody but the host.
+  it("lets a co-op player in fire form throw a fireball", () => {
+    const fireInputResult = makeSimulationInputCommand(
+      HorizontalInput.Right,
+      false,
+      false,
+      true,
+      false,
+      false,
+    );
+    if (!fireInputResult.ok) {
+      throw new Error("Expected valid fire input command.");
+    }
+    const levelSpec = firstAuthoredLevelSpec();
+    const nextState = stepSimulation(
+      withCoopPlayer(validInitialState(), {
+        player: playerWithTestState({
+          position: { x: 32, y: 64 },
+          velocity: { x: 0, y: 0 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Grounded,
+          },
+        }),
+        vitality: { kind: PlayerVitalityKind.Fire },
+      }),
+      validInputCommand(),
+      initialMovementConstants,
+      levelSpec,
+      [fireInputResult.value],
+    );
+
+    expect(nextState.projectiles.projectiles.length).toBeGreaterThan(0);
+  });
+
+  // Crouching ran for the primary alone, so a big co-op player could not duck
+  // and could not crawl the one-tile gaps 1-2 and 4-2 are built around.
+  it("lets a big co-op player duck", () => {
+    const duckInputResult = makeSimulationInputCommand(
+      HorizontalInput.Neutral,
+      false,
+      false,
+      false,
+      false,
+      true,
+    );
+    if (!duckInputResult.ok) {
+      throw new Error("Expected valid duck input command.");
+    }
+    const levelSpec = firstAuthoredLevelSpec();
+    const nextState = stepSimulation(
+      withCoopPlayer(validInitialState(), {
+        player: playerWithTestState({
+          position: { x: 32, y: 64 },
+          velocity: { x: 0, y: 0 },
+          movement: {
+            horizontal: HorizontalMovementState.Idle,
+            vertical: VerticalMovementState.Grounded,
+          },
+        }),
+        vitality: { kind: PlayerVitalityKind.Powered },
+      }),
+      validInputCommand(),
+      initialMovementConstants,
+      levelSpec,
+      [duckInputResult.value],
+    );
+
+    expect(nextState.players[1]!.player.crouching).toBe(true);
+  });
+
   it("preserves previous enemy contacts while adding newly contacted enemies", () => {
     const levelSpec = firstAuthoredLevelSpec();
     const firstEnemyPlayer = playerWithTestState({
