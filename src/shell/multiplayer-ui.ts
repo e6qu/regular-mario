@@ -1283,6 +1283,18 @@ function renderGame(
         continue;
       }
       const baseline = snapshotsByGameId.get(deltaGameId);
+      // A delta built on a baseline older than the state already held is
+      // superseded: its changes are contained in what has since been applied.
+      // Discard it. Asking for a resync instead made the server send a full
+      // keyframe — several times the size of the delta — exactly when this
+      // client was already behind, which is the worst moment to ask for more
+      // bytes. Arriving late is normal on a slow link; it is not a fault.
+      if (
+        baseline !== undefined &&
+        isSupersededDelta(baselineSnapshotSequence, baseline.snapshotSequence)
+      ) {
+        continue;
+      }
       if (
         baseline === undefined ||
         baseline.frame !== baselineFrame ||
@@ -1731,6 +1743,7 @@ import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapsh
 import type { SemanticUiNode } from "../multiplayer/semantic-ui";
 import {
   applyStateDelta,
+  isSupersededDelta,
   type StateDelta,
 } from "../multiplayer/state-transport";
 import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
