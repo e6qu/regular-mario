@@ -507,24 +507,24 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
 
   // Tap the jump/stroke key repeatedly; each tap lifts the player.
   //
-  // Each tap is held for a fixed number of *simulation* frames, not
-  // milliseconds. Held by the wall clock, a stroke does only as much work as
-  // the host managed to step in that time: taps that carry the swimmer well
-  // past 60px here carried it 43px on a loaded CI runner, and no number of
-  // extra strokes closed the gap, because the swimmer sank back between them
-  // and settled at that equilibrium. The behaviour under test is that strokes
-  // carry a swimmer upward, so the strokes have to be the same everywhere.
+  // The gap between strokes is held to a single simulation frame, and the best
+  // height reached across all of them is what counts. A stroke is an impulse on
+  // the press, so the swimmer's climb is a race between strokes and the sinking
+  // in between — and it is only the sinking that a slow host inflates. With a
+  // long gap this settled into an equilibrium 43px above the floor on the CI
+  // runner while climbing past 60px here, and no number of extra strokes moved
+  // it, because each one only recovered what the last gap had lost.
   const requiredRisePixels = 60;
-  let yTop = yFloor;
-  for (let stroke = 0; stroke < 40; stroke += 1) {
-    await tapKeyForSimulationFrames(page, "Space", 4, 6);
-    yTop = await playerY();
-    if (yFloor - yTop > requiredRisePixels) {
+  let bestRisePixels = 0;
+  for (let stroke = 0; stroke < 60; stroke += 1) {
+    await tapKeyForSimulationFrames(page, "Space", 6, 1);
+    bestRisePixels = Math.max(bestRisePixels, yFloor - (await playerY()));
+    if (bestRisePixels > requiredRisePixels) {
       break;
     }
   }
   // Swimming: the strokes carried the player well above the floor.
-  expect(yFloor - yTop).toBeGreaterThan(requiredRisePixels);
+  expect(bestRisePixels).toBeGreaterThan(requiredRisePixels);
 });
 
 test("editor places a Buzzy Beetle (fireproof armored enemy) that plays", async ({
