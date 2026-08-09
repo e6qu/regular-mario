@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 // prettier-ignore
 import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette as deathFlamePalette, huskGrid, huskPalette, partArmGrid, partHeadGrid, partLegGrid, partTorsoGrid, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
+import { editorCoinBlockTileSprites } from "./editor-coin-block-tile-sprites.mjs";
 // prettier-ignore
 import { robotCostumes, luigiCostume, robotPartHeadGrid, robotPartTorsoGrid, robotPartArmGrid, robotPartLegGrid } from "./robot-costume-sprites.mjs";
 // prettier-ignore
@@ -2468,6 +2469,10 @@ async function main() {
 
   // Map the VGLC SMB 1-1 tile ids to the original island tiles.
   const tileSprites = {
+    ...editorCoinBlockTileSprites(
+      spriteEntry("tile-crate.png"),
+      spriteEntry("tile-plank.png"),
+    ),
     ground: spriteEntry("tile-sand.png"),
     "breakable-block": spriteEntry("tile-plank.png"),
     "multi-coin-brick": spriteEntry("tile-plank.png"),

@@ -12,6 +12,7 @@ import {
 import { standardSurfaceTileDefinitions } from "../engine/levels/level-builder";
 import type { LevelTheme } from "./browser-level-selection";
 import { runSpotlightWalkthrough } from "./spotlight-tutorial";
+import { isRenderedActorRole } from "./level-art-requirements";
 
 export type LevelEditorCallbacks = {
   // skinId is a tileset (asset-set) id whose sprites render the level.
@@ -518,6 +519,45 @@ const paletteItems: readonly PaletteItem[] = [
     mechanismId: "lift-drop",
   },
 ];
+
+/**
+ * Every tile and actor id an authored level can end up naming.
+ *
+ * The palette is a second source of ids, independent of any level file: paint a
+ * coin onto a block and the level names `coin-block-2`, which appears in no
+ * shipped level and so was in no asset set — the scene threw while building and
+ * the play-test hung with the canvas up. asset-coverage.test.ts checks these
+ * against the shipped bundle so a palette entry can never again name art that
+ * does not exist.
+ */
+export function editorAuthorableArtIds(): {
+  readonly tileIds: readonly string[];
+  readonly actorIds: readonly string[];
+} {
+  const tileIds = new Set<string>();
+  const actorIds = new Set<string>();
+
+  for (const item of paletteItems) {
+    if (item.tileId !== undefined) {
+      tileIds.add(item.tileId);
+    }
+    // Same rule the renderer uses: a player start marks where the run begins
+    // and a pipe is drawn from its tiles, so neither needs actor art.
+    if (item.kind === "actor" && isRenderedActorRole(item.role)) {
+      actorIds.add(item.actorId);
+    }
+  }
+
+  // Coin blocks bake their count into the id, so the palette's four embeddable
+  // block cells expand into the whole 1..9 range in both looks.
+  for (let count = minCoinBlockCount; count <= maxCoinBlockCount; count += 1) {
+    tileIds.add(coinBlockTileId(count, false));
+    tileIds.add(coinBlockTileId(count, true));
+  }
+  actorIds.add(coinContentsActorId);
+
+  return { tileIds: [...tileIds].sort(), actorIds: [...actorIds].sort() };
+}
 
 // Inject (once) the short-viewport rules that compact the editor's chrome —
 // header, palette and toolbar — for mobile-landscape, trading roomy desktop

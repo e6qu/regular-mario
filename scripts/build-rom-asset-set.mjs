@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 // prettier-ignore
 import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette, huskGrid, huskPalette, partArmGrid, partHeadGrid, partLegGrid, partTorsoGrid, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
+import { editorCoinBlockTileSprites } from "./editor-coin-block-tile-sprites.mjs";
 
 // Spikes ("thorn") are a non-SMB addition, so the CHR set has no sprite for
 // them — author one: a row of metal spikes on a dark base.
@@ -453,6 +454,10 @@ async function main() {
       ),
     },
     tileSprites: {
+      ...editorCoinBlockTileSprites(
+        spriteEntry("tile-question-block.png"),
+        spriteEntry("tile-brick.png"),
+      ),
       ...mapTileSprites(tileSpriteSources),
       ...mapTileSprites(extraTileSpriteSources),
       // Authored floor-spike tile (no CHR source; SMB has none).

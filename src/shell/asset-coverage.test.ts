@@ -6,7 +6,12 @@ import {
   BrowserLevelKey,
   selectBrowserGameBootstrap,
 } from "./browser-level-selection";
-import { drawnActorIds, drawnTileIds } from "./level-art-requirements";
+import {
+  drawnActorIds,
+  drawnTileIds,
+  isIntentionallyInvisibleTile,
+} from "./level-art-requirements";
+import { editorAuthorableArtIds } from "./level-editor";
 
 /**
  * Every id a level names must be drawable by the shipped content set.
@@ -97,4 +102,18 @@ describe("every bundled level can be drawn by the shipped content set", () => {
       ).toEqual({ tiles: [], actors: [] });
     });
   }
+
+  // The palette is the other source of ids: nothing in a level file names a
+  // coin block, so nothing pulled `coin-block-2` into an asset set and every
+  // authored level with one hung the play-test.
+  it("the level editor cannot paint art the bundle lacks", () => {
+    const authorable = editorAuthorableArtIds();
+    expect({
+      tiles: authorable.tileIds.filter(
+        (tileId) =>
+          !tileArt.has(tileId) && !isIntentionallyInvisibleTile(tileId),
+      ),
+      actors: authorable.actorIds.filter((actorId) => !actorArt.has(actorId)),
+    }).toEqual({ tiles: [], actors: [] });
+  });
 });
