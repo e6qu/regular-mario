@@ -11,6 +11,7 @@ import {
 } from "./level-test-support";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
+import { makeInitialPlayerVitalityState } from "./player-vitality";
 import type { PlayerSimulationState } from "./player-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "./simulation-units";
 
@@ -51,6 +52,8 @@ function stepWithBumps(
     firstAuthoredLevelSpec(),
     makeEmptyBreakableBlockState(),
     [],
+    makeInitialPlayerVitalityState(),
+    (base) => base,
   );
 }
 

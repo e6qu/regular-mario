@@ -2,9 +2,11 @@ import type { BreakableBlockState } from "./breakable-block-state";
 import type { FrameDurationMilliseconds, TilePoint } from "../domain/units";
 import type { LevelSpec } from "../domain/level-spec";
 import { applyClimbableMovement } from "./climbable-interaction";
+import { resolveCrouchState } from "./crouch-state";
 import { applyHorizontalMovement } from "./horizontal-movement";
 import type { SimulationInputCommand } from "./input-command";
 import type { MovementConstants } from "./movement-model";
+import type { PlayerVitalityState } from "./player-vitality";
 import type { PlayerSimulationState } from "./player-state";
 import { applyPositionMovement } from "./position-movement";
 import { resolveSolidTileCollisionWithBlockBumps } from "./solid-tile-collision";
@@ -36,7 +38,12 @@ export interface CoopPlayerKinematicsResult {
 // a vine is climbable by whoever grabs it rather than only by slot 0 — a level
 // gated behind a beanstalk was otherwise impassable for everybody else.
 //
-// Still missing, and still needless variance: pipes and crouch.
+// Crouching runs through the same `resolveCrouchState` the primary uses, so a
+// big co-op player can duck and crawl the one-tile gaps 1-2 and 4-2 are built
+// around. Sharing the helper rather than restating the five coupled rules is
+// the point: a restated rule is how the paths drift apart again.
+//
+// Still missing, and still needless variance: pipes.
 export function stepCoopPlayerKinematics(
   player: PlayerSimulationState,
   inputCommand: SimulationInputCommand,
@@ -45,16 +52,30 @@ export function stepCoopPlayerKinematics(
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
   spawnedActors: readonly SpawnedActor[],
+  vitality: PlayerVitalityState,
+  makeCrawlMovementConstants: (base: MovementConstants) => MovementConstants,
 ): CoopPlayerKinematicsResult {
-  const horizontallyMoved = applyHorizontalMovement(
+  const crouch = resolveCrouchState(
     player,
+    vitality,
     inputCommand,
-    frameDurationMilliseconds,
+    inputCommand,
+    levelSpec,
+    breakableBlocks,
     movementConstants,
+    makeCrawlMovementConstants,
+    // Only the primary player can enter a pipe today.
+    false,
+  );
+  const horizontallyMoved = applyHorizontalMovement(
+    crouch.player,
+    crouch.inputCommand,
+    frameDurationMilliseconds,
+    crouch.movementConstants,
   );
   const climbableMovement = applyClimbableMovement(
     horizontallyMoved,
-    inputCommand,
+    crouch.inputCommand,
     levelSpec,
     spawnedActors,
     movementConstants,
@@ -63,7 +84,7 @@ export function stepCoopPlayerKinematics(
     ? climbableMovement.player
     : applyVerticalMovement(
         horizontallyMoved,
-        inputCommand,
+        crouch.inputCommand,
         frameDurationMilliseconds,
         movementConstants,
       );
@@ -71,11 +92,17 @@ export function stepCoopPlayerKinematics(
     verticallyMoved,
     frameDurationMilliseconds,
   );
-  return resolveSolidTileCollisionWithBlockBumps(
-    player,
+  const resolved = resolveSolidTileCollisionWithBlockBumps(
+    crouch.player,
     moved,
     levelSpec,
     breakableBlocks,
     movementConstants.springLaunchSpeed,
   );
+  // Re-stamp the crouch flag, exactly as the primary player's step does: the
+  // collision rebuilders drop it, and without it the ducked hurtbox and the
+  // "stay ducked under a low ceiling" rule both stop applying next frame.
+  return crouch.crouching
+    ? { ...resolved, player: { ...resolved.player, crouching: true } }
+    : resolved;
 }
