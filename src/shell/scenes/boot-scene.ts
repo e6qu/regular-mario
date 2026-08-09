@@ -1259,8 +1259,15 @@ export class BootScene extends Phaser.Scene {
   private setAuthoritativeCameraLeft(cameraLeftPixels: number): void {
     const camera = this.cameras.main;
     const horizontalViewportInset = (camera.width - camera.displayWidth) / 2;
+    // Whole pixels only. The client smooths this camera toward its target every
+    // animation frame, so the value arriving here is almost always fractional,
+    // and `roundPixels` then rounds each sprite's draw position independently.
+    // Two sprites either side of a half-pixel boundary round opposite ways, so
+    // parts of the scene shift a pixel while the rest does not — within a single
+    // frame. That is the shearing you see while scrolling; snapping the camera
+    // itself moves the whole world together instead.
     camera.setScroll(
-      cameraLeftPixels - horizontalViewportInset,
+      Math.round(cameraLeftPixels - horizontalViewportInset),
       camera.scrollY,
     );
   }
