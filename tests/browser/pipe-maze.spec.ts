@@ -52,7 +52,13 @@ test("the 8-4 water room's exit pipe accepts a swimmer and returns to 8-4", asyn
   // strokes to stay in the mouth's band while closing the gap.
   await bootLevelAt(page, "smb-warp-0-2-w8", 66 * 16, 7 * 16);
   await page.keyboard.down("ArrowRight");
-  for (let stroke = 0; stroke < 40; stroke += 1) {
+  // Swim until the warp happens rather than for a fixed number of strokes. Each
+  // stroke is a real key event, so how far it carries the swimmer depends on how
+  // many simulation frames elapse while it is held: forty strokes cross the gap
+  // comfortably here and fell short on a loaded CI runner, leaving the run
+  // dead-ended underwater and the wait below to time out.
+  const swimDeadline = Date.now() + 25_000;
+  while (Date.now() < swimDeadline) {
     await page.keyboard.down("Space");
     await page.waitForTimeout(100);
     await page.keyboard.up("Space");

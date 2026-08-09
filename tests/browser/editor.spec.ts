@@ -501,15 +501,27 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
   const yFloor = await playerY();
 
   // Tap the jump/stroke key repeatedly; each tap lifts the player.
-  for (let stroke = 0; stroke < 7; stroke += 1) {
+  //
+  // Stroke until the player has climbed rather than a fixed seven times. Each
+  // tap is a real key event whose effect depends on how many simulation frames
+  // elapse while it is held, so a fixed count measures the machine as much as
+  // the swimming: seven strokes lifted 43px on a loaded CI runner and comfortably
+  // over 60px here. The behaviour under test is that strokes carry a swimmer
+  // upward, and that is what this waits for.
+  const requiredRisePixels = 60;
+  let yTop = yFloor;
+  for (let stroke = 0; stroke < 40; stroke += 1) {
     await page.keyboard.down("Space");
     await page.waitForTimeout(60);
     await page.keyboard.up("Space");
     await page.waitForTimeout(90);
+    yTop = await playerY();
+    if (yFloor - yTop > requiredRisePixels) {
+      break;
+    }
   }
-  const yTop = await playerY();
   // Swimming: the strokes carried the player well above the floor.
-  expect(yFloor - yTop).toBeGreaterThan(60);
+  expect(yFloor - yTop).toBeGreaterThan(requiredRisePixels);
 });
 
 test("editor places a Buzzy Beetle (fireproof armored enemy) that plays", async ({
