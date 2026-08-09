@@ -16,7 +16,7 @@ const showcaseHeightTiles = 8;
 const showcaseTileDefinitions: LevelSpecInputType["tileDefinitions"] = [
   ...standardSurfaceTileDefinitions,
   {
-    tileId: "interactive-block",
+    tileId: "empty-question-block",
     collision: TileCollisionKind.Interactive,
   },
 ];

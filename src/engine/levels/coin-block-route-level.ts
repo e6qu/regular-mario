@@ -23,9 +23,9 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
       collision: TileCollisionKind.Solid,
     },
     {
-      tileId: "mystery-box",
+      tileId: "full-question-block-coin",
       collision: TileCollisionKind.Interactive,
-      contentsActorId: "coin",
+      contentsActorId: "vglc-smb-coin",
     },
     {
       tileId: "gate",
@@ -38,7 +38,7 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
       role: ActorRole.PlayerStart,
     },
     {
-      actorId: "coin",
+      actorId: "vglc-smb-coin",
       role: ActorRole.Coin,
     },
     {
@@ -54,7 +54,7 @@ export const coinBlockRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", coinBlockRouteWidthTiles),
     [
       "sky",
-      "mystery-box",
+      "full-question-block-coin",
       "sky",
       "sky",
       "sky",

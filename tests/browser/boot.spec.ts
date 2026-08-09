@@ -699,10 +699,10 @@ async function waitForSimulationSnapshotCondition(
           case "coin-block-spawned":
             return (
               snapshot.collectibles.collectedCoinEntityIds.includes(
-                "spawned-1-2",
+                "spawned-1-11",
               ) &&
               snapshot.spawnedActors.spawnedActors.some(
-                (actor) => actor.entityId === "spawned-1-2",
+                (actor) => actor.entityId === "spawned-1-11",
               )
             );
           case "pipe-entered":
@@ -1377,13 +1377,13 @@ test("bumps a coin block and reports the spawned coin popup", async ({
   }
 
   expect(spawnedSnapshot.collectibles.collectedCoinEntityIds).toEqual([
-    "spawned-1-2",
+    "spawned-1-11",
   ]);
   expect(spawnedSnapshot.coinCount).toBe(1);
   expect(spawnedSnapshot.score).toBe(200);
   expect(spawnedSnapshot.spawnedActors.spawnedActors[0]).toMatchObject({
-    entityId: "spawned-1-2",
-    actorId: "coin",
+    entityId: "spawned-1-11",
+    actorId: "vglc-smb-coin",
     role: ActorRole.Coin,
     velocityX: 0,
     velocityY: -240,
@@ -1400,7 +1400,7 @@ test("bumps a coin block and reports the spawned coin popup", async ({
     const spawnedCoin = debugApi
       .getSimulationSnapshot()
       .spawnedActors.spawnedActors.find(
-        (actor) => actor.entityId === "spawned-1-2",
+        (actor) => actor.entityId === "spawned-1-11",
       );
 
     return spawnedCoin !== undefined && !spawnedCoin.active;
@@ -1408,7 +1408,7 @@ test("bumps a coin block and reports the spawned coin popup", async ({
 
   const expiredSnapshot = await readSimulationSnapshot(page);
   expect(expiredSnapshot.collectibles.collectedCoinEntityIds).toEqual([
-    "spawned-1-2",
+    "spawned-1-11",
   ]);
   expect(expiredSnapshot.spawnedActors.spawnedActors[0]?.active).toBe(false);
   expectNoBrowserErrors(browserErrors);
