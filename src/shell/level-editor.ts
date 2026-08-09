@@ -2792,7 +2792,8 @@ function levelInputFromCells(
       })),
       // The coin dispensed by coin blocks and hidden blocks needs its own
       // actor definition.
-      ...(usedCoinTileIds.size > 0 || tiles.flat().includes("empty-question-block")
+      ...(usedCoinTileIds.size > 0 ||
+      tiles.flat().includes("empty-question-block")
         ? [{ actorId: coinContentsActorId, role: ActorRole.Coin }]
         : []),
     ],
