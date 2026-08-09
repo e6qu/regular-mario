@@ -117,6 +117,38 @@ test("reports what a live game costs the client", async ({ browser }) => {
         Record<string, unknown>
       >;
       const byKey = sizesByKey(parsed);
+      // Where a delta's bytes actually go. Each change carries its own path
+      // from the root of the snapshot, so a two-byte coordinate can arrive
+      // under sixty bytes of addressing.
+      const deltas = (
+        parsed as {
+          deltas?: readonly {
+            readonly delta?: { readonly changes?: readonly unknown[] };
+          }[];
+        }
+      ).deltas;
+      const changes = deltas?.[0]?.delta?.changes;
+      if (changes !== undefined) {
+        let pathBytes = 0;
+        let valueBytes = 0;
+        for (const change of changes) {
+          const entry = change as {
+            readonly path?: unknown;
+            readonly value?: unknown;
+          };
+          pathBytes += JSON.stringify(entry.path ?? []).length;
+          valueBytes += JSON.stringify(entry.value ?? null).length;
+        }
+        report(test.info(), "delta-anatomy", {
+          changes: changes.length,
+          pathBytes,
+          valueBytes,
+          pathShare: (pathBytes / Math.max(1, pathBytes + valueBytes)).toFixed(
+            3,
+          ),
+          sample: JSON.stringify(changes.slice(0, 3)),
+        });
+      }
       report(test.info(), "message-shape", {
         totalBytes: measured.sample.length,
         byKey,

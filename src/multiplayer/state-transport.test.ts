@@ -59,3 +59,41 @@ describe("state transport", () => {
     expect(applied.moving).not.toBe(baseline.moving);
   });
 });
+
+describe("state delta path compression", () => {
+  // A delta spends most of its bytes saying *where* a change goes, not what it
+  // is: measured on a live two-player game, 69 bytes of addressing carried 9
+  // bytes of data. Changes arrive depth-first, so neighbours share nearly all
+  // of their path and only the tail needs sending.
+  it("sends only the part of a path that differs from the change before", () => {
+    const baseline = {
+      enemies: [
+        { position: { x: 1, y: 2 }, alive: true },
+        { position: { x: 5, y: 6 }, alive: true },
+      ],
+    };
+    const target = {
+      enemies: [
+        { position: { x: 3, y: 4 }, alive: true },
+        { position: { x: 7, y: 6 }, alive: true },
+      ],
+    };
+
+    const delta = makeStateDelta(baseline, target);
+
+    // x and y of the same enemy share ["enemies", 0, "position"].
+    expect(delta.changes).toEqual([
+      { p: ["enemies", 0, "position", "x"], v: 3 },
+      { s: 3, p: ["y"], v: 4 },
+      { s: 1, p: [1, "position", "x"], v: 7 },
+    ]);
+    // And it still round-trips.
+    expect(applyStateDelta(baseline, delta)).toEqual(target);
+  });
+
+  it("refuses a delta that reuses more path than exists", () => {
+    expect(() =>
+      applyStateDelta({ a: 1 }, { changes: [{ s: 2, p: ["b"], v: 1 }] }),
+    ).toThrow("reuses more path parts");
+  });
+});
