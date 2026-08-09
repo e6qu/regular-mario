@@ -1,27 +1,6 @@
-import { expect, test, type TestInfo } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-import {
-  cancelGame,
-  createGameOnLevel,
-  findGameIdByCreatorNickname,
-  joinHostedGame,
-  login,
-  saveProfile,
-} from "./support";
-
-/**
- * Attach a measurement to the test report.
- *
- * These specs exist to produce numbers, and numbers that only reach a console
- * are numbers nobody reads on a failure. Annotations travel with the report.
- */
-function report(
-  info: TestInfo,
-  name: string,
-  values: Readonly<Record<string, unknown>>,
-): void {
-  info.annotations.push({ type: name, description: JSON.stringify(values) });
-}
+import { cancelGame, openTwoPlayerGame, report } from "./support";
 
 /**
  * How often the guest's predicted world has to be corrected by the server.
@@ -35,21 +14,13 @@ function report(
 test("a guest's prediction does not need constant correction", async ({
   browser,
 }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
+  const { hostContext, guestContext, host, guest } = await openTwoPlayerGame(
+    browser,
+    "DriftHost",
+    "DriftGuest",
+  );
 
   try {
-    await login(host);
-    await saveProfile(host, "DriftHost");
-    await createGameOnLevel(host, "smb-1-1");
-    await findGameIdByCreatorNickname(host, "DriftHost");
-
-    await login(guest);
-    await saveProfile(guest, "DriftGuest");
-    await joinHostedGame(guest, "DriftHost");
-
     const shell = guest.locator(".multiplayer-game-shell");
     const readCounts = async () => ({
       reconciles: Number(
@@ -92,21 +63,13 @@ test("a guest's prediction does not need constant correction", async ({
  * not from the simulation, because the complaint is about what the player sees.
  */
 test("a running guest is never yanked backwards", async ({ browser }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
+  const { hostContext, guestContext, host, guest } = await openTwoPlayerGame(
+    browser,
+    "SmoothHost",
+    "SmoothGuest",
+  );
 
   try {
-    await login(host);
-    await saveProfile(host, "SmoothHost");
-    await createGameOnLevel(host, "smb-1-1");
-    await findGameIdByCreatorNickname(host, "SmoothHost");
-
-    await login(guest);
-    await saveProfile(guest, "SmoothGuest");
-    await joinHostedGame(guest, "SmoothHost");
-
     const shell = guest.locator(".multiplayer-game-shell");
     await guest.waitForTimeout(1_000);
     await guest.keyboard.down("ArrowRight");

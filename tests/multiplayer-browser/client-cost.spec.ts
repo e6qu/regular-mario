@@ -1,13 +1,6 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import {
-  cancelGame,
-  createGameOnLevel,
-  findGameIdByCreatorNickname,
-  joinHostedGame,
-  login,
-  saveProfile,
-} from "./support";
+import { cancelGame, openTwoPlayerGame, report } from "./support";
 
 declare global {
   interface Window {
@@ -27,14 +20,6 @@ function sizesByKey(
   );
   entries.sort((left, right) => right[1] - left[1]);
   return Object.fromEntries(entries);
-}
-
-function report(
-  info: TestInfo,
-  name: string,
-  values: Readonly<Record<string, unknown>>,
-): void {
-  info.annotations.push({ type: name, description: JSON.stringify(values) });
 }
 
 /** Record every animation-frame gap, so stutter shows up as a number. */
@@ -94,24 +79,17 @@ async function recordSocketTraffic(page: Page): Promise<void> {
 }
 
 test("reports what a live game costs the client", async ({ browser }) => {
-  const hostContext = await browser.newContext();
-  const guestContext = await browser.newContext();
-  const host = await hostContext.newPage();
-  const guest = await guestContext.newPage();
+  const { hostContext, guestContext, host, guest } = await openTwoPlayerGame(
+    browser,
+    "CostHost",
+    "CostGuest",
+    async (page) => {
+      await recordFrameDeltas(page);
+      await recordSocketTraffic(page);
+    },
+  );
 
   try {
-    await recordFrameDeltas(guest);
-    await recordSocketTraffic(guest);
-
-    await login(host);
-    await saveProfile(host, "CostHost");
-    await createGameOnLevel(host, "smb-1-1");
-    await findGameIdByCreatorNickname(host, "CostHost");
-
-    await login(guest);
-    await saveProfile(guest, "CostGuest");
-    await joinHostedGame(guest, "CostHost");
-
     await guest.waitForTimeout(1_000);
     await guest.evaluate(() => {
       window.__frameDeltas = [];

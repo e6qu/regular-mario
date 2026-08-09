@@ -102,9 +102,7 @@ describe("client prediction", () => {
     // And this client's own player, holding nothing, stayed put.
     expect(
       Number(requirePlayerAt(prediction.snapshot().state, 1).player.position.x),
-    ).toBe(
-      Number(requirePlayerAt(twoPlayers.value, 1).player.position.x),
-    );
+    ).toBe(Number(requirePlayerAt(twoPlayers.value, 1).player.position.x));
   });
 
   it("applies local commands immediately and retains unacknowledged history", () => {

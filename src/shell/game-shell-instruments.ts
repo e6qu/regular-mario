@@ -43,7 +43,7 @@ export function instrumentBoolean(value: boolean): InstrumentBoolean {
  * moment before a join is acknowledged, or after being dropped), and that is
  * not the same as being an active participant.
  */
-export type SpectatorInstrument = InstrumentBoolean | typeof instrumentAbsent;
+type SpectatorInstrument = InstrumentBoolean | typeof instrumentAbsent;
 
 /** Where the local player was painted, or that they were not painted at all. */
 export type RenderedPositionInstrument =
@@ -79,9 +79,13 @@ export function remotePositionsInstrument(
   if (first === undefined) {
     return instrumentAbsent;
   }
-  const encode = (position: { readonly x: number; readonly y: number }): string =>
-    `${Math.round(position.x)},${Math.round(position.y)}`;
-  return [encode(first), ...rest.map(encode)].join(";") as RemotePositionsInstrument;
+  const encode = (position: {
+    readonly x: number;
+    readonly y: number;
+  }): string => `${Math.round(position.x)},${Math.round(position.y)}`;
+  return [encode(first), ...rest.map(encode)].join(
+    ";",
+  ) as RemotePositionsInstrument;
 }
 
 export type GameShellInstruments = {

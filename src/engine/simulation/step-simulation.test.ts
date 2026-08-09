@@ -688,6 +688,23 @@ function stepRightSideEnemyContactWithoutHazard(
   );
 }
 
+/** A motionless player at a pixel position, grounded or falling. */
+function stillPlayerAt(x: number, y: number, vertical: VerticalMovementState) {
+  return playerWithTestState({
+    position: { x, y },
+    velocity: { x: 0, y: 0 },
+    movement: { horizontal: HorizontalMovementState.Idle, vertical },
+  });
+}
+
+function groundedPlayerAt(x: number, y: number) {
+  return stillPlayerAt(x, y, VerticalMovementState.Grounded);
+}
+
+function fallingPlayerAt(x: number, y: number) {
+  return stillPlayerAt(x, y, VerticalMovementState.Falling);
+}
+
 describe("simulation primitives", () => {
   it("creates explicit input commands", () => {
     expect(
@@ -1766,14 +1783,7 @@ describe("simulation primitives", () => {
     });
     const separated = stepRightSideEnemyContactWithoutHazard(
       withPlayerOverrides(nextState, {
-        player: playerWithTestState({
-          position: { x: 32, y: 64 },
-          velocity: { x: 0, y: 0 },
-          movement: {
-            horizontal: HorizontalMovementState.Idle,
-            vertical: VerticalMovementState.Grounded,
-          },
-        }),
+        player: groundedPlayerAt(32, 64),
       }),
     );
     const recontacted = stepRightSideEnemyContactWithoutHazard(
@@ -1847,14 +1857,7 @@ describe("simulation primitives", () => {
           "Expected climbable initial state.",
         ),
         {
-          player: playerWithTestState({
-            position: { x: 16, y: 64 },
-            velocity: { x: 0, y: 0 },
-            movement: {
-              horizontal: HorizontalMovementState.Idle,
-              vertical: VerticalMovementState.Falling,
-            },
-          }),
+          player: fallingPlayerAt(16, 64),
         },
       ),
       climbingInputCommand({ upHeld: true, downHeld: false }),
@@ -1919,14 +1922,7 @@ describe("simulation primitives", () => {
       withCoopPlayer(
         initialStateForLevel(levelSpec, "Expected climbable initial state."),
         {
-          player: playerWithTestState({
-            position: { x: 16, y: 64 },
-            velocity: { x: 0, y: 0 },
-            movement: {
-              horizontal: HorizontalMovementState.Idle,
-              vertical: VerticalMovementState.Falling,
-            },
-          }),
+          player: fallingPlayerAt(16, 64),
           vitality: { kind: PlayerVitalityKind.Small },
         },
       ),
@@ -2018,14 +2014,7 @@ describe("simulation primitives", () => {
     const levelSpec = firstAuthoredLevelSpec();
     const nextState = stepSimulation(
       withCoopPlayer(validInitialState(), {
-        player: playerWithTestState({
-          position: { x: 32, y: 64 },
-          velocity: { x: 0, y: 0 },
-          movement: {
-            horizontal: HorizontalMovementState.Idle,
-            vertical: VerticalMovementState.Grounded,
-          },
-        }),
+        player: groundedPlayerAt(32, 64),
         vitality: { kind: PlayerVitalityKind.Fire },
       }),
       validInputCommand(),
@@ -2054,14 +2043,7 @@ describe("simulation primitives", () => {
     const levelSpec = firstAuthoredLevelSpec();
     const nextState = stepSimulation(
       withCoopPlayer(validInitialState(), {
-        player: playerWithTestState({
-          position: { x: 32, y: 64 },
-          velocity: { x: 0, y: 0 },
-          movement: {
-            horizontal: HorizontalMovementState.Idle,
-            vertical: VerticalMovementState.Grounded,
-          },
-        }),
+        player: groundedPlayerAt(32, 64),
         vitality: { kind: PlayerVitalityKind.Powered },
       }),
       validInputCommand(),

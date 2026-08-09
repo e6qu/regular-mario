@@ -90,7 +90,8 @@ describe("platform state", () => {
     expect(wrapped[0]?.y ?? 0).toBeGreaterThan(early[0]?.y ?? 0);
   });
 
-  it("settles a falling player onto a platform and carries them", () => {
+  /** A level with one horizontal lift, and its empty runtime state. */
+  function horizontalLiftLevel() {
     const levelSpec = requireLevelSpec(
       makePlatformLevelInput([
         {
@@ -102,7 +103,11 @@ describe("platform state", () => {
         },
       ]),
     );
-    const state = makeEmptyPlatformsState(levelSpec);
+    return { levelSpec, state: makeEmptyPlatformsState(levelSpec) };
+  }
+
+  it("settles a falling player onto a platform and carries them", () => {
+    const { levelSpec, state } = horizontalLiftLevel();
     // Platform top at frame 0 is y=96 at x=128..176; drop the player onto it.
     const falling = playerAt(140, 96 - 14);
     const resolution = resolvePlatformsState(
@@ -127,18 +132,7 @@ describe("platform state", () => {
   // still while the plank slid out from under them. A level built around a lift
   // was unfinishable by anybody but the host.
   it("carries every rider, not only the first", () => {
-    const levelSpec = requireLevelSpec(
-      makePlatformLevelInput([
-        {
-          platformId: "lift-0",
-          kind: "horizontal",
-          x: 8,
-          y: 6,
-          widthTiles: 3,
-        },
-      ]),
-    );
-    const state = makeEmptyPlatformsState(levelSpec);
+    const { levelSpec, state } = horizontalLiftLevel();
     // Two friends standing on the same plank, a few pixels apart.
     const first = playerAt(140, 96 - 14);
     const second = playerAt(160, 96 - 14);
