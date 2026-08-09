@@ -378,6 +378,22 @@ function stepPrimaryPlayer(
 const coopSpawnInvincibilityMilliseconds = 10000;
 
 /**
+ * Whether co-op players are still under the spawn grace.
+ *
+ * Exported because the grace has to hold against every source of harm, not only
+ * the ones this module resolves: flung body parts are thrown by the renderer,
+ * and a window only the simulation honours is not a window.
+ */
+export function isWithinCoopSpawnInvincibility(
+  frameIndex: number,
+  frameDurationMilliseconds: number,
+): boolean {
+  return (
+    frameIndex * frameDurationMilliseconds < coopSpawnInvincibilityMilliseconds
+  );
+}
+
+/**
  * One co-op player's head bumps this frame, tagged with that player's vitality.
  *
  * The vitality travels with the bumps because the block rules read it: a small
@@ -575,11 +591,13 @@ function resolveCoopPlayerOutcomes(
         }
       : runtime;
   });
-  // During the spawn-invincibility window nobody is removed, so the bots ride
+  // During the spawn-invincibility window nobody is defeated, so the bots ride
   // out the initial scrum unharmed.
   if (
-    frameIndex * Number(frameDurationMilliseconds) <
-    coopSpawnInvincibilityMilliseconds
+    isWithinCoopSpawnInvincibility(
+      frameIndex,
+      Number(frameDurationMilliseconds),
+    )
   ) {
     return withGoalOutcomes;
   }

@@ -97,7 +97,10 @@ import {
   SoundEvent,
 } from "../../engine/simulation/sound-events";
 import { stompReactionFrames } from "../../engine/simulation/stomp-reaction";
-import { stepSimulation } from "../../engine/simulation/step-simulation";
+import {
+  isWithinCoopSpawnInvincibility,
+  stepSimulation,
+} from "../../engine/simulation/step-simulation";
 import {
   decodeMultiplayerSimulationState,
   type MultiplayerSimulationWireState,
@@ -696,11 +699,10 @@ export class BootScene extends Phaser.Scene {
   // The frame a drowning float first reached the surface (-1 until it does).
   private deathFloatSurfaceFrame = -1;
   private deathPieces: FlyingDeathPart[] = [];
-  // Stable per-bot tracking. Co-op players are positional in the sim's players
-  // array (no id), so each frame we match the current bots to the previous ones
-  // by nearest position: a matched bot keeps its robot costume, an unmatched
-  // previous bot has vanished (died) and is exploded at its last spot, and an
-  // unmatched current bot is new and cycles onto the next robot variant.
+  // Last step's view of each co-op slot, index-aligned to players.slice(1). A
+  // slot is a stable identity that outlives its occupant's death, so this only
+  // has to carry the previous liveness (to notice the step a bot died on) and
+  // the footprint to explode at.
   private coopBotSnapshots: {
     x: number;
     y: number;
@@ -708,6 +710,7 @@ export class BootScene extends Phaser.Scene {
     h: number;
     character: PlayerCharacter;
     name: string;
+    alive: boolean;
   }[] = [];
   // The resolved costume per current co-op bot (index-aligned to
   // players.slice(1)), set by the per-step tracker and read by the renderer.
@@ -3428,7 +3431,7 @@ export class BootScene extends Phaser.Scene {
       belowLevelY,
       hitCoopPlayerIndices,
     );
-    this.removeHitCoopPlayers(hitCoopPlayerIndices);
+    this.defeatHitCoopPlayers(hitCoopPlayerIndices);
     this.stepKnockedEnemies(belowLevelY);
   }
 
@@ -3513,20 +3516,36 @@ export class BootScene extends Phaser.Scene {
     return (this.deathDamageRoll >>> 24) % 5 === 0;
   }
 
-  // Take the struck co-op bots out of the sim (dead until the level ends); their
-  // own explosions follow next frame when the tracker notices them gone.
-  private removeHitCoopPlayers(
+  // Defeat the struck co-op bots (dead until the level ends); their own
+  // explosions follow next frame when the tracker sees the outcome change.
+  //
+  // Defeated in place, never spliced out: a co-op slot is a stable identity, and
+  // authoritative multiplayer requires that network player IDs never shift when
+  // somebody dies. Removing the element renumbered every later bot.
+  private defeatHitCoopPlayers(
     hitCoopPlayerIndices: ReadonlySet<number>,
   ): void {
     if (hitCoopPlayerIndices.size === 0) {
       return;
     }
-    const remaining = this.simulationState.players
-      .slice(1)
-      .filter((_unused, index) => !hitCoopPlayerIndices.has(index));
+    const [primary, ...coop] = this.simulationState.players;
     this.simulationState = {
       ...this.simulationState,
-      players: [this.simulationState.players[0], ...remaining],
+      players: [
+        primary,
+        ...coop.map((runtime, index) =>
+          hitCoopPlayerIndices.has(index) &&
+          runtime.outcome.kind === PlayerOutcomeKind.Active
+            ? {
+                ...runtime,
+                outcome: {
+                  kind: PlayerOutcomeKind.Defeated as const,
+                  reason: PlayerDefeatReason.EnemyContact,
+                },
+              }
+            : runtime,
+        ),
+      ],
     };
   }
 
@@ -3581,7 +3600,20 @@ export class BootScene extends Phaser.Scene {
       boxes.push({ left: x, top: y, right: x + size, bottom: y + size });
       targets.push({ kind: "enemy", entityId: actor.entityId });
     }
+    // Bots are only targets once their spawn grace has run out — a window the
+    // simulation honours is worthless if flung body parts ignore it — and only
+    // while alive, so a fallen bot is not killed a second time.
+    const botsAreVulnerable = !isWithinCoopSpawnInvincibility(
+      Number(this.simulationState.clock.frameIndex),
+      Number(this.simulationState.clock.frameDurationMilliseconds),
+    );
     this.simulationState.players.slice(1).forEach((runtime, index) => {
+      if (
+        !botsAreVulnerable ||
+        runtime.outcome.kind !== PlayerOutcomeKind.Active
+      ) {
+        return;
+      }
       const player = runtime.player;
       const left = Number(player.position.x);
       const top = Number(player.position.y);
@@ -6123,72 +6155,65 @@ export class BootScene extends Phaser.Scene {
     this.coopBotNextVariant = 0;
   }
 
-  // Once per simulation step: match the current co-op bots to the previous
-  // frame's by nearest position so each keeps a stable robot costume, and
-  // explode any previous bot that has vanished from the sim (it died this step).
+  // Once per simulation step: give each co-op slot its costume and call-sign,
+  // and explode any bot whose outcome turned from active to defeated this step.
+  //
+  // The slot index IS the identity. This used to re-derive identity every frame
+  // by matching positions between frames, because death spliced bots out of the
+  // array and renumbered the rest; two bots passing within the match radius
+  // could swap costumes and call-signs. Defeat now keeps the slot, so a bot's
+  // costume is simply the one its slot was given when it spawned.
   private syncCoopBotsAndDetectDeaths(): void {
     const coop = this.simulationState.players.slice(1);
-    const current = coop.map((runtime) => ({
-      x: Number(runtime.player.position.x),
-      y: Number(runtime.player.position.y),
-      w: Number(runtime.player.collider.width),
-      h: Number(runtime.player.collider.height),
-    }));
-    const previous = this.coopBotSnapshots;
-    // A bot moves only a few pixels per frame, so a generous radius still keeps
-    // adjacent bots (spawned a tile apart) from being confused for one another.
-    const matchThresholdSquared = 40 * 40;
-    const pairs: { ci: number; pi: number; distance: number }[] = [];
-    current.forEach((c, ci) => {
-      previous.forEach((p, pi) => {
-        const dx = c.x - p.x;
-        const dy = c.y - p.y;
-        const distance = dx * dx + dy * dy;
-        if (distance <= matchThresholdSquared) {
-          pairs.push({ ci, pi, distance });
-        }
-      });
-    });
-    pairs.sort((a, b) => a.distance - b.distance);
-    const currentToPrevious = new Array<number>(current.length).fill(-1);
-    const previousMatched = new Array<boolean>(previous.length).fill(false);
-    for (const { ci, pi } of pairs) {
-      if (currentToPrevious[ci] !== -1 || previousMatched[pi]) {
-        continue;
-      }
-      currentToPrevious[ci] = pi;
-      previousMatched[pi] = true;
-    }
-    // Each current bot keeps its matched costume + call-sign, or (new) cycles to
-    // the next robot variant and draws a fresh call-sign.
-    const names: string[] = [];
-    this.coopBotCharacters = current.map((_c, ci) => {
-      const pi = currentToPrevious[ci] ?? -1;
-      const matched = pi >= 0 ? previous[pi] : undefined;
-      if (matched !== undefined) {
-        names[ci] = matched.name;
-        return matched.character;
-      }
+    // Newly occupied slots (a bigger party, or a mid-game join) get the next
+    // costume in the rotation; existing slots keep theirs untouched.
+    while (this.coopBotCharacters.length < coop.length) {
       const spawn = this.coopBotNextVariant;
       this.coopBotNextVariant += 1;
-      names[ci] = robotNameForBotSpawn(spawn);
-      return robotCharacterForBotIndex(spawn);
-    });
-    this.coopBotNames = names;
-    // Any previous bot with no current match is gone — blow it up where it fell.
-    previous.forEach((p, pi) => {
-      if (!previousMatched[pi]) {
-        this.spawnBotExplosion(p.x, p.y, p.w, p.h, p.character);
+      this.coopBotCharacters.push(robotCharacterForBotIndex(spawn));
+      this.coopBotNames.push(robotNameForBotSpawn(spawn));
+    }
+    this.coopBotCharacters.length = coop.length;
+    this.coopBotNames.length = coop.length;
+
+    const previous = this.coopBotSnapshots;
+    coop.forEach((runtime, index) => {
+      const wasAlive = previous[index]?.alive ?? false;
+      const alive = runtime.outcome.kind === PlayerOutcomeKind.Active;
+      if (!wasAlive || alive) {
+        return;
+      }
+      // Blow it up where it fell — its last live footprint, not the pose it
+      // holds as a spectator.
+      const fallen = previous[index];
+      if (fallen !== undefined) {
+        this.spawnBotExplosion(
+          fallen.x,
+          fallen.y,
+          fallen.w,
+          fallen.h,
+          fallen.character,
+        );
       }
     });
-    this.coopBotSnapshots = current.map((c, ci) => ({
-      x: c.x,
-      y: c.y,
-      w: c.w,
-      h: c.h,
-      character: this.coopBotCharacters[ci] ?? "robot1",
-      name: names[ci] ?? "ROBO",
-    }));
+
+    this.coopBotSnapshots = coop.map((runtime, index) => {
+      const alive = runtime.outcome.kind === PlayerOutcomeKind.Active;
+      const previousSnapshot = previous[index];
+      // A defeated slot keeps its last live footprint so a later read (or a
+      // second death after a revive) still points at where it actually stood.
+      return alive || previousSnapshot === undefined
+        ? {
+            x: Number(runtime.player.position.x),
+            y: Number(runtime.player.position.y),
+            w: Number(runtime.player.collider.width),
+            h: Number(runtime.player.collider.height),
+            character: this.coopBotCharacters[index] ?? "robot1",
+            name: this.coopBotNames[index] ?? "ROBO",
+            alive,
+          }
+        : { ...previousSnapshot, alive };
+    });
   }
 
   // Burst a dead bot into its own robot's body parts (a flash plus six flung,
@@ -6269,7 +6294,7 @@ export class BootScene extends Phaser.Scene {
       belowLevelY,
       hitCoopPlayerIndices,
     );
-    this.removeHitCoopPlayers(hitCoopPlayerIndices);
+    this.defeatHitCoopPlayers(hitCoopPlayerIndices);
     // Animate part-knocked enemies here only when the primary's explode effect
     // isn't already stepping them this frame (it owns that step when active).
     if (!(this.deathArcStarted && this.deathEffectStyle === "explode")) {
@@ -6307,6 +6332,14 @@ export class BootScene extends Phaser.Scene {
     coopRuntimes.forEach((runtime, index) => {
       const image = this.coopPlayerImages[index];
       if (image === undefined) {
+        return;
+      }
+      // A defeated bot holds its slot as a spectator so network identity never
+      // shifts, but it has already burst into parts — nothing left to draw.
+      const alive = runtime.outcome.kind === PlayerOutcomeKind.Active;
+      image.setVisible(alive);
+      this.coopPlayerNameLabels[index]?.setVisible(alive);
+      if (!alive) {
         return;
       }
       const coopPlayer = runtime.player;

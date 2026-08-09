@@ -2161,11 +2161,12 @@ test("finishes at the finish-route goal and retries with reset", async ({
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
-  // Use the finish-route level which has a flat layout with a ground-level gate.
+  // Use the finish-route level: a flat layout ending in a full-height flagpole
+  // column the runner cannot miss.
   await page.goto("/?browserLevel=finish-route");
   const activeFeedbackPixelCount = await countOutcomeFeedbackDarkPixels(page);
 
-  // Run right and jump toward the gate.
+  // Run right and jump toward the pole.
   await page.keyboard.down("Shift");
   await page.keyboard.down("ArrowRight");
   await page.keyboard.down("Space");
@@ -2184,9 +2185,11 @@ test("finishes at the finish-route goal and retries with reset", async ({
       kind: "finished",
       reason: PlayerFinishReason.GoalContact,
     });
+    // A flagpole finish is a course clear; castles and plain gates keep the
+    // gate wording (asserted on multi-level-route, which has no pole).
     expect(finishedSnapshot.outcomeFeedback).toEqual({
       visible: true,
-      text: "Gate reached — Press R",
+      text: "Course clear — Press R",
     });
     expect(await countOutcomeFeedbackDarkPixels(page)).toBeGreaterThan(
       activeFeedbackPixelCount,
@@ -2404,8 +2407,14 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   const finishedSnapshot = await readSimulationSnapshot(page);
   expect(finishedSnapshot.playerOutcome.kind).toBe("finished");
   expect(finishedSnapshot.levelProgression.levelIndex).toBe(0);
-  // The flagpole finish awards a goal-height score, so the total is non-zero.
+  // Reaching the goal awards a goal-height score, so the total is non-zero.
   expect(finishedSnapshot.score).toBeGreaterThan(0);
+  // This level ends at a plain gate, not a flagpole — the other half of the
+  // wording rule that finish-route pins (see "Course clear" there).
+  expect(finishedSnapshot.outcomeFeedback).toEqual({
+    visible: true,
+    text: "Gate reached — Press R",
+  });
 
   await page.waitForFunction(() => {
     const debugApi = window.__originalBrowserPlatformerDebug;
@@ -2835,7 +2844,13 @@ test("screenshot regression: first-authored initial frame", async ({
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto(firstAuthoredBrowserUrl);
-  await readSimulationSnapshot(page);
+  // This level starts a fast beetle patrol one tile from the player, which
+  // reaches an idle runner in under two seconds. Say so before comparing: a
+  // stale baseline otherwise retries until the runner dies, and the diff shows
+  // a corpse and body parts rather than the mismatch that actually broke it.
+  expect((await readSimulationSnapshot(page)).playerOutcome.kind).toBe(
+    PlayerOutcomeKind.Active,
+  );
 
   const canvas = page.locator("canvas");
   await expect(canvas).toHaveScreenshot("first-authored-initial.png", {

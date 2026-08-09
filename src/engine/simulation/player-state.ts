@@ -126,18 +126,25 @@ export function makeInitialPlayerSimulationState(): PlayerSimulationState {
 // A co-op player spawns one tile further right than the primary per index, so
 // several players line up side by side near the level entrance.
 const coopPlayerSpawnGapPixels = 16;
+/**
+ * `partySpawn` is required rather than defaulted to the initial position: the
+ * primary player is placed at the level's player-start actor, and a co-op player
+ * derived from anything else lands somewhere the party is not — inside terrain,
+ * or on top of an enemy — on every level whose start is not the default.
+ */
 export function makeCoopPlayerSimulationState(
   index: number,
+  partySpawn: PlayerSimulationState["position"],
 ): PlayerSimulationState {
   const base = makeInitialPlayerSimulationState();
   return {
     ...base,
     position: {
       x: requirePixelPosition(
-        Number(base.position.x) + (index + 1) * coopPlayerSpawnGapPixels,
+        Number(partySpawn.x) + (index + 1) * coopPlayerSpawnGapPixels,
         "player.position.x",
       ),
-      y: base.position.y,
+      y: partySpawn.y,
     },
   };
 }
