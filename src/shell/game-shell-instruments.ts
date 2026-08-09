@@ -64,12 +64,33 @@ export function renderedPositionInstrument(
  * Adding an instrument here forces a matching initial value below, so a new
  * instrument cannot be introduced in the absent state.
  */
+/** Where the other party members were painted, or that there are none. */
+export type RemotePositionsInstrument =
+  | typeof instrumentAbsent
+  | `${number},${number}${string}`;
+
+export function remotePositionsInstrument(
+  positions: readonly { readonly x: number; readonly y: number }[],
+): RemotePositionsInstrument {
+  if (positions.length === 0) {
+    return instrumentAbsent;
+  }
+  const [first, ...rest] = positions;
+  if (first === undefined) {
+    return instrumentAbsent;
+  }
+  const encode = (position: { readonly x: number; readonly y: number }): string =>
+    `${Math.round(position.x)},${Math.round(position.y)}`;
+  return [encode(first), ...rest.map(encode)].join(";") as RemotePositionsInstrument;
+}
+
 export type GameShellInstruments = {
   "data-game-phase": MultiplayerGamePhase;
   "data-chat-open": InstrumentBoolean;
   "data-menu-open": InstrumentBoolean;
   "data-local-player-spectator": SpectatorInstrument;
   "data-local-player-rendered": RenderedPositionInstrument;
+  "data-remote-players-rendered": RemotePositionsInstrument;
 };
 
 export function setGameShellInstrument<K extends keyof GameShellInstruments>(
@@ -93,6 +114,7 @@ const initialGameShellInstruments: GameShellInstruments = {
   "data-menu-open": "false",
   "data-local-player-spectator": instrumentAbsent,
   "data-local-player-rendered": instrumentAbsent,
+  "data-remote-players-rendered": instrumentAbsent,
 };
 
 export function mountGameShellInstruments(element: Element): void {

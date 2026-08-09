@@ -877,6 +877,13 @@ function renderGame(
       "data-local-player-rendered",
       renderedPositionInstrument(localPosition),
     );
+    setGameShellInstrument(
+      gameShell,
+      "data-remote-players-rendered",
+      remotePositionsInstrument(
+        positions.filter((_position, index) => index !== localIndex),
+      ),
+    );
   }
   function animatePresentation(nowMilliseconds: number): void {
     const elapsedMilliseconds = Math.min(
@@ -1612,6 +1619,7 @@ import {
   instrumentAbsent,
   instrumentBoolean,
   mountGameShellInstruments,
+  remotePositionsInstrument,
   renderedPositionInstrument,
   setGameShellInstrument,
 } from "./game-shell-instruments";
