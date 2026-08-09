@@ -75,6 +75,47 @@ export async function waitForSimulationRunning(page: Page): Promise<void> {
   });
 }
 
+/** Block until the simulation has stepped `frames` more frames. */
+export async function advanceSimulationFrames(
+  page: Page,
+  frames: number,
+): Promise<void> {
+  const from = await page.evaluate(
+    () =>
+      window.__originalBrowserPlatformerDebug?.getSimulationSnapshot()
+        .frameIndex ?? 0,
+  );
+  await page.waitForFunction((target) => {
+    const api = window.__originalBrowserPlatformerDebug;
+    return (
+      api !== undefined && api.getSimulationSnapshot().frameIndex >= target
+    );
+  }, from + frames);
+}
+
+/**
+ * Tap a key for a fixed number of simulation frames, then release it for
+ * another fixed number.
+ *
+ * Swim strokes are why this exists. Held for a wall-clock duration, a tap does
+ * as much work as the host managed to step in that time: the same code that
+ * lifted a swimmer past 60px on a developer's machine lifted 43px on a loaded CI
+ * runner, and no number of extra strokes closed the gap, because the swimmer
+ * sank back between strokes and settled at an equilibrium below the threshold.
+ * Counted in frames, a stroke is the same stroke on every machine.
+ */
+export async function tapKeyForSimulationFrames(
+  page: Page,
+  key: string,
+  heldFrames: number,
+  releasedFrames: number,
+): Promise<void> {
+  await page.keyboard.down(key);
+  await advanceSimulationFrames(page, heldFrames);
+  await page.keyboard.up(key);
+  await advanceSimulationFrames(page, releasedFrames);
+}
+
 export async function waitForGameBoot(
   page: Page,
   expectedCanvases: number,

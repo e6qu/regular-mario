@@ -598,6 +598,17 @@ async function waitForSimulationFrame(
   }, minimumFrameIndex);
 }
 
+/**
+ * The first snapshot at or after a frame, read in one evaluation so a moving
+ * world cannot change between the frame check and the read.
+ *
+ * At-or-after, not exactly-at. This polled for an exact frame index, and the
+ * game runs a fixed timestep with catch-up: after any hitch it steps several
+ * frames between two animation frames and the target index is simply never
+ * observed, so the wait sat until the test timed out. Both callers measure a
+ * delta across the returned frame index, so a later frame is answered
+ * correctly rather than not at all.
+ */
 async function waitForSimulationSnapshotAtFrame(
   page: Page,
   targetFrameIndex: number,
@@ -611,7 +622,7 @@ async function waitForSimulationSnapshotAtFrame(
 
     const snapshot = debugApi.getSimulationSnapshot();
 
-    if (snapshot.frameIndex !== frameIndex) {
+    if (snapshot.frameIndex < frameIndex) {
       return false;
     }
 
@@ -902,36 +913,65 @@ type RightwardAccelerationSnapshot = {
   readonly velocityGainPerFrame: number;
 };
 
+// Ground acceleration decays as the runner approaches its top speed, so the
+// walking and running measurements are only comparable over windows of the same
+// length: averaged over twelve frames, a run can show a lower gain per frame
+// than a walk averaged over six.
+const accelerationWindowFrames = 6;
+
 async function measureRightwardAcceleration(
   page: Page,
   runHeld: boolean,
 ): Promise<RightwardAccelerationSnapshot> {
-  await page.goto(firstAuthoredBrowserUrl);
+  // finish-route, not first-authored: this measures ground acceleration and
+  // needs nothing but flat ground. first-authored's patrol defeats an idle
+  // runner around frame 107 and the game pauses on death, so a boot slow enough
+  // to arrive after that left the frame counter frozen and the wait below
+  // sitting until the test timed out.
+  //
+  // Retried until the window is exactly the length asked for: the game runs a
+  // fixed timestep with catch-up, so after a hitch it steps several frames at
+  // once and the observed window comes back longer. Measuring again is honest —
+  // it is the same measurement, taken when the host was not stalling — where
+  // comparing a six-frame walk against a twelve-frame run is not.
+  for (let attempt = 0; ; attempt += 1) {
+    await page.goto("/?browserLevel=finish-route");
 
-  const initialSnapshot = await readSimulationSnapshot(page);
+    const initialSnapshot = await readSimulationSnapshot(page);
 
-  if (runHeld) {
-    await page.keyboard.down("Shift");
+    if (runHeld) {
+      await page.keyboard.down("Shift");
+    }
+
+    await page.keyboard.down("ArrowRight");
+    const movedSnapshot = await waitForSimulationSnapshotAtFrame(
+      page,
+      initialSnapshot.frameIndex + accelerationWindowFrames,
+    );
+
+    await page.keyboard.up("ArrowRight");
+
+    if (runHeld) {
+      await page.keyboard.up("Shift");
+    }
+
+    const windowFrames = movedSnapshot.frameIndex - initialSnapshot.frameIndex;
+
+    if (windowFrames === accelerationWindowFrames || attempt >= 4) {
+      expect(
+        windowFrames,
+        "the simulation never stepped a clean six-frame window; every attempt " +
+          "was caught mid-catch-up, so the two measurements cannot be compared",
+      ).toBe(accelerationWindowFrames);
+      return {
+        movedSnapshot,
+        velocityGainPerFrame:
+          (movedSnapshot.player.velocity.x -
+            initialSnapshot.player.velocity.x) /
+          windowFrames,
+      };
+    }
   }
-
-  await page.keyboard.down("ArrowRight");
-  const movedSnapshot = await waitForSimulationSnapshotAtFrame(
-    page,
-    initialSnapshot.frameIndex + 6,
-  );
-
-  await page.keyboard.up("ArrowRight");
-
-  if (runHeld) {
-    await page.keyboard.up("Shift");
-  }
-
-  return {
-    movedSnapshot,
-    velocityGainPerFrame:
-      (movedSnapshot.player.velocity.x - initialSnapshot.player.velocity.x) /
-      (movedSnapshot.frameIndex - initialSnapshot.frameIndex),
-  };
 }
 
 // The game boots asynchronously (it loads the default skin first) and only
@@ -1948,15 +1988,33 @@ test("collects an authored item actor from browser movement", async ({
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
+  // Drive the run deterministically from frame 0 via the replay-input hook:
+  // walk right, then hold jump from a fixed frame to reach the shard overhead.
+  //
+  // Real keypresses raced this level's patrol, which defeats an idle runner
+  // around frame 107 — and the game pauses on death, so a boot slow enough to
+  // deliver the keys late left the runner dead, the frame counter frozen, and
+  // the wait below sitting until the test timed out. In simulation frames the
+  // same run happens the same way on any machine.
+  await page.addInitScript(() => {
+    const walkFrames = 24;
+    window.__marioReplayInputs = Array.from(
+      { length: 600 },
+      (_unused, frame) => ({
+        horizontal: "right" as const,
+        jumpPressed: frame >= walkFrames,
+        runHeld: false,
+        firePressed: false,
+        upHeld: false,
+        downHeld: false,
+      }),
+    );
+  });
   await page.goto(firstAuthoredBrowserUrl);
-  // Wait for the game to boot before driving input (its key listeners attach on
-  // boot). Item rendering is covered by the screenshot-regression tests.
+  // Wait for the game to boot. Item rendering is covered by the
+  // screenshot-regression tests.
   await readSimulationSnapshot(page);
 
-  // Walk right toward the item, then jump to reach it.
-  await page.keyboard.down("ArrowRight");
-  await waitForPlayerPositionXGreaterThan(page, 40);
-  await page.keyboard.down("Space");
   await page.waitForFunction(() => {
     const debugApi = window.__originalBrowserPlatformerDebug;
     if (debugApi === undefined) {
@@ -1966,8 +2024,6 @@ test("collects an authored item actor from browser movement", async ({
       .getSimulationSnapshot()
       .collectibles.collectedItemEntityIds.includes("shard-1");
   });
-  await page.keyboard.up("Space");
-  await page.keyboard.up("ArrowRight");
 
   const collectedSnapshot = await readSimulationSnapshot(page);
 
@@ -2831,10 +2887,16 @@ test("loads a remote manifest with relative map and sprite URLs", async ({
  * act, not a side effect of this check.
  */
 function hasScreenshotBaseline(name: string): boolean {
-  // Never skip while generating: the guard is about "there is nothing to
-  // compare against", and skipping a --update-snapshots run would make that
-  // permanent — no baseline can ever be produced for a platform that has none.
-  if (test.info().config.updateSnapshots !== "none") {
+  // Don't skip when the run was explicitly asked to write baselines: the guard
+  // is about "there is nothing to compare against", and skipping a
+  // --update-snapshots run would make that permanent — no platform without a
+  // baseline could ever get one.
+  //
+  // Only "all"/"changed" count as that request. The default is "missing", which
+  // silently writes absent baselines and fails the test to report it — exactly
+  // the four-failures-meaning-"no baseline here" this guard exists to prevent.
+  const updateSnapshots = test.info().config.updateSnapshots;
+  if (updateSnapshots === "all" || updateSnapshots === "changed") {
     return true;
   }
   return existsSync(

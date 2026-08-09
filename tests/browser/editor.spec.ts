@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { bootPlayTest } from "./support";
+import { bootPlayTest, tapKeyForSimulationFrames } from "./support";
 
 // A minimal valid shared level (one player `p`, one exit `x`, on a floor `g`),
 // encoded the way the editor's Share button does. Opening it via the URL hash
@@ -507,19 +507,17 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
 
   // Tap the jump/stroke key repeatedly; each tap lifts the player.
   //
-  // Stroke until the player has climbed rather than a fixed seven times. Each
-  // tap is a real key event whose effect depends on how many simulation frames
-  // elapse while it is held, so a fixed count measures the machine as much as
-  // the swimming: seven strokes lifted 43px on a loaded CI runner and comfortably
-  // over 60px here. The behaviour under test is that strokes carry a swimmer
-  // upward, and that is what this waits for.
+  // Each tap is held for a fixed number of *simulation* frames, not
+  // milliseconds. Held by the wall clock, a stroke does only as much work as
+  // the host managed to step in that time: taps that carry the swimmer well
+  // past 60px here carried it 43px on a loaded CI runner, and no number of
+  // extra strokes closed the gap, because the swimmer sank back between them
+  // and settled at that equilibrium. The behaviour under test is that strokes
+  // carry a swimmer upward, so the strokes have to be the same everywhere.
   const requiredRisePixels = 60;
   let yTop = yFloor;
   for (let stroke = 0; stroke < 40; stroke += 1) {
-    await page.keyboard.down("Space");
-    await page.waitForTimeout(60);
-    await page.keyboard.up("Space");
-    await page.waitForTimeout(90);
+    await tapKeyForSimulationFrames(page, "Space", 4, 6);
     yTop = await playerY();
     if (yFloor - yTop > requiredRisePixels) {
       break;
