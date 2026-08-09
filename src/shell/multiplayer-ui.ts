@@ -19,6 +19,16 @@ type GameSummary = {
 
 type GameSnapshot = MultiplayerRenderedSnapshot;
 
+/** The command a player who is touching nothing is sending. */
+const neutralInputCommand: SimulationInputCommand = {
+  horizontal: HorizontalInput.Neutral,
+  jumpPressed: false,
+  runHeld: false,
+  firePressed: false,
+  upHeld: false,
+  downHeld: false,
+};
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -693,7 +703,12 @@ function renderGame(
   let sentInputCount = 0;
   const snapshotsByGameId = new Map<string, GameSnapshot>();
   let presentationAnimationFrame: number | undefined;
-  let latestPredictionCommand: SimulationInputCommand | undefined;
+  // Holding nothing is a command, not the absence of one. This started as
+  // `undefined` and the animation loop skipped the prediction advance until the
+  // local player first sent something. In practice the held-input heartbeat
+  // supplies that within a tick, so the frozen window was short — this is a
+  // correctness tidy-up, not the cure for anything visible.
+  let latestPredictionCommand: SimulationInputCommand = neutralInputCommand;
   let lastPredictionAnimationMilliseconds = performance.now();
   let predictionFrameRemainderMilliseconds = 0;
   let clientCameraLeftPixels: number | undefined;
@@ -894,7 +909,6 @@ function renderGame(
     predictionFrameRemainderMilliseconds += elapsedMilliseconds;
     if (
       prediction !== undefined &&
-      latestPredictionCommand !== undefined &&
       (latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing ||
         latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Paused)
     ) {
@@ -1624,6 +1638,7 @@ import {
   setGameShellInstrument,
 } from "./game-shell-instruments";
 import {
+  HorizontalInput,
   makeSimulationInputCommand,
   type SimulationInputCommand,
 } from "../engine/simulation/input-command";
