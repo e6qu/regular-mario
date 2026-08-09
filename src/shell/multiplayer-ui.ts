@@ -894,14 +894,33 @@ function renderGame(
       prediction.snapshot().state,
       clientCameraLeftPixels,
     );
+    // Remote players are drawn from the simulated world, at 60 Hz, because this
+    // client now knows what they are holding. Interpolating their last reported
+    // position instead meant replaying 20 Hz samples: they stood still through
+    // nine frames in ten and then jumped ~48 pixels.
+    //
+    // Interpolation remains for a player the prediction has no slot for — a
+    // member who has just joined and whose keyframe has not arrived. That is a
+    // genuine absence of information, not a default.
     const interpolatedRemotePlayers = remoteInterpolator.positions(
       performance.now(),
     );
+    const predictedPlayers = prediction.snapshot().state.players;
     const positions = snapshot.players.map((player) => {
-      const position =
-        player.playerId === profile.playerId
-          ? predictedPlayer.position
-          : interpolatedRemotePlayers.get(player.playerId);
+      if (player.playerId === profile.playerId) {
+        return {
+          x: Number(predictedPlayer.position.x),
+          y: Number(predictedPlayer.position.y),
+        };
+      }
+      const simulated = predictedPlayers[player.slot];
+      if (simulated !== undefined) {
+        return {
+          x: Number(simulated.player.position.x),
+          y: Number(simulated.player.position.y),
+        };
+      }
+      const position = interpolatedRemotePlayers.get(player.playerId);
       return position === undefined
         ? { x: player.x, y: player.y }
         : { x: Number(position.x), y: Number(position.y) };

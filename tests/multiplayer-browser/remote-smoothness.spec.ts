@@ -98,6 +98,12 @@ test("another player's movement is not seen in 20 Hz jumps", async ({
       largestStepPx: steps.length === 0 ? 0 : Math.max(...steps),
     });
 
+    // The watcher must see very nearly the journey the runner made. These held
+    // at 8.5% stalled and a 4px largest step once remote players were simulated
+    // from their relayed commands; before that it was 93.2% and 48px, with the
+    // watcher seeing under half the distance travelled.
+    expect(stalls / Math.max(1, steps.length)).toBeLessThan(0.3);
+    expect(steps.length === 0 ? 0 : Math.max(...steps)).toBeLessThan(16);
     expect(travelled).toBeGreaterThan(0);
 
     await cancelGame(host);
