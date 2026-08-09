@@ -186,7 +186,7 @@ const coinBlockBaseKey = "coinblock";
 const coinBrickBaseKey = "coinbrick";
 const minCoinBlockCount = 1;
 const maxCoinBlockCount = 9;
-const coinContentsActorId = "coin";
+const coinContentsActorId = "vglc-smb-coin";
 // Any of these block cells absorbs a painted coin into a coin block (rather than
 // being replaced by a loose coin). A brick keeps its brick look.
 const coinEmbeddableBlockKeys: ReadonlySet<string> = new Set([
@@ -262,7 +262,7 @@ const paletteItems: readonly PaletteItem[] = [
     label: "? Power",
     color: "#f59e0b",
     kind: "tile",
-    tileId: "mystery-box",
+    tileId: "full-question-block-power-up",
   },
   {
     // Invisible in game until the player bumps it from below, then a solid block
@@ -271,7 +271,7 @@ const paletteItems: readonly PaletteItem[] = [
     label: "Hidden",
     color: "#64748b",
     kind: "tile",
-    tileId: "hidden-block",
+    tileId: "empty-question-block",
   },
   {
     // A blaster that periodically fires a Bullet Bill leftward from its mouth
@@ -291,7 +291,7 @@ const paletteItems: readonly PaletteItem[] = [
     label: "Pipe ⤓",
     color: "#0f766e",
     kind: "actor",
-    actorId: "warp-pipe",
+    actorId: "vglc-smb-transition-pipe",
     role: ActorRole.Pipe,
   },
   {
@@ -2513,18 +2513,18 @@ function extraTileDefinitionsFor(
       collision: TileCollisionKind.Breakable,
     });
   }
-  if (usedTileIds.has("mystery-box")) {
+  if (usedTileIds.has("full-question-block-power-up")) {
     definitions.push({
-      tileId: "mystery-box",
+      tileId: "full-question-block-power-up",
       collision: TileCollisionKind.Interactive,
       contentsActorId: "spark-cap",
       contentSpawnLimit: 1,
     });
   }
-  if (usedTileIds.has("hidden-block")) {
+  if (usedTileIds.has("empty-question-block")) {
     // Invisible until bumped from below, then a solid block yielding a coin.
     definitions.push({
-      tileId: "hidden-block",
+      tileId: "empty-question-block",
       collision: TileCollisionKind.Hidden,
       contentsActorId: coinContentsActorId,
       contentSpawnLimit: 1,
@@ -2792,7 +2792,7 @@ function levelInputFromCells(
       })),
       // The coin dispensed by coin blocks and hidden blocks needs its own
       // actor definition.
-      ...(usedCoinTileIds.size > 0 || tiles.flat().includes("hidden-block")
+      ...(usedCoinTileIds.size > 0 || tiles.flat().includes("empty-question-block")
         ? [{ actorId: coinContentsActorId, role: ActorRole.Coin }]
         : []),
     ],
