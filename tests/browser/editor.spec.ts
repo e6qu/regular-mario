@@ -324,12 +324,17 @@ test("painting Coin on a brick embeds it (block kept, not replaced)", async ({
 test("editor places a piranha plant that emerges and retreats in play", async ({
   page,
 }) => {
+  // The plant sits well clear of the player. A piranha holds itself retracted
+  // while the player is within `piranhaEmergeHoldDistancePixels` (40px) of it,
+  // so it never emerges into somebody standing on its pipe. With the plant two
+  // tiles from the start this test asked for an emergence the engine correctly
+  // refuses: the player spawns at x=32 and the plant sat at x=64, 32px apart.
   const rows = [
     "..........",
     "..........",
     "..........",
     "..........",
-    "....n.....",
+    ".......n..",
     "..p.....x.",
     "gggggggggg",
   ];
