@@ -1,0 +1,63 @@
+name: CI
+
+# The gate that runs on every change, not only on the ones that publish.
+#
+# `pnpm run check` (types, lint, dead code, duplication, unit tests, build) was
+# only ever run by the publish workflow, and the two Playwright suites were run
+# by nobody at all. Both rotted unnoticed: eight browser tests were silently
+# exercising real bundled content against fixture expectations after a build
+# flag changed, and four dev fixture routes had referenced enemy art that never
+# existed since the first commit. Neither is the kind of thing a unit test sees.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A superseded run on the same ref is wasted work; the newest commit is the one
+# that matters. Never applied to `main`, where each commit is a publish
+# candidate and deserves its own verdict.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  check:
+    name: Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm run check
+
+  browser:
+    name: Browser suites
+    runs-on: ubuntu-latest
+    # The multiplayer suite alone runs four independent browsers through a whole
+    # World 1-1 completion; the single-player suite drives the editor and the
+    # asset importer.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - name: Install the browsers Playwright drives
+        run: pnpm exec playwright install --with-deps chromium
+      # Single-player: boot, editor, importer, screenshot regressions.
+      - run: pnpm run test:browser
+      # Multiplayer: the authoritative server, prediction, rejoin, and the
+      # netcode measurements that guard against the transport regressing to a
+      # slideshow.
+      - run: pnpm run test:multiplayer-browser
+      - name: Keep the failure artefacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            test-results/
+            playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore
