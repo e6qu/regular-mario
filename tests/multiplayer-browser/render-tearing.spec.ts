@@ -95,3 +95,58 @@ test("the canvas never paints an older frame than the one before", async ({
     await guestContext.close();
   }
 });
+
+/**
+ * An idle player's world must still be alive.
+ *
+ * The prediction advance used to be skipped until the local player had sent an
+ * input, so somebody who had not touched the keyboard watched the whole world —
+ * enemies, team-mates, everything — move only when a server snapshot landed, at
+ * 20 Hz. Standing still is not a reason to stop simulating.
+ *
+ * Measured as how far the rendered simulation frame advances per second while
+ * pressing nothing: the engine runs at 60 Hz, so a live world advances far more
+ * than the 20 snapshots that arrive in the same second.
+ */
+test("a player who presses nothing still sees a live world", async ({
+  browser,
+}) => {
+  const hostContext = await browser.newContext();
+  const guestContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const guest = await guestContext.newPage();
+
+  try {
+    await login(host);
+    await saveProfile(host, "IdleHost");
+    await createGameOnLevel(host, "smb-1-1");
+    await findGameIdByCreatorNickname(host, "IdleHost");
+
+    await login(guest);
+    await saveProfile(guest, "IdleGuest");
+    await joinHostedGame(guest, "IdleHost");
+    await guest.waitForTimeout(1_000);
+
+    // Deliberately no key presses anywhere.
+    const advancedPerSecond = await guest.evaluate(async () => {
+      const canvas = document.querySelector(".multiplayer-game-shell canvas");
+      const read = (): number =>
+        Number(canvas?.getAttribute("data-rendered-simulation-frame") ?? 0);
+      const before = read();
+      await new Promise((resolve) => window.setTimeout(resolve, 2000));
+      return (read() - before) / 2;
+    });
+
+    report(test.info(), "idle-world", {
+      advancedFramesPerSecond: advancedPerSecond,
+    });
+    // Comfortably above the 20 snapshots a second the transport delivers, and
+    // below a full 60 only if the machine is struggling.
+    expect(advancedPerSecond).toBeGreaterThan(40);
+
+    await cancelGame(host);
+  } finally {
+    await hostContext.close();
+    await guestContext.close();
+  }
+});
