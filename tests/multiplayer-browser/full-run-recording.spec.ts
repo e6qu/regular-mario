@@ -91,6 +91,11 @@ async function replayRecordedWorld11Input(
     // Key transitions themselves take measurable wall time. Waiting until an
     // absolute deadline preserves the 60 Hz core trace instead of accumulating
     // that transport overhead into a progressively late platforming replay.
+    //
+    // Clocking each run on the server's frame counter instead was tried and is
+    // worse: out-of-process polling cannot resolve faster than its interval, so
+    // the trace's many short runs each stretched to a poll and the replay
+    // desynchronised far more than the wall clock ever did.
     const remainingMilliseconds =
       scheduledFrames * world11FrameMilliseconds -
       (performance.now() - startedAtMilliseconds);
@@ -259,7 +264,7 @@ async function hasAdvancedToNextCourse(
   return levelId === "smb-1-2";
 }
 
-test.setTimeout(300_000);
+test.setTimeout(420_000);
 
 test("four separate browser sessions complete a shared course and enter the next", async () => {
   const browsers = await Promise.all(
@@ -372,7 +377,10 @@ test("four separate browser sessions complete a shared course and enter the next
         await expect(
           creator.page.getByLabel("Authoritative multiplayer game view"),
         ).toHaveAttribute("data-authoritative-level-id", "smb-1-2", {
-          timeout: 90_000,
+          // The autopilot platforms World 1-1 for real — deaths, revives and
+          // run-ups included — so on a slow runner it needs room. It exits the
+          // moment the course advances, so a healthy run pays none of this.
+          timeout: 200_000,
         });
       } finally {
         await Promise.all(stops.map((stop) => stop()));
