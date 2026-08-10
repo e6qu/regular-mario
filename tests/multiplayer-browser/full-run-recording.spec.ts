@@ -168,6 +168,42 @@ async function renderedPrimaryX(
   return value === null || Number.isNaN(parsed) ? undefined : parsed;
 }
 
+/** The authoritative phase, level and per-player outcomes, for a failure message. */
+async function describeAuthoritativeState(
+  player: RecordedPlayer,
+  gameId: string,
+): Promise<string> {
+  try {
+    const response = await player.page.request.get(
+      `/api/games/${gameId}/snapshot`,
+      { headers: { "x-multiplayer-protocol-version": "1" } },
+    );
+    const body = (await response.json()) as {
+      readonly phase?: string;
+      readonly levelId?: string;
+      readonly frame?: number;
+      readonly players?: readonly {
+        readonly nickname?: string;
+        readonly slot?: number;
+        readonly spectator?: boolean;
+        readonly x?: number;
+        readonly y?: number;
+      }[];
+    };
+    const roster = (body.players ?? [])
+      .map(
+        (member) =>
+          `slot${String(member.slot)}:${member.nickname ?? "?"}` +
+          `${member.spectator === true ? " SPECTATING" : ""}` +
+          `@(${String(Math.round(member.x ?? Number.NaN))},${String(Math.round(member.y ?? Number.NaN))})`,
+      )
+      .join(" ");
+    return `phase=${String(body.phase)} level=${String(body.levelId)} frame=${String(body.frame)} ${roster}`;
+  } catch (error: unknown) {
+    return `unavailable (${error instanceof Error ? error.message : String(error)})`;
+  }
+}
+
 /**
  * Drive one player rightward, jumping steadily, until told to stop.
  *
@@ -382,6 +418,17 @@ test("four separate browser sessions complete a shared course and enter the next
           // moment the course advances, so a healthy run pays none of this.
           timeout: 200_000,
         });
+      } catch (error: unknown) {
+        // Say why the party stopped. A stalled autopilot looks identical from
+        // out here whether it is jammed against terrain, spectating a death
+        // nobody revived, or holding a goal the handoff never followed — and
+        // guessing between those from a frozen x costs a CI round trip each
+        // time. The authoritative snapshot knows.
+        throw new Error(
+          `The party did not reach smb-1-2. Authoritative state: ` +
+            `${await describeAuthoritativeState(creator, gameId)}`,
+          { cause: error },
+        );
       } finally {
         await Promise.all(stops.map((stop) => stop()));
       }
