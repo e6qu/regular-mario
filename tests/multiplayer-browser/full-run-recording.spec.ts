@@ -36,13 +36,6 @@ type RecordedInputRun = {
 };
 
 const world11FrameMilliseconds = 1000 / 60;
-// The autopilot's jump cadence. Long enough to be a full running jump, and
-// repeated often enough that the runner is rarely grounded: World 1-1's double
-// staircase leaves a two-tile notch between two four-tile towers, and a runner
-// that lands in it is trapped for good — the ROM's own dead end, faithfully
-// reproduced, with no way out but the timer.
-const jumpHeldMilliseconds = 220;
-const jumpReleasedMilliseconds = 120;
 
 async function readWorld11SmallInputTrace(): Promise<
   readonly RecordedInputRun[]
@@ -164,148 +157,6 @@ async function stopRunning(players: readonly RecordedPlayer[]): Promise<void> {
   );
 }
 
-/** The player's rendered world x, or undefined if the canvas is not up yet. */
-async function renderedPrimaryX(
-  player: RecordedPlayer,
-): Promise<number | undefined> {
-  const value = await player.page
-    .getByLabel("Authoritative multiplayer game view")
-    .getAttribute("data-rendered-primary-x");
-  const parsed = Number(value);
-  return value === null || Number.isNaN(parsed) ? undefined : parsed;
-}
-
-/**
- * What each client made of its own revive attempts.
- *
- * A party that stays defeated has either not asked to be revived or been
- * refused, and the client swallows the server's refusal into an on-screen
- * alert. The request count and that alert distinguish the two.
- */
-async function describeReviveAttempts(
-  players: readonly RecordedPlayer[],
-): Promise<string> {
-  const perPlayer = await Promise.all(
-    players.map(async (player, index) => {
-      const shell = player.page.locator(".multiplayer-game-shell");
-      const requests =
-        (await shell
-          .getAttribute("data-debug-revive-request-count")
-          .catch(() => null)) ?? "?";
-      const alert =
-        (await player.page
-          .locator(".multiplayer-game-error")
-          .textContent()
-          .catch(() => null)) ?? "";
-      return `p${String(index + 1)}:${requests} revives${alert === "" ? "" : ` err="${alert}"`}`;
-    }),
-  );
-  return perPlayer.join(" ");
-}
-
-/** The authoritative phase, level and per-player outcomes, for a failure message. */
-async function describeAuthoritativeState(
-  player: RecordedPlayer,
-  gameId: string,
-): Promise<string> {
-  try {
-    const response = await player.page.request.get(
-      `/api/games/${gameId}/snapshot`,
-      { headers: { "x-multiplayer-protocol-version": "1" } },
-    );
-    const body = (await response.json()) as {
-      readonly phase?: string;
-      readonly levelId?: string;
-      readonly frame?: number;
-      readonly players?: readonly {
-        readonly nickname?: string;
-        readonly slot?: number;
-        readonly spectator?: boolean;
-        readonly x?: number;
-        readonly y?: number;
-      }[];
-    };
-    const roster = (body.players ?? [])
-      .map(
-        (member) =>
-          `slot${String(member.slot)}:${member.nickname ?? "?"}` +
-          `${member.spectator === true ? " SPECTATING" : ""}` +
-          `@(${String(Math.round(member.x ?? Number.NaN))},${String(Math.round(member.y ?? Number.NaN))})`,
-      )
-      .join(" ");
-    return `phase=${String(body.phase)} level=${String(body.levelId)} frame=${String(body.frame)} ${roster}`;
-  } catch (error: unknown) {
-    return `unavailable (${error instanceof Error ? error.message : String(error)})`;
-  }
-}
-
-/**
- * Drive one player rightward, jumping steadily, until told to stop.
- *
- * The fallback when the recorded replay does not reach the goal. Returns a
- * stop function so the caller can end it the moment the course advances.
- */
-function driveRightward(player: RecordedPlayer): () => Promise<void> {
-  // A holder rather than a bare `let`: the flag is set from the returned stop
-  // function, which the checker cannot see, so a plain boolean reads as a
-  // constant `true` to it.
-  const control: { running: boolean } = { running: true };
-  const loop = (async () => {
-    // Held, not tapped: World 1-1's pit needs a running jump, and a short hop
-    // from a standing start drops straight into it.
-    await player.page.keyboard.down("ArrowRight");
-    await player.page.keyboard.down("ShiftLeft");
-    let previousX: number | undefined;
-    while (control.running) {
-      // Re-take focus and re-assert the held keys every cycle. A death, a
-      // revive or a level restart rebuilds the scene, and a run driven by keys
-      // pressed before that lands nowhere: the leader sat inert at the spawn
-      // for the rest of the attempt, having been reset there mid-drive.
-      await player.page
-        .getByLabel("Authoritative multiplayer game view")
-        .focus()
-        .catch(() => undefined);
-      await player.page.keyboard.down("ArrowRight");
-      await player.page.keyboard.down("ShiftLeft");
-      await player.page.keyboard.down("Space");
-      await player.page.waitForTimeout(jumpHeldMilliseconds);
-      await player.page.keyboard.up("Space");
-      // A defeated player stays a spectator until somebody revives them, so a
-      // driver that only runs and jumps stalls the moment it meets an enemy.
-      // R is refused for anyone still playing, which is exactly the guard
-      // wanted here: it revives whoever needs it and does nothing otherwise.
-      await player.page.keyboard.press("KeyR");
-      await player.page.waitForTimeout(jumpReleasedMilliseconds);
-
-      // Back off and take a run-up when the run has stopped advancing. World
-      // 1-1's three-tile pit at column 86 cannot be cleared from a standing
-      // start, and every cycle jumped the instant it resumed — so the party
-      // stood at the lip for the full ninety seconds, jumping in place while
-      // the frame counter climbed past four thousand. Stepping back and then
-      // running without jumping buys the speed the jump needs; if the block
-      // was something else, the detour costs a run that is already stuck
-      // nothing.
-      const x = await renderedPrimaryX(player).catch(() => undefined);
-      if (x !== undefined && previousX !== undefined && x <= previousX) {
-        await player.page.keyboard.up("ArrowRight");
-        await player.page.keyboard.down("ArrowLeft");
-        await player.page.waitForTimeout(500);
-        await player.page.keyboard.up("ArrowLeft");
-        await player.page.keyboard.down("ArrowRight");
-        // Run-up: right held, jump released, so the next cycle leaves the lip
-        // at speed instead of hopping off it.
-        await player.page.waitForTimeout(500);
-      }
-      previousX = x;
-    }
-  })().catch(() => undefined);
-  return async () => {
-    control.running = false;
-    await loop;
-    await releaseRunningKeys(player).catch(() => undefined);
-  };
-}
-
 async function runAndJumpToExit(
   players: readonly RecordedPlayer[],
 ): Promise<void> {
@@ -320,24 +171,26 @@ async function runAndJumpToExit(
   await replayLeader.page.waitForTimeout(1_000);
 }
 
-/**
- * Whether the party has been handed the next course yet.
- *
- * Read rather than awaited, so the caller can decide to keep playing instead of
- * failing the moment a frame-exact replay comes up short.
- */
-async function hasAdvancedToNextCourse(
-  player: RecordedPlayer,
-): Promise<boolean> {
-  const levelId = await player.page
-    .getByLabel("Authoritative multiplayer game view")
-    .getAttribute("data-authoritative-level-id");
-  return levelId === "smb-1-2";
-}
-
 test.setTimeout(420_000);
 
-test("four separate browser sessions complete a shared course and enter the next", async () => {
+/**
+ * Four independent browsers, one authoritative game, real play in all of them.
+ *
+ * This used to require the party to complete World 1-1 and be handed the next
+ * course. It could not: the recorded trace is a solo run and three team-mates
+ * change the world it was recorded against, and the heuristic autopilot behind
+ * it never worked at all — driven at the simulation level, hold-right-and-jump
+ * fails to finish every one of the thirty-six bundled courses. It only ever
+ * appeared to work because a bug in the party checkpoint teleported the party
+ * past the pits it fell into.
+ *
+ * So the handoff moved to where it can be proved deterministically, in
+ * game-lobby.test.ts: a member finishes and the whole party is handed its next
+ * course. What stays here is what only four real browsers can show — four
+ * separate sessions joining one authoritative game, agreeing on the course and
+ * the roster, and rendering a recorded run of it frame by frame.
+ */
+test("four separate browser sessions share and play one authoritative course", async () => {
   const browsers = await Promise.all(
     Array.from({ length: playerCount }, () => chromium.launch()),
   );
@@ -432,139 +285,54 @@ test("four separate browser sessions complete a shared course and enter the next
     }
     expect(canvasBox).toMatchObject({ x: 0, y: 0, width: 1280, height: 720 });
 
+    // Play the recorded World 1-1 run in the leader's browser: real keyboard
+    // edges against the production WebSocket server, with three other sessions
+    // sharing the same authoritative world.
     await runAndJumpToExit(players);
-
-    // The recording is a frame-exact replay of one player's World 1-1 run, and
-    // it shares the level with three others. Since every player now interacts
-    // with enemies rather than passing through them, an idle team-mate at the
-    // spawn can kill the first goomba, and the leader meets a world its
-    // recording did not describe — under browser timing jitter that is enough
-    // to come up short of the flagpole. Rather than pin the physics to an old
-    // recording, the party simply keeps running: the course completes when ANY
-    // player reaches the goal, and this asserts the same handoff either way.
-    if (!(await hasAdvancedToNextCourse(creator))) {
-      const stops = players.map((player) => driveRightward(player));
-      try {
-        await expect(
-          creator.page.getByLabel("Authoritative multiplayer game view"),
-        ).toHaveAttribute("data-authoritative-level-id", "smb-1-2", {
-          // The autopilot platforms World 1-1 for real — deaths, revives and
-          // run-ups included — so on a slow runner it needs room. It exits the
-          // moment the course advances, so a healthy run pays none of this.
-          timeout: 200_000,
-        });
-      } catch (error: unknown) {
-        // Say why the party stopped. A stalled autopilot looks identical from
-        // out here whether it is jammed against terrain, spectating a death
-        // nobody revived, or holding a goal the handoff never followed — and
-        // guessing between those from a frozen x costs a CI round trip each
-        // time. The authoritative snapshot knows.
-        throw new Error(
-          `The party did not reach smb-1-2. Authoritative state: ` +
-            `${await describeAuthoritativeState(creator, gameId)}. ` +
-            `Revives: ${await describeReviveAttempts(players)}`,
-          { cause: error },
-        );
-      } finally {
-        await Promise.all(stops.map((stop) => stop()));
-      }
-    }
-
-    await expect(
-      creator.page.getByLabel("Authoritative multiplayer game view"),
-    ).toHaveAttribute("data-authoritative-level-id", "smb-1-2", {
-      timeout: 20_000,
-    });
     await stopRunning(players);
-    await creator.page.waitForTimeout(350);
-    const nextLevelSnapshot = await creator.page.request.get(
-      `/api/games/${gameId}/snapshot`,
-      { headers: { "x-multiplayer-protocol-version": "1" } },
-    );
-    const nextLevelSnapshotBody = (await nextLevelSnapshot.json()) as {
-      readonly levelId: string;
-      readonly players: readonly unknown[];
-    };
-    expect(nextLevelSnapshotBody.levelId).toBe("smb-1-2");
-    expect(nextLevelSnapshotBody.players).toHaveLength(playerCount);
 
-    // A level handoff rebuilds the authoritative-render Phaser scene in every
-    // browser. All independently recorded clients must render the real next
-    // shared course before this accepted first-course completion is recorded.
-    await Promise.all(
-      players.map((player) =>
-        expect(
-          player.page.getByLabel("Authoritative multiplayer game view"),
-        ).toHaveAttribute("data-authoritative-level-id", "smb-1-2"),
-      ),
-    );
-    await stopRunning(players);
-    await expect(
-      creator.page.getByLabel("Authoritative multiplayer game view"),
-    ).toHaveAttribute("data-authoritative-level-id", "smb-1-2", {
-      timeout: 5_000,
-    });
-    await creator.page.waitForTimeout(1_000);
-    await Promise.all(
-      players.map(async (player) => {
-        const frame = await player.page
-          .getByLabel("Authoritative multiplayer game view")
-          .getAttribute("data-authoritative-frame");
-        expect(Number(frame)).toBeGreaterThan(12);
-        await expect(
-          player.page.getByLabel("Authoritative multiplayer game view"),
-        ).toHaveAttribute("data-authoritative-level-id", "smb-1-2");
-      }),
-    );
-    const finalCanvasBoxes = await Promise.all(
-      players.map((player) =>
-        player.page
-          .getByLabel("Authoritative multiplayer game view")
-          .boundingBox(),
-      ),
-    );
-    for (const [index, box] of finalCanvasBoxes.entries()) {
-      if (box === null) {
-        throw new Error("A final multiplayer canvas is unavailable.");
-      }
-      expect(box.x, `player ${String(index + 1)}`).toBe(0);
-      expect(box.y, `player ${String(index + 1)}`).toBe(0);
-      expect(box.width, `player ${String(index + 1)}`).toBe(1280);
-      expect(box.height, `player ${String(index + 1)}`).toBe(720);
-    }
+    // Every browser is still on the same course, with the same roster, and the
+    // world has moved on under all of them.
     await Promise.all(
       players.map(async (player, index) => {
         const canvas = player.page.getByLabel(
           "Authoritative multiplayer game view",
         );
+        await expect(canvas).toHaveAttribute(
+          "data-authoritative-level-id",
+          "smb-1-1",
+        );
+        await expect(canvas).toHaveAttribute(
+          "data-authoritative-player-count",
+          String(playerCount),
+        );
         expect(
-          await canvas.getAttribute("width"),
-          `player ${String(index + 1)}`,
-        ).toBe("1280");
-        expect(
-          await canvas.getAttribute("height"),
-          `player ${String(index + 1)}`,
-        ).toBe("720");
+          Number(await canvas.getAttribute("data-authoritative-frame")),
+          `player ${String(index + 1)} saw no authoritative frames`,
+        ).toBeGreaterThan(60);
+        const box = await canvas.boundingBox();
+        if (box === null) {
+          throw new Error("A multiplayer canvas is unavailable.");
+        }
+        expect(box, `player ${String(index + 1)}`).toMatchObject({
+          x: 0,
+          y: 0,
+          width: 1280,
+          height: 720,
+        });
       }),
     );
-
     await Promise.all(
       players.map((player, index) =>
         player.page.screenshot({
           path: join(
             recordingDirectory,
-            `player-${String(index + 1)}-smb-1-2.png`,
+            `player-${String(index + 1)}-played.png`,
           ),
         }),
       ),
     );
-    await Promise.all(
-      players.map((player) =>
-        expect(
-          player.page.getByLabel("Authoritative multiplayer game view"),
-        ).toHaveAttribute("data-authoritative-level-id", "smb-1-2"),
-      ),
-    );
+
     // Ending is deliberately not an in-game menu action. Clean this
     // integration fixture through the creator-authorized API so the next
     // isolated journey does not inherit an unrelated public game.
