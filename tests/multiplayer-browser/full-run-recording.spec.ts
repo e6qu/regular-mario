@@ -152,12 +152,6 @@ async function stopRunning(players: readonly RecordedPlayer[]): Promise<void> {
   );
 }
 
-/**
- * Drive one player rightward, jumping steadily, until told to stop.
- *
- * The fallback when the recorded replay does not reach the goal. Returns a
- * stop function so the caller can end it the moment the course advances.
- */
 /** The player's rendered world x, or undefined if the canvas is not up yet. */
 async function renderedPrimaryX(
   player: RecordedPlayer,
@@ -169,6 +163,12 @@ async function renderedPrimaryX(
   return value === null || Number.isNaN(parsed) ? undefined : parsed;
 }
 
+/**
+ * Drive one player rightward, jumping steadily, until told to stop.
+ *
+ * The fallback when the recorded replay does not reach the goal. Returns a
+ * stop function so the caller can end it the moment the course advances.
+ */
 function driveRightward(player: RecordedPlayer): () => Promise<void> {
   // A holder rather than a bare `let`: the flag is set from the returned stop
   // function, which the checker cannot see, so a plain boolean reads as a
@@ -181,6 +181,16 @@ function driveRightward(player: RecordedPlayer): () => Promise<void> {
     await player.page.keyboard.down("ShiftLeft");
     let previousX: number | undefined;
     while (control.running) {
+      // Re-take focus and re-assert the held keys every cycle. A death, a
+      // revive or a level restart rebuilds the scene, and a run driven by keys
+      // pressed before that lands nowhere: the leader sat inert at the spawn
+      // for the rest of the attempt, having been reset there mid-drive.
+      await player.page
+        .getByLabel("Authoritative multiplayer game view")
+        .focus()
+        .catch(() => undefined);
+      await player.page.keyboard.down("ArrowRight");
+      await player.page.keyboard.down("ShiftLeft");
       await player.page.keyboard.down("Space");
       await player.page.waitForTimeout(260);
       await player.page.keyboard.up("Space");
@@ -191,19 +201,24 @@ function driveRightward(player: RecordedPlayer): () => Promise<void> {
       await player.page.keyboard.press("KeyR");
       await player.page.waitForTimeout(440);
 
-      // Back off when the run has stopped advancing. Pressed against a pipe
-      // there is no run-up left, and every jump from a standstill hits the same
-      // wall: the party jammed at one x for the full ninety seconds while the
-      // frame counter kept climbing. Stepping back buys the run-up that clears
-      // it — and if the block was something else, a moment of walking left
-      // costs a run that is already stuck nothing.
+      // Back off and take a run-up when the run has stopped advancing. World
+      // 1-1's three-tile pit at column 86 cannot be cleared from a standing
+      // start, and every cycle jumped the instant it resumed — so the party
+      // stood at the lip for the full ninety seconds, jumping in place while
+      // the frame counter climbed past four thousand. Stepping back and then
+      // running without jumping buys the speed the jump needs; if the block
+      // was something else, the detour costs a run that is already stuck
+      // nothing.
       const x = await renderedPrimaryX(player).catch(() => undefined);
       if (x !== undefined && previousX !== undefined && x <= previousX) {
         await player.page.keyboard.up("ArrowRight");
         await player.page.keyboard.down("ArrowLeft");
-        await player.page.waitForTimeout(300);
+        await player.page.waitForTimeout(500);
         await player.page.keyboard.up("ArrowLeft");
         await player.page.keyboard.down("ArrowRight");
+        // Run-up: right held, jump released, so the next cycle leaves the lip
+        // at speed instead of hopping off it.
+        await player.page.waitForTimeout(500);
       }
       previousX = x;
     }
