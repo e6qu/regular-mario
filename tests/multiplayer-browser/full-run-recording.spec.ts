@@ -36,6 +36,13 @@ type RecordedInputRun = {
 };
 
 const world11FrameMilliseconds = 1000 / 60;
+// The autopilot's jump cadence. Long enough to be a full running jump, and
+// repeated often enough that the runner is rarely grounded: World 1-1's double
+// staircase leaves a two-tile notch between two four-tile towers, and a runner
+// that lands in it is trapped for good — the ROM's own dead end, faithfully
+// reproduced, with no way out but the timer.
+const jumpHeldMilliseconds = 220;
+const jumpReleasedMilliseconds = 120;
 
 async function readWorld11SmallInputTrace(): Promise<
   readonly RecordedInputRun[]
@@ -233,14 +240,14 @@ function driveRightward(player: RecordedPlayer): () => Promise<void> {
       await player.page.keyboard.down("ArrowRight");
       await player.page.keyboard.down("ShiftLeft");
       await player.page.keyboard.down("Space");
-      await player.page.waitForTimeout(260);
+      await player.page.waitForTimeout(jumpHeldMilliseconds);
       await player.page.keyboard.up("Space");
       // A defeated player stays a spectator until somebody revives them, so a
       // driver that only runs and jumps stalls the moment it meets an enemy.
       // R is refused for anyone still playing, which is exactly the guard
       // wanted here: it revives whoever needs it and does nothing otherwise.
       await player.page.keyboard.press("KeyR");
-      await player.page.waitForTimeout(440);
+      await player.page.waitForTimeout(jumpReleasedMilliseconds);
 
       // Back off and take a run-up when the run has stopped advancing. World
       // 1-1's three-tile pit at column 86 cannot be cleared from a standing
