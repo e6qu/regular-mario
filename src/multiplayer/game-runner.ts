@@ -1,5 +1,8 @@
 import type { LevelSpec } from "../engine/domain/level-spec";
-import type { MovementConstants } from "../engine/simulation/movement-model";
+import {
+  VerticalMovementState,
+  type MovementConstants,
+} from "../engine/simulation/movement-model";
 import {
   isPlayerOutcomeDefeated,
   PlayerOutcomeKind,
@@ -239,7 +242,20 @@ export function makeAuthoritativeGameRunner(
     if (cameraTarget === undefined) {
       return;
     }
-    if (cameraTarget.player.position.x > partyCheckpoint.x) {
+    // A checkpoint is somewhere a player can stand, so it only advances while
+    // the leader is on the ground.
+    //
+    // It used to take the leader's position outright, and a leader falling into
+    // a pit is still active and still moving right for the whole descent — so
+    // the checkpoint could land in mid-air over the pit. Every revive then
+    // dropped the party straight back down it. A wiped party could never
+    // recover: everyone spectating at the same point below the floor, the game
+    // still "playing", its frame counter climbing, revive after revive dying
+    // before it could move. That is how CI found this.
+    if (
+      cameraTarget.player.position.x > partyCheckpoint.x &&
+      cameraTarget.player.movement.vertical === VerticalMovementState.Grounded
+    ) {
       partyCheckpoint = cameraTarget.player.position;
     }
     cameraLeftPixels = Math.max(
