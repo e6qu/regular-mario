@@ -175,6 +175,34 @@ async function renderedPrimaryX(
   return value === null || Number.isNaN(parsed) ? undefined : parsed;
 }
 
+/**
+ * What each client made of its own revive attempts.
+ *
+ * A party that stays defeated has either not asked to be revived or been
+ * refused, and the client swallows the server's refusal into an on-screen
+ * alert. The request count and that alert distinguish the two.
+ */
+async function describeReviveAttempts(
+  players: readonly RecordedPlayer[],
+): Promise<string> {
+  const perPlayer = await Promise.all(
+    players.map(async (player, index) => {
+      const shell = player.page.locator(".multiplayer-game-shell");
+      const requests =
+        (await shell
+          .getAttribute("data-debug-revive-request-count")
+          .catch(() => null)) ?? "?";
+      const alert =
+        (await player.page
+          .locator(".multiplayer-game-error")
+          .textContent()
+          .catch(() => null)) ?? "";
+      return `p${String(index + 1)}:${requests} revives${alert === "" ? "" : ` err="${alert}"`}`;
+    }),
+  );
+  return perPlayer.join(" ");
+}
+
 /** The authoritative phase, level and per-player outcomes, for a failure message. */
 async function describeAuthoritativeState(
   player: RecordedPlayer,
@@ -433,7 +461,8 @@ test("four separate browser sessions complete a shared course and enter the next
         // time. The authoritative snapshot knows.
         throw new Error(
           `The party did not reach smb-1-2. Authoritative state: ` +
-            `${await describeAuthoritativeState(creator, gameId)}`,
+            `${await describeAuthoritativeState(creator, gameId)}. ` +
+            `Revives: ${await describeReviveAttempts(players)}`,
           { cause: error },
         );
       } finally {
