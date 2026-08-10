@@ -17,6 +17,10 @@ import {
   reviveSimulationPlayerAt,
   type SimulationState,
 } from "../engine/simulation/simulation-state";
+import {
+  hasLevelTimerExpired,
+  makeInitialLevelTimerState,
+} from "../engine/simulation/level-timer-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
 import { requireSimulationPixelPosition } from "../engine/simulation/simulation-units";
 import {
@@ -521,6 +525,18 @@ export function makeAuthoritativeGameRunner(
         throw new Error("Only defeated players can revive.");
       }
       state = reviveSimulationPlayerAt(state, player.slot, partyCheckpoint);
+      // A revive into an expired clock is not a revive: the next step times the
+      // player out again, and the party is right back where it was. Time-up now
+      // defeats the whole party rather than the creator alone, so without this
+      // the run would dead-end exactly the way a checkpoint over a pit did.
+      // Winding the clock back is the only way back into play that does not
+      // invent a game-over flow this runner does not have.
+      if (hasLevelTimerExpired(state.levelTimer)) {
+        state = {
+          ...state,
+          levelTimer: makeInitialLevelTimerState(config.levelSpec),
+        };
+      }
       commandByPlayerId.set(playerId, neutralCommand);
       invalidateSnapshot();
       return makeSnapshot();

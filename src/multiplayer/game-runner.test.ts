@@ -304,6 +304,31 @@ describe("authoritative multiplayer game runner", () => {
   // dropped the party straight back down it, forever: CI caught four players
   // spectating at the same point below the floor, the game still "playing" and
   // its frame counter climbing, after ninety-odd revives each.
+  // Time-up now defeats the whole party, so a revive that leaves the clock at
+  // zero is not a revive at all: the next step times the player straight back
+  // out. Winding the clock back is what keeps the run playable.
+  it("gives the party a fresh clock when it revives out of a time-up", () => {
+    const runner = makeWorld11Runner("time-up-revive");
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    // Idle at the spawn until the level clock runs out.
+    let timedOut = false;
+    for (let frame = 1; frame <= 20_000 && !timedOut; frame += 1) {
+      timedOut = runner.step(frame).players[0]?.spectator === true;
+    }
+    expect(timedOut, "the level clock should have run out").toBe(true);
+
+    runner.revive(requireMultiplayerPlayerId("mira"));
+    // Step on: an expired clock would defeat the revived player immediately.
+    for (let frame = 20_001; frame <= 20_060; frame += 1) {
+      runner.step(frame);
+    }
+    expect(
+      runner.snapshot().players[0]?.spectator,
+      "a player revived out of a time-up was timed out again at once",
+    ).toBe(false);
+  });
+
   it("never sets the party checkpoint somewhere a player cannot stand", () => {
     const runner = makeWorld11Runner("wipe-recovery");
     runner.start(requireMultiplayerPlayerId("mira"));
