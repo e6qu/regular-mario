@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { tapKeyForSimulationFrames } from "./support";
+
 // End-to-end coverage for the SMB flow screens: the WORLD intro card starts a
 // level with the full life count, each death spends a life, and the third death
 // (out of the classic three) triggers the game-over state.
@@ -136,6 +138,13 @@ test("fires haptic feedback on landing and death", async ({ page }) => {
     () => window.__originalBrowserPlatformerDebug !== undefined,
   );
   await page.keyboard.press("Space");
+
+  // Jump once and land. The landing tick is half of what this asserts, and it
+  // used to depend on the walk to the enemy happening to cross a dip: the enemy
+  // has been walking since frame 0, so how far right the runner got before
+  // contact depended on when the keypress landed in wall-clock time, and a late
+  // press met the enemy near the spawn having never left the ground.
+  await tapKeyForSimulationFrames(page, "Space", 8, 45);
 
   // Walk into the first enemy and die.
   await dieWalkingRight(page);

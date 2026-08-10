@@ -19,7 +19,13 @@ async function openDesigner(page: Page): Promise<void> {
 test("Escape suspends a game into a resumable tab, preserving progress", async ({
   page,
 }) => {
-  await page.goto("/?browserLevel=first-authored");
+  // finish-route, not first-authored: this test is about suspending and
+  // resuming, and first-authored's patrol walks into the spawn and defeats an
+  // idle runner in under two seconds. Waiting for the runner to advance 24px on
+  // that level meant racing a death the test never mentioned — and when it lost,
+  // the runner stopped moving and this wait sat until the 30s test timeout.
+  // finish-route is flat and empty, so the only thing under test is the suspend.
+  await page.goto("/?browserLevel=finish-route");
   await expect(page.locator("canvas")).toBeVisible();
   await waitForSimulationRunning(page);
 

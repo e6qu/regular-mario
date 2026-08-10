@@ -11,6 +11,7 @@ import { resolve } from "node:path";
 // prettier-ignore
 import { bodyPartPalette, burstGrid, burstPalette, deadEyesGrid, deadEyesPalette, drawGridSprite, flameGrid, flamePalette, huskGrid, huskPalette, partArmGrid, partHeadGrid, partLegGrid, partTorsoGrid, smokeGrid, smokePalette } from "./death-effect-overlay-sprites.mjs";
 import { princessGrid, princessPalette } from "./rescued-friend-sprite.mjs";
+import { editorCoinBlockTileSprites } from "./editor-coin-block-tile-sprites.mjs";
 
 // Spikes ("thorn") are a non-SMB addition, so the CHR set has no sprite for
 // them — author one: a row of metal spikes on a dark base.
@@ -453,10 +454,19 @@ async function main() {
       ),
     },
     tileSprites: {
+      ...editorCoinBlockTileSprites(
+        spriteEntry("tile-question-block.png"),
+        spriteEntry("tile-brick.png"),
+      ),
       ...mapTileSprites(tileSpriteSources),
       ...mapTileSprites(extraTileSpriteSources),
       // Authored floor-spike tile (no CHR source; SMB has none).
       thorn: spriteEntry("smb-spikes.png"),
+      // The multi-layer VGLC import paints its V/X piranha squares as a
+      // `plant-hazard` tile rather than an actor, so the tile needs art of its
+      // own. The plant's sprite is 16x24; a tile is one 16x16 square, so this
+      // takes the head — the jaws are what the player must read.
+      "plant-hazard": spriteEntry("piranha-plant.png"),
       // The extracted flag is a single 8x8 sprite tile.
       "flagpole-flag": {
         source: { kind: "url", url: "flag-pennant.png" },

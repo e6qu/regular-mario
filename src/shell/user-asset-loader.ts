@@ -65,7 +65,7 @@ export type LoadedLevelVisualAsset = LoadedImageAsset & {
   readonly eraseRects: readonly UserLevelVisualEraseRect[];
 };
 
-type LoadedLevelAsset = {
+export type LoadedLevelAsset = {
   readonly name: string;
   readonly levelSpecInput: LevelSpecInput;
   // The world's colour theme (from the level's import metadata), if any.

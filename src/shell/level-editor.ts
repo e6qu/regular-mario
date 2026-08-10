@@ -12,6 +12,7 @@ import {
 import { standardSurfaceTileDefinitions } from "../engine/levels/level-builder";
 import type { LevelTheme } from "./browser-level-selection";
 import { runSpotlightWalkthrough } from "./spotlight-tutorial";
+import { isRenderedActorRole } from "./level-art-requirements";
 
 export type LevelEditorCallbacks = {
   // skinId is a tileset (asset-set) id whose sprites render the level.
@@ -186,7 +187,7 @@ const coinBlockBaseKey = "coinblock";
 const coinBrickBaseKey = "coinbrick";
 const minCoinBlockCount = 1;
 const maxCoinBlockCount = 9;
-const coinContentsActorId = "coin";
+const coinContentsActorId = "vglc-smb-coin";
 // Any of these block cells absorbs a painted coin into a coin block (rather than
 // being replaced by a loose coin). A brick keeps its brick look.
 const coinEmbeddableBlockKeys: ReadonlySet<string> = new Set([
@@ -262,7 +263,7 @@ const paletteItems: readonly PaletteItem[] = [
     label: "? Power",
     color: "#f59e0b",
     kind: "tile",
-    tileId: "mystery-box",
+    tileId: "full-question-block-power-up",
   },
   {
     // Invisible in game until the player bumps it from below, then a solid block
@@ -271,7 +272,7 @@ const paletteItems: readonly PaletteItem[] = [
     label: "Hidden",
     color: "#64748b",
     kind: "tile",
-    tileId: "hidden-block",
+    tileId: "empty-question-block",
   },
   {
     // A blaster that periodically fires a Bullet Bill leftward from its mouth
@@ -291,7 +292,7 @@ const paletteItems: readonly PaletteItem[] = [
     label: "Pipe ⤓",
     color: "#0f766e",
     kind: "actor",
-    actorId: "warp-pipe",
+    actorId: "vglc-smb-transition-pipe",
     role: ActorRole.Pipe,
   },
   {
@@ -518,6 +519,45 @@ const paletteItems: readonly PaletteItem[] = [
     mechanismId: "lift-drop",
   },
 ];
+
+/**
+ * Every tile and actor id an authored level can end up naming.
+ *
+ * The palette is a second source of ids, independent of any level file: paint a
+ * coin onto a block and the level names `coin-block-2`, which appears in no
+ * shipped level and so was in no asset set — the scene threw while building and
+ * the play-test hung with the canvas up. asset-coverage.test.ts checks these
+ * against the shipped bundle so a palette entry can never again name art that
+ * does not exist.
+ */
+export function editorAuthorableArtIds(): {
+  readonly tileIds: readonly string[];
+  readonly actorIds: readonly string[];
+} {
+  const tileIds = new Set<string>();
+  const actorIds = new Set<string>();
+
+  for (const item of paletteItems) {
+    if (item.tileId !== undefined) {
+      tileIds.add(item.tileId);
+    }
+    // Same rule the renderer uses: a player start marks where the run begins
+    // and a pipe is drawn from its tiles, so neither needs actor art.
+    if (item.kind === "actor" && isRenderedActorRole(item.role)) {
+      actorIds.add(item.actorId);
+    }
+  }
+
+  // Coin blocks bake their count into the id, so the palette's four embeddable
+  // block cells expand into the whole 1..9 range in both looks.
+  for (let count = minCoinBlockCount; count <= maxCoinBlockCount; count += 1) {
+    tileIds.add(coinBlockTileId(count, false));
+    tileIds.add(coinBlockTileId(count, true));
+  }
+  actorIds.add(coinContentsActorId);
+
+  return { tileIds: [...tileIds].sort(), actorIds: [...actorIds].sort() };
+}
 
 // Inject (once) the short-viewport rules that compact the editor's chrome —
 // header, palette and toolbar — for mobile-landscape, trading roomy desktop
@@ -2513,18 +2553,18 @@ function extraTileDefinitionsFor(
       collision: TileCollisionKind.Breakable,
     });
   }
-  if (usedTileIds.has("mystery-box")) {
+  if (usedTileIds.has("full-question-block-power-up")) {
     definitions.push({
-      tileId: "mystery-box",
+      tileId: "full-question-block-power-up",
       collision: TileCollisionKind.Interactive,
       contentsActorId: "spark-cap",
       contentSpawnLimit: 1,
     });
   }
-  if (usedTileIds.has("hidden-block")) {
+  if (usedTileIds.has("empty-question-block")) {
     // Invisible until bumped from below, then a solid block yielding a coin.
     definitions.push({
-      tileId: "hidden-block",
+      tileId: "empty-question-block",
       collision: TileCollisionKind.Hidden,
       contentsActorId: coinContentsActorId,
       contentSpawnLimit: 1,
@@ -2792,7 +2832,8 @@ function levelInputFromCells(
       })),
       // The coin dispensed by coin blocks and hidden blocks needs its own
       // actor definition.
-      ...(usedCoinTileIds.size > 0 || tiles.flat().includes("hidden-block")
+      ...(usedCoinTileIds.size > 0 ||
+      tiles.flat().includes("empty-question-block")
         ? [{ actorId: coinContentsActorId, role: ActorRole.Coin }]
         : []),
     ],

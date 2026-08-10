@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { bootContentLevel, readSimulationSnapshot } from "./support";
+import {
+  advanceSimulationFrames,
+  bootContentLevel,
+  readSimulationSnapshot,
+  tapKeyForSimulationFrames,
+} from "./support";
 
 // Boot a content-set level and drop the player at a world-pixel position.
 async function bootLevelAt(
@@ -52,14 +57,25 @@ test("the 8-4 water room's exit pipe accepts a swimmer and returns to 8-4", asyn
   // strokes to stay in the mouth's band while closing the gap.
   await bootLevelAt(page, "smb-warp-0-2-w8", 66 * 16, 7 * 16);
   await page.keyboard.down("ArrowRight");
-  for (let stroke = 0; stroke < 40; stroke += 1) {
-    await page.keyboard.down("Space");
-    await page.waitForTimeout(100);
-    await page.keyboard.up("Space");
-    await page.waitForTimeout(100);
-    const s = await readSimulationSnapshot(page);
-    if (s.level.widthTiles > 200) {
+  // Hold the swimmer inside the mouth's band and let ArrowRight carry it in:
+  // stroke when it has sunk below the band, coast while it is at or above.
+  //
+  // Steering beats any stroke cadence here, because a cadence has to be tuned
+  // to one machine's buoyancy. Held by the wall clock, a stroke did as much
+  // work as the host managed to step in that time, and on a loaded CI runner
+  // the swimmer never crossed the gap. Held for a fixed number of frames it
+  // instead floated to the ceiling above the mouth and jammed against the
+  // pipe's wall. Reading the depth each step needs no tuning at all.
+  const mouthBandBottomPixels = 8 * 16;
+  for (let step = 0; step < 150; step += 1) {
+    const snapshot = await readSimulationSnapshot(page);
+    if (snapshot.level.widthTiles > 200) {
       break;
+    }
+    if (snapshot.player.position.y > mouthBandBottomPixels) {
+      await tapKeyForSimulationFrames(page, "Space", 4, 4);
+    } else {
+      await advanceSimulationFrames(page, 8);
     }
   }
   await page.keyboard.up("ArrowRight");

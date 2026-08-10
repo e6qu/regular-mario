@@ -170,6 +170,31 @@ function runCreatorRightToFinish(runner: AuthoritativeGameRunner) {
   return snapshot;
 }
 
+/** A runner on the bundled World 1-1, the shared course the browser suites play. */
+function makeWorld11Runner(gameId: string) {
+  const world11 = loadOfficialSmbPack().get("smb-1-1");
+  if (world11 === undefined) {
+    throw new Error("World 1-1 is missing from the bundled level pack.");
+  }
+  const initial = makeInitialSimulationState(
+    nominalSixtyHertzFrameDurationMilliseconds,
+    world11.levelSpec,
+    initialMovementConstants,
+  );
+  if (!initial.ok) {
+    throw new Error("World 1-1 initial state is invalid.");
+  }
+  return makeAuthoritativeGameRunner({
+    gameId: requireMultiplayerGameId(gameId),
+    levelId: "smb-1-1",
+    creator: profile("mira"),
+    mode: MultiplayerGameMode.Regular,
+    initialState: initial.value,
+    levelSpec: world11.levelSpec,
+    movementConstants: initialMovementConstants,
+  });
+}
+
 describe("authoritative multiplayer game runner", () => {
   it("spawns joining players in the shared screen and preserves stable slots", () => {
     const runner = makeRunner();
@@ -272,28 +297,75 @@ describe("authoritative multiplayer game runner", () => {
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
   });
 
+  // A party that wipes must be able to get back up. The checkpoint used to be
+  // the leading active player's position outright — and a leader falling into a
+  // pit is still active and still moving right for the whole descent, so the
+  // checkpoint could come to rest in mid-air over the pit. Every revive then
+  // dropped the party straight back down it, forever: CI caught four players
+  // spectating at the same point below the floor, the game still "playing" and
+  // its frame counter climbing, after ninety-odd revives each.
+  // Time-up now defeats the whole party, so a revive that leaves the clock at
+  // zero is not a revive at all: the next step times the player straight back
+  // out. Winding the clock back is what keeps the run playable.
+  it("gives the party a fresh clock when it revives out of a time-up", () => {
+    const runner = makeWorld11Runner("time-up-revive");
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    // Idle at the spawn until the level clock runs out.
+    let timedOut = false;
+    for (let frame = 1; frame <= 20_000 && !timedOut; frame += 1) {
+      timedOut = runner.step(frame).players[0]?.spectator === true;
+    }
+    expect(timedOut, "the level clock should have run out").toBe(true);
+
+    runner.revive(requireMultiplayerPlayerId("mira"));
+    // Step on: an expired clock would defeat the revived player immediately.
+    for (let frame = 20_001; frame <= 20_060; frame += 1) {
+      runner.step(frame);
+    }
+    expect(
+      runner.snapshot().players[0]?.spectator,
+      "a player revived out of a time-up was timed out again at once",
+    ).toBe(false);
+  });
+
+  it("never sets the party checkpoint somewhere a player cannot stand", () => {
+    const runner = makeWorld11Runner("wipe-recovery");
+    runner.start(requireMultiplayerPlayerId("mira"));
+
+    // Run right into World 1-1's first pit without jumping, which is exactly
+    // how a party loses its leader mid-fall.
+    let died = false;
+    for (let frame = 1; frame <= 1_200 && !died; frame += 1) {
+      runner.submitInput(
+        {
+          playerId: requireMultiplayerPlayerId("mira"),
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: { ...neutral, horizontal: HorizontalInput.Right },
+        },
+        frame,
+      );
+      const stepped = runner.step(frame);
+      died = stepped.players[0]?.spectator === true;
+    }
+    expect(died, "the runner should have fallen into the pit").toBe(true);
+
+    // Revive, then run the world on without touching the controls. A checkpoint
+    // over a pit kills the revived player again within a second.
+    runner.revive(requireMultiplayerPlayerId("mira"));
+    for (let frame = 1_201; frame <= 1_320; frame += 1) {
+      runner.step(frame);
+    }
+    expect(
+      runner.snapshot().players[0]?.spectator,
+      "a revived player fell straight back into the pit they died in",
+    ).toBe(false);
+  });
+
   it("keeps the World 1-1 completion trace valid with four online players", () => {
-    const world11 = loadOfficialSmbPack().get("smb-1-1");
-    if (world11 === undefined) {
-      throw new Error("World 1-1 is missing from the bundled level pack.");
-    }
-    const initial = makeInitialSimulationState(
-      nominalSixtyHertzFrameDurationMilliseconds,
-      world11.levelSpec,
-      initialMovementConstants,
-    );
-    if (!initial.ok) {
-      throw new Error("World 1-1 initial state is invalid.");
-    }
-    const runner = makeAuthoritativeGameRunner({
-      gameId: requireMultiplayerGameId("world11-trace"),
-      levelId: "smb-1-1",
-      creator: profile("mira"),
-      mode: MultiplayerGameMode.Regular,
-      initialState: initial.value,
-      levelSpec: world11.levelSpec,
-      movementConstants: initialMovementConstants,
-    });
+    const runner = makeWorld11Runner("world11-trace");
     runner.join(profile("ren", "Ren"));
     runner.join(profile("sol", "Sol"));
     runner.join(profile("ivy", "Ivy"));
@@ -669,8 +741,17 @@ describe("authoritative multiplayer game runner", () => {
       decodeMultiplayerSimulationState(revived.simulationState).players[0]
         .player.position.x,
     );
-    expect(revivedX).toBe(leaderX);
+    // Forward of the start, and on ground the level actually has.
+    //
+    // This used to assert the checkpoint equalled the leader's position exactly,
+    // which passed only because the old rule followed the leader anywhere. This
+    // fixture level is ten tiles wide and the leader has run to x≈389 — two and
+    // a half level-widths past the end, falling through the void — so equality
+    // was asserting that a party respawns off the map.
     expect(revivedX).toBeGreaterThan(Number(startPosition.x));
+    expect(revivedX).toBeLessThanOrEqual(
+      finishRouteLevelInput.widthTiles * finishRouteLevelInput.tileSizePixels,
+    );
   });
 
   it("allows a defeated player to revive while the party is paused", () => {

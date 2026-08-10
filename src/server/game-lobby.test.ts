@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { firstAuthoredLevelSpec } from "../engine/simulation/level-test-support";
+import { finishRouteLevelInput } from "../engine/levels/finish-route-level";
+import { multiplayerCompletionPresentationMilliseconds } from "../multiplayer/completion-presentation";
 import { HorizontalInput } from "../engine/simulation/input-command";
 import { makeLevelSpec } from "../engine/domain/level-spec";
 import {
@@ -82,6 +84,35 @@ function requireWarpRouteUndergroundLevelSpec() {
   const result = makeLevelSpec(warpRouteUndergroundLevelInput);
   if (!result.ok) {
     throw new Error("Expected the test underground route to validate.");
+  }
+  return result.value;
+}
+
+function makeTwoCourseLobby() {
+  let id = 0;
+  return makeMultiplayerLobby({
+    levels: [
+      {
+        id: "finish-route",
+        label: "Finish Route",
+        levelSpec: requireFinishRouteLevelSpec(),
+      },
+      {
+        id: "first-authored",
+        label: "First Authored Level",
+        levelSpec: firstAuthoredLevelSpec(),
+      },
+    ],
+    linkedLevels: [],
+    movementConstants: initialMovementConstants,
+    nextGameId: () => `game-${++id}`,
+  });
+}
+
+function requireFinishRouteLevelSpec() {
+  const result = makeLevelSpec(finishRouteLevelInput);
+  if (!result.ok) {
+    throw new Error("Expected the finish route to validate.");
   }
   return result.value;
 }
@@ -183,6 +214,62 @@ describe("public multiplayer lobby", () => {
     // exact feet-anchored tile position rather than at the target level start.
     expect(pipeArrival.y).toBeGreaterThan(32);
     expect(pipeArrival.y).toBeLessThan(33);
+  });
+
+  // The party handoff to the next course: one member reaches the goal and the
+  // whole party — every member, not just the finisher — is handed the next
+  // level. Only the four-browser test covered this, and it covered it by
+  // asking an autopilot to platform a real Super Mario course, which no
+  // harness can do reliably. Asserted here where it is deterministic.
+  it("hands the whole party its next course when a member finishes", () => {
+    const lobby = makeTwoCourseLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const game = lobby.createGame(
+      mira,
+      "finish-route",
+      MultiplayerGameMode.Regular,
+    );
+    lobby.joinGame(ren, game.gameId);
+    lobby.startGame(mira.playerId, game.gameId);
+
+    // Run the creator right until somebody reaches the goal.
+    let finished = false;
+    let frame = 1;
+    for (; frame <= 2_000 && !finished; frame += 1) {
+      lobby.submitGameInput(
+        {
+          playerId: mira.playerId,
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: {
+            horizontal: HorizontalInput.Right,
+            jumpPressed: false,
+            runHeld: true,
+            firePressed: false,
+            upHeld: false,
+            downHeld: false,
+          },
+        },
+        frame,
+      );
+      lobby.stepAll(frame);
+      finished =
+        lobby.gameSnapshot(game.gameId).phase === MultiplayerGamePhase.Finished;
+    }
+    expect(finished, "a player should have reached the goal").toBe(true);
+
+    // The completion presentation plays before the handoff.
+    lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
+
+    const handoff = lobby.gameSnapshot(game.gameId);
+    expect(handoff.levelId).toBe("first-authored");
+    expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
+    expect(
+      handoff.players.map((player) => player.playerId).sort(),
+      "both members carry over into the next course",
+    ).toEqual([mira.playerId, ren.playerId].sort());
   });
 
   it("keeps lobby and game chat separate and membership-gated", () => {

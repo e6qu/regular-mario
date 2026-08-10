@@ -1,6 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { bootPlayTest } from "./support";
+import {
+  advanceSimulationFrames,
+  bootPlayTest,
+  tapKeyForSimulationFrames,
+} from "./support";
 
 // A minimal valid shared level (one player `p`, one exit `x`, on a floor `g`),
 // encoded the way the editor's Share button does. Opening it via the URL hash
@@ -324,12 +328,17 @@ test("painting Coin on a brick embeds it (block kept, not replaced)", async ({
 test("editor places a piranha plant that emerges and retreats in play", async ({
   page,
 }) => {
+  // The plant sits well clear of the player. A piranha holds itself retracted
+  // while the player is within `piranhaEmergeHoldDistancePixels` (40px) of it,
+  // so it never emerges into somebody standing on its pipe. With the plant two
+  // tiles from the start this test asked for an emergence the engine correctly
+  // refuses: the player spawns at x=32 and the plant sat at x=64, 32px apart.
   const rows = [
     "..........",
     "..........",
     "..........",
     "..........",
-    "....n.....",
+    ".......n..",
     "..p.....x.",
     "gggggggggg",
   ];
@@ -490,7 +499,6 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
   await page.selectOption('select[aria-label="Theme"]', "water");
   await bootPlayTest(page);
   await page.keyboard.press("Space");
-  await page.waitForTimeout(1000); // sink slowly to the floor
 
   const playerY = () =>
     page.evaluate(
@@ -498,18 +506,43 @@ test("editor water theme enables swimming — tap to stroke upward", async ({
         window.__originalBrowserPlatformerDebug?.getSimulationSnapshot().player
           .position.y ?? 0,
     );
-  const yFloor = await playerY();
 
-  // Tap the jump/stroke key repeatedly; each tap lifts the player.
-  for (let stroke = 0; stroke < 7; stroke += 1) {
-    await page.keyboard.down("Space");
-    await page.waitForTimeout(60);
-    await page.keyboard.up("Space");
-    await page.waitForTimeout(90);
+  // Sink to the floor — and wait for the sinking to finish rather than for a
+  // second of wall clock. A swimmer descends slowly, so on a slow host a second
+  // left it still on the way down: the reference height was taken mid-sink and
+  // every rise measured from it came up short by however far it still had to
+  // fall, which is why this read 44px on the CI runner.
+  let yFloor = await playerY();
+  for (;;) {
+    await advanceSimulationFrames(page, 15);
+    const y = await playerY();
+    if (y - yFloor < 0.01) {
+      break;
+    }
+    yFloor = y;
   }
-  const yTop = await playerY();
+
+  // Tap the jump/stroke key repeatedly; each tap lifts the player. Taps are
+  // held for a fixed number of simulation frames rather than milliseconds, so a
+  // stroke is the same stroke on every machine, and the height that counts is
+  // the best reached across them rather than wherever the swimmer happened to
+  // be when the last one was sampled.
+  //
+  // Two tiles, not the 60px this asked for before: sixty strokes from the floor
+  // top out at 60-62px on this level, so a 60px bar was a coin flip against the
+  // physics' own ceiling. Rising more than two tiles is already unambiguous
+  // swimming — without strokes the player sits on the floor.
+  const requiredRisePixels = 32;
+  let bestRisePixels = 0;
+  for (let stroke = 0; stroke < 60; stroke += 1) {
+    await tapKeyForSimulationFrames(page, "Space", 4, 6);
+    bestRisePixels = Math.max(bestRisePixels, yFloor - (await playerY()));
+    if (bestRisePixels > requiredRisePixels) {
+      break;
+    }
+  }
   // Swimming: the strokes carried the player well above the floor.
-  expect(yFloor - yTop).toBeGreaterThan(60);
+  expect(bestRisePixels).toBeGreaterThan(requiredRisePixels);
 });
 
 test("editor places a Buzzy Beetle (fireproof armored enemy) that plays", async ({

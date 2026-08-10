@@ -31,6 +31,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
+      # The asset-coverage check compares every level against the art that
+      # actually ships, so the content has to exist before the gate runs.
+      - name: Build the content the game serves
+        run: pnpm run build:release-content
       - run: pnpm run check
 
   browser:
@@ -45,6 +49,14 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Install the browsers Playwright drives
         run: pnpm exec playwright install --with-deps chromium
+      # `test:browser` builds the app but not the content it serves, and
+      # `public/game-content/` is generated rather than committed. Without this
+      # step CI has an app with no levels, so every test that boots one fails —
+      # which is exactly what the first gated run did, on a working tree.
+      # It needs no ROM and no third-party input: the skin is regenerated
+      # deterministically and the level layouts are the committed numeric ones.
+      - name: Build the content the game serves
+        run: pnpm run build:release-content
       # Single-player: boot, editor, importer, screenshot regressions.
       - run: pnpm run test:browser
       # Multiplayer: the authoritative server, prediction, rejoin, and the

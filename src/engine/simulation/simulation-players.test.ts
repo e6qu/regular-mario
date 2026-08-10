@@ -89,6 +89,46 @@ function expectCoopPlayerDefeatedAt(x: number, y: number): void {
 // The uniform players array is the sole player store: players[0] is player one,
 // players[1..] the same-screen co-op players.
 describe("simulation players array", () => {
+  // Time ran out for slot 0 alone. The level clock was only read on the primary
+  // player's path, so when it expired the creator died and every co-op member
+  // played on for ever — which is how a party stuck in World 1-1's staircase
+  // notch was still alive at frame 15,993, long past a 400-unit timer, unable
+  // to finish the run and unable to end it.
+  it("defeats every player when the level clock runs out, not only slot 0", () => {
+    const result = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      3,
+    );
+    if (!result.ok) {
+      throw new Error("expected a valid initial simulation state");
+    }
+    // One frame from expiry, so the next step is the one that runs it out.
+    const state: SimulationState = {
+      ...result.value,
+      levelTimer: { ...result.value.levelTimer, remainingFrames: 1 },
+    } as SimulationState;
+
+    const stepped = stepSimulation(
+      state,
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral(), neutral()],
+    );
+
+    expect(
+      stepped.players.map((runtime) => runtime.outcome.kind),
+      "the whole party is out of time, not just the creator",
+    ).toEqual([
+      PlayerOutcomeKind.Defeated,
+      PlayerOutcomeKind.Defeated,
+      PlayerOutcomeKind.Defeated,
+    ]);
+  });
+
   it("supports up to sixteen players", () => {
     expect(maxSimulationPlayers).toBe(16);
   });

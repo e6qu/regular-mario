@@ -267,6 +267,7 @@ export function stepSimulation(
     levelSpec,
     primaryStepped.enemyMotion,
     primaryStepped.enemies.defeatedEnemyEntityIds,
+    hasLevelTimerExpired(primaryStepped.levelTimer),
   );
   // Local co-op retains its solid-player mechanics. Online co-op opts out so
   // an idle player cannot block the party's route.
@@ -376,6 +377,22 @@ function stepPrimaryPlayer(
 // the crowded spawn (a pile of bots would otherwise knock each other into the
 // first enemy/pit before anyone gets moving).
 const coopSpawnInvincibilityMilliseconds = 10000;
+
+/**
+ * Whether co-op players are still under the spawn grace.
+ *
+ * Exported because the grace has to hold against every source of harm, not only
+ * the ones this module resolves: flung body parts are thrown by the renderer,
+ * and a window only the simulation honours is not a window.
+ */
+export function isWithinCoopSpawnInvincibility(
+  frameIndex: number,
+  frameDurationMilliseconds: number,
+): boolean {
+  return (
+    frameIndex * frameDurationMilliseconds < coopSpawnInvincibilityMilliseconds
+  );
+}
 
 /**
  * One co-op player's head bumps this frame, tagged with that player's vitality.
@@ -554,9 +571,31 @@ function resolveCoopPlayerOutcomes(
   levelSpec: LevelSpec,
   enemyMotion: EnemyMotionState,
   defeatedEnemyEntityIds: readonly EntityId[],
+  levelTimerExpired: boolean,
 ): readonly PlayerRuntime[] {
   if (moved.length === 0) {
     return moved;
+  }
+  // Time runs out for the whole party, not only for slot 0.
+  //
+  // The clock used to be read on the primary player's path alone, so when it
+  // expired the creator died and everybody else played on for ever. That is
+  // what left three players alive and stuck in World 1-1's staircase notch at
+  // frame 15,993 — long past a 400-unit timer — with the run unable to end and
+  // unable to continue. Checked before the spawn grace: that window exists for
+  // the crowded spawn, not to make anyone immortal.
+  if (levelTimerExpired) {
+    return moved.map<PlayerRuntime>((runtime) =>
+      runtime.outcome.kind === PlayerOutcomeKind.Active
+        ? {
+            ...runtime,
+            outcome: {
+              kind: PlayerOutcomeKind.Defeated,
+              reason: PlayerDefeatReason.TimeUp,
+            },
+          }
+        : runtime,
+    );
   }
   // A co-op member reaching the goal completes the shared level immediately,
   // including during the brief spawn-invincibility window. The authoritative
@@ -575,11 +614,13 @@ function resolveCoopPlayerOutcomes(
         }
       : runtime;
   });
-  // During the spawn-invincibility window nobody is removed, so the bots ride
+  // During the spawn-invincibility window nobody is defeated, so the bots ride
   // out the initial scrum unharmed.
   if (
-    frameIndex * Number(frameDurationMilliseconds) <
-    coopSpawnInvincibilityMilliseconds
+    isWithinCoopSpawnInvincibility(
+      frameIndex,
+      Number(frameDurationMilliseconds),
+    )
   ) {
     return withGoalOutcomes;
   }

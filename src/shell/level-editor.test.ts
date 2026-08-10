@@ -132,9 +132,9 @@ describe("editor coin blocks", () => {
     );
     expect(definition?.collision).toBe(TileCollisionKind.Interactive);
     expect(definition?.contentSpawnLimit).toBe(3);
-    expect(definition?.contentsActorId).toBe("coin");
+    expect(definition?.contentsActorId).toBe("vglc-smb-coin");
     const coinActor = level.actorDefinitions.find(
-      (actor) => actor.actorId === "coin",
+      (actor) => actor.actorId === "vglc-smb-coin",
     );
     expect(coinActor?.role).toBe(ActorRole.Coin);
   });

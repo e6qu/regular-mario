@@ -1,4 +1,7 @@
 import { Buffer } from "node:buffer";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { ActorRole } from "../../src/engine/domain/level-spec";
 import {
@@ -595,6 +598,17 @@ async function waitForSimulationFrame(
   }, minimumFrameIndex);
 }
 
+/**
+ * The first snapshot at or after a frame, read in one evaluation so a moving
+ * world cannot change between the frame check and the read.
+ *
+ * At-or-after, not exactly-at. This polled for an exact frame index, and the
+ * game runs a fixed timestep with catch-up: after any hitch it steps several
+ * frames between two animation frames and the target index is simply never
+ * observed, so the wait sat until the test timed out. Both callers measure a
+ * delta across the returned frame index, so a later frame is answered
+ * correctly rather than not at all.
+ */
 async function waitForSimulationSnapshotAtFrame(
   page: Page,
   targetFrameIndex: number,
@@ -608,7 +622,7 @@ async function waitForSimulationSnapshotAtFrame(
 
     const snapshot = debugApi.getSimulationSnapshot();
 
-    if (snapshot.frameIndex !== frameIndex) {
+    if (snapshot.frameIndex < frameIndex) {
       return false;
     }
 
@@ -696,10 +710,10 @@ async function waitForSimulationSnapshotCondition(
           case "coin-block-spawned":
             return (
               snapshot.collectibles.collectedCoinEntityIds.includes(
-                "spawned-1-2",
+                "spawned-1-11",
               ) &&
               snapshot.spawnedActors.spawnedActors.some(
-                (actor) => actor.entityId === "spawned-1-2",
+                (actor) => actor.entityId === "spawned-1-11",
               )
             );
           case "pipe-entered":
@@ -899,36 +913,65 @@ type RightwardAccelerationSnapshot = {
   readonly velocityGainPerFrame: number;
 };
 
+// Ground acceleration decays as the runner approaches its top speed, so the
+// walking and running measurements are only comparable over windows of the same
+// length: averaged over twelve frames, a run can show a lower gain per frame
+// than a walk averaged over six.
+const accelerationWindowFrames = 6;
+
 async function measureRightwardAcceleration(
   page: Page,
   runHeld: boolean,
 ): Promise<RightwardAccelerationSnapshot> {
-  await page.goto(firstAuthoredBrowserUrl);
+  // finish-route, not first-authored: this measures ground acceleration and
+  // needs nothing but flat ground. first-authored's patrol defeats an idle
+  // runner around frame 107 and the game pauses on death, so a boot slow enough
+  // to arrive after that left the frame counter frozen and the wait below
+  // sitting until the test timed out.
+  //
+  // Retried until the window is exactly the length asked for: the game runs a
+  // fixed timestep with catch-up, so after a hitch it steps several frames at
+  // once and the observed window comes back longer. Measuring again is honest —
+  // it is the same measurement, taken when the host was not stalling — where
+  // comparing a six-frame walk against a twelve-frame run is not.
+  for (let attempt = 0; ; attempt += 1) {
+    await page.goto("/?browserLevel=finish-route");
 
-  const initialSnapshot = await readSimulationSnapshot(page);
+    const initialSnapshot = await readSimulationSnapshot(page);
 
-  if (runHeld) {
-    await page.keyboard.down("Shift");
+    if (runHeld) {
+      await page.keyboard.down("Shift");
+    }
+
+    await page.keyboard.down("ArrowRight");
+    const movedSnapshot = await waitForSimulationSnapshotAtFrame(
+      page,
+      initialSnapshot.frameIndex + accelerationWindowFrames,
+    );
+
+    await page.keyboard.up("ArrowRight");
+
+    if (runHeld) {
+      await page.keyboard.up("Shift");
+    }
+
+    const windowFrames = movedSnapshot.frameIndex - initialSnapshot.frameIndex;
+
+    if (windowFrames === accelerationWindowFrames || attempt >= 4) {
+      expect(
+        windowFrames,
+        "the simulation never stepped a clean six-frame window; every attempt " +
+          "was caught mid-catch-up, so the two measurements cannot be compared",
+      ).toBe(accelerationWindowFrames);
+      return {
+        movedSnapshot,
+        velocityGainPerFrame:
+          (movedSnapshot.player.velocity.x -
+            initialSnapshot.player.velocity.x) /
+          windowFrames,
+      };
+    }
   }
-
-  await page.keyboard.down("ArrowRight");
-  const movedSnapshot = await waitForSimulationSnapshotAtFrame(
-    page,
-    initialSnapshot.frameIndex + 6,
-  );
-
-  await page.keyboard.up("ArrowRight");
-
-  if (runHeld) {
-    await page.keyboard.up("Shift");
-  }
-
-  return {
-    movedSnapshot,
-    velocityGainPerFrame:
-      (movedSnapshot.player.velocity.x - initialSnapshot.player.velocity.x) /
-      (movedSnapshot.frameIndex - initialSnapshot.frameIndex),
-  };
 }
 
 // The game boots asynchronously (it loads the default skin first) and only
@@ -1217,9 +1260,15 @@ test("moves authored enemy patrols while simulation is active", async ({
 
   // Let the patrol run, then confirm it has moved left — read atomically so the
   // moving enemy can't slip between the position and the sample.
+  //
+  // 40 frames, not 80: this patrol walks into the spawn and defeats an idle
+  // runner around frame 107, so waiting 80 frames from a first sample the boot
+  // had already pushed past frame 25 asserted "active" on a runner that was
+  // already dead. Half the wait still moves the enemy a clear ~26px and leaves
+  // the margin wide enough that a slow boot cannot eat it.
   const movedSnapshot = await waitForSimulationSnapshotAtFrame(
     page,
-    initial.frameIndex + 80,
+    initial.frameIndex + 40,
   );
   expect(movedSnapshot.playerOutcome).toEqual({ kind: "active" });
 
@@ -1374,13 +1423,13 @@ test("bumps a coin block and reports the spawned coin popup", async ({
   }
 
   expect(spawnedSnapshot.collectibles.collectedCoinEntityIds).toEqual([
-    "spawned-1-2",
+    "spawned-1-11",
   ]);
   expect(spawnedSnapshot.coinCount).toBe(1);
   expect(spawnedSnapshot.score).toBe(200);
   expect(spawnedSnapshot.spawnedActors.spawnedActors[0]).toMatchObject({
-    entityId: "spawned-1-2",
-    actorId: "coin",
+    entityId: "spawned-1-11",
+    actorId: "vglc-smb-coin",
     role: ActorRole.Coin,
     velocityX: 0,
     velocityY: -240,
@@ -1397,7 +1446,7 @@ test("bumps a coin block and reports the spawned coin popup", async ({
     const spawnedCoin = debugApi
       .getSimulationSnapshot()
       .spawnedActors.spawnedActors.find(
-        (actor) => actor.entityId === "spawned-1-2",
+        (actor) => actor.entityId === "spawned-1-11",
       );
 
     return spawnedCoin !== undefined && !spawnedCoin.active;
@@ -1405,7 +1454,7 @@ test("bumps a coin block and reports the spawned coin popup", async ({
 
   const expiredSnapshot = await readSimulationSnapshot(page);
   expect(expiredSnapshot.collectibles.collectedCoinEntityIds).toEqual([
-    "spawned-1-2",
+    "spawned-1-11",
   ]);
   expect(expiredSnapshot.spawnedActors.spawnedActors[0]?.active).toBe(false);
   expectNoBrowserErrors(browserErrors);
@@ -1939,15 +1988,33 @@ test("collects an authored item actor from browser movement", async ({
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
+  // Drive the run deterministically from frame 0 via the replay-input hook:
+  // walk right, then hold jump from a fixed frame to reach the shard overhead.
+  //
+  // Real keypresses raced this level's patrol, which defeats an idle runner
+  // around frame 107 — and the game pauses on death, so a boot slow enough to
+  // deliver the keys late left the runner dead, the frame counter frozen, and
+  // the wait below sitting until the test timed out. In simulation frames the
+  // same run happens the same way on any machine.
+  await page.addInitScript(() => {
+    const walkFrames = 24;
+    window.__marioReplayInputs = Array.from(
+      { length: 600 },
+      (_unused, frame) => ({
+        horizontal: "right" as const,
+        jumpPressed: frame >= walkFrames,
+        runHeld: false,
+        firePressed: false,
+        upHeld: false,
+        downHeld: false,
+      }),
+    );
+  });
   await page.goto(firstAuthoredBrowserUrl);
-  // Wait for the game to boot before driving input (its key listeners attach on
-  // boot). Item rendering is covered by the screenshot-regression tests.
+  // Wait for the game to boot. Item rendering is covered by the
+  // screenshot-regression tests.
   await readSimulationSnapshot(page);
 
-  // Walk right toward the item, then jump to reach it.
-  await page.keyboard.down("ArrowRight");
-  await waitForPlayerPositionXGreaterThan(page, 40);
-  await page.keyboard.down("Space");
   await page.waitForFunction(() => {
     const debugApi = window.__originalBrowserPlatformerDebug;
     if (debugApi === undefined) {
@@ -1957,8 +2024,6 @@ test("collects an authored item actor from browser movement", async ({
       .getSimulationSnapshot()
       .collectibles.collectedItemEntityIds.includes("shard-1");
   });
-  await page.keyboard.up("Space");
-  await page.keyboard.up("ArrowRight");
 
   const collectedSnapshot = await readSimulationSnapshot(page);
 
@@ -2158,11 +2223,12 @@ test("finishes at the finish-route goal and retries with reset", async ({
 }) => {
   const browserErrors = watchBrowserErrors(page);
 
-  // Use the finish-route level which has a flat layout with a ground-level gate.
+  // Use the finish-route level: a flat layout ending in a full-height flagpole
+  // column the runner cannot miss.
   await page.goto("/?browserLevel=finish-route");
   const activeFeedbackPixelCount = await countOutcomeFeedbackDarkPixels(page);
 
-  // Run right and jump toward the gate.
+  // Run right and jump toward the pole.
   await page.keyboard.down("Shift");
   await page.keyboard.down("ArrowRight");
   await page.keyboard.down("Space");
@@ -2181,9 +2247,11 @@ test("finishes at the finish-route goal and retries with reset", async ({
       kind: "finished",
       reason: PlayerFinishReason.GoalContact,
     });
+    // A flagpole finish is a course clear; castles and plain gates keep the
+    // gate wording (asserted on multi-level-route, which has no pole).
     expect(finishedSnapshot.outcomeFeedback).toEqual({
       visible: true,
-      text: "Gate reached — Press R",
+      text: "Course clear — Press R",
     });
     expect(await countOutcomeFeedbackDarkPixels(page)).toBeGreaterThan(
       activeFeedbackPixelCount,
@@ -2401,8 +2469,14 @@ test("advances to the next level after finishing in a multi-level sequence", asy
   const finishedSnapshot = await readSimulationSnapshot(page);
   expect(finishedSnapshot.playerOutcome.kind).toBe("finished");
   expect(finishedSnapshot.levelProgression.levelIndex).toBe(0);
-  // The flagpole finish awards a goal-height score, so the total is non-zero.
+  // Reaching the goal awards a goal-height score, so the total is non-zero.
   expect(finishedSnapshot.score).toBeGreaterThan(0);
+  // This level ends at a plain gate, not a flagpole — the other half of the
+  // wording rule that finish-route pins (see "Course clear" there).
+  expect(finishedSnapshot.outcomeFeedback).toEqual({
+    visible: true,
+    text: "Gate reached — Press R",
+  });
 
   await page.waitForFunction(() => {
     const debugApi = window.__originalBrowserPlatformerDebug;
@@ -2796,13 +2870,61 @@ test("loads a remote manifest with relative map and sprite URLs", async ({
   expect(browserErrors.consoleErrors).toEqual([]);
 });
 
+/**
+ * Whether a committed baseline exists for the platform running this suite.
+ *
+ * Playwright stamps the platform into a screenshot's filename, and the only
+ * baselines in this repository were taken on darwin. On any other platform the
+ * comparison cannot pass — not because the rendering regressed, but because
+ * there is nothing to compare against, and font rasterisation and antialiasing
+ * differ enough between platforms that a darwin baseline would be wrong to
+ * reuse anyway.
+ *
+ * Skipping says that plainly instead of reporting four failures that mean
+ * "no baseline here". Generating linux baselines is worth doing — they would
+ * make CI the authority rather than whichever machine last ran the suite — but
+ * they have to be produced on linux and reviewed by eye, which is a deliberate
+ * act, not a side effect of this check.
+ */
+function hasScreenshotBaseline(name: string): boolean {
+  // Don't skip when the run was explicitly asked to write baselines: the guard
+  // is about "there is nothing to compare against", and skipping a
+  // --update-snapshots run would make that permanent — no platform without a
+  // baseline could ever get one.
+  //
+  // Only "all"/"changed" count as that request. The default is "missing", which
+  // silently writes absent baselines and fails the test to report it — exactly
+  // the four-failures-meaning-"no baseline here" this guard exists to prevent.
+  const updateSnapshots = test.info().config.updateSnapshots;
+  if (updateSnapshots === "all" || updateSnapshots === "changed") {
+    return true;
+  }
+  return existsSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "boot.spec.ts-snapshots",
+      `${name}-${process.platform}.png`,
+    ),
+  );
+}
+
 test("screenshot regression: first-authored initial frame", async ({
   page,
 }) => {
+  test.skip(
+    !hasScreenshotBaseline("first-authored-initial"),
+    `no first-authored-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto(firstAuthoredBrowserUrl);
-  await readSimulationSnapshot(page);
+  // This level starts a fast beetle patrol one tile from the player, which
+  // reaches an idle runner in under two seconds. Say so before comparing: a
+  // stale baseline otherwise retries until the runner dies, and the diff shows
+  // a corpse and body parts rather than the mismatch that actually broke it.
+  expect((await readSimulationSnapshot(page)).playerOutcome.kind).toBe(
+    PlayerOutcomeKind.Active,
+  );
 
   const canvas = page.locator("canvas");
   await expect(canvas).toHaveScreenshot("first-authored-initial.png", {
@@ -2814,6 +2936,10 @@ test("screenshot regression: first-authored initial frame", async ({
 });
 
 test("screenshot regression: finish-route initial frame", async ({ page }) => {
+  test.skip(
+    !hasScreenshotBaseline("finish-route-initial"),
+    `no finish-route-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto("/?browserLevel=finish-route");
@@ -2829,6 +2955,10 @@ test("screenshot regression: finish-route initial frame", async ({ page }) => {
 });
 
 test("screenshot regression: pipe-route initial frame", async ({ page }) => {
+  test.skip(
+    !hasScreenshotBaseline("pipe-route-initial"),
+    `no pipe-route-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto("/?browserLevel=pipe-route");
@@ -2846,6 +2976,10 @@ test("screenshot regression: pipe-route initial frame", async ({ page }) => {
 test("screenshot regression: showcase-route initial frame", async ({
   page,
 }) => {
+  test.skip(
+    !hasScreenshotBaseline("showcase-route-initial"),
+    `no showcase-route-initial baseline for ${process.platform}; see hasScreenshotBaseline`,
+  );
   const browserErrors = watchBrowserErrors(page);
 
   await page.goto("/?browserLevel=showcase-route");

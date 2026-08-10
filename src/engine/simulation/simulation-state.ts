@@ -137,7 +137,12 @@ export function appendSimulationPlayerAt(
       `Simulation cannot exceed ${maxSimulationPlayers} players.`,
     );
   }
-  const initialPlayer = makeCoopPlayerSimulationState(state.players.length - 1);
+  // A joiner is placed at the caller's chosen spawn, so the side-by-side offset
+  // is irrelevant here — the position is overwritten immediately below.
+  const initialPlayer = makeCoopPlayerSimulationState(
+    state.players.length - 1,
+    spawnPosition,
+  );
   const player: PlayerSimulationState = {
     ...initialPlayer,
     position: spawnPosition,
@@ -344,8 +349,12 @@ export function makeInitialSimulationStateWithPlayerVitality(
   );
   const players: SimulationPlayers = [
     primaryRuntime,
+    // Beside the primary, at the level's own player-start — not at the initial
+    // position the primary was moved away from.
     ...Array.from({ length: additionalPlayerCount }, (_unused, index) =>
-      makeCoopPlayerRuntime(makeCoopPlayerSimulationState(index)),
+      makeCoopPlayerRuntime(
+        makeCoopPlayerSimulationState(index, primaryRuntime.player.position),
+      ),
     ),
   ];
 

@@ -45,7 +45,12 @@ import {
   defaultMaxTotalBytes,
   type UserAssetBundle,
 } from "./shell/user-asset-loader";
-import { validateDefaultVglcSmbSpriteCoverage } from "./shell/default-vglc-smb-sprite-coverage";
+import {
+  describeMissingImportedSpriteCoverage,
+  findMissingSpriteCoverage,
+  validateDefaultVglcSmbSpriteCoverage,
+} from "./shell/sprite-coverage";
+import { composeImportedBundleOverSkin } from "./shell/compose-imported-bundle";
 import { parseContentSetIndex } from "./shell/content-set-index";
 import {
   renderMultiplayerAdminUi,
@@ -1916,7 +1921,24 @@ function renderImportUi(options: ImportUiOptions): void {
       return;
     }
 
-    const bundle = loadResult.bundle;
+    // A manifest may carry a whole content set or only levels — the shared
+    // remote-demo links do the latter. Compose over the shipped skin so the
+    // scene always receives one complete bundle: the import's own art wins and
+    // everything it omits comes from the game. Same treatment the debug
+    // `?browserLevel=` routes and the editor's play-test already get.
+    let skinBundle: UserAssetBundle;
+    try {
+      skinBundle = await requireDefaultSkinBundle();
+    } catch (error: unknown) {
+      renderImportErrors([
+        `The game's own asset set could not load, so this import has no art to play against: ${error instanceof Error ? error.message : String(error)}`,
+      ]);
+      finishFailedImport();
+
+      return;
+    }
+
+    const bundle = composeImportedBundleOverSkin(loadResult.bundle, skinBundle);
     const levelNames = [...bundle.levels.keys()];
     const levelName = requestedLevelName ?? levelNames[0] ?? undefined;
 
@@ -1959,6 +1981,20 @@ function renderImportUi(options: ImportUiOptions): void {
 
         return;
       }
+    }
+
+    // Past composition, a gap means the level names art neither the import nor
+    // the game has. Refuse here, naming the ids: the alternative is the scene
+    // throwing mid-build with the canvas already mounted, which reads as a hang.
+    const importedCoverageMessages = describeMissingImportedSpriteCoverage(
+      findMissingSpriteCoverage(bundle.manifest, selectedLevel.levelSpecInput),
+    );
+
+    if (importedCoverageMessages.length > 0) {
+      renderImportErrors(importedCoverageMessages);
+      finishFailedImport();
+
+      return;
     }
 
     clearPreviewObjectUrls();

@@ -112,7 +112,17 @@ test("a running guest is never yanked backwards", async ({ browser }) => {
       travelledPx: (samples.at(-1) ?? 0) - (samples[0] ?? 0),
     });
     expect(samples.at(-1) ?? 0).toBeGreaterThan(samples[0] ?? 0);
-    expect(backwardSteps.length).toBe(0);
+    // Magnitude, not count. A rubber-band yank is the guest being dragged tens
+    // of pixels back to where the server thought it was, and that is what this
+    // guards. The rendered position is snapped to whole pixels, so two readings
+    // either side of a sub-pixel position differ by one with nothing having
+    // been yanked — counting those made the guarantee depend on which side of a
+    // rounding boundary the sampler happened to catch.
+    expect(
+      worstBackwardStep,
+      `the guest was pulled back ${String(worstBackwardStep)}px, across ` +
+        `${String(backwardSteps.length)} of ${String(samples.length)} samples`,
+    ).toBeLessThanOrEqual(1);
 
     await cancelGame(host);
   } finally {
