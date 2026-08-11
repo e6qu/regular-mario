@@ -16,6 +16,11 @@ import type { EnemyInteractionState } from "./enemy-interaction";
 import type { MovementConstants } from "./movement-model";
 import type { PlayerSimulationState } from "./player-state";
 import {
+  furthestAdvancedPlayer,
+  nearestPlayerToPixelX,
+  type ActivePlayers,
+} from "./player-targeting";
+import {
   makeFrameDurationSeconds,
   requireSimulationVelocity,
 } from "./simulation-units";
@@ -574,8 +579,7 @@ export function stepEnemyMotionState(
 ): EnemyMotionState {
   assertValidEnemyMotionState(previousState, levelSpec);
 
-  const players: readonly [PlayerSimulationState, ...PlayerSimulationState[]] =
-    [player, ...otherPlayers];
+  const players: ActivePlayers = [player, ...otherPlayers];
   const defeatedEnemyEntityIds = new Set(
     enemyInteractions.defeatedEnemyEntityIds,
   );
@@ -642,7 +646,7 @@ export function stepEnemyMotionState(
         levelSpec,
         frameDurationSeconds,
         movementConstants,
-        nearestPlayerTo(chasingActor.position.x, players),
+        nearestPlayerToPixelX(chasingActor.position.x, players),
       );
     }),
     armoredActors: previousState.armoredActors.map((armoredActor) => {
@@ -680,7 +684,7 @@ export function stepEnemyMotionState(
         throwingActor,
         levelSpec,
         frameDurationSeconds,
-        nearestPlayerTo(throwingActor.position.x, players),
+        nearestPlayerToPixelX(throwingActor.position.x, players),
       );
     }),
     aerialThrowingActors: previousState.aerialThrowingActors.map(
@@ -698,7 +702,7 @@ export function stepEnemyMotionState(
           levelSpec,
           frameDurationSeconds,
           movementConstants,
-          nearestPlayerTo(aerialThrowingActor.position.x, players),
+          nearestPlayerToPixelX(aerialThrowingActor.position.x, players),
         );
       },
     ),
@@ -717,7 +721,7 @@ export function stepEnemyMotionState(
         return stepPiranhaPlantActor(
           piranhaPlantActor,
           levelSpec,
-          nearestPlayerTo(piranhaPlantActor.position.x, players),
+          nearestPlayerToPixelX(piranhaPlantActor.position.x, players),
         );
       },
     ),
@@ -1337,33 +1341,6 @@ function collectEnemyEntityIds(levelSpec: LevelSpec): Set<string> {
   }
 
   return enemyEntityIds;
-}
-
-// The player whose horizontal centre is closest to an actor: the one a
-// targeting behavior (chase, aim, lead, hold) should react to.
-function nearestPlayerTo(
-  x: number,
-  players: readonly [PlayerSimulationState, ...PlayerSimulationState[]],
-): PlayerSimulationState {
-  return players.reduce((nearest, candidate) =>
-    Math.abs(candidate.position.x + candidate.collider.width / 2 - x) <
-    Math.abs(nearest.position.x + nearest.collider.width / 2 - x)
-      ? candidate
-      : nearest,
-  );
-}
-
-// The party's leading edge: enemy activation follows the furthest-advanced
-// player, the same way the original's spawning follows the scroll.
-function furthestAdvancedPlayer(
-  players: readonly [PlayerSimulationState, ...PlayerSimulationState[]],
-): PlayerSimulationState {
-  return players.reduce((leading, candidate) =>
-    candidate.position.x + candidate.collider.width >
-    leading.position.x + leading.collider.width
-      ? candidate
-      : leading,
-  );
 }
 
 function activateEnemiesNearPlayer(

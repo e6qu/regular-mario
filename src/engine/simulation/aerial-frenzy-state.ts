@@ -10,6 +10,8 @@ import type { LevelSpec } from "../domain/level-spec";
 import type { EntityId } from "../domain/identifiers";
 import type { PlayerSimulationState } from "./player-state";
 import { playerHurtbox } from "./player-actor-overlap";
+import { furthestAdvancedPlayer } from "./player-targeting";
+import type { PlayerFramePair } from "./timed-hazard-projectile-state";
 import type { MovementConstants } from "./movement-model";
 import {
   pseudoRandomByteForSlot,
@@ -56,6 +58,9 @@ export type ResolvedAerialFrenzyState = {
   readonly state: AerialFrenzyState;
   readonly playerContacted: boolean;
   readonly stompedCount: number;
+  // Stomps per player this frame: index 0 the primary, then the other players
+  // in the order given. Each stomper gets their own rebound.
+  readonly stompedCountByPlayer: readonly number[];
 };
 
 export function makeEmptyAerialFrenzyState(): AerialFrenzyState {
@@ -222,15 +227,33 @@ export function resolveAerialFrenzyState(
   movementConstants: MovementConstants,
   frameDurationSeconds: number,
   frameIndex: number,
+  // The other active players: the frenzy region and despawn window follow the
+  // party's furthest-advanced member, and any player's stomp removes the
+  // entity. All of this read slot 0 alone before. Single-player callers omit
+  // this entirely.
+  otherPlayers: readonly PlayerFramePair[] = [],
 ): ResolvedAerialFrenzyState {
   if (
     levelSpec.flyingCheepFrenzy === undefined &&
     levelSpec.bulletBillFrenzy === undefined
   ) {
-    return { state: previousState, playerContacted: false, stompedCount: 0 };
+    return {
+      state: previousState,
+      playerContacted: false,
+      stompedCount: 0,
+      stompedCountByPlayer: [0, ...otherPlayers.map(() => 0)],
+    };
   }
 
-  const activeKind = activeFrenzyKind(levelSpec, player);
+  const playerPairs: readonly PlayerFramePair[] = [
+    { previous: previousPlayer, current: player },
+    ...otherPlayers,
+  ];
+  const anchor = furthestAdvancedPlayer([
+    player,
+    ...otherPlayers.map((pair) => pair.current),
+  ]);
+  const activeKind = activeFrenzyKind(levelSpec, anchor);
   const bottomCull =
     levelSpec.heightTiles * levelSpec.tileSizePixels +
     3 * levelSpec.tileSizePixels;
@@ -240,9 +263,9 @@ export function resolveAerialFrenzyState(
       return null;
     }
     const moved = moveEntity(entity, frameDurationSeconds);
-    const behind = moved.position.x < player.position.x - despawnBehindPixels;
+    const behind = moved.position.x < anchor.position.x - despawnBehindPixels;
     const ahead =
-      moved.position.x > player.position.x + 2 * despawnBehindPixels;
+      moved.position.x > anchor.position.x + 2 * despawnBehindPixels;
     const below = moved.position.y > bottomCull;
     return behind || ahead || below ? null : moved;
   });
@@ -259,7 +282,7 @@ export function resolveAerialFrenzyState(
         freeSlot,
         registerByte,
         levelSpec,
-        player,
+        anchor,
         frameIndex,
       );
       respawnTimerFrames =
@@ -269,17 +292,26 @@ export function resolveAerialFrenzyState(
     }
   }
 
-  // Stomps first (they remove the entity), then harmful contact.
-  let stompedCount = 0;
+  // Stomps first (they remove the entity), then harmful contact. Any player's
+  // stomp counts, and each stomper is reported so they get their own rebound.
+  const stompedCountByPlayer = playerPairs.map(() => 0);
   for (const [index, entity] of slots.entries()) {
-    if (
-      entity !== null &&
-      isEntityStomp(previousPlayer, player, entity, movementConstants)
-    ) {
+    if (entity === null) {
+      continue;
+    }
+    const stomperIndex = playerPairs.findIndex((pair) =>
+      isEntityStomp(pair.previous, pair.current, entity, movementConstants),
+    );
+    if (stomperIndex !== -1) {
       slots[index] = null;
-      stompedCount += 1;
+      stompedCountByPlayer[stomperIndex] =
+        (stompedCountByPlayer[stomperIndex] ?? 0) + 1;
     }
   }
+  const stompedCount = stompedCountByPlayer.reduce(
+    (total, count) => total + count,
+    0,
+  );
 
   const playerContacted = slots.some(
     (entity) => entity !== null && entityOverlapsPlayer(entity, player),
@@ -289,6 +321,7 @@ export function resolveAerialFrenzyState(
     state: { slots, respawnTimerFrames },
     playerContacted,
     stompedCount,
+    stompedCountByPlayer,
   };
 }
 

@@ -203,12 +203,16 @@ export function resolveCheepFrenzyState(
   pseudoRandom: PseudoRandomState,
   frameDurationSeconds: number,
   frameIndex: number,
+  // Where the shoal forms and despawns: the party's furthest-advanced player
+  // in co-op (the frenzy region and spawn window used to follow slot 0 even
+  // when a co-op player led the run). `player` remains the contact subject.
+  spawnAnchorPlayer: PlayerSimulationState = player,
 ): ResolvedCheepFrenzyState {
   assertValidCheepFrenzyState(previousState);
-  const active = frenzyIsActive(levelSpec, player);
+  const active = frenzyIsActive(levelSpec, spawnAnchorPlayer);
 
   // Move + cull existing cheeps (they persist even after leaving the region).
-  const despawnBefore = player.position.x - despawnBehindPixels;
+  const despawnBefore = spawnAnchorPlayer.position.x - despawnBehindPixels;
   const movedSlots = previousState.slots.map((cheep) => {
     if (cheep === null) {
       return null;
@@ -230,7 +234,7 @@ export function resolveCheepFrenzyState(
       slots[freeSlot] = spawnCheep(
         freeSlot,
         registerByte,
-        player,
+        spawnAnchorPlayer,
         band.band,
         frameIndex,
       );

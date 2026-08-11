@@ -179,6 +179,8 @@ function resolveHazard(
   frame: number,
   previousPlayer: ReturnType<typeof testPlayerAt> = player,
 ) {
+  // Tests read the persisted state; per-player stomp counts have their own
+  // dedicated coverage below.
   return resolveTimedHazardProjectilesState(
     previousState,
     levelSpec,
@@ -190,7 +192,7 @@ function resolveHazard(
     nominalSixtyHertzFrameDurationMilliseconds,
     testFrameIndex(frame),
     previousPlayer,
-  );
+  ).state;
 }
 
 describe("timed-hazard-projectile-state", () => {
@@ -265,6 +267,42 @@ describe("timed-hazard-projectile-state", () => {
     expect(stomped.stompedProjectileCount).toBe(1);
     expect(stomped.projectiles).toEqual([]);
     expect(stomped.playerContact).toBe(false);
+  });
+
+  it("defeats a stompable Bullet Bill a CO-OP player lands on, crediting them", () => {
+    const levelSpec = stompCannonLevelSpec(true);
+    const spawned = resolveHazard(
+      makeEmptyTimedHazardProjectilesState(),
+      levelSpec,
+      testPlayerAt(200, 0),
+      1,
+    );
+    expect(spawned.projectiles).toHaveLength(1);
+
+    // Frame 2: the PRIMARY stays far away; the co-op player falls onto the
+    // projectile. Their stomp must remove it and be credited to their slot so
+    // they get the rebound — this used to do nothing from any slot but 0.
+    const resolution = resolveTimedHazardProjectilesState(
+      spawned,
+      levelSpec,
+      { brokenBlockTilePositions: [] },
+      testPlayerAt(200, 0),
+      emptyEnemyMotionState(),
+      emptyEnemyInteractionState(),
+      initialMovementConstants,
+      nominalSixtyHertzFrameDurationMilliseconds,
+      testFrameIndex(2),
+      testPlayerAt(200, 0),
+      [
+        {
+          previous: fallingPlayerAt(16, 28),
+          current: fallingPlayerAt(16, 34),
+        },
+      ],
+    );
+    expect(resolution.stompedProjectileCountByPlayer).toEqual([0, 1]);
+    expect(resolution.state.stompedProjectileCount).toBe(1);
+    expect(resolution.state.projectiles).toEqual([]);
   });
 
   it("does not fire a cannon Bullet Bill point-blank at the player", () => {
@@ -360,7 +398,7 @@ describe("timed-hazard-projectile-state", () => {
         nominalSixtyHertzFrameDurationMilliseconds,
         // The aerial thrower releases on its 120-frame interval.
         testFrameIndex(120),
-      );
+      ).state;
 
     // The thrower hovers at x=48; a player on its left gets a leftward push...
     const leftResult = resolveEggs(testPlayerAt(16, 48));

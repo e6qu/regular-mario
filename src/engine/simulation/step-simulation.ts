@@ -111,6 +111,7 @@ import {
   requireSimulationVelocity,
 } from "./simulation-units";
 import { advancePseudoRandom } from "./pseudo-random";
+import { furthestAdvancedPlayer } from "./player-targeting";
 import {
   cheepFrenzyTouchesPlayer,
   resolveCheepFrenzyState,
@@ -1438,7 +1439,18 @@ function stepActiveSimulation(
     enemies,
     movementConstants,
   );
-  const timedHazardProjectiles = resolveTimedHazardProjectilesState(
+  // Co-op players participate in the projectile subsystems: their previous and
+  // current frame states drive per-player stomps (any player's stomp defeats a
+  // Bullet Bill), and spawn gates / aim / frenzy regions see the whole party.
+  const coopPlayerPairIndices = coopRuntimesAfterEnemies.flatMap(
+    (runtime, index) =>
+      runtime.outcome.kind === PlayerOutcomeKind.Active ? [index] : [],
+  );
+  const coopPlayerPairs = coopPlayerPairIndices.map((index) => ({
+    previous: state.players[index + 1]?.player ?? state.players[0].player,
+    current: coopRuntimesAfterEnemies[index]!.player,
+  }));
+  const timedHazardResolution = resolveTimedHazardProjectilesState(
     state.timedHazardProjectiles,
     levelSpec,
     breakableBlocks,
@@ -1449,16 +1461,22 @@ function stepActiveSimulation(
     state.clock.frameDurationMilliseconds,
     nextClock.frameIndex,
     state.players[0].player,
+    coopPlayerPairs,
   );
+  const timedHazardProjectiles = timedHazardResolution.state;
   // Stomping a Bullet Bill bounces the player up, just like stomping an enemy.
   const playerAfterProjectileStomp =
-    timedHazardProjectiles.stompedProjectileCount > 0
+    (timedHazardResolution.stompedProjectileCountByPlayer[0] ?? 0) > 0
       ? reboundPlayerFromStomp(playerAfterContactResponse, movementConstants)
       : playerAfterContactResponse;
   // SMB advances its PseudoRandom register once per frame regardless of use; the
   // underwater Cheep-cheep frenzy reads it to spawn the shoal. Touching a cheep
   // harms the player like any hazard (you can't stomp underwater).
   const nextPseudoRandom = advancePseudoRandom(state.pseudoRandom);
+  const partyFrenzyAnchor = furthestAdvancedPlayer([
+    playerAfterProjectileStomp,
+    ...coopPlayerPairs.map((pair) => pair.current),
+  ]);
   const cheepFrenzy = resolveCheepFrenzyState(
     state.cheepFrenzy,
     levelSpec,
@@ -1466,6 +1484,7 @@ function stepActiveSimulation(
     nextPseudoRandom,
     Number(state.clock.frameDurationMilliseconds) / 1000,
     Number(nextClock.frameIndex),
+    partyFrenzyAnchor,
   );
   // Aerial frenzies (leaping cheeps over the bridges, offscreen Bullet Bill
   // volleys): stompable — a stomp removes the entity and rebounds the player;
@@ -1479,11 +1498,32 @@ function stepActiveSimulation(
     movementConstants,
     Number(state.clock.frameDurationMilliseconds) / 1000,
     Number(nextClock.frameIndex),
+    coopPlayerPairs,
   );
   const playerAfterAerialStomp =
-    aerialFrenzy.stompedCount > 0
+    (aerialFrenzy.stompedCountByPlayer[0] ?? 0) > 0
       ? reboundPlayerFromStomp(playerAfterProjectileStomp, movementConstants)
       : playerAfterProjectileStomp;
+  // Each co-op stomper bounces off what they landed on, exactly as the
+  // primary does.
+  const coopReboundIndices = new Set(
+    coopPlayerPairIndices.filter(
+      (_coopIndex, pairPosition) =>
+        (timedHazardResolution.stompedProjectileCountByPlayer[
+          pairPosition + 1
+        ] ?? 0) > 0 ||
+        (aerialFrenzy.stompedCountByPlayer[pairPosition + 1] ?? 0) > 0,
+    ),
+  );
+  const coopRuntimesAfterProjectileStomps = coopRuntimesAfterEnemies.map(
+    (runtime, index) =>
+      coopReboundIndices.has(index)
+        ? {
+            ...runtime,
+            player: reboundPlayerFromStomp(runtime.player, movementConstants),
+          }
+        : runtime,
+  );
   // Lakitu's landed eggs hatch into walking Spinies; player fireballs defeat
   // them (and are consumed doing it).
   const hatchedSpinies = resolveHatchedSpinyState(
@@ -1689,7 +1729,7 @@ function stepActiveSimulation(
         outcome: playerOutcome,
         reaction: playerReaction,
       },
-      ...coopRuntimesAfterEnemies,
+      ...coopRuntimesAfterProjectileStomps,
     ],
     levelContacts: outcomeLevelContacts,
     collectibles: partyCollectibles,
