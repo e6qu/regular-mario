@@ -211,6 +211,10 @@ const deathTimelineFrameCount = 180;
 // before play begins. (The starting life count is the engine's
 // initialLivesCount.)
 const worldCardFrames = 120;
+// How far above a player's collider top their floating name-label baseline
+// sits. Constant per player: solid player collision means two heads never
+// coincide, so labels need no per-slot stagger.
+const nameLabelHeadOffsetPixels = 5;
 // The "TIME UP" beat shown before the world card when the clock ran out.
 const timeUpCardFrames = 90;
 const flowCardDepth = 200;
@@ -720,6 +724,12 @@ export class BootScene extends Phaser.Scene {
   private coopBotNames: string[] = [];
   // The floating name-label text objects, pooled parallel to coopPlayerImages.
   private readonly coopPlayerNameLabels: Phaser.GameObjects.Text[] = [];
+  // The networked primary player's nickname and its floating label. Slot 0 is a
+  // real friend online — without these, every client rendered a party where one
+  // player (the creator on their own screen, and on everyone else's) had no
+  // name over their head while the rest did.
+  private primaryPlayerNickname: string | undefined;
+  private primaryPlayerNameLabel: Phaser.GameObjects.Text | undefined;
   // Monotonic counter so every newly-seen bot cycles onto a fresh robot variant.
   private coopBotNextVariant = 0;
   // Body parts flung by exploding bots — kept apart from the primary's
@@ -837,6 +847,7 @@ export class BootScene extends Phaser.Scene {
   private pendingAuthoritativePlayerPresentation:
     | {
         readonly primaryCharacter: PlayerCharacter;
+        readonly primaryNickname: string;
         readonly coopPlayers: readonly {
           readonly character: PlayerCharacter;
           readonly nickname: string;
@@ -1287,6 +1298,7 @@ export class BootScene extends Phaser.Scene {
    */
   public applyAuthoritativePlayerPresentation(
     primaryCharacter: PlayerCharacter,
+    primaryNickname: string,
     coopPlayers: readonly {
       readonly character: PlayerCharacter;
       readonly nickname: string;
@@ -1299,6 +1311,7 @@ export class BootScene extends Phaser.Scene {
     }
     this.pendingAuthoritativePlayerPresentation = {
       primaryCharacter,
+      primaryNickname,
       coopPlayers,
     };
   }
@@ -2525,6 +2538,7 @@ export class BootScene extends Phaser.Scene {
         );
       }
       this.playerCharacter = playerPresentation.primaryCharacter;
+      this.primaryPlayerNickname = playerPresentation.primaryNickname;
       this.coopBotCharacters = playerPresentation.coopPlayers.map(
         (player) => player.character,
       );
@@ -2641,6 +2655,11 @@ export class BootScene extends Phaser.Scene {
     }
     this.playerRectangle.setPosition(primary.x, primary.y);
     this.playerImageObject?.setPosition(primary.x, primary.y);
+    this.primaryPlayerNameLabel?.setPosition(
+      primary.x +
+        Number(this.simulationState.players[0].player.collider.width) / 2,
+      primary.y - nameLabelHeadOffsetPixels,
+    );
     this.game.canvas.setAttribute("data-rendered-primary-x", String(primary.x));
     this.game.canvas.setAttribute("data-rendered-primary-y", String(primary.y));
     positions.slice(1).forEach((position, index) => {
@@ -2654,7 +2673,7 @@ export class BootScene extends Phaser.Scene {
       if (label !== undefined) {
         label.setPosition(
           position.x + Number(runtime.player.collider.width) / 2,
-          position.y - (5 + index * 8),
+          position.y - nameLabelHeadOffsetPixels,
         );
       }
     });
@@ -6149,6 +6168,10 @@ export class BootScene extends Phaser.Scene {
       label.destroy();
     }
     this.coopPlayerNameLabels.length = 0;
+    // The nickname survives on purpose: the label object is scene state, the
+    // name is presentation data that the next render re-applies.
+    this.primaryPlayerNameLabel?.destroy();
+    this.primaryPlayerNameLabel = undefined;
     this.coopBotSnapshots = [];
     this.coopBotCharacters = [];
     this.coopBotNames = [];
@@ -6306,6 +6329,7 @@ export class BootScene extends Phaser.Scene {
   // costume, keeping the sprite pool in sync with simulationState.players[1..]
   // and positioning each from its own kinematics.
   private renderCoopPlayers(): void {
+    this.renderPrimaryPlayerNameLabel();
     const coopRuntimes = this.simulationState.players.slice(1);
     this.game.canvas.setAttribute(
       "data-rendered-coop-player-count",
@@ -6363,39 +6387,74 @@ export class BootScene extends Phaser.Scene {
       image
         .setPosition(coopPlayer.position.x, coopPlayer.position.y)
         .setDisplaySize(coopPlayer.collider.width, coopPlayer.collider.height);
-      // Float this bot's call-sign just above its head, centred on the sprite.
+      // Float this player's name just above its head, centred on the sprite.
+      // Players are solid to each other, so two heads never share a spot: a
+      // constant offset keeps every label at its own head (stacked players
+      // separate naturally by their collider heights). The old per-slot stagger
+      // floated later slots' labels tiles above their heads.
       const label = this.coopPlayerNameLabels[index];
       if (label !== undefined) {
-        // Several friends can spawn in the same shared screen. Stack their
-        // labels above one another rather than drawing unreadable text through
-        // the party at the exact same baseline.
-        const stackedLabelOffsetPixels = 5 + index * 8;
         label
           .setText(this.coopBotNames[index] ?? "")
           .setPosition(
             Number(coopPlayer.position.x) +
               Number(coopPlayer.collider.width) / 2,
-            Number(coopPlayer.position.y) - stackedLabelOffsetPixels,
+            Number(coopPlayer.position.y) - nameLabelHeadOffsetPixels,
           );
       }
     });
+  }
+
+  /**
+   * The networked primary player's own floating name.
+   *
+   * Slot 0 is a real friend online, yet only slots 1+ ever had labels: the
+   * creator saw no name over their own head, and neither did anyone else
+   * looking at them. Local play supplies no nickname, so this renders nothing
+   * there.
+   */
+  private renderPrimaryPlayerNameLabel(): void {
+    const nickname = this.primaryPlayerNickname;
+    if (nickname === undefined) {
+      return;
+    }
+    this.primaryPlayerNameLabel ??= this.makeCoopBotNameLabel();
+    const runtime = this.simulationState.players[0];
+    const visible =
+      runtime.outcome.kind === PlayerOutcomeKind.Active &&
+      !this.authoritativeCompletionPresentationActive;
+    this.primaryPlayerNameLabel.setVisible(visible);
+    if (!visible) {
+      return;
+    }
+    this.primaryPlayerNameLabel
+      .setText(nickname)
+      .setPosition(
+        Number(runtime.player.position.x) +
+          Number(runtime.player.collider.width) / 2,
+        Number(runtime.player.position.y) - nameLabelHeadOffsetPixels,
+      );
   }
 
   // A small, crisp name-tag for a co-op bot: bright text with a dark outline so
   // it reads over any backdrop, centred on the bot and anchored at its bottom so
   // it sits just above the head.
   private makeCoopBotNameLabel(): Phaser.GameObjects.Text {
-    return this.add
-      .text(0, 0, "", {
-        fontFamily: "monospace",
-        fontSize: "6px",
-        color: "#eaf2ff",
-        stroke: "#101828",
-        strokeThickness: 2,
-      })
-      .setOrigin(0.5, 1)
-      .setResolution(3)
-      .setDepth(58);
+    return (
+      this.add
+        .text(0, 0, "", {
+          fontFamily: "monospace",
+          fontSize: "6px",
+          color: "#eaf2ff",
+          stroke: "#101828",
+          strokeThickness: 2,
+        })
+        .setOrigin(0.5, 1)
+        .setResolution(3)
+        // Above the player sprites (59): a label overlapping a body must read
+        // over it, not vanish behind it.
+        .setDepth(60)
+    );
   }
 
   private renderPlayerBloodiness(): void {

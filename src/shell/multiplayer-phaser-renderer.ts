@@ -265,6 +265,7 @@ function applySnapshot(
   }
   scene.applyAuthoritativePlayerPresentation(
     requireCharacterForMultiplayerAvatar(primary.avatarId),
+    primary.nickname,
     orderedPlayers.slice(1).map((player) => ({
       character: requireCharacterForMultiplayerAvatar(player.avatarId),
       nickname: player.nickname,
