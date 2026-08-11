@@ -5,6 +5,51 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-11 — multiplayer bug sweep: solidity, names, lifecycle, parity
+
+- **Players are solid online.** Removed the network opt-out from
+  player-player collision: online players collide, stand on each other's
+  heads, and stacks ride the bottom player, exactly as local co-op bots do.
+- **Joiners spawn at the party checkpoint** (the grounded position a revive
+  uses) instead of an unvisited camera-centre coordinate that could sit past
+  the goal or beyond a short course's edge, where the joiner fell out of the
+  world.
+- **Every player wears their name.** The slot-0 player had no nickname label
+  on any client; the primary nickname now travels with the authoritative
+  presentation and floats like the rest. Labels sit a constant five pixels
+  above each player's own head (the per-slot stagger floated later slots'
+  labels tiles too high) and render above the player sprites.
+- **Creator-leave no longer freezes the server.** A completed course whose
+  creator had left threw inside the shared authoritative frame loop and froze
+  every game; the next course is now hosted by whoever remains (host-first,
+  so a rejoined creator's party no longer silently drops a member), and the
+  frame loop re-arms even when a tick throws.
+- **Client reconciliation holes closed**: a remote player's authoritative
+  death/revive now forces reconciliation (a dead teammate used to keep
+  running as a locally simulated ghost forever on an idle client's screen);
+  prediction no longer advances through a pause; the prediction baseline
+  rebuilds on any roster identity change, not just a count change; relayed
+  commands are game-id checked.
+- **Client robustness**: held keys release on window blur/hide, spectators
+  follow the party camera instead of their corpse, a booted player returns to
+  the lobby instead of freezing as a ghost, a failed leave/cancel lands in
+  the lobby rather than a dead disposed shell, error banners clear after six
+  seconds, chat toasts dedupe by server message id, and one presentation
+  throw can no longer end all rendering for the session.
+- **Engine parity for co-op players**: tiered damage (big shrinks into the
+  blinking recovery window; star/god/recovery protect; only small unprotected
+  players die), per-player fresh-contact damage edges (no second hit without
+  genuine separation, and no insta-death when spawning beside an enemy),
+  firebars/podoboos/hammers/Bullet Bills/frenzies/hatched spinies now damage
+  every player (stomp-shaped bullet landings exempt), revealed hidden blocks
+  are solid for everyone, springboards honour a held jump, a co-op flag grab
+  pays the time bonus and grab-height score, and co-op 1-UP mushrooms/coin
+  1-UPs count. A teammate's enemy touch no longer reads as the primary being
+  hit, nor inoculates the enemy against the primary.
+- Also fixed: the asset-coverage unit test compared levels against whichever
+  content bundle globbed first (the local-only ROM dev bundle on a developer
+  machine) instead of the released bundle named by the content-sets index.
+
 ## 2026-08-07 — frontend-designed multiplayer lobby
 
 - Installed and applied the `frontend-design` skill to the trusted-friends

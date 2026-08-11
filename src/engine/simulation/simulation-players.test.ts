@@ -78,6 +78,48 @@ function neutral(): SimulationInputCommand {
   };
 }
 
+// One step of a hazard fixture per tier: a big co-op player shrinks into the
+// blinking recovery window and stays active; a small one is defeated.
+function expectTieredCoopHazardDamage(
+  makeStateWithCoopVitality: (
+    vitality: SimulationState["players"][number]["vitality"],
+  ) => SimulationState,
+  level: ReturnType<typeof firstAuthoredLevelSpec>,
+): void {
+  const shrunk = stepSimulation(
+    makeStateWithCoopVitality(makePoweredPlayerVitalityState()),
+    neutral(),
+    initialMovementConstants,
+    level,
+    [neutral()],
+  );
+  expect(shrunk.players[1]!.vitality.kind).toBe(PlayerVitalityKind.Recovering);
+  expect(shrunk.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+
+  const killed = stepSimulation(
+    makeStateWithCoopVitality(makeInitialPlayerVitalityState()),
+    neutral(),
+    initialMovementConstants,
+    level,
+    [neutral()],
+  );
+  expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
+}
+
+// Return a copy of `base` with its single co-op player's vitality replaced.
+function withCoopVitality(
+  base: SimulationState,
+  vitality: SimulationState["players"][number]["vitality"],
+): SimulationState {
+  return {
+    ...base,
+    players: [
+      base.players[0],
+      { ...base.players[1]!, vitality },
+    ] as SimulationState["players"],
+  };
+}
+
 function expectCoopPlayerDefeatedAt(x: number, y: number): void {
   const base = afterSpawnInvincibility(twoPlayerState());
   const stepped = stepSimulation(
@@ -297,17 +339,10 @@ describe("simulation players array", () => {
   // window, small dies.
   it("shrinks a big co-op player on enemy contact instead of defeating them", () => {
     const base = afterSpawnInvincibility(twoPlayerState());
-    const withPoweredCoop: SimulationState = {
-      ...withCoopPlayerAt(base, 72, 64),
-      players: [
-        withCoopPlayerAt(base, 72, 64).players[0],
-        {
-          ...withCoopPlayerAt(base, 72, 64).players[1]!,
-          vitality: makePoweredPlayerVitalityState(),
-        },
-      ],
-    };
-    let current = withPoweredCoop;
+    let current = withCoopVitality(
+      withCoopPlayerAt(base, 72, 64),
+      makePoweredPlayerVitalityState(),
+    );
     for (
       let frame = 0;
       frame < 300 &&
@@ -384,34 +419,10 @@ describe("simulation players array", () => {
   it("tiers co-op hazard damage: big shrinks, small dies", () => {
     // firstAuthored has a thorn hazard tile at pixels (80..96, 64..80).
     const base = afterSpawnInvincibility(twoPlayerState());
-    const atThorn = withCoopPlayerAt(base, 80, 64);
-    const poweredAtThorn: SimulationState = {
-      ...atThorn,
-      players: [
-        atThorn.players[0],
-        { ...atThorn.players[1]!, vitality: makePoweredPlayerVitalityState() },
-      ],
-    };
-    const shrunk = stepSimulation(
-      poweredAtThorn,
-      neutral(),
-      initialMovementConstants,
+    expectTieredCoopHazardDamage(
+      (vitality) => withCoopVitality(withCoopPlayerAt(base, 80, 64), vitality),
       firstAuthoredLevelSpec(),
-      [neutral()],
     );
-    expect(shrunk.players[1]!.vitality.kind).toBe(
-      PlayerVitalityKind.Recovering,
-    );
-    expect(shrunk.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
-
-    const killed = stepSimulation(
-      atThorn,
-      neutral(),
-      initialMovementConstants,
-      firstAuthoredLevelSpec(),
-      [neutral()],
-    );
-    expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
 
   // A finish through a co-op grab pays like any finish. The primary path's
@@ -488,48 +499,10 @@ describe("simulation players array", () => {
     // The base orb never leaves the anchor block (~68–76, 132–140); a player
     // overlapping it touches the firebar at any rotation frame.
     const base = afterSpawnInvincibility(result.value);
-    const coopOnAnchor = (
-      vitality: SimulationState["players"][number]["vitality"],
-    ): SimulationState => {
-      const positioned = {
-        ...base,
-        players: [
-          base.players[0],
-          {
-            ...base.players[1]!,
-            vitality,
-            player: {
-              ...base.players[1]!.player,
-              position: {
-                x: requireSimulationPixelPosition(66, "test.flame.x"),
-                y: requireSimulationPixelPosition(126, "test.flame.y"),
-              },
-            },
-          },
-        ] as SimulationState["players"],
-      };
-      return positioned;
-    };
-    const shrunk = stepSimulation(
-      coopOnAnchor(makePoweredPlayerVitalityState()),
-      neutral(),
-      initialMovementConstants,
+    expectTieredCoopHazardDamage(
+      (vitality) => withCoopVitality(withCoopPlayerAt(base, 66, 126), vitality),
       level,
-      [neutral()],
     );
-    expect(shrunk.players[1]!.vitality.kind).toBe(
-      PlayerVitalityKind.Recovering,
-    );
-    expect(shrunk.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
-
-    const killed = stepSimulation(
-      coopOnAnchor(makeInitialPlayerVitalityState()),
-      neutral(),
-      initialMovementConstants,
-      level,
-      [neutral()],
-    );
-    expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
 
   // Co-op players used to pass straight through enemies: enemy interaction ran

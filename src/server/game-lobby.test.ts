@@ -117,6 +117,73 @@ function requireFinishRouteLevelSpec() {
   return result.value;
 }
 
+function makeStartedTwoCourseGame() {
+  const lobby = makeTwoCourseLobby();
+  const mira = profile("mira", "Mira");
+  const ren = profile("ren", "Ren");
+  const game = lobby.createGame(
+    mira,
+    "finish-route",
+    MultiplayerGameMode.Regular,
+  );
+  lobby.joinGame(ren, game.gameId);
+  lobby.startGame(mira.playerId, game.gameId);
+  return { lobby, mira, ren, game };
+}
+
+// Drive one member right (optionally hopping, to clear solid teammates in the
+// path) until the course finishes, then run the completion presentation out so
+// the handoff to the next course has happened.
+function runMemberToCourseCompletion(
+  lobby: ReturnType<typeof makeTwoCourseLobby>,
+  gameId: Parameters<ReturnType<typeof makeTwoCourseLobby>["gameSnapshot"]>[0],
+  playerId: MultiplayerPlayerProfile["playerId"],
+  options: { readonly hopping?: boolean; readonly maximumFrames?: number } = {},
+): void {
+  const maximumFrames = options.maximumFrames ?? 2_000;
+  let finished = false;
+  let frame = 1;
+  for (; frame <= maximumFrames && !finished; frame += 1) {
+    lobby.submitGameInput(
+      {
+        playerId,
+        sequence: frame,
+        intendedFrame: frame,
+        receivedAtMilliseconds: frame,
+        command: {
+          horizontal: HorizontalInput.Right,
+          jumpPressed: options.hopping === true && frame % 48 < 12,
+          runHeld: true,
+          firePressed: false,
+          upHeld: false,
+          downHeld: false,
+        },
+      },
+      frame,
+    );
+    lobby.stepAll(frame);
+    finished =
+      lobby.gameSnapshot(gameId).phase === MultiplayerGamePhase.Finished;
+  }
+  expect(finished, "a member should reach the goal").toBe(true);
+  // The completion presentation plays before the handoff.
+  lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
+}
+
+function expectNextCourseMembers(
+  lobby: ReturnType<typeof makeTwoCourseLobby>,
+  gameId: Parameters<ReturnType<typeof makeTwoCourseLobby>["gameSnapshot"]>[0],
+  expectedPlayerIds: readonly MultiplayerPlayerProfile["playerId"][],
+): void {
+  const handoff = lobby.gameSnapshot(gameId);
+  expect(handoff.levelId).toBe("first-authored");
+  expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
+  expect(
+    handoff.players.map((player) => player.playerId).sort(),
+    "the expected members carry over into the next course",
+  ).toEqual([...expectedPlayerIds].sort());
+}
+
 describe("public multiplayer lobby", () => {
   it("lists public games and limits each player to one active game", () => {
     const lobby = makeLobby();
@@ -222,106 +289,24 @@ describe("public multiplayer lobby", () => {
   // asking an autopilot to platform a real Super Mario course, which no
   // harness can do reliably. Asserted here where it is deterministic.
   it("hands the whole party its next course when a member finishes", () => {
-    const lobby = makeTwoCourseLobby();
-    const mira = profile("mira", "Mira");
-    const ren = profile("ren", "Ren");
-    const game = lobby.createGame(
-      mira,
-      "finish-route",
-      MultiplayerGameMode.Regular,
-    );
-    lobby.joinGame(ren, game.gameId);
-    lobby.startGame(mira.playerId, game.gameId);
+    const { lobby, mira, ren, game } = makeStartedTwoCourseGame();
 
     // Run the creator right until somebody reaches the goal.
-    let finished = false;
-    let frame = 1;
-    for (; frame <= 2_000 && !finished; frame += 1) {
-      lobby.submitGameInput(
-        {
-          playerId: mira.playerId,
-          sequence: frame,
-          intendedFrame: frame,
-          receivedAtMilliseconds: frame,
-          command: {
-            horizontal: HorizontalInput.Right,
-            jumpPressed: false,
-            runHeld: true,
-            firePressed: false,
-            upHeld: false,
-            downHeld: false,
-          },
-        },
-        frame,
-      );
-      lobby.stepAll(frame);
-      finished =
-        lobby.gameSnapshot(game.gameId).phase === MultiplayerGamePhase.Finished;
-    }
-    expect(finished, "a player should have reached the goal").toBe(true);
+    runMemberToCourseCompletion(lobby, game.gameId, mira.playerId);
 
-    // The completion presentation plays before the handoff.
-    lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
-
-    const handoff = lobby.gameSnapshot(game.gameId);
-    expect(handoff.levelId).toBe("first-authored");
-    expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
-    expect(
-      handoff.players.map((player) => player.playerId).sort(),
-      "both members carry over into the next course",
-    ).toEqual([mira.playerId, ren.playerId].sort());
+    expectNextCourseMembers(lobby, game.gameId, [mira.playerId, ren.playerId]);
   });
 
   // The creator's absence must never break the party's handoff: this throw
   // used to escape into the shared authoritative frame loop and freeze every
   // game on the server.
   it("advances the next course when the creator has left", () => {
-    const lobby = makeTwoCourseLobby();
-    const mira = profile("mira", "Mira");
-    const ren = profile("ren", "Ren");
-    const game = lobby.createGame(
-      mira,
-      "finish-route",
-      MultiplayerGameMode.Regular,
-    );
-    lobby.joinGame(ren, game.gameId);
-    lobby.startGame(mira.playerId, game.gameId);
+    const { lobby, mira, ren, game } = makeStartedTwoCourseGame();
     lobby.leaveGame(mira.playerId);
 
-    let finished = false;
-    let frame = 1;
-    for (; frame <= 2_000 && !finished; frame += 1) {
-      lobby.submitGameInput(
-        {
-          playerId: ren.playerId,
-          sequence: frame,
-          intendedFrame: frame,
-          receivedAtMilliseconds: frame,
-          command: {
-            horizontal: HorizontalInput.Right,
-            jumpPressed: false,
-            runHeld: true,
-            firePressed: false,
-            upHeld: false,
-            downHeld: false,
-          },
-        },
-        frame,
-      );
-      lobby.stepAll(frame);
-      finished =
-        lobby.gameSnapshot(game.gameId).phase === MultiplayerGamePhase.Finished;
-    }
-    expect(finished, "the remaining member should reach the goal").toBe(true);
+    runMemberToCourseCompletion(lobby, game.gameId, ren.playerId);
 
-    lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
-
-    const handoff = lobby.gameSnapshot(game.gameId);
-    expect(handoff.levelId).toBe("first-authored");
-    expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
-    expect(handoff.players.map((player) => player.playerId)).toEqual([
-      ren.playerId,
-    ]);
+    expectNextCourseMembers(lobby, game.gameId, [ren.playerId]);
   });
 
   // A rejoined creator sits at a later slot, so the member list handed to the
@@ -329,57 +314,19 @@ describe("public multiplayer lobby", () => {
   // at slot 0 and joins the rest — an unordered list used to silently drop
   // whichever member happened to be first.
   it("keeps every member across the handoff after the creator left and rejoined", () => {
-    const lobby = makeTwoCourseLobby();
-    const mira = profile("mira", "Mira");
-    const ren = profile("ren", "Ren");
-    const game = lobby.createGame(
-      mira,
-      "finish-route",
-      MultiplayerGameMode.Regular,
-    );
-    lobby.joinGame(ren, game.gameId);
-    lobby.startGame(mira.playerId, game.gameId);
+    const { lobby, mira, ren, game } = makeStartedTwoCourseGame();
     lobby.leaveGame(mira.playerId);
     lobby.joinGame(mira, game.gameId);
 
-    // Ren runs and periodically jumps: the rejoined creator spawns idle in the
-    // shared screen ahead of the runner, and players are solid — the runner
-    // must hop over them on the way to the goal.
-    let finished = false;
-    let frame = 1;
-    for (; frame <= 3_000 && !finished; frame += 1) {
-      lobby.submitGameInput(
-        {
-          playerId: ren.playerId,
-          sequence: frame,
-          intendedFrame: frame,
-          receivedAtMilliseconds: frame,
-          command: {
-            horizontal: HorizontalInput.Right,
-            jumpPressed: frame % 48 < 12,
-            runHeld: true,
-            firePressed: false,
-            upHeld: false,
-            downHeld: false,
-          },
-        },
-        frame,
-      );
-      lobby.stepAll(frame);
-      finished =
-        lobby.gameSnapshot(game.gameId).phase === MultiplayerGamePhase.Finished;
-    }
-    expect(finished, "a member should reach the goal").toBe(true);
+    // Ren runs and periodically hops: the rejoined creator idles in the shared
+    // screen ahead of the runner, and players are solid — the runner must hop
+    // over them on the way to the goal.
+    runMemberToCourseCompletion(lobby, game.gameId, ren.playerId, {
+      hopping: true,
+      maximumFrames: 3_000,
+    });
 
-    lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
-
-    const handoff = lobby.gameSnapshot(game.gameId);
-    expect(handoff.levelId).toBe("first-authored");
-    expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
-    expect(
-      handoff.players.map((player) => player.playerId).sort(),
-      "both members carry over into the next course",
-    ).toEqual([mira.playerId, ren.playerId].sort());
+    expectNextCourseMembers(lobby, game.gameId, [mira.playerId, ren.playerId]);
   });
 
   it("keeps lobby and game chat separate and membership-gated", () => {

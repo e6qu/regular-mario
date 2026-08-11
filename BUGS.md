@@ -1,5 +1,97 @@
 # BUGS.md
 
+### Creator-leave froze every game on the server at the next handoff — fixed (2026-08-11)
+
+`advanceCompletedGame` required the creator to still be a member and threw
+inside the shared authoritative frame loop, whose re-arm was skipped — every
+game froze while the process stayed "up". The next course is now hosted by
+whoever remains (host-first, because the replacement runner seats its host at
+slot 0 and joins the rest — an unordered list silently dropped a member after
+a creator left and rejoined), and the frame loop re-arms even when a tick
+throws. Regressions in `game-lobby.test.ts`.
+
+### Online players passed through each other — fixed (2026-08-11)
+
+Networked co-op deliberately skipped player-player collision so an idle friend
+could not wall off the route, but that also removed head-standing and stack
+carry. The opt-out flag is deleted; every mode resolves solid player collision
+(a one-tile body is jumpable, which is how the originals handle the wall
+concern). Joiners also now spawn at the party checkpoint rather than a
+camera-centre coordinate nobody had visited — which on a short course sat past
+the goal or beyond the level edge, where the joiner fell out of the world.
+
+### The slot-0 player had no name above their head — fixed (2026-08-11)
+
+Only slots 1+ ever had nickname labels: the creator saw no name over their own
+head and neither did anyone looking at them. The primary nickname now travels
+with the authoritative presentation. The per-slot label stagger (5 + slot × 8)
+floated later slots' labels up to two tiles above their heads and ignored
+big-form height — labels now sit a constant offset above each player's own
+collider, and render above the player sprites instead of behind an overlapping
+body.
+
+### A dead teammate kept playing as a ghost on other screens — fixed (2026-08-11)
+
+Lifecycle reconciliation inspected only the local player's slot, and an idle
+client produces no acknowledgement progress — so a REMOTE player's
+authoritative death or revive was never applied: the dead teammate kept
+running, colliding and bumping blocks in the local prediction indefinitely.
+Every slot's outcome now forces reconciliation. Prediction also no longer
+advances through a pause (it accumulated the whole pause as divergence), and
+the baseline rebuilds on any roster identity change — a same-count join+leave
+between snapshots used to keep a departed player's held command driving
+someone else's slot.
+
+### A teammate's enemy touch read as the primary being hit — fixed (2026-08-11)
+
+The party-wide contact list fed the primary's damage path: a co-op player
+brushing a goomba could kill a small primary standing anywhere on the map, and
+simultaneously debounced that enemy so it could never hurt the primary
+afterwards. A fresh hit on the primary now requires the primary's own overlap.
+
+### Big co-op players died in one touch; hazards ignored everyone but slot 0 — fixed (2026-08-11)
+
+Co-op fates were a flat kill on any enemy or hazard-tile contact, while
+firebars, podoboos, hammers, Bullet Bills, cheep/aerial frenzies and hatched
+spinies interacted with slot 0 alone and swept clean through everyone else.
+Co-op players now take the primary's tiered damage (big shrinks into the
+blinking recovery window; star power, god mode and an active recovery window
+protect; pits swallow any tier), and every hazard subsystem damages each
+player via per-player contact checks. Damage requires a fresh touch — an enemy
+already overlapping on the previous frame cannot land a second hit without
+genuine separation, which also stops a joiner spawning beside an enemy from
+dying to a touch that predates them. Revealed hidden blocks are solid for
+every player (a co-op player used to fall through the platform a teammate had
+just bumped into existence), and springboards honour a held jump for everyone.
+
+### A co-op flag grab finished the level for nothing — fixed (2026-08-11)
+
+The finish scoring keys off the primary's own outcome edge inside the world
+step, which runs before the co-op goal propagates — so a co-op player reaching
+the flag ended the level with zero time bonus and zero grab-height score. Both
+are now awarded at the finisher's grab. Co-op 1-UP mushrooms and party coins
+crossing the every-100 boundary also award lives now; they used to be diffed
+away against the primary-only collectible resolution.
+
+### Client shell paper cuts — fixed (2026-08-11)
+
+Held keys now release on window blur/hide (alt-tab used to keep the held
+command heartbeating until the player ran into a pit); a defeated spectator's
+camera follows the party's shared camera instead of parking on their corpse; a
+booted player returns to the lobby instead of freezing as a ghost session; a
+failed leave/cancel lands in the lobby rather than an unrecoverable disposed
+shell; the red error banner clears after six seconds instead of persisting for
+the session; chat toasts dedupe by server message id instead of list index;
+and the presentation loop re-arms before painting so a single throw cannot end
+all rendering while inputs keep flowing.
+
+### Asset-coverage test compared against the wrong content bundle — fixed (2026-08-11)
+
+`loadShippedManifest` took whichever bundle the filesystem globbed first; on a
+machine holding the local-only ROM dev bundle beside the released one, all 24
+coverage tests failed against the wrong skin. The shipped bundle is now
+resolved through `content-sets-index.json`.
+
 ### Multiplayer cross-level pipes reset the party to the target start — fixed (2026-08-06)
 
 The lobby correctly found the next bundled level but rebuilt its runner from
@@ -30,15 +122,36 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
-### Full-course recording no longer completes World 1-1 — open (2026-08-07)
+### Remaining single-player/multiplayer mechanics gaps — open (2026-08-11)
 
-`full-run-recording.spec.ts` drove four real WebSocket browsers to frame 1891
-but never observed the required World 1-2 handoff within 20 seconds. Because
-that test leaves its public game after failure, later broad-suite journeys also
-encounter an unexpected extra Join target. This is a real release-gate failure,
-not a lobby UI failure: repair the physical input trace or its authoritative
-completion path, and make fixture cleanup run in `finally` before relying on
-the broad suite again.
+Documented parity work that remains after the 2026-08-11 sweep, in rough order
+of visibility:
+
+- **Enemy AI targets slot 0 only.** Lakitu leads, Hammer Bros aim, chasers
+  chase, and piranha plants hold for the primary player alone; every other
+  player is invisible to enemy decision-making.
+- **Only slot 0 can enter pipes** (in-level warps, vine area transfers, and
+  castle loop-zone checkpoints all read the primary). Networked cross-level
+  entry pipes move the whole party by design, but a co-op player pressing Down
+  on an in-level warp pipe just ducks.
+- **Co-op stomps on Bullet Bills/frenzy entities do not defeat the
+  projectile** — the stomp-shaped landing is exempt from damage (the bounce
+  play never hurts), but the projectile flies on and there is no rebound or
+  score for slots 1+.
+- **Reactions and sounds are primary-only** (head-bonk reaction, bloodiness,
+  jump/bonk/death sound events derive from slot 0).
+- **Co-op deaths do not cost session lives — deliberate**, not a bug:
+  networked play revives dead members at the party checkpoint, and local
+  bots dying must not drain the run.
+
+### Full-course recording World 1-2 handoff requirement — superseded (2026-08-09)
+
+The old open entry required four real browsers to complete World 1-1. The
+recorded trace is a solo run that three teammates' presence invalidates, so
+the handoff proof moved to `game-lobby.test.ts` where it is deterministic
+(including with the creator absent); `full-run-recording.spec.ts` now proves
+what only four real browsers can — one shared course, roster agreement, and a
+rendered recorded run — and cleans its game up in `finally`.
 
 ### Multiplayer overlays could overflow a mobile landscape viewport — fixed (2026-08-07)
 
@@ -134,12 +247,15 @@ runner now records that this was an automatic empty-party pause and resumes it
 on first rejoin; explicit member pauses still require P. The browser journey
 asserts that a rejoined player advances the authoritative frame after input.
 
-### Remote co-op movement still visibly desynchronizes — open (2026-08-05)
+### Remote co-op movement still visibly desynchronizes — addressed (2026-08-09/11)
 
-The browser currently predicts a complete local world and interpolates remote
-positions from 20 Hz receipts, but no journey yet bounds the perceived remote
-correction distance. Add an observable two-browser motion test and fix the
-reconciliation/presentation boundary from its measurements.
+Each player's command is now relayed to the rest of the party and remote
+players are simulated at 60 Hz from their held commands rather than replayed
+from 20 Hz position samples; `prediction-drift.spec.ts` and
+`remote-smoothness.spec.ts` measure the result in real browsers, and remote
+lifecycle changes (death/revive) now force reconciliation instead of leaving
+ghosts. Residual drift within one relay round-trip remains inherent to
+prediction.
 
 ### Standalone multiplayer could load development-only asset URLs — fixed (2026-08-05)
 

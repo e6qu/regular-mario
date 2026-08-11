@@ -730,6 +730,9 @@ export class BootScene extends Phaser.Scene {
   // name over their head while the rest did.
   private primaryPlayerNickname: string | undefined;
   private primaryPlayerNameLabel: Phaser.GameObjects.Text | undefined;
+  // Debug/parity hook: nicknames are multiplayer-only presentation, so the
+  // exact local-vs-server pixel comparison hides them like the ESC hint.
+  private nameLabelsHiddenForDebug = false;
   // Monotonic counter so every newly-seen bot cycles onto a fresh robot variant.
   private coopBotNextVariant = 0;
   // Body parts flung by exploding bots — kept apart from the primary's
@@ -6362,7 +6365,9 @@ export class BootScene extends Phaser.Scene {
       // shifts, but it has already burst into parts — nothing left to draw.
       const alive = runtime.outcome.kind === PlayerOutcomeKind.Active;
       image.setVisible(alive);
-      this.coopPlayerNameLabels[index]?.setVisible(alive);
+      this.coopPlayerNameLabels[index]?.setVisible(
+        alive && !this.nameLabelsHiddenForDebug,
+      );
       if (!alive) {
         return;
       }
@@ -6422,7 +6427,8 @@ export class BootScene extends Phaser.Scene {
     const runtime = this.simulationState.players[0];
     const visible =
       runtime.outcome.kind === PlayerOutcomeKind.Active &&
-      !this.authoritativeCompletionPresentationActive;
+      !this.authoritativeCompletionPresentationActive &&
+      !this.nameLabelsHiddenForDebug;
     this.primaryPlayerNameLabel.setVisible(visible);
     if (!visible) {
       return;
@@ -6965,6 +6971,15 @@ export class BootScene extends Phaser.Scene {
     const debugApi: BrowserPlatformerDebugApi = {
       renderMultiplayerWireStateForDebug: (state, cameraLeftPixels) => {
         this.renderMultiplayerWireStateForDebug(state, cameraLeftPixels);
+      },
+      setPlayerNameLabelsVisibleForDebug: (visible: boolean) => {
+        this.nameLabelsHiddenForDebug = !visible;
+        if (!visible) {
+          this.primaryPlayerNameLabel?.setVisible(false);
+          for (const label of this.coopPlayerNameLabels) {
+            label.setVisible(false);
+          }
+        }
       },
       teleportPlayer: (xPixels: number, yPixels: number) => {
         // Fail loudly on states a teleport cannot meaningfully change, instead

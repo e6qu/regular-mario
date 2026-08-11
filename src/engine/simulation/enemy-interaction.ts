@@ -291,23 +291,6 @@ export function liveEnemyContactEntityIds(
   return contacted;
 }
 
-// Whether a player's hurtbox overlaps any live (not-yet-defeated) enemy.
-export function playerContactsLiveEnemy(
-  player: PlayerSimulationState,
-  levelSpec: LevelSpec,
-  enemyMotion: EnemyMotionState,
-  defeatedEnemyEntityIds: readonly EntityId[],
-): boolean {
-  return (
-    liveEnemyContactEntityIds(
-      player,
-      levelSpec,
-      enemyMotion,
-      defeatedEnemyEntityIds,
-    ).length > 0
-  );
-}
-
 export function resolveEnemyInteractionState(
   previousPlayer: PlayerSimulationState,
   player: PlayerSimulationState,

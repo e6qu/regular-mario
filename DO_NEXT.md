@@ -1,5 +1,22 @@
 # DO_NEXT.md
 
+- Continue the co-op mechanics parity work recorded in BUGS.md ("Remaining
+  single-player/multiplayer mechanics gaps"): enemy AI awareness of every
+  player, per-player in-level pipe entry / vine transfers / loop zones,
+  co-op projectile stomps (defeat + rebound + score), and per-player
+  reactions/sounds. Keep co-op deaths free of session lives (revive is the
+  multiplayer death economy; bots must not drain the run).
+
+- Players are solid in every mode and joiners spawn at the party checkpoint.
+  Do not reintroduce the network collision opt-out or a spawn coordinate no
+  player has visited; the checkpoint is the one position guaranteed to be
+  grounded and in bounds.
+
+- The next-course handoff must never assume the creator is present: the
+  replacement runner is hosted by whoever remains, host-first (it seats its
+  host at slot 0 and joins the rest). The authoritative frame loop must
+  re-arm even when a tick throws.
+
 - Keep pipe target coordinates part of the authoritative level-handoff
   contract. Any future runner replacement must preserve the connected exit,
   not use an implicit player-start position.

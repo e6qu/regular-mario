@@ -226,6 +226,15 @@ test("the actual local BootScene and a paused server frame render every pixel id
     );
   }, body);
 
+  // Floating nicknames are multiplayer-only presentation; the local scene has
+  // none to compare. Hide them for this raw-pixel comparison exactly as the
+  // local route hides its ESC navigation hint.
+  await player.evaluate(() => {
+    window.__originalBrowserPlatformerDebug?.setPlayerNameLabelsVisibleForDebug(
+      false,
+    );
+  });
+
   await Promise.all([
     local.screenshot({ path: "screenshots/local-server-parity-local.png" }),
     player.screenshot({

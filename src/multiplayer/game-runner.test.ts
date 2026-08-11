@@ -145,6 +145,59 @@ function makeRunner() {
   return makeRunnerWithInitialState(makeInitialState());
 }
 
+function makeRunnerWithCreatorAtX(x: number) {
+  const initial = makeInitialState();
+  return makeRunnerWithInitialState({
+    ...initial,
+    players: [
+      {
+        ...initial.players[0],
+        player: {
+          ...initial.players[0].player,
+          position: {
+            x: requireSimulationPixelPosition(x, "test.creator.x"),
+            y: initial.players[0].player.position.y,
+          },
+        },
+      },
+    ],
+  });
+}
+
+// Drive one guest right with an opening hop (players are solid, so the guest
+// vaults the teammate they spawned beside) and return the last stepped
+// snapshot. Stops early if the game finishes.
+function hopAndRunGuestRight(
+  runner: AuthoritativeGameRunner,
+  guestId: string,
+  maximumFrames: number,
+) {
+  let snapshot = runner.snapshot();
+  for (
+    let frame = 1;
+    frame <= maximumFrames && snapshot.phase !== MultiplayerGamePhase.Finished;
+    frame += 1
+  ) {
+    runner.submitInput(
+      {
+        playerId: requireMultiplayerPlayerId(guestId),
+        sequence: frame,
+        intendedFrame: frame,
+        receivedAtMilliseconds: frame,
+        command: {
+          ...neutral,
+          horizontal: HorizontalInput.Right,
+          runHeld: true,
+          jumpPressed: frame <= 14,
+        },
+      },
+      frame,
+    );
+    snapshot = runner.step(frame);
+  }
+  return snapshot;
+}
+
 function runCreatorRightToFinish(runner: AuthoritativeGameRunner) {
   let snapshot = runner.snapshot();
   for (let frame = 1; frame <= 1_200; frame += 1) {
@@ -212,22 +265,7 @@ describe("authoritative multiplayer game runner", () => {
   });
 
   it("spawns a late joiner at the party's grounded checkpoint", () => {
-    const initial = makeInitialState();
-    const runner = makeRunnerWithInitialState({
-      ...initial,
-      players: [
-        {
-          ...initial.players[0],
-          player: {
-            ...initial.players[0].player,
-            position: {
-              x: requireSimulationPixelPosition(560, "test.player.x"),
-              y: initial.players[0].player.position.y,
-            },
-          },
-        },
-      ],
-    });
+    const runner = makeRunnerWithCreatorAtX(560);
     runner.start(requireMultiplayerPlayerId("mira"));
     runner.step(1);
     const beforeJoin = runner.snapshot();
@@ -242,43 +280,10 @@ describe("authoritative multiplayer game runner", () => {
     // The creator idles mid-level; the joining guest spawns beside them (the
     // party checkpoint), hops over their solid body, and runs ahead. The shared
     // camera must follow the guest's progress, not the idle creator's slot.
-    const initial = makeInitialState();
-    const runner = makeRunnerWithInitialState({
-      ...initial,
-      players: [
-        {
-          ...initial.players[0],
-          player: {
-            ...initial.players[0].player,
-            position: {
-              x: requireSimulationPixelPosition(200, "test.creator.x"),
-              y: initial.players[0].player.position.y,
-            },
-          },
-        },
-      ],
-    });
+    const runner = makeRunnerWithCreatorAtX(200);
     runner.join(profile("ren", "Ren"));
     runner.start(requireMultiplayerPlayerId("mira"));
-    let snapshot = runner.snapshot();
-    for (let frame = 1; frame <= 60; frame += 1) {
-      runner.submitInput(
-        {
-          playerId: requireMultiplayerPlayerId("ren"),
-          sequence: frame,
-          intendedFrame: frame,
-          receivedAtMilliseconds: frame,
-          command: {
-            ...neutral,
-            horizontal: HorizontalInput.Right,
-            runHeld: true,
-            jumpPressed: frame <= 14,
-          },
-        },
-        frame,
-      );
-      snapshot = runner.step(frame);
-    }
+    const snapshot = hopAndRunGuestRight(runner, "ren", 60);
     const creator = snapshot.players[0]!;
     const guest = snapshot.players[1]!;
     expect(guest.x).toBeGreaterThan(creator.x);
@@ -856,29 +861,7 @@ describe("authoritative multiplayer game runner", () => {
     // Ren spawns beside the idle creator, hops over them, and runs to the
     // course's flagpole; the joined player's goal contact must finish the
     // whole game.
-    let snapshot = runner.snapshot();
-    for (
-      let frame = 1;
-      frame <= 300 && snapshot.phase !== MultiplayerGamePhase.Finished;
-      frame += 1
-    ) {
-      runner.submitInput(
-        {
-          playerId: requireMultiplayerPlayerId("ren"),
-          sequence: frame,
-          intendedFrame: frame,
-          receivedAtMilliseconds: frame,
-          command: {
-            ...neutral,
-            horizontal: HorizontalInput.Right,
-            runHeld: true,
-            jumpPressed: frame <= 14,
-          },
-        },
-        frame,
-      );
-      snapshot = runner.step(frame);
-    }
+    const snapshot = hopAndRunGuestRight(runner, "ren", 300);
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
     expect(snapshot.players[1]).toMatchObject({
       playerId: "ren",

@@ -2,6 +2,25 @@
 
 ## Current State
 
+**Multiplayer bug sweep landed (2026-08-11).** Players are solid online
+(stand on heads, stacks ride the bottom player — the network opt-out is
+deleted); joiners spawn at the party checkpoint instead of past the goal or
+off the map; every player wears a name label at their own head, including
+slot 0, above the sprites. The server survives a creator leaving (the level
+handoff used to throw inside the shared frame loop and freeze every game, and
+a rejoined creator's handoff dropped a member); the frame loop re-arms on a
+tick error. The client reconciles remote deaths/revives (no more dead-teammate
+ghosts on idle screens), stops predicting through pauses, rebuilds its
+baseline on roster identity changes, releases held keys on window blur, gives
+spectators the party camera, recovers from boots and failed leaves, and clears
+error banners. Engine parity for co-op players: tiered damage with recovery
+blink + star/god protection, fresh-touch damage edges, all hazard subsystems
+(firebars, podoboos, hammers, bullets, frenzies, spinies) damage every player,
+revealed hidden blocks are solid for everyone, a co-op flag grab pays time
+bonus and grab height, and co-op 1-UPs count. 1040 unit tests green; remaining
+parity gaps (enemy AI targeting, per-player pipes, co-op projectile stomps,
+reactions/sounds) are recorded in BUGS.md.
+
 **Multiplayer lobby visual language is structured and responsive (2026-08-07).**
 The trusted-friends lobby now uses labelled profile and run controls, semantic
 card headings, an explicit empty-run invitation, and a keyboard-visible button

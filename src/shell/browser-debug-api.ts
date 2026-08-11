@@ -361,6 +361,11 @@ export type BrowserPlatformerDebugApi = {
     state: MultiplayerSimulationWireState,
     cameraLeftPixels: number,
   ) => void;
+  // Test/dev hook: hide the floating player name labels. Nicknames are
+  // multiplayer-only presentation (a local scene has none to compare), so the
+  // exact local-vs-server pixel parity check hides them the same way the
+  // local route hides its ESC navigation hint.
+  readonly setPlayerNameLabelsVisibleForDebug: (visible: boolean) => void;
 };
 
 declare global {
