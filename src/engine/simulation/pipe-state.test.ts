@@ -98,6 +98,35 @@ const flushLeftX = 50;
 // Flush against the mouth from the right (left edge at pixel 80).
 const flushRightX = 80;
 
+describe("co-op pipe entry", () => {
+  it("lets a co-op candidate start a down-pipe entry, recording their slot", () => {
+    const level = pipeLevelSpec("down");
+    // The primary idles far from the pipe; the slot-2 co-op player stands
+    // centred over the mouth pressing Down. Warps used to answer to slot 0
+    // alone — this press just ducked.
+    const result = resolvePipeState(
+      { downHeld: false, horizontal: HorizontalInput.Neutral },
+      playerAgainstPipe(0, 16),
+      makeInitialPipeEntryState(),
+      initialMovementConstants,
+      level,
+      undefined,
+      [
+        {
+          slot: 2,
+          inputCommand: { downHeld: true, horizontal: HorizontalInput.Neutral },
+          player: playerAgainstPipe(0, 65),
+        },
+      ],
+    );
+    expect(result.pipeEntry.phase).toBe(PipeEntryPhase.Entering);
+    if (result.pipeEntry.phase === PipeEntryPhase.Entering) {
+      expect(result.pipeEntry.enteringPlayerSlot).toBe(2);
+      expect(result.pipeEntry.targetLevelName).toBe("sub-area");
+    }
+  });
+});
+
 describe("pipe entry direction", () => {
   it("enters a right walk-in pipe when pressed flush against its mouth", () => {
     const result = resolveAt(

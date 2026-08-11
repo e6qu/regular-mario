@@ -1528,5 +1528,50 @@ describe("enemy motion", () => {
       expect(state.piranhaPlantActors[0]?.phase).toBe(0);
       expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(baseY, 9);
     });
+
+    it("holds retracted while a CO-OP player stands on the pipe", () => {
+      const levelSpec = piranhaRouteLevelSpec(5, 4);
+      // Slot 0 is nowhere near; the co-op player stands on the pipe. The plant
+      // used to see only the primary and emerged straight into the teammate.
+      let state = enemyMotionFor(levelSpec);
+      for (let frame = 0; frame < 10; frame += 1) {
+        state = stepEnemyMotionState(
+          state,
+          levelSpec,
+          makeEmptyEnemyInteractionState(),
+          testFrameDurationMilliseconds(1_000),
+          initialMovementConstants,
+          farPlayer,
+          (frame + 1) as FrameIndex,
+          [playerAt({ x: 80, y: 56 })],
+        );
+      }
+
+      expect(state.piranhaPlantActors[0]?.phase).toBe(0);
+      expect(state.piranhaPlantActors[0]?.position.y).toBeCloseTo(baseY, 9);
+    });
+  });
+
+  describe("multi-player targeting", () => {
+    it("a chaser engages the nearest player, not only slot 0", () => {
+      const levelSpec = chasingEnemyRouteLevelSpec(3, 4); // enemy at (48, 64)
+      const engaged = stepEnemyMotionState(
+        enemyMotionFor(levelSpec),
+        levelSpec,
+        makeEmptyEnemyInteractionState(),
+        testFrameDurationMilliseconds(1_000),
+        initialMovementConstants,
+        // The primary is far outside the detection window...
+        playerAt({ x: 500, y: 500 }),
+        1 as FrameIndex,
+        // ...but a co-op player is inside it.
+        [playerAt({ x: 80, y: 64 })],
+      );
+
+      expect(requireChasingEnemyActorState(engaged, "hunter-1")).toMatchObject({
+        behavior: ChasingEnemyBehavior.Chase,
+        velocity: { x: 60 },
+      });
+    });
   });
 });

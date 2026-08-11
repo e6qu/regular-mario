@@ -5,6 +5,25 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-11 — co-op parity completion (second sweep)
+
+- **Enemies see the whole party**: chasers, Bloopers, Hammer Bros, Lakitu and
+  piranha plants react to their nearest active player instead of slot 0, and
+  enemy activation follows the party's furthest-advanced member.
+- **Projectile systems see the whole party**: any player's stomp defeats a
+  Bullet Bill or frenzy entity (per-slot rebound, party-wide score), cannons
+  gate and aim per nearest player, and cheep/aerial frenzy regions follow the
+  leader. Shared targeting helpers live in `player-targeting.ts`.
+- **Pipes, vines and castle mazes work for everyone**: any active player can
+  start a warp or vine/fall-exit transfer (the entry records the riding slot,
+  who freezes in the mouth as the primary always did) and the completed warp
+  carries the whole party; maze checkpoints follow the party's leader, and a
+  failed crossing loops everyone back together.
+- **Per-player reactions and sound perspective**: co-op head-bonk reaction
+  state ticks from each player's own bumps, and `resolveSoundEvents` takes a
+  perspective slot so a multiplayer guest hears their own jump/land/bonk/
+  defeat/finish instead of the host's.
+
 ## 2026-08-11 — multiplayer bug sweep: solidity, names, lifecycle, parity
 
 - **Players are solid online.** Removed the network opt-out from

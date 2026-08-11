@@ -10,6 +10,7 @@ import type {
   ThrowingEnemyActorState,
 } from "./enemy-motion";
 import { playerOverlapsActorPixel } from "./player-actor-overlap";
+import { nearestPlayerToPixelX, type ActivePlayers } from "./player-targeting";
 import { makeSolidTileIds, tileIsSolid } from "./tile-collision-support";
 import type { PlayerSimulationState } from "./player-state";
 import type { Projectile } from "./projectile-state";
@@ -28,6 +29,12 @@ import type { MovementConstants } from "./movement-model";
 // Downward gravity for thrown, arcing enemy projectiles (hammers, spiny eggs),
 // matching the fireball's arc so tosses come back down.
 const enemyProjectileGravity = 540;
+
+/** A player's previous and current frame states, for stomp edge detection. */
+export type PlayerFramePair = {
+  readonly previous: PlayerSimulationState;
+  readonly current: PlayerSimulationState;
+};
 
 export type TimedHazardProjectilesState = {
   readonly projectiles: readonly Projectile[];
@@ -82,6 +89,13 @@ export function assertValidTimedHazardProjectilesState(
   });
 }
 
+export type ResolvedTimedHazardProjectilesState = {
+  readonly state: TimedHazardProjectilesState;
+  // Stomps landed this frame per player: index 0 is the primary, then the
+  // other players in the order given. Each stomper gets their own rebound.
+  readonly stompedProjectileCountByPlayer: readonly number[];
+};
+
 export function resolveTimedHazardProjectilesState(
   previousState: TimedHazardProjectilesState,
   levelSpec: LevelSpec,
@@ -93,10 +107,23 @@ export function resolveTimedHazardProjectilesState(
   frameDurationMilliseconds: number,
   frameIndex: FrameIndex,
   previousPlayer: PlayerSimulationState = player,
-): TimedHazardProjectilesState {
+  // The other active players. Spawn gates and aimed shots react to whichever
+  // player is nearest, and any player's stomp defeats a Bullet Bill — these
+  // all read only slot 0 before, so a co-op player could neither be aimed at
+  // nor stomp a bullet. Single-player callers omit this entirely.
+  otherPlayers: readonly PlayerFramePair[] = [],
+): ResolvedTimedHazardProjectilesState {
   assertValidTimedHazardProjectilesState(previousState);
   assertValidBreakableBlockState(breakableBlocks);
 
+  const playerPairs: readonly PlayerFramePair[] = [
+    { previous: previousPlayer, current: player },
+    ...otherPlayers,
+  ];
+  const currentPlayers: ActivePlayers = [
+    player,
+    ...otherPlayers.map((pair) => pair.current),
+  ];
   const frameDurationSeconds = frameDurationMilliseconds / 1000;
   const steppedProjectiles = stepExistingProjectiles(
     previousState.projectiles,
@@ -109,22 +136,38 @@ export function resolveTimedHazardProjectilesState(
   );
   const spawnedProjectiles = levelSpec.timedHazardProjectileSpawners
     .filter((spawner) =>
-      shouldSpawnProjectile(spawner, frameIndex, player, levelSpec),
+      shouldSpawnProjectile(
+        spawner,
+        frameIndex,
+        nearestPlayerToPixelX(
+          spawner.position.x * levelSpec.tileSizePixels,
+          currentPlayers,
+        ),
+        levelSpec,
+      ),
     )
     .map((spawner) =>
-      makeTimedHazardProjectile(levelSpec, spawner, frameIndex, player),
+      makeTimedHazardProjectile(
+        levelSpec,
+        spawner,
+        frameIndex,
+        nearestPlayerToPixelX(
+          spawner.position.x * levelSpec.tileSizePixels,
+          currentPlayers,
+        ),
+      ),
     );
   const enemyProjectiles = makeThrowingEnemyProjectiles(
     enemyMotion,
     enemyInteractions,
-    player,
+    currentPlayers,
     movementConstants,
     frameIndex,
   );
   const aerialEnemyProjectiles = makeAerialThrowingEnemyProjectiles(
     enemyMotion,
     enemyInteractions,
-    player,
+    currentPlayers,
     movementConstants,
     frameIndex,
   );
@@ -135,14 +178,33 @@ export function resolveTimedHazardProjectilesState(
     ...aerialEnemyProjectiles,
   ];
 
-  // A stompable projectile (Bullet Bill) the player lands on is defeated and
-  // removed; the surviving projectiles are what can still harm the player.
-  const stompedProjectileCount = allProjectiles.filter((projectile) =>
-    isProjectileStomp(previousPlayer, player, projectile, movementConstants),
-  ).length;
+  // A stompable projectile (Bullet Bill) ANY player lands on is defeated and
+  // removed; the surviving projectiles are what can still harm the party.
+  const stompedProjectileCountByPlayer = playerPairs.map(
+    (pair) =>
+      allProjectiles.filter((projectile) =>
+        isProjectileStomp(
+          pair.previous,
+          pair.current,
+          projectile,
+          movementConstants,
+        ),
+      ).length,
+  );
+  const stompedProjectileCount = stompedProjectileCountByPlayer.reduce(
+    (total, count) => total + count,
+    0,
+  );
   const unstompedProjectiles = allProjectiles.filter(
     (projectile) =>
-      !isProjectileStomp(previousPlayer, player, projectile, movementConstants),
+      !playerPairs.some((pair) =>
+        isProjectileStomp(
+          pair.previous,
+          pair.current,
+          projectile,
+          movementConstants,
+        ),
+      ),
   );
 
   // Lakitu's eggs convert into Spinies where they touch solid ground: the
@@ -171,17 +233,20 @@ export function resolveTimedHazardProjectilesState(
   });
 
   return {
-    projectiles,
-    playerContact: projectiles.some((projectile) => {
-      const box = projectileHazardBox(projectile);
-      return playerOverlapsActorPixel(
-        player,
-        { x: box.x, y: box.y },
-        { width: box.width, height: box.height },
-      );
-    }),
-    stompedProjectileCount,
-    hatchedPositions,
+    state: {
+      projectiles,
+      playerContact: projectiles.some((projectile) => {
+        const box = projectileHazardBox(projectile);
+        return playerOverlapsActorPixel(
+          player,
+          { x: box.x, y: box.y },
+          { width: box.width, height: box.height },
+        );
+      }),
+      stompedProjectileCount,
+      hatchedPositions,
+    },
+    stompedProjectileCountByPlayer,
   };
 }
 
@@ -252,7 +317,7 @@ function isProjectileStomp(
 function makeAerialThrowingEnemyProjectiles(
   enemyMotion: EnemyMotionState,
   enemyInteractions: EnemyInteractionState,
-  player: PlayerSimulationState,
+  players: ActivePlayers,
   movementConstants: MovementConstants,
   frameIndex: FrameIndex,
 ): readonly Projectile[] {
@@ -278,7 +343,7 @@ function makeAerialThrowingEnemyProjectiles(
     .map((aerialThrowingActor) =>
       makeAerialThrowingEnemyProjectile(
         aerialThrowingActor,
-        player,
+        nearestPlayerToPixelX(aerialThrowingActor.position.x, players),
         movementConstants,
         frameIndex,
       ),
@@ -341,7 +406,7 @@ function makeAerialThrowingEnemyProjectileId(
 function makeThrowingEnemyProjectiles(
   enemyMotion: EnemyMotionState,
   enemyInteractions: EnemyInteractionState,
-  player: PlayerSimulationState,
+  players: ActivePlayers,
   movementConstants: MovementConstants,
   frameIndex: FrameIndex,
 ): readonly Projectile[] {
@@ -367,7 +432,7 @@ function makeThrowingEnemyProjectiles(
     .map((throwingActor) =>
       makeThrowingEnemyProjectile(
         throwingActor,
-        player,
+        nearestPlayerToPixelX(throwingActor.position.x, players),
         movementConstants,
         frameIndex,
       ),

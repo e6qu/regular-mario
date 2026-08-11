@@ -25,6 +25,10 @@ export type PipeEntryState =
   | {
       readonly phase: PipeEntryPhase.Entering;
       readonly pipeEntityId: EntityId;
+      // Which players slot is riding the entry animation. Any active player
+      // can start a warp; the destination carries the whole party (the screen
+      // is shared, and cross-level pipes already move everyone).
+      readonly enteringPlayerSlot: number;
       readonly sourceLevelName: string | undefined;
       readonly targetLevelName: string | undefined;
       readonly targetTilePosition: TilePoint;
@@ -78,6 +82,16 @@ export function assertValidPipeEntryState(
       }
 
       if (
+        typeof candidate.enteringPlayerSlot !== "number" ||
+        !Number.isInteger(candidate.enteringPlayerSlot) ||
+        candidate.enteringPlayerSlot < 0
+      ) {
+        throw new Error(
+          "pipeEntry.enteringPlayerSlot must be a non-negative integer.",
+        );
+      }
+
+      if (
         candidate.targetLevelName !== undefined &&
         typeof candidate.targetLevelName !== "string"
       ) {
@@ -120,6 +134,16 @@ export function assertValidPipeEntryState(
   }
 }
 
+/** One player who may start a pipe entry this frame. */
+export type PipeEntryCandidate = {
+  readonly slot: number;
+  readonly inputCommand: {
+    readonly downHeld: boolean;
+    readonly horizontal: HorizontalInput;
+  };
+  readonly player: PlayerSimulationState;
+};
+
 export function resolvePipeState(
   inputCommand: {
     readonly downHeld: boolean;
@@ -130,6 +154,11 @@ export function resolvePipeState(
   movementConstants: MovementConstants,
   levelSpec: LevelSpec,
   currentLevelName: string | undefined,
+  // The other players who may enter a pipe. Warps used to answer to slot 0
+  // alone: a co-op player pressing Down on a warp pipe just ducked. The first
+  // candidate (primary first, then slot order) at an enterable pipe wins the
+  // shared entry. Single-player callers omit this entirely.
+  otherEntryCandidates: readonly PipeEntryCandidate[] = [],
 ): ResolvedPipeState {
   assertValidPipeEntryState(previousPipeEntry);
 
@@ -152,32 +181,39 @@ export function resolvePipeState(
     };
   }
 
-  const enteredPipe = findEnteredPipe(
-    inputCommand,
-    player,
-    levelSpec,
-    currentLevelName,
-  );
-
-  if (enteredPipe === undefined) {
+  const candidates: readonly PipeEntryCandidate[] = [
+    { slot: 0, inputCommand, player },
+    ...otherEntryCandidates,
+  ];
+  for (const candidate of candidates) {
+    const enteredPipe = findEnteredPipe(
+      candidate.inputCommand,
+      candidate.player,
+      levelSpec,
+      currentLevelName,
+    );
+    if (enteredPipe === undefined) {
+      continue;
+    }
     return {
-      pipeEntry: nextPipeEntry,
+      pipeEntry: {
+        phase: PipeEntryPhase.Entering,
+        pipeEntityId: enteredPipe.pipeEntityId,
+        enteringPlayerSlot: candidate.slot,
+        sourceLevelName: currentLevelName,
+        targetLevelName: enteredPipe.targetLevelName,
+        targetTilePosition: enteredPipe.targetTilePosition,
+        remainingFrames: movementConstants.pipeEntryFrameCount,
+      },
       teleport: { kind: "none" },
-      pipeWarpSound: false,
+      pipeWarpSound: true,
     };
   }
 
   return {
-    pipeEntry: {
-      phase: PipeEntryPhase.Entering,
-      pipeEntityId: enteredPipe.pipeEntityId,
-      sourceLevelName: currentLevelName,
-      targetLevelName: enteredPipe.targetLevelName,
-      targetTilePosition: enteredPipe.targetTilePosition,
-      remainingFrames: movementConstants.pipeEntryFrameCount,
-    },
+    pipeEntry: nextPipeEntry,
     teleport: { kind: "none" },
-    pipeWarpSound: true,
+    pipeWarpSound: false,
   };
 }
 
@@ -381,6 +417,14 @@ export function teleportPlayerToTilePosition(
   };
 }
 
-export function isPlayerFrozenByPipeEntry(pipeEntry: PipeEntryState): boolean {
-  return pipeEntry.phase === PipeEntryPhase.Entering;
+// Only the player riding the entry animation freezes; the rest of the party
+// keeps playing until the completed warp carries everyone.
+export function isPlayerFrozenByPipeEntry(
+  pipeEntry: PipeEntryState,
+  playerSlot = 0,
+): boolean {
+  return (
+    pipeEntry.phase === PipeEntryPhase.Entering &&
+    pipeEntry.enteringPlayerSlot === playerSlot
+  );
 }

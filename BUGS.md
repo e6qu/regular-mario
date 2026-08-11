@@ -122,27 +122,33 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
-### Remaining single-player/multiplayer mechanics gaps — open (2026-08-11)
+### Single-player/multiplayer mechanics gaps — closed (2026-08-11, second sweep)
 
-Documented parity work that remains after the 2026-08-11 sweep, in rough order
-of visibility:
+Every parity gap recorded after the first 2026-08-11 sweep is now fixed:
 
-- **Enemy AI targets slot 0 only.** Lakitu leads, Hammer Bros aim, chasers
-  chase, and piranha plants hold for the primary player alone; every other
-  player is invisible to enemy decision-making.
-- **Only slot 0 can enter pipes** (in-level warps, vine area transfers, and
-  castle loop-zone checkpoints all read the primary). Networked cross-level
-  entry pipes move the whole party by design, but a co-op player pressing Down
-  on an in-level warp pipe just ducks.
-- **Co-op stomps on Bullet Bills/frenzy entities do not defeat the
-  projectile** — the stomp-shaped landing is exempt from damage (the bounce
-  play never hurts), but the projectile flies on and there is no rebound or
-  score for slots 1+.
-- **Reactions and sounds are primary-only** (head-bonk reaction, bloodiness,
-  jump/bonk/death sound events derive from slot 0).
-- **Co-op deaths do not cost session lives — deliberate**, not a bug:
-  networked play revives dead members at the party checkpoint, and local
-  bots dying must not drain the run.
+- **Enemy AI sees the whole party.** Chasers, Bloopers, Hammer Bros and
+  Lakitu react to their nearest active player; a piranha plant holds while
+  ANY player stands on its pipe; enemy activation follows the party's
+  furthest-advanced member.
+- **Any player can enter pipes.** In-level warps, vine tops and bonus-area
+  fall exits trigger for whichever active player reaches them; the entry
+  records the riding slot (that player freezes in the mouth) and the
+  completed warp carries the whole party. Castle maze checkpoints follow the
+  party's leader, and a failed crossing loops everyone back together.
+- **Co-op stomps defeat Bullet Bills and frenzy entities**, with a per-slot
+  rebound and party-wide score. Cannons also gate and aim per nearest player,
+  and frenzy regions follow the leader.
+- **Sounds are perspective-correct** (each multiplayer client hears its own
+  jump/land/bonk/defeat/finish; world cues stay party-wide) and co-op
+  head-bonk reaction state ticks per player.
+
+Still intentionally so:
+
+- **Co-op deaths do not cost session lives — deliberate**: networked play
+  revives dead members at the party checkpoint, and local bots dying must not
+  drain the run.
+- **Shabby-mode reaction TEXT presentation** still draws only the primary's
+  reaction (the per-player engine state now exists); cosmetic follow-up.
 
 ### Full-course recording World 1-2 handoff requirement — superseded (2026-08-09)
 

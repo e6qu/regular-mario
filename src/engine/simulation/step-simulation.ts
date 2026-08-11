@@ -111,6 +111,7 @@ import {
   requireSimulationVelocity,
 } from "./simulation-units";
 import { advancePseudoRandom } from "./pseudo-random";
+import { furthestAdvancedPlayer } from "./player-targeting";
 import {
   cheepFrenzyTouchesPlayer,
   resolveCheepFrenzyState,
@@ -125,7 +126,11 @@ import {
   assertValidAerialFrenzyState,
   resolveAerialFrenzyState,
 } from "./aerial-frenzy-state";
-import { assertValidLoopZoneState, resolveLoopZones } from "./loop-zone-state";
+import {
+  applyLoopbackShift,
+  assertValidLoopZoneState,
+  resolveLoopZones,
+} from "./loop-zone-state";
 import {
   assertValidHatchedSpinyState,
   hatchedSpiniesTouchPlayer,
@@ -266,6 +271,7 @@ export function stepSimulation(
     state.spawnedActors.spawnedActors,
     partyRevealedHiddenPositionKeys,
     partyWalkableHazardTileIds,
+    state.pipeEntry,
   );
   const primaryStepped = stepPrimaryPlayer(
     state,
@@ -567,9 +573,15 @@ function stepCoopPlayerMovement(
   spawnedActors: readonly SpawnedActor[],
   revealedHiddenPositionKeys: ReadonlySet<string>,
   walkableHazardTileIds: ReadonlySet<TileId>,
+  pipeEntry: SimulationState["pipeEntry"],
 ): readonly CoopPlayerStep[] {
   return coopRuntimes.map((runtime, index) => {
-    if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
+    if (
+      runtime.outcome.kind !== PlayerOutcomeKind.Active ||
+      // The player riding a pipe-entry animation holds still inside the
+      // mouth, exactly as the primary freezes during their own entry.
+      isPlayerFrozenByPipeEntry(pipeEntry, index + 1)
+    ) {
       return {
         runtime,
         previousPlayer: runtime.player,
@@ -875,6 +887,22 @@ function stepActiveSimulation(
     movementConstants,
     levelSpec,
     undefined,
+    // Every active player may start a warp; entry is judged at each player's
+    // pre-move position, exactly as the primary's is.
+    coopSteps.flatMap((step, index) =>
+      step.runtime.outcome.kind === PlayerOutcomeKind.Active
+        ? [
+            {
+              slot: index + 1,
+              inputCommand: {
+                downHeld: step.inputCommand.downHeld,
+                horizontal: step.inputCommand.horizontal,
+              },
+              player: step.previousPlayer,
+            },
+          ]
+        : [],
+    ),
   );
 
   const teleportResult = pipeState.teleport;
@@ -1034,15 +1062,61 @@ function stepActiveSimulation(
         };
   });
 
-  // Castle maze checkpoints: crossing on the wrong row loops the player back
-  // four pages.
+  // Castle maze checkpoints follow the party's leader — the player the shared
+  // camera tracks. A failed checkpoint loops the WHOLE party back four pages:
+  // per-player looping would scatter the maze across a screen that can only
+  // show one page, and only slot 0 used to be checked at all.
+  const loopCandidates = [
+    {
+      previous: state.players[0].player,
+      current: platformAdjustedPlayer,
+      coopIndex: -1,
+    },
+    ...coopAfterPlatforms.flatMap((runtime, index) =>
+      runtime.outcome.kind === PlayerOutcomeKind.Active
+        ? [
+            {
+              // The co-op players in `state` have already moved this frame;
+              // the genuine pre-move position lives on their movement step.
+              previous: coopSteps[index]?.previousPlayer ?? runtime.player,
+              current: runtime.player,
+              coopIndex: index,
+            },
+          ]
+        : [],
+    ),
+  ];
+  const loopLeader = loopCandidates.reduce((leading, candidate) =>
+    candidate.current.position.x + candidate.current.collider.width >
+    leading.current.position.x + leading.current.collider.width
+      ? candidate
+      : leading,
+  );
   const loopZonesResolution = resolveLoopZones(
     state.loopZones,
     levelSpec,
-    state.players[0].player,
-    platformAdjustedPlayer,
+    loopLeader.previous,
+    loopLeader.current,
   );
-  const loopAdjustedPlayer = loopZonesResolution.player;
+  const loopDeltaX =
+    Number(loopZonesResolution.player.position.x) -
+    Number(loopLeader.current.position.x);
+  const loopAdjustedPlayer =
+    loopLeader.coopIndex === -1
+      ? loopZonesResolution.player
+      : applyLoopbackShift(platformAdjustedPlayer, loopDeltaX);
+  const coopAfterLoop = coopAfterPlatforms.map((runtime, index) => {
+    if (runtime.outcome.kind !== PlayerOutcomeKind.Active || loopDeltaX === 0) {
+      return runtime;
+    }
+    return {
+      ...runtime,
+      player:
+        loopLeader.coopIndex === index
+          ? loopZonesResolution.player
+          : applyLoopbackShift(runtime.player, loopDeltaX),
+    };
+  });
 
   const teleportedPlayerBase =
     teleportResult.kind === "same-level"
@@ -1130,10 +1204,17 @@ function stepActiveSimulation(
   // vitality grows from what that player picked up.
   let partyCollectibles = collectibles;
   let partyPowerUps = powerUpResolution.state;
-  const coopAfterPickups = coopAfterPlatforms.map((runtime) => {
+  const coopAfterPickups = coopAfterLoop.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
+    // Each player's own head-bonk drives their own reaction state; co-op
+    // reactions were frozen placeholders while only slot 0's ever ticked.
+    const reaction = resolvePlayerReactionState(runtime.reaction, {
+      headBonked:
+        (coopSteps[index]?.bumpedInteractiveBlocks.length ?? 0) > 0 ||
+        (coopSteps[index]?.bumpedBreakableBlocks.length ?? 0) > 0,
+    });
     partyCollectibles = resolveCollectibleInteractionState(
       runtime.player,
       levelSpec,
@@ -1154,6 +1235,7 @@ function stepActiveSimulation(
     return {
       ...runtime,
       vitality,
+      reaction,
       // Co-op players have no crouch yet, so they are never crouch-sized.
       player: resizePlayerForVitality(runtime.player, vitality, false),
     };
@@ -1189,6 +1271,11 @@ function stepActiveSimulation(
     movementConstants,
     playerAfterPowerUpResize,
     nextClock.frameIndex,
+    // Enemies see the whole party: chasers, Hammer Bros, Lakitu and piranha
+    // plants react to their nearest player, not only slot 0.
+    coopAfterInvincibility
+      .filter((runtime) => runtime.outcome.kind === PlayerOutcomeKind.Active)
+      .map((runtime) => runtime.player),
   );
   const projectileEnemies = {
     ...state.enemies,
@@ -1433,7 +1520,23 @@ function stepActiveSimulation(
     enemies,
     movementConstants,
   );
-  const timedHazardProjectiles = resolveTimedHazardProjectilesState(
+  // Co-op players participate in the projectile subsystems: their previous and
+  // current frame states drive per-player stomps (any player's stomp defeats a
+  // Bullet Bill), and spawn gates / aim / frenzy regions see the whole party.
+  const coopPlayerPairIndices = coopRuntimesAfterEnemies.flatMap(
+    (runtime, index) =>
+      runtime.outcome.kind === PlayerOutcomeKind.Active ? [index] : [],
+  );
+  const coopPlayerPairs = coopPlayerPairIndices.map((index) => ({
+    // The co-op players in `state` have already moved this frame; the genuine
+    // pre-move position (which the stomp edge compares against) lives on
+    // their movement step.
+    previous:
+      coopSteps[index]?.previousPlayer ??
+      coopRuntimesAfterEnemies[index]!.player,
+    current: coopRuntimesAfterEnemies[index]!.player,
+  }));
+  const timedHazardResolution = resolveTimedHazardProjectilesState(
     state.timedHazardProjectiles,
     levelSpec,
     breakableBlocks,
@@ -1444,16 +1547,22 @@ function stepActiveSimulation(
     state.clock.frameDurationMilliseconds,
     nextClock.frameIndex,
     state.players[0].player,
+    coopPlayerPairs,
   );
+  const timedHazardProjectiles = timedHazardResolution.state;
   // Stomping a Bullet Bill bounces the player up, just like stomping an enemy.
   const playerAfterProjectileStomp =
-    timedHazardProjectiles.stompedProjectileCount > 0
+    (timedHazardResolution.stompedProjectileCountByPlayer[0] ?? 0) > 0
       ? reboundPlayerFromStomp(playerAfterContactResponse, movementConstants)
       : playerAfterContactResponse;
   // SMB advances its PseudoRandom register once per frame regardless of use; the
   // underwater Cheep-cheep frenzy reads it to spawn the shoal. Touching a cheep
   // harms the player like any hazard (you can't stomp underwater).
   const nextPseudoRandom = advancePseudoRandom(state.pseudoRandom);
+  const partyFrenzyAnchor = furthestAdvancedPlayer([
+    playerAfterProjectileStomp,
+    ...coopPlayerPairs.map((pair) => pair.current),
+  ]);
   const cheepFrenzy = resolveCheepFrenzyState(
     state.cheepFrenzy,
     levelSpec,
@@ -1461,6 +1570,7 @@ function stepActiveSimulation(
     nextPseudoRandom,
     Number(state.clock.frameDurationMilliseconds) / 1000,
     Number(nextClock.frameIndex),
+    partyFrenzyAnchor,
   );
   // Aerial frenzies (leaping cheeps over the bridges, offscreen Bullet Bill
   // volleys): stompable — a stomp removes the entity and rebounds the player;
@@ -1474,11 +1584,32 @@ function stepActiveSimulation(
     movementConstants,
     Number(state.clock.frameDurationMilliseconds) / 1000,
     Number(nextClock.frameIndex),
+    coopPlayerPairs,
   );
   const playerAfterAerialStomp =
-    aerialFrenzy.stompedCount > 0
+    (aerialFrenzy.stompedCountByPlayer[0] ?? 0) > 0
       ? reboundPlayerFromStomp(playerAfterProjectileStomp, movementConstants)
       : playerAfterProjectileStomp;
+  // Each co-op stomper bounces off what they landed on, exactly as the
+  // primary does.
+  const coopReboundIndices = new Set(
+    coopPlayerPairIndices.filter(
+      (_coopIndex, pairPosition) =>
+        (timedHazardResolution.stompedProjectileCountByPlayer[
+          pairPosition + 1
+        ] ?? 0) > 0 ||
+        (aerialFrenzy.stompedCountByPlayer[pairPosition + 1] ?? 0) > 0,
+    ),
+  );
+  const coopRuntimesAfterProjectileStomps = coopRuntimesAfterEnemies.map(
+    (runtime, index) =>
+      coopReboundIndices.has(index)
+        ? {
+            ...runtime,
+            player: reboundPlayerFromStomp(runtime.player, movementConstants),
+          }
+        : runtime,
+  );
   // Lakitu's landed eggs hatch into walking Spinies; player fireballs defeat
   // them (and are consumed doing it).
   const hatchedSpinies = resolveHatchedSpinyState(
@@ -1662,6 +1793,26 @@ function stepActiveSimulation(
       (justDefeated ? 1 : 0),
   );
 
+  // A completed same-level warp carries the whole party: the screen is shared,
+  // and the cross-level handoff already moves everyone. The primary teleported
+  // earlier in the pipeline; overlapping arrivals separate through the solid
+  // player collision.
+  const coopRuntimesAfterPipeTeleport =
+    teleportResult.kind === "same-level"
+      ? coopRuntimesAfterProjectileStomps.map((runtime) =>
+          runtime.outcome.kind === PlayerOutcomeKind.Active
+            ? {
+                ...runtime,
+                player: teleportPlayerToTilePosition(
+                  runtime.player,
+                  teleportResult.targetTilePosition,
+                  levelSpec,
+                ),
+              }
+            : runtime,
+        )
+      : coopRuntimesAfterProjectileStomps;
+
   // Persist the crouch flag onto the returned player so the renderer shows a
   // ducking pose and the next frame's covered check can keep him ducked; it is
   // re-derived fresh each frame (grounded+Down, or held while under a ceiling).
@@ -1684,7 +1835,7 @@ function stepActiveSimulation(
         outcome: playerOutcome,
         reaction: playerReaction,
       },
-      ...coopRuntimesAfterEnemies,
+      ...coopRuntimesAfterPipeTeleport,
     ],
     levelContacts: outcomeLevelContacts,
     collectibles: partyCollectibles,
@@ -1703,6 +1854,11 @@ function stepActiveSimulation(
       levelSpec,
       movementConstants,
       spawnedActors.spawnedActors,
+      coopRuntimesAfterPipeTeleport.flatMap((runtime, index) =>
+        runtime.outcome.kind === PlayerOutcomeKind.Active
+          ? [{ slot: index + 1, player: runtime.player }]
+          : [],
+      ),
     ),
     levelTimer,
     timedHazardProjectiles,
@@ -1737,11 +1893,42 @@ function resolveAreaTransferPipeEntry(
   levelSpec: LevelSpec,
   movementConstants: MovementConstants,
   spawnedActors: readonly SpawnedActor[] = [],
+  // The other active players: a vine top or a bonus-area fall exit reached by
+  // ANY player transfers the whole party, the same rule the goal follows.
+  // Only the primary could trigger these before — a co-op player climbing a
+  // beanstalk to its top simply hung there. Single-player callers omit this.
+  otherPlayers: readonly {
+    readonly slot: number;
+    readonly player: PlayerSimulationState;
+  }[] = [],
 ): SimulationState["pipeEntry"] {
   if (pipeEntry.phase !== PipeEntryPhase.None) {
     return pipeEntry;
   }
 
+  const candidates = [{ slot: 0, player }, ...otherPlayers];
+  for (const candidate of candidates) {
+    const entry = areaTransferEntryForPlayer(
+      candidate.slot,
+      candidate.player,
+      levelSpec,
+      movementConstants,
+      spawnedActors,
+    );
+    if (entry !== undefined) {
+      return entry;
+    }
+  }
+  return pipeEntry;
+}
+
+function areaTransferEntryForPlayer(
+  slot: number,
+  player: PlayerSimulationState,
+  levelSpec: LevelSpec,
+  movementConstants: MovementConstants,
+  spawnedActors: readonly SpawnedActor[],
+): SimulationState["pipeEntry"] | undefined {
   const tileSize = levelSpec.tileSizePixels;
 
   if (
@@ -1752,6 +1939,7 @@ function resolveAreaTransferPipeEntry(
     return {
       phase: PipeEntryPhase.Entering,
       pipeEntityId: "area-fall-exit" as EntityId,
+      enteringPlayerSlot: slot,
       sourceLevelName: undefined,
       targetLevelName: fallExit.targetLevelName,
       targetTilePosition: {
@@ -1763,7 +1951,7 @@ function resolveAreaTransferPipeEntry(
   }
 
   if (player.movement.vertical !== VerticalMovementState.Climbing) {
-    return pipeEntry;
+    return undefined;
   }
 
   for (const vine of levelSpec.vineTransitions) {
@@ -1789,6 +1977,7 @@ function resolveAreaTransferPipeEntry(
       return {
         phase: PipeEntryPhase.Entering,
         pipeEntityId: "vine-transfer" as EntityId,
+        enteringPlayerSlot: slot,
         sourceLevelName: undefined,
         targetLevelName: vine.targetLevelName,
         targetTilePosition: {
@@ -1800,7 +1989,7 @@ function resolveAreaTransferPipeEntry(
     }
   }
 
-  return pipeEntry;
+  return undefined;
 }
 
 function freezePlayerInputCommand(

@@ -29,16 +29,18 @@ export enum SoundEvent {
   VineGrow = "vine-grow",
 }
 
+type PlayerRuntimeForSound = SimulationState["players"][number];
+
 function isSpringBounce(
-  previousState: SimulationState,
-  currentState: SimulationState,
+  previousRuntime: PlayerRuntimeForSound,
+  currentRuntime: PlayerRuntimeForSound,
 ): boolean {
   // A springboard landing snaps a downward-moving player to exactly the
   // spring launch speed (passive or A-boosted) within a single step; nothing
   // else converts downward motion straight into either of those exact upward
   // speeds, so the velocity transition alone identifies the bounce.
-  const previousVelocityY = previousState.players[0].player.velocity.y;
-  const currentVelocityY = currentState.players[0].player.velocity.y;
+  const previousVelocityY = previousRuntime.player.velocity.y;
+  const currentVelocityY = currentRuntime.player.velocity.y;
 
   if (previousVelocityY <= 0) {
     return false;
@@ -51,12 +53,12 @@ function isSpringBounce(
 }
 
 function isFreshHeadBonk(
-  previousState: SimulationState,
-  currentState: SimulationState,
+  previousRuntime: PlayerRuntimeForSound,
+  currentRuntime: PlayerRuntimeForSound,
 ): boolean {
   // A fresh bonk sets the countdown to its maximum; a mid-reaction re-bonk
   // resets it to the maximum too, so both fire the sound.
-  const current = currentState.players[0].reaction;
+  const current = currentRuntime.reaction;
   if (
     current.kind !== PlayerReactionKind.HeadBonk ||
     current.remainingFrames !== headBonkReactionFrames
@@ -64,7 +66,7 @@ function isFreshHeadBonk(
     return false;
   }
 
-  const previous = previousState.players[0].reaction;
+  const previous = previousRuntime.reaction;
   return (
     previous.kind !== PlayerReactionKind.HeadBonk ||
     previous.remainingFrames !== headBonkReactionFrames
@@ -123,11 +125,22 @@ function hasNewEntityId(
 export function resolveSoundEvents(
   previousState: SimulationState,
   currentState: SimulationState,
+  // Whose body the personal cues (jump, land, spring twang, head bonk,
+  // defeat, finish) belong to: the local player's slot in multiplayer, slot 0
+  // in local play. Every cue used to derive from slot 0, so a guest heard the
+  // HOST jump and die instead of themselves. A slot absent from either state
+  // (a roster change mid-frame) falls back to the primary, which always
+  // exists. World cues (coins, blocks, stomps, power-ups) are party-wide.
+  perspectiveSlot = 0,
 ): readonly SoundEvent[] {
   const events: SoundEvent[] = [];
 
-  const previousVertical = previousState.players[0].player.movement.vertical;
-  const currentVertical = currentState.players[0].player.movement.vertical;
+  const previousPerspective =
+    previousState.players[perspectiveSlot] ?? previousState.players[0];
+  const currentPerspective =
+    currentState.players[perspectiveSlot] ?? currentState.players[0];
+  const previousVertical = previousPerspective.player.movement.vertical;
+  const currentVertical = currentPerspective.player.movement.vertical;
 
   if (
     previousVertical !== VerticalMovementState.Jumping &&
@@ -138,7 +151,7 @@ export function resolveSoundEvents(
 
   // Layered over the jump chirp (the spring launch also enters Jumping): the
   // springboard's own bounce twang.
-  if (isSpringBounce(previousState, currentState)) {
+  if (isSpringBounce(previousPerspective, currentPerspective)) {
     events.push(SoundEvent.SpringBounce);
   }
 
@@ -205,7 +218,7 @@ export function resolveSoundEvents(
     events.push(SoundEvent.Stomp);
   }
 
-  if (isFreshHeadBonk(previousState, currentState)) {
+  if (isFreshHeadBonk(previousPerspective, currentPerspective)) {
     events.push(SoundEvent.HeadBonk);
   }
 
@@ -223,8 +236,8 @@ export function resolveSoundEvents(
   // outcome kind. Both facts live in two variants each — a player killed on the
   // goal is `DefeatedAndFinished` — so kind comparisons silently skipped that
   // case and it played neither the death sound nor the finish sound.
-  const previousOutcome = previousState.players[0].outcome;
-  const currentOutcome = currentState.players[0].outcome;
+  const previousOutcome = previousPerspective.outcome;
+  const currentOutcome = currentPerspective.outcome;
 
   // Finishing takes precedence over dying, which is the convention the rest of
   // the game already follows: hasFinishedOutcome() and the flagpole cinematic
