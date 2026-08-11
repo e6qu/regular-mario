@@ -1189,6 +1189,11 @@ function stepActiveSimulation(
     movementConstants,
     playerAfterPowerUpResize,
     nextClock.frameIndex,
+    // Enemies see the whole party: chasers, Hammer Bros, Lakitu and piranha
+    // plants react to their nearest player, not only slot 0.
+    coopAfterInvincibility
+      .filter((runtime) => runtime.outcome.kind === PlayerOutcomeKind.Active)
+      .map((runtime) => runtime.player),
   );
   const projectileEnemies = {
     ...state.enemies,

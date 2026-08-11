@@ -564,16 +564,25 @@ export function stepEnemyMotionState(
   movementConstants: MovementConstants,
   player: PlayerSimulationState,
   frameIndex: FrameIndex,
+  // The other active players an enemy can see. Every targeting behavior used
+  // to read the primary alone: Lakitu led slot 0, Hammer Bros aimed at slot 0,
+  // chasers chased slot 0, and a piranha emerged into a co-op player standing
+  // on its pipe. Each actor now keys off whichever player is relevant — the
+  // nearest for chasing/aiming/holding, the furthest-advanced for activation.
+  // Single-player callers omit this entirely.
+  otherPlayers: readonly PlayerSimulationState[] = [],
 ): EnemyMotionState {
   assertValidEnemyMotionState(previousState, levelSpec);
 
+  const players: readonly [PlayerSimulationState, ...PlayerSimulationState[]] =
+    [player, ...otherPlayers];
   const defeatedEnemyEntityIds = new Set(
     enemyInteractions.defeatedEnemyEntityIds,
   );
   const activeEnemyEntityIds = activateEnemiesNearPlayer(
     previousState,
     movementConstants,
-    player,
+    furthestAdvancedPlayer(players),
   );
   const frameDurationSeconds = makeFrameDurationSeconds(
     frameDurationMilliseconds,
@@ -633,7 +642,7 @@ export function stepEnemyMotionState(
         levelSpec,
         frameDurationSeconds,
         movementConstants,
-        player,
+        nearestPlayerTo(chasingActor.position.x, players),
       );
     }),
     armoredActors: previousState.armoredActors.map((armoredActor) => {
@@ -671,7 +680,7 @@ export function stepEnemyMotionState(
         throwingActor,
         levelSpec,
         frameDurationSeconds,
-        player,
+        nearestPlayerTo(throwingActor.position.x, players),
       );
     }),
     aerialThrowingActors: previousState.aerialThrowingActors.map(
@@ -689,7 +698,7 @@ export function stepEnemyMotionState(
           levelSpec,
           frameDurationSeconds,
           movementConstants,
-          player,
+          nearestPlayerTo(aerialThrowingActor.position.x, players),
         );
       },
     ),
@@ -703,7 +712,13 @@ export function stepEnemyMotionState(
           return piranhaPlantActor;
         }
 
-        return stepPiranhaPlantActor(piranhaPlantActor, levelSpec, player);
+        // Nearest is exactly "any player near": if anyone is inside the
+        // suppression range, the nearest player is.
+        return stepPiranhaPlantActor(
+          piranhaPlantActor,
+          levelSpec,
+          nearestPlayerTo(piranhaPlantActor.position.x, players),
+        );
       },
     ),
   };
@@ -1322,6 +1337,33 @@ function collectEnemyEntityIds(levelSpec: LevelSpec): Set<string> {
   }
 
   return enemyEntityIds;
+}
+
+// The player whose horizontal centre is closest to an actor: the one a
+// targeting behavior (chase, aim, lead, hold) should react to.
+function nearestPlayerTo(
+  x: number,
+  players: readonly [PlayerSimulationState, ...PlayerSimulationState[]],
+): PlayerSimulationState {
+  return players.reduce((nearest, candidate) =>
+    Math.abs(candidate.position.x + candidate.collider.width / 2 - x) <
+    Math.abs(nearest.position.x + nearest.collider.width / 2 - x)
+      ? candidate
+      : nearest,
+  );
+}
+
+// The party's leading edge: enemy activation follows the furthest-advanced
+// player, the same way the original's spawning follows the scroll.
+function furthestAdvancedPlayer(
+  players: readonly [PlayerSimulationState, ...PlayerSimulationState[]],
+): PlayerSimulationState {
+  return players.reduce((leading, candidate) =>
+    candidate.position.x + candidate.collider.width >
+    leading.position.x + leading.collider.width
+      ? candidate
+      : leading,
+  );
 }
 
 function activateEnemiesNearPlayer(
