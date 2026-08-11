@@ -414,6 +414,49 @@ describe("simulation players array", () => {
     expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
 
+  // A finish through a co-op grab pays like any finish. The primary path's
+  // scoring keys off its own outcome edge, so a co-op player reaching the flag
+  // used to end the level with zero time bonus and zero grab-height score.
+  it("awards the time bonus and grab-height score when a co-op player finishes", () => {
+    const levelResult = makeLevelSpec(finishRouteLevelInput);
+    if (!levelResult.ok) {
+      throw new Error("expected the finish route to validate");
+    }
+    const level = levelResult.value;
+    const result = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!result.ok) {
+      throw new Error("expected a valid finish-route state");
+    }
+    // The fixture has no authored timer, so give the run a live clock: the
+    // bonus converts whatever remains of it.
+    const base: SimulationState = {
+      ...afterSpawnInvincibility(result.value),
+      levelTimer: {
+        ...result.value.levelTimer,
+        remainingFrames: 3600,
+      } as SimulationState["levelTimer"],
+    };
+    // The flagpole column spans pixels 128..144; stand the co-op player's box
+    // into it while the primary idles at the start.
+    const stepped = stepSimulation(
+      withCoopPlayerAt(base, 120, 64),
+      neutral(),
+      initialMovementConstants,
+      level,
+      [neutral()],
+    );
+    expect(stepped.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Finished);
+    expect(stepped.players[0].outcome.kind).toBe(PlayerOutcomeKind.Finished);
+    expect(Number(stepped.timeBonusScore)).toBeGreaterThan(0);
+    expect(Number(stepped.goalHeightScore)).toBeGreaterThan(0);
+  });
+
   // Castle flame hazards used to exist only for slot 0: a firebar swept clean
   // through every co-op player. They now damage each player with the same
   // tiering as any hazard.

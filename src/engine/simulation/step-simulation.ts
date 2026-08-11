@@ -312,9 +312,10 @@ export function stepSimulation(
   );
   // Any player reaching the goal completes the level for everyone: if a co-op
   // player touches the goal while the primary is still active, finish the level.
-  const anyCoopReachedGoal = coopRuntimes.some(
+  const coopGoalFinisher = coopRuntimes.find(
     (runtime) => detectLevelContactState(runtime.player, levelSpec).goal,
   );
+  const anyCoopReachedGoal = coopGoalFinisher !== undefined;
   const primaryOutcome =
     anyCoopReachedGoal &&
     primaryRuntime.outcome.kind === PlayerOutcomeKind.Active
@@ -335,7 +336,27 @@ export function stepSimulation(
       player: collidedPlayerByIndex.get(index + 1) ?? runtime.player,
     })),
   ];
-  return { ...primaryStepped, players };
+  // A finish through a co-op grab pays like any finish. The primary path's
+  // scoring keys off ITS outcome edge inside the world step, which runs before
+  // this fold — so a co-op player reaching the flag used to end the level with
+  // zero time bonus and zero grab-height score.
+  const coopFinishAwardsScores =
+    coopGoalFinisher !== undefined &&
+    state.players[0].outcome.kind !== PlayerOutcomeKind.Finished &&
+    primaryRuntime.outcome.kind === PlayerOutcomeKind.Active;
+  if (!coopFinishAwardsScores) {
+    return { ...primaryStepped, players };
+  }
+  return {
+    ...primaryStepped,
+    players,
+    timeBonusScore: computeTimeBonusScore(state.levelTimer.remainingFrames),
+    goalHeightScore: (primaryStepped.goalHeightScore +
+      scoreForGoalContactHeight(
+        coopGoalFinisher.player.position.y,
+        levelSpec.tileSizePixels,
+      )) as SimulationState["goalHeightScore"],
+  };
 }
 
 // The primary player's full pipeline (unchanged), selected by outcome.
@@ -1600,8 +1621,13 @@ function stepActiveSimulation(
     hatchedSpinies.defeatedCount *
       scorePerProjectileKill) as SimulationState["bulletBillStompScore"];
 
+  // Party-wide, not primary-only: the retained state's collectible lists carry
+  // every player's pickups, so diffing them against the primary's own
+  // resolution silently discarded whatever a co-op player collected — their
+  // 1-UP mushrooms awarded nothing, and their coins pushed the session total
+  // across the every-100 boundary without the 1-UP.
   const extraLifeMushroomsCollected =
-    collectibles.collectedExtraLifeEntityIds.length -
+    partyCollectibles.collectedExtraLifeEntityIds.length -
     state.collectibles.collectedExtraLifeEntityIds.length;
 
   // Coin 1-Ups key off the whole-session coin total (the base from prior levels
@@ -1609,7 +1635,7 @@ function stepActiveSimulation(
   // level boundaries as in the original. The base is constant within a level.
   const coinExtraLives = computeCoinExtraLives(
     state.sessionCoinBase + state.collectibles.collectedCoinEntityIds.length,
-    state.sessionCoinBase + collectibles.collectedCoinEntityIds.length,
+    state.sessionCoinBase + partyCollectibles.collectedCoinEntityIds.length,
   );
 
   // 1-UPs earned this frame by stomp / kicked-shell chains past 8000 points.
