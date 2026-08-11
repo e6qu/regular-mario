@@ -1008,7 +1008,13 @@ function renderGame(
           nominalSixtyHertzFrameDurationMilliseconds;
         const before = prediction.snapshot();
         const advanced = prediction.advance(latestPredictionCommand);
-        audio.playEvents(resolveSoundEvents(before.state, advanced.state));
+        audio.playEvents(
+          resolveSoundEvents(
+            before.state,
+            advanced.state,
+            localPlayerSlot ?? 0,
+          ),
+        );
       }
     } else {
       predictionFrameRemainderMilliseconds = 0;
@@ -1460,7 +1466,11 @@ function renderGame(
       const priorPrediction = prediction.snapshot();
       const predicted = prediction.submit(sequence, command);
       audio.playEvents(
-        resolveSoundEvents(priorPrediction.state, predicted.state),
+        resolveSoundEvents(
+          priorPrediction.state,
+          predicted.state,
+          localPlayerSlot ?? 0,
+        ),
       );
       latestImmediatelyPredictedInputSequence = sequence;
     }

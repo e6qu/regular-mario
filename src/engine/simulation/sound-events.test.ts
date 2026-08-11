@@ -380,3 +380,36 @@ describe("an outcome that is both a defeat and a finish", () => {
     expect(events).toContain(SoundEvent.Defeat);
   });
 });
+
+describe("the sound perspective slot", () => {
+  // In multiplayer each client hears its OWN player's personal cues. Every cue
+  // used to derive from slot 0, so a guest heard the host jump and die.
+  it("derives personal cues from the perspective player, not slot 0", () => {
+    const base = baseState();
+    const withCoop = (
+      state: SimulationState,
+      vertical: SimulationState["players"][0]["player"]["movement"]["vertical"],
+    ): SimulationState => ({
+      ...state,
+      players: [
+        state.players[0],
+        {
+          ...state.players[0],
+          player: {
+            ...state.players[0].player,
+            movement: {
+              ...state.players[0].player.movement,
+              vertical,
+            },
+          },
+        },
+      ] as SimulationState["players"],
+    });
+    const before = withCoop(base, VerticalMovementState.Grounded);
+    const after = withCoop(base, VerticalMovementState.Jumping);
+
+    // The co-op player (slot 1) jumped; the primary did not move.
+    expect(resolveSoundEvents(before, after, 1)).toContain(SoundEvent.Jump);
+    expect(resolveSoundEvents(before, after, 0)).not.toContain(SoundEvent.Jump);
+  });
+});

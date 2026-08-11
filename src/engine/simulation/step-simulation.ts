@@ -1204,10 +1204,17 @@ function stepActiveSimulation(
   // vitality grows from what that player picked up.
   let partyCollectibles = collectibles;
   let partyPowerUps = powerUpResolution.state;
-  const coopAfterPickups = coopAfterLoop.map((runtime) => {
+  const coopAfterPickups = coopAfterLoop.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
+    // Each player's own head-bonk drives their own reaction state; co-op
+    // reactions were frozen placeholders while only slot 0's ever ticked.
+    const reaction = resolvePlayerReactionState(runtime.reaction, {
+      headBonked:
+        (coopSteps[index]?.bumpedInteractiveBlocks.length ?? 0) > 0 ||
+        (coopSteps[index]?.bumpedBreakableBlocks.length ?? 0) > 0,
+    });
     partyCollectibles = resolveCollectibleInteractionState(
       runtime.player,
       levelSpec,
@@ -1228,6 +1235,7 @@ function stepActiveSimulation(
     return {
       ...runtime,
       vitality,
+      reaction,
       // Co-op players have no crouch yet, so they are never crouch-sized.
       player: resizePlayerForVitality(runtime.player, vitality, false),
     };
