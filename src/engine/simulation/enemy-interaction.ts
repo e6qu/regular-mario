@@ -252,18 +252,21 @@ export function assertValidEnemyInteractionState(
   }
 }
 
-// Whether a player's hurtbox overlaps any live (not-yet-defeated) enemy. Used
-// to give co-op players simple "touch an enemy and you're out" stakes without
-// the full stomp/shell pipeline. Reuses the same hurtboxes and overlap test as
-// the primary interaction.
-export function playerContactsLiveEnemy(
+// The live (not-yet-defeated) enemies whose hurtboxes a player currently
+// overlaps. Reuses the same hurtboxes and overlap test as the primary
+// interaction. The identities matter: co-op damage compares this frame's
+// contacts against the previous frame's, so an enemy only damages on a fresh
+// touch — the same "no second hit without genuine separation" rule the
+// primary's per-enemy debounce provides.
+export function liveEnemyContactEntityIds(
   player: PlayerSimulationState,
   levelSpec: LevelSpec,
   enemyMotion: EnemyMotionState,
   defeatedEnemyEntityIds: readonly EntityId[],
-): boolean {
+): readonly EntityId[] {
   const actorRoleLookup = makeActorRoleLookup(levelSpec);
   const defeated = new Set(defeatedEnemyEntityIds);
+  const contacted: EntityId[] = [];
   for (const actor of levelSpec.actors) {
     const role = requireActorRole(actorRoleLookup, actor.actorId);
     if (!isEnemyRole(role) || defeated.has(actor.entityId)) {
@@ -282,10 +285,27 @@ export function playerContactsLiveEnemy(
         { width: enemyHurtbox.width, height: enemyHurtbox.height },
       )
     ) {
-      return true;
+      contacted.push(actor.entityId);
     }
   }
-  return false;
+  return contacted;
+}
+
+// Whether a player's hurtbox overlaps any live (not-yet-defeated) enemy.
+export function playerContactsLiveEnemy(
+  player: PlayerSimulationState,
+  levelSpec: LevelSpec,
+  enemyMotion: EnemyMotionState,
+  defeatedEnemyEntityIds: readonly EntityId[],
+): boolean {
+  return (
+    liveEnemyContactEntityIds(
+      player,
+      levelSpec,
+      enemyMotion,
+      defeatedEnemyEntityIds,
+    ).length > 0
+  );
 }
 
 export function resolveEnemyInteractionState(

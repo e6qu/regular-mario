@@ -18,7 +18,7 @@ import {
   consecutiveDefeatAwardsExtraLife,
   countNewlyDefeated,
   type EnemyInteractionState,
-  playerContactsLiveEnemy,
+  liveEnemyContactEntityIds,
   resolveEnemyInteractionState,
   scoreForConsecutiveDefeat,
 } from "./enemy-interaction";
@@ -77,6 +77,7 @@ import {
 import {
   applyPowerUpCollectionToVitality,
   assertValidPlayerVitalityState,
+  isEnlargedPlayerVitalityKind,
   makeRecoveryFrameCount,
   PlayerVitalityKind,
   type PlayerVitalityState,
@@ -258,11 +259,15 @@ export function stepSimulation(
   // a co-op player who stomped an enemy has been rebounded upward by it.
   const coopRuntimes = resolveCoopPlayerOutcomes(
     primaryStepped.players.slice(1),
+    state.players.slice(1),
     state.clock.frameDurationMilliseconds,
-    Number(nextClock.frameIndex),
+    nextClock.frameIndex,
     levelSpec,
     primaryStepped.enemyMotion,
     primaryStepped.enemies.defeatedEnemyEntityIds,
+    state.enemyMotion,
+    state.enemies.defeatedEnemyEntityIds,
+    movementConstants,
     hasLevelTimerExpired(primaryStepped.levelTimer),
   );
   // Every co-op mode keeps solid-player mechanics: players cannot walk through
@@ -562,13 +567,18 @@ function stepCoopPlayerMovement(
 // the block state is resolved, while fates still settle against the final world.
 function resolveCoopPlayerOutcomes(
   moved: readonly PlayerRuntime[],
+  previousRuntimes: readonly PlayerRuntime[],
   frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
-  frameIndex: number,
+  nextFrameIndex: SimulationClock["frameIndex"],
   levelSpec: LevelSpec,
   enemyMotion: EnemyMotionState,
   defeatedEnemyEntityIds: readonly EntityId[],
+  previousEnemyMotion: EnemyMotionState,
+  previousDefeatedEnemyEntityIds: readonly EntityId[],
+  movementConstants: MovementConstants,
   levelTimerExpired: boolean,
 ): readonly PlayerRuntime[] {
+  const frameIndex = Number(nextFrameIndex);
   if (moved.length === 0) {
     return moved;
   }
@@ -624,42 +634,110 @@ function resolveCoopPlayerOutcomes(
   // until the level ends. Keeping the stable slot is required by authoritative
   // multiplayer: network player IDs must never silently shift when somebody
   // dies. Defeated runtimes no longer collide or consume input above.
-  const runtimes = moved.map<PlayerRuntime>((runtime) => {
+  //
+  // Damage carries the same tiering as the primary path: a big player shrinks
+  // into the blinking recovery window instead of dying, star power / an active
+  // recovery window / god mode protect from enemy and hazard damage, and only
+  // a small unprotected player is defeated. This used to be a flat kill — a
+  // Fire co-op player died to a walker's touch that would merely have shrunk
+  // the host.
+  const runtimes = moved.map<PlayerRuntime>((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
-    const enemyContact = playerContactsLiveEnemy(
+    // The recovery window ticks down each frame exactly as for the primary;
+    // expiry returns the player to small (identical collider, no resize).
+    const tickedVitality = stepPlayerVitalityRecovery(runtime.vitality);
+    const levelContact = detectLevelContactState(runtime.player, levelSpec);
+    const fellIntoPit =
+      levelSpec.fallExitTransition === undefined &&
+      hasPlayerFallenIntoPit(runtime.player, levelSpec);
+    // Damage needs a FRESH enemy touch: an enemy this player was already
+    // overlapping on the previous frame cannot land a second hit without
+    // genuine separation. This is the primary's per-enemy damage debounce,
+    // expressed as a contact edge between consecutive frames.
+    const contactedNow = liveEnemyContactEntityIds(
       runtime.player,
       levelSpec,
       enemyMotion,
       defeatedEnemyEntityIds,
     );
-    const levelContact = detectLevelContactState(runtime.player, levelSpec);
-    const fellIntoPit =
-      levelSpec.fallExitTransition === undefined &&
-      hasPlayerFallenIntoPit(runtime.player, levelSpec);
+    const previousRuntime = previousRuntimes[index];
+    const contactedBefore = new Set(
+      previousRuntime === undefined
+        ? []
+        : liveEnemyContactEntityIds(
+            previousRuntime.player,
+            levelSpec,
+            previousEnemyMotion,
+            previousDefeatedEnemyEntityIds,
+          ),
+    );
+    const freshEnemyContacts = contactedNow.filter(
+      (entityId) => !contactedBefore.has(entityId),
+    );
+    const damageProtected =
+      runtime.invincibility.remainingFrames > 0 ||
+      tickedVitality.kind === PlayerVitalityKind.Recovering ||
+      movementConstants.godMode;
+    const enemyDamage = freshEnemyContacts.length > 0 && !damageProtected;
+    const hazardDamage = levelContact.hazard && !damageProtected;
     const reason = fellIntoPit
       ? PlayerDefeatReason.PitContact
-      : enemyContact && levelContact.hazard
+      : enemyDamage && hazardDamage
         ? PlayerDefeatReason.HazardAndEnemyContact
-        : enemyContact
+        : enemyDamage
           ? PlayerDefeatReason.EnemyContact
-          : levelContact.hazard
+          : hazardDamage
             ? PlayerDefeatReason.HazardContact
             : undefined;
     if (reason === undefined) {
-      return levelContact.goal
-        ? {
-            ...runtime,
-            outcome: {
+      return {
+        ...runtime,
+        vitality: tickedVitality,
+        outcome: levelContact.goal
+          ? {
               kind: PlayerOutcomeKind.Finished,
               reason: PlayerFinishReason.GoalContact,
-            },
-          }
-        : runtime;
+            }
+          : runtime.outcome,
+      };
+    }
+    // A pit swallows any tier; everything else shrinks a big player instead.
+    if (
+      reason !== PlayerDefeatReason.PitContact &&
+      isEnlargedPlayerVitalityKind(tickedVitality.kind)
+    ) {
+      const recovering: PlayerVitalityState = {
+        kind: PlayerVitalityKind.Recovering,
+        sourceEnemyEntityId:
+          freshEnemyContacts[0] ?? ("hazard-contact" as EntityId),
+        contactSide: EnemySideContactSide.Left,
+        startFrameIndex: nextFrameIndex,
+        remainingKnockbackFrames:
+          movementConstants.damageRecoveryKnockbackFrameCount,
+        remainingInvulnerabilityFrames:
+          movementConstants.damageRecoveryInvulnerabilityFrameCount,
+      };
+      return {
+        ...runtime,
+        vitality: recovering,
+        player: resizePlayerForVitality(
+          runtime.player,
+          recovering,
+          runtime.player.crouching === true,
+        ),
+        outcome: levelContact.goal
+          ? {
+              kind: PlayerOutcomeKind.Finished,
+              reason: PlayerFinishReason.GoalContact,
+            }
+          : runtime.outcome,
+      };
     }
     return {
       ...runtime,
+      vitality: tickedVitality,
       outcome: levelContact.goal
         ? {
             kind: PlayerOutcomeKind.DefeatedAndFinished,
@@ -1176,9 +1254,27 @@ function stepActiveSimulation(
   // untouched.
   const currentFrame = nextClock.frameIndex;
   const previousEnemyDamageFrames = state.enemyDamageContactFrameByEntityId;
+  // The interaction state's contact list is a party-wide union — the co-op fold
+  // above adds every player's touches. The debounce here gates the PRIMARY's
+  // damage, so a FRESH hit must come from an enemy the primary personally
+  // overlaps: otherwise a co-op player brushing enemy X registered X as having
+  // damaged the primary, and the primary then walked through X unharmed.
+  // Retention deliberately stays on the party-wide list: an enemy that has
+  // landed its hit remains debounced through the knockback's momentary
+  // separations rather than re-arming mid-engagement.
   const contactedEnemySet = new Set(enemies.contactedEnemyEntityIds);
+  const primaryContactedEnemyIds = new Set(
+    liveEnemyContactEntityIds(
+      playerAfterPowerUpResize,
+      levelSpec,
+      enemyMotion,
+      enemies.defeatedEnemyEntityIds,
+    ),
+  );
   const freshDamagingEnemyEntityIds = enemies.contactedEnemyEntityIds.filter(
-    (entityId) => !previousEnemyDamageFrames.has(entityId),
+    (entityId) =>
+      primaryContactedEnemyIds.has(entityId) &&
+      !previousEnemyDamageFrames.has(entityId),
   );
   const damagingEnemies: EnemyInteractionState = {
     ...enemies,

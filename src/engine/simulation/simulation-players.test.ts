@@ -9,6 +9,7 @@ import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
 import {
   makeInitialPlayerVitalityState,
+  makePoweredPlayerVitalityState,
   PlayerVitalityKind,
 } from "./player-vitality";
 import {
@@ -260,11 +261,153 @@ describe("simulation players array", () => {
   });
 
   it("keeps an enemy-defeated co-op player in a stable spectator slot", () => {
-    // firstAuthored has an enemy (beetle-1) at pixel (96, 64). Level with it,
-    // not above it: that is a side contact, which damages. Dropping onto it
-    // from above is a stomp now that co-op players interact with enemies at
-    // all, and is covered by its own test below.
-    expectCoopPlayerDefeatedAt(96, 64);
+    // firstAuthored has an enemy (beetle-1) at pixel (96, 64). Stand level with
+    // it, in its walking path: the resulting side contact is a FRESH touch,
+    // which damages. (Teleporting a player straight inside an enemy is not a
+    // fresh touch — co-op damage fires on the contact edge, the same
+    // no-second-hit-without-separation rule the primary's debounce encodes, so
+    // a body already overlapping at spawn is not insta-killed.)
+    const base = afterSpawnInvincibility(twoPlayerState());
+    let current = withCoopPlayerAt(base, 72, 64);
+    for (
+      let frame = 0;
+      frame < 300 &&
+      current.players[1]!.outcome.kind === PlayerOutcomeKind.Active;
+      frame += 1
+    ) {
+      current = stepSimulation(
+        current,
+        neutral(),
+        initialMovementConstants,
+        firstAuthoredLevelSpec(),
+        [neutral()],
+      );
+    }
+    expect(current.players).toHaveLength(2);
+    expect(current.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
+  });
+
+  // Damage used to be a flat kill for co-op players: a Fire co-op member died
+  // to a walker's touch that would merely have shrunk the host. Co-op damage
+  // now carries the primary's tiering — big shrinks into the blinking recovery
+  // window, small dies.
+  it("shrinks a big co-op player on enemy contact instead of defeating them", () => {
+    const base = afterSpawnInvincibility(twoPlayerState());
+    const withPoweredCoop: SimulationState = {
+      ...withCoopPlayerAt(base, 72, 64),
+      players: [
+        withCoopPlayerAt(base, 72, 64).players[0],
+        {
+          ...withCoopPlayerAt(base, 72, 64).players[1]!,
+          vitality: makePoweredPlayerVitalityState(),
+        },
+      ],
+    };
+    let current = withPoweredCoop;
+    for (
+      let frame = 0;
+      frame < 300 &&
+      current.players[1]!.vitality.kind === PlayerVitalityKind.Powered;
+      frame += 1
+    ) {
+      current = stepSimulation(
+        current,
+        neutral(),
+        initialMovementConstants,
+        firstAuthoredLevelSpec(),
+        [neutral()],
+      );
+    }
+    expect(current.players[1]!.vitality.kind).toBe(
+      PlayerVitalityKind.Recovering,
+    );
+    expect(current.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+
+    // Away from every enemy, the recovery window expires back to small — the
+    // same countdown the primary runs.
+    let recovering = withCoopPlayerAt(current, 200, 64);
+    for (
+      let frame = 0;
+      frame < 300 &&
+      recovering.players[1]!.vitality.kind === PlayerVitalityKind.Recovering;
+      frame += 1
+    ) {
+      recovering = stepSimulation(
+        recovering,
+        neutral(),
+        initialMovementConstants,
+        firstAuthoredLevelSpec(),
+        [neutral()],
+      );
+    }
+    expect(recovering.players[1]!.vitality.kind).toBe(PlayerVitalityKind.Small);
+    expect(recovering.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+  });
+
+  it("protects a starred co-op player from enemy contact", () => {
+    const base = afterSpawnInvincibility(twoPlayerState());
+    const positioned = withCoopPlayerAt(base, 72, 64);
+    const coop = positioned.players[1]!;
+    const starred: SimulationState = {
+      ...positioned,
+      players: [
+        positioned.players[0],
+        {
+          ...coop,
+          invincibility: {
+            ...coop.invincibility,
+            remainingFrames:
+              600 as SimulationState["players"][number]["invincibility"]["remainingFrames"],
+          },
+        },
+      ],
+    };
+    let current = starred;
+    for (let frame = 0; frame < 120; frame += 1) {
+      current = stepSimulation(
+        current,
+        neutral(),
+        initialMovementConstants,
+        firstAuthoredLevelSpec(),
+        [neutral()],
+      );
+    }
+    // The star kills the beetle on touch and the co-op player plays on.
+    expect(current.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+    expect(current.enemies.defeatedEnemyEntityIds).toContain("beetle-1");
+  });
+
+  it("tiers co-op hazard damage: big shrinks, small dies", () => {
+    // firstAuthored has a thorn hazard tile at pixels (80..96, 64..80).
+    const base = afterSpawnInvincibility(twoPlayerState());
+    const atThorn = withCoopPlayerAt(base, 80, 64);
+    const poweredAtThorn: SimulationState = {
+      ...atThorn,
+      players: [
+        atThorn.players[0],
+        { ...atThorn.players[1]!, vitality: makePoweredPlayerVitalityState() },
+      ],
+    };
+    const shrunk = stepSimulation(
+      poweredAtThorn,
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    expect(shrunk.players[1]!.vitality.kind).toBe(
+      PlayerVitalityKind.Recovering,
+    );
+    expect(shrunk.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+
+    const killed = stepSimulation(
+      atThorn,
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
 
   // Co-op players used to pass straight through enemies: enemy interaction ran
