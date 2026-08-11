@@ -22,7 +22,6 @@ import {
   makeInitialLevelTimerState,
 } from "../engine/simulation/level-timer-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
-import { requireSimulationPixelPosition } from "../engine/simulation/simulation-units";
 import {
   multiplayerInputExpiryMilliseconds,
   multiplayerMaximumPlayers,
@@ -343,7 +342,6 @@ export function makeAuthoritativeGameRunner(
       config.movementConstants,
       config.levelSpec,
       commands.slice(1),
-      false,
     );
     updateCamera();
     if (
@@ -403,12 +401,14 @@ export function makeAuthoritativeGameRunner(
           `Games cannot exceed ${multiplayerMaximumPlayers} players.`,
         );
       }
-      const spawnY = state.players[0].player.position.y;
-      const spawnX = requireSimulationPixelPosition(
-        cameraLeftPixels + sharedCameraWidthPixels / 2 + players.length * 16,
-        "multiplayer.join.spawn.x",
-      );
-      state = appendSimulationPlayerAt(state, { x: spawnX, y: spawnY });
+      // A joiner materialises at the party checkpoint: the most recent spot an
+      // active member actually stood, the same place a revive uses. The
+      // camera-centre spawn this replaces was not a place anyone had been — on
+      // a party near a course's end it could sit past the goal, and beyond a
+      // short course's edge entirely, where the joiner fell out of the world
+      // before touching it. Spawning on a teammate is fine: players are solid
+      // and the collision step separates overlapping bodies.
+      state = appendSimulationPlayerAt(state, partyCheckpoint);
       players = [
         ...players,
         { ...player, slot: players.length, connected: true },
@@ -439,7 +439,7 @@ export function makeAuthoritativeGameRunner(
       state = removeSimulationPlayerAt(state, leaving.slot);
       players = players
         .filter((candidate) => candidate.playerId !== playerId)
-        .map((candidate, slot) => ({ ...candidate, slot, connected: true }));
+        .map((candidate, slot) => ({ ...candidate, slot }));
       commandByPlayerId.delete(playerId);
       acknowledgedInputSequenceByPlayerId.delete(playerId);
       acknowledgementLagByPlayerId.delete(playerId);

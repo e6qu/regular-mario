@@ -196,19 +196,22 @@ function makeWorld11Runner(gameId: string) {
 }
 
 describe("authoritative multiplayer game runner", () => {
-  it("spawns joining players in the shared screen and preserves stable slots", () => {
+  it("spawns joining players at the party checkpoint and preserves stable slots", () => {
     const runner = makeRunner();
+    const creator = runner.snapshot().players[0];
     const joined = runner.join(profile("ren", "Ren"));
     expect(joined.players).toHaveLength(2);
+    // The checkpoint starts where the creator stands: somewhere a player has
+    // provably existed. Overlap is resolved by solid player collision.
     expect(joined.players[1]).toMatchObject({
       playerId: "ren",
       slot: 1,
-      x: 144,
-      y: 64,
+      x: creator?.x,
+      y: creator?.y,
     });
   });
 
-  it("spawns a late joiner in the current authoritative camera screen", () => {
+  it("spawns a late joiner at the party's grounded checkpoint", () => {
     const initial = makeInitialState();
     const runner = makeRunnerWithInitialState({
       ...initial,
@@ -230,30 +233,56 @@ describe("authoritative multiplayer game runner", () => {
     const beforeJoin = runner.snapshot();
     expect(beforeJoin.cameraLeftPixels).toBeGreaterThan(0);
     const joined = runner.join(profile("ren", "Ren"));
-    expect(joined.players[1]?.x).toBe(beforeJoin.cameraLeftPixels + 128 + 16);
+    // The checkpoint tracked the grounded leader, so the joiner lands beside
+    // the party's progress rather than at an unvisited camera coordinate.
+    expect(joined.players[1]?.x).toBe(beforeJoin.players[0]?.x);
   });
 
   it("follows the leading active guest when the creator remains idle", () => {
-    const runner = makeRunner();
+    // The creator idles mid-level; the joining guest spawns beside them (the
+    // party checkpoint), hops over their solid body, and runs ahead. The shared
+    // camera must follow the guest's progress, not the idle creator's slot.
+    const initial = makeInitialState();
+    const runner = makeRunnerWithInitialState({
+      ...initial,
+      players: [
+        {
+          ...initial.players[0],
+          player: {
+            ...initial.players[0].player,
+            position: {
+              x: requireSimulationPixelPosition(200, "test.creator.x"),
+              y: initial.players[0].player.position.y,
+            },
+          },
+        },
+      ],
+    });
     runner.join(profile("ren", "Ren"));
     runner.start(requireMultiplayerPlayerId("mira"));
-    runner.submitInput(
-      {
-        playerId: requireMultiplayerPlayerId("ren"),
-        sequence: 1,
-        intendedFrame: 1,
-        receivedAtMilliseconds: 0,
-        command: {
-          ...neutral,
-          horizontal: HorizontalInput.Right,
-          runHeld: true,
+    let snapshot = runner.snapshot();
+    for (let frame = 1; frame <= 60; frame += 1) {
+      runner.submitInput(
+        {
+          playerId: requireMultiplayerPlayerId("ren"),
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: {
+            ...neutral,
+            horizontal: HorizontalInput.Right,
+            runHeld: true,
+            jumpPressed: frame <= 14,
+          },
         },
-      },
-      0,
-    );
-    const snapshot = runner.step(1);
-    expect(snapshot.players[1]!.x).toBeGreaterThan(snapshot.players[0]!.x);
-    expect(snapshot.cameraLeftPixels).toBeGreaterThan(0);
+        frame,
+      );
+      snapshot = runner.step(frame);
+    }
+    const creator = snapshot.players[0]!;
+    const guest = snapshot.players[1]!;
+    expect(guest.x).toBeGreaterThan(creator.x);
+    expect(snapshot.cameraLeftPixels).toBeCloseTo(guest.x - 128, 5);
   });
 
   it("runs only after the creator starts and acknowledges queued input", () => {
@@ -542,7 +571,6 @@ describe("authoritative multiplayer game runner", () => {
         initialMovementConstants,
         traceLevelResult.value,
         [currentGuestCommand],
-        false,
       );
       const server = runner.step(frame);
       expect(decodeMultiplayerSimulationState(server.simulationState)).toEqual(
@@ -706,8 +734,10 @@ describe("authoritative multiplayer game runner", () => {
     });
     runner.start(mira);
 
-    // Ari runs ahead while Mira lies defeated; the checkpoint follows the leader.
-    for (let frame = 1; frame <= 120; frame += 1) {
+    // Ari runs ahead while Mira lies defeated; the checkpoint follows the
+    // leader. Ari spawns at the checkpoint (Mira's resting place) and stops
+    // short of the flagpole column — reaching it would finish the course.
+    for (let frame = 1; frame <= 45; frame += 1) {
       runner.submitInput(
         {
           playerId: ari,
@@ -823,7 +853,32 @@ describe("authoritative multiplayer game runner", () => {
     });
     runner.join(profile("ren", "Ren"));
     runner.start(requireMultiplayerPlayerId("mira"));
-    const snapshot = runner.step(1);
+    // Ren spawns beside the idle creator, hops over them, and runs to the
+    // course's flagpole; the joined player's goal contact must finish the
+    // whole game.
+    let snapshot = runner.snapshot();
+    for (
+      let frame = 1;
+      frame <= 300 && snapshot.phase !== MultiplayerGamePhase.Finished;
+      frame += 1
+    ) {
+      runner.submitInput(
+        {
+          playerId: requireMultiplayerPlayerId("ren"),
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: {
+            ...neutral,
+            horizontal: HorizontalInput.Right,
+            runHeld: true,
+            jumpPressed: frame <= 14,
+          },
+        },
+        frame,
+      );
+      snapshot = runner.step(frame);
+    }
     expect(snapshot.phase).toBe(MultiplayerGamePhase.Finished);
     expect(snapshot.players[1]).toMatchObject({
       playerId: "ren",

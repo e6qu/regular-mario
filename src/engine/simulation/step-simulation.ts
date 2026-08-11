@@ -198,10 +198,6 @@ export function stepSimulation(
   // state.players[i + 1]); empty/short means those players hold neutral. Single-
   // player callers omit this entirely.
   coopInputCommands: readonly SimulationInputCommand[] = [],
-  // Network co-op intentionally permits players to overlap.  Remote players
-  // otherwise become an accidental wall when one friend is idle, which makes
-  // a shared-screen Internet game needlessly easy to deadlock.
-  resolveCoopPlayerCollisions = true,
 ): SimulationState {
   const nextClock = makeNextSimulationClock(state);
   assertValidPlayerVitalityState(state.players[0].vitality);
@@ -269,23 +265,23 @@ export function stepSimulation(
     primaryStepped.enemies.defeatedEnemyEntityIds,
     hasLevelTimerExpired(primaryStepped.levelTimer),
   );
-  // Local co-op retains its solid-player mechanics. Online co-op opts out so
-  // an idle player cannot block the party's route.
+  // Every co-op mode keeps solid-player mechanics: players cannot walk through
+  // each other, can stand on each other's heads, and a stack rides its bottom
+  // player. Online play used to opt out so an idle friend could not become an
+  // accidental wall, but that also removed head-standing and made online feel
+  // different from local play; a body one tile tall is jumpable, so the wall
+  // concern is handled the same way the original games handle it.
   const runtimesBeforePlayerCollision = [primaryRuntime, ...coopRuntimes];
   const activePlayerIndices = runtimesBeforePlayerCollision.flatMap(
     (runtime, index) =>
       runtime.outcome.kind === PlayerOutcomeKind.Active ? [index] : [],
   );
-  const collidedActivePlayers = resolveCoopPlayerCollisions
-    ? resolvePlayerCollisions(
-        activePlayerIndices.map(
-          (index) => runtimesBeforePlayerCollision[index]!.player,
-        ),
-        activePlayerIndices.map((index) => state.players[index]!.player),
-      )
-    : activePlayerIndices.map(
-        (index) => runtimesBeforePlayerCollision[index]!.player,
-      );
+  const collidedActivePlayers = resolvePlayerCollisions(
+    activePlayerIndices.map(
+      (index) => runtimesBeforePlayerCollision[index]!.player,
+    ),
+    activePlayerIndices.map((index) => state.players[index]!.player),
+  );
   const collidedPlayerByIndex = new Map(
     activePlayerIndices.map((index, activeIndex) => [
       index,
