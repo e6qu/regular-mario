@@ -2,6 +2,17 @@
 
 ## Current State
 
+**Co-op parity completion landed (2026-08-11, second sweep).** The remaining
+mechanics gaps are closed: enemy AI (chasers, Bloopers, Hammer Bros, Lakitu,
+piranha holds, activation) reacts to the whole party; any player's stomp
+defeats Bullet Bills/frenzy entities with their own rebound; cannons/frenzies
+gate, aim and spawn per nearest/leading player; any active player can start a
+pipe or vine/fall-exit warp and the completed warp carries the whole party;
+castle maze checkpoints follow the party leader and loop everyone together;
+and sound cues are perspective-correct per client. 1047 unit tests green.
+Deliberate: co-op deaths still cost no session lives. Cosmetic remainder:
+shabby-mode reaction text draws only the primary.
+
 **Multiplayer bug sweep landed (2026-08-11).** Players are solid online
 (stand on heads, stacks ride the bottom player — the network opt-out is
 deleted); joiners spawn at the party checkpoint instead of past the goal or

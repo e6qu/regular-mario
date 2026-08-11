@@ -1,11 +1,13 @@
 # DO_NEXT.md
 
-- Continue the co-op mechanics parity work recorded in BUGS.md ("Remaining
-  single-player/multiplayer mechanics gaps"): enemy AI awareness of every
-  player, per-player in-level pipe entry / vine transfers / loop zones,
-  co-op projectile stomps (defeat + rebound + score), and per-player
-  reactions/sounds. Keep co-op deaths free of session lives (revive is the
-  multiplayer death economy; bots must not drain the run).
+- Co-op mechanics parity is complete (see BUGS.md "closed" entry). Preserve
+  its contracts: enemies target their NEAREST active player (activation
+  follows the furthest-advanced member); any player may start a pipe/vine
+  transfer and the completed warp carries the whole party; maze checkpoints
+  key on the party leader and loop everyone together; sound cues derive from
+  the listener's own slot. Keep co-op deaths free of session lives (revive is
+  the multiplayer death economy; bots must not drain the run). Remaining
+  cosmetic follow-up: shabby-mode reaction text draws only the primary.
 
 - Players are solid in every mode and joiners spawn at the party checkpoint.
   Do not reintroduce the network collision opt-out or a spawn coordinate no
