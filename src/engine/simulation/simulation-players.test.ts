@@ -8,6 +8,7 @@ import {
 import { finishRouteLevelInput } from "../levels/finish-route-level";
 import { powerUpRouteLevelInput } from "../levels/power-up-route-level";
 import { firstAuthoredLevelSpec } from "./level-test-support";
+import { PipeEntryPhase } from "./pipe-state";
 import { PlayerOutcomeKind } from "./player-outcome";
 import { HorizontalInput, type SimulationInputCommand } from "./input-command";
 import { initialMovementConstants } from "./movement-model";
@@ -466,6 +467,88 @@ describe("simulation players array", () => {
     expect(stepped.players[0].outcome.kind).toBe(PlayerOutcomeKind.Finished);
     expect(Number(stepped.timeBonusScore)).toBeGreaterThan(0);
     expect(Number(stepped.goalHeightScore)).toBeGreaterThan(0);
+  });
+
+  // The screen is shared and cross-level pipes already move everyone, so a
+  // completed same-level warp carries the whole party too — whoever entered.
+  it("a completed warp carries the whole party to the target tile", () => {
+    const base = afterSpawnInvincibility(twoPlayerState());
+    const entering: SimulationState = {
+      ...base,
+      pipeEntry: {
+        phase: PipeEntryPhase.Entering,
+        pipeEntityId: "pipe-1",
+        // The CO-OP player is the one riding the entry animation.
+        enteringPlayerSlot: 1,
+        sourceLevelName: undefined,
+        targetLevelName: undefined,
+        targetTilePosition: { x: 10, y: 3 },
+        remainingFrames: 1,
+      } as SimulationState["pipeEntry"],
+    };
+    const stepped = stepSimulation(
+      entering,
+      neutral(),
+      initialMovementConstants,
+      firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    // Both players arrive at the target column (solid player collision may
+    // separate the overlapping arrivals by a few pixels).
+    expect(
+      Math.abs(Number(stepped.players[0].player.position.x) - 160),
+    ).toBeLessThan(16);
+    expect(
+      Math.abs(Number(stepped.players[1]!.player.position.x) - 160),
+    ).toBeLessThan(16);
+  });
+
+  // Castle maze checkpoints follow the party's leader; a failed crossing sends
+  // the WHOLE party back rather than checking (and moving) slot 0 alone.
+  it("loops the whole party back when the leading co-op player fails a checkpoint", () => {
+    const level = requireMechanicsLevelSpec(
+      makeFlatLevelInput(160, {
+        loopZones: [
+          {
+            loopZoneId: "loop-0",
+            checkTileX: 80,
+            // Unreachable rows: any grounded crossing fails and loops.
+            requiredRowMin: 5,
+            requiredRowMax: 6,
+            groupId: "group-0",
+            groupSize: 1,
+          },
+        ],
+      }),
+    );
+    const result = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!result.ok) {
+      throw new Error("expected a valid loop-zone state");
+    }
+    const base = afterSpawnInvincibility(result.value);
+    // The primary idles near the start; the co-op player leads, standing just
+    // short of the checkpoint column (tile 80) on the ground.
+    let current = withCoopPlayerAt(base, 80 * 16 - 24, 192);
+    let looped = false;
+    for (let frame = 0; frame < 180 && !looped; frame += 1) {
+      current = stepSimulation(
+        current,
+        neutral(),
+        initialMovementConstants,
+        level,
+        [runRight()],
+      );
+      looped = Number(current.players[1]!.player.position.x) < 80 * 16 - 400;
+    }
+    expect(looped, "the leading co-op player should loop back").toBe(true);
+    // The primary went back with them, clamped to the minimum return position.
+    expect(Number(current.players[0].player.position.x)).toBe(32);
   });
 
   // Castle flame hazards used to exist only for slot 0: a firebar swept clean

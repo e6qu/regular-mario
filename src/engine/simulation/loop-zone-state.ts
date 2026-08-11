@@ -56,6 +56,28 @@ export function assertValidLoopZoneState(
   }
 }
 
+// The leader's loopback shift applied to a teammate: the party shares one
+// screen, so a failed checkpoint sends everyone back together, clamped to the
+// same minimum return position the looped player gets.
+export function applyLoopbackShift(
+  player: PlayerSimulationState,
+  deltaXPixels: number,
+): PlayerSimulationState {
+  if (deltaXPixels === 0) {
+    return player;
+  }
+  return {
+    ...player,
+    position: {
+      x: requireSimulationPixelPosition(
+        Math.max(minimumReturnPixelX, Number(player.position.x) + deltaXPixels),
+        "player.position.x",
+      ),
+      y: player.position.y,
+    },
+  };
+}
+
 export function resolveLoopZones(
   previousState: LoopZoneRuntimeState,
   levelSpec: LevelSpec,
