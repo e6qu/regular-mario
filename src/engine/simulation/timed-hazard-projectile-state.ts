@@ -185,6 +185,37 @@ export function resolveTimedHazardProjectilesState(
   };
 }
 
+// Whether a surviving timed-hazard projectile damages THIS player. The state's
+// own `playerContact` answers it for the primary; co-op fates ask per player.
+// A stomp-shaped touch on a stompable projectile (a Bullet Bill landed on from
+// above) is not damage: the classic play of bouncing on a bullet must never
+// hurt the bouncer.
+export function timedHazardProjectilesDamagePlayer(
+  state: TimedHazardProjectilesState,
+  previousPlayer: PlayerSimulationState,
+  player: PlayerSimulationState,
+  movementConstants: MovementConstants,
+): boolean {
+  return state.projectiles.some((projectile) => {
+    const box = projectileHazardBox(projectile);
+    if (
+      !playerOverlapsActorPixel(
+        player,
+        { x: box.x, y: box.y },
+        { width: box.width, height: box.height },
+      )
+    ) {
+      return false;
+    }
+    return !isProjectileStomp(
+      previousPlayer,
+      player,
+      projectile,
+      movementConstants,
+    );
+  });
+}
+
 // A stompable projectile is defeated when the player is falling and their feet
 // cross its top while overlapping it — the same rule as an enemy stomp.
 function isProjectileStomp(

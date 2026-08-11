@@ -54,6 +54,8 @@ function stepWithBumps(
     [],
     makeInitialPlayerVitalityState(),
     (base) => base,
+    new Set<string>(),
+    new Set(),
   );
 }
 

@@ -79,9 +79,29 @@ describe("client prediction", () => {
     if (!twoPlayers.ok) {
       throw new Error("Expected a valid two-player prediction state.");
     }
+    // Players are solid to each other, so the idle local player stands clear of
+    // the walker's path — otherwise "stayed put" would fail to a legitimate
+    // shove rather than to a prediction defect.
+    const localPlayer = requirePlayerAt(twoPlayers.value, 1);
+    const separatedState: SimulationState = {
+      ...twoPlayers.value,
+      players: [
+        twoPlayers.value.players[0],
+        {
+          ...localPlayer,
+          player: {
+            ...localPlayer.player,
+            position: {
+              x: requireSimulationPixelPosition(160, "test.local.x"),
+              y: localPlayer.player.position.y,
+            },
+          },
+        },
+      ],
+    };
     // This client is slot 1; slot 0 is somebody else.
     const prediction = makeClientPrediction(
-      twoPlayers.value,
+      separatedState,
       firstAuthoredLevelSpec(),
       initialMovementConstants,
       1,
@@ -102,7 +122,7 @@ describe("client prediction", () => {
     // And this client's own player, holding nothing, stayed put.
     expect(
       Number(requirePlayerAt(prediction.snapshot().state, 1).player.position.x),
-    ).toBe(Number(requirePlayerAt(twoPlayers.value, 1).player.position.x));
+    ).toBe(160);
   });
 
   it("applies local commands immediately and retains unacknowledged history", () => {
@@ -131,7 +151,23 @@ describe("client prediction", () => {
     );
     prediction.submit(1, right);
     prediction.submit(2, right);
-    const reconciled = prediction.reconcile(1, { x: 80, y: 64 });
+    const base = initialState();
+    const authoritative: SimulationState = {
+      ...base,
+      players: [
+        {
+          ...base.players[0],
+          player: {
+            ...base.players[0].player,
+            position: {
+              x: requireSimulationPixelPosition(80, "test.ack.x"),
+              y: base.players[0].player.position.y,
+            },
+          },
+        },
+      ],
+    };
+    const reconciled = prediction.reconcileState(1, authoritative);
     expect(reconciled.pendingInputs.map((input) => input.sequence)).toEqual([
       2,
     ]);
@@ -168,6 +204,42 @@ describe("client prediction", () => {
     const reconciled = prediction.reconcileState(0, serverState);
     expect(Number(requirePlayerAt(reconciled.state, 1).player.position.x)).toBe(
       beforeJoiner,
+    );
+  });
+
+  it("requires a lifecycle reconcile when a REMOTE player's outcome changes", () => {
+    const twoPlayers = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      firstAuthoredLevelSpec(),
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!twoPlayers.ok) {
+      throw new Error("Expected a valid two-player state.");
+    }
+    const predicted = twoPlayers.value;
+    const authoritative: SimulationState = {
+      ...predicted,
+      players: [
+        predicted.players[0],
+        {
+          ...requirePlayerAt(predicted, 1),
+          outcome: {
+            kind: PlayerOutcomeKind.Defeated,
+            reason: PlayerDefeatReason.EnemyContact,
+          },
+        },
+      ],
+    };
+    // An idle client never acknowledges input, so this check is its only
+    // reconciliation trigger: a dead teammate must not keep running as a
+    // locally simulated ghost.
+    expect(
+      predictionRequiresLifecycleReconcile(predicted, authoritative, 0),
+    ).toBe(true);
+    expect(predictionRequiresLifecycleReconcile(predicted, predicted, 0)).toBe(
+      false,
     );
   });
 

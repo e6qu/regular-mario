@@ -63,7 +63,16 @@ function runAuthoritativeFrames(): void {
     now >= nextAuthoritativeFrameAt &&
     advanced < maximumCatchUpFramesPerTurn
   ) {
-    app.tick(nextAuthoritativeFrameAt);
+    try {
+      app.tick(nextAuthoritativeFrameAt);
+    } catch (error) {
+      // The frame loop is the heartbeat of every live game. A tick that throws
+      // must be loud, but it must not stop the schedule below from re-arming:
+      // that froze every party on the server while the process stayed "up".
+      const message = error instanceof Error ? error.message : String(error);
+      logger?.("authoritative_tick_error", { error: message });
+      process.stderr.write(`Authoritative tick failed: ${message}\n`);
+    }
     nextAuthoritativeFrameAt += authoritativeFrameMilliseconds;
     advanced += 1;
   }

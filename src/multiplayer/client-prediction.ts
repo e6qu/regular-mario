@@ -6,7 +6,6 @@ import {
 } from "../engine/simulation/input-command";
 import type { SimulationState } from "../engine/simulation/simulation-state";
 import { stepSimulation } from "../engine/simulation/step-simulation";
-import { requireSimulationPixelPosition } from "../engine/simulation/simulation-units";
 
 type PendingPredictedInput = {
   readonly sequence: number;
@@ -22,10 +21,6 @@ export type ClientPrediction = {
   submit(
     sequence: number,
     command: SimulationInputCommand,
-  ): LocalPredictionSnapshot;
-  reconcile(
-    acknowledgedSequence: number,
-    authoritativePosition: { readonly x: number; readonly y: number },
   ): LocalPredictionSnapshot;
   reconcileState(
     acknowledgedSequence: number,
@@ -53,20 +48,31 @@ export type ClientPrediction = {
  * player's outcome from `defeated` to `active`.  Continuing to paint the old
  * predicted outcome would make a successful revive look like a level reset or
  * an unresponsive player.  The browser must replace that prediction promptly.
+ *
+ * Every slot matters, not only the local player's.  An idle client produces no
+ * acknowledgement progress, so this check is its only reconciliation trigger —
+ * and when it watched slot zero alone, a REMOTE player's authoritative death or
+ * revive was never applied: the dead teammate kept running through this
+ * client's predicted world as a ghost, colliding and bumping blocks
+ * indefinitely.
  */
 export function predictionRequiresLifecycleReconcile(
   predictedState: SimulationState,
   authoritativeState: SimulationState,
   localPlayerSlot: number,
 ): boolean {
-  const predicted = predictedState.players[localPlayerSlot];
-  const authoritative = authoritativeState.players[localPlayerSlot];
-  if (predicted === undefined || authoritative === undefined) {
+  if (
+    predictedState.players[localPlayerSlot] === undefined ||
+    authoritativeState.players[localPlayerSlot] === undefined
+  ) {
     throw new Error(
       "Prediction lifecycle reconciliation is missing local player.",
     );
   }
-  return predicted.outcome.kind !== authoritative.outcome.kind;
+  return authoritativeState.players.some(
+    (authoritative, slot) =>
+      predictedState.players[slot]?.outcome.kind !== authoritative.outcome.kind,
+  );
 }
 
 export function makeClientPrediction(
@@ -117,7 +123,6 @@ export function makeClientPrediction(
       source.players
         .slice(1)
         .map((_player, index) => commandForSlot(index + 1)),
-      false,
     );
   }
 
@@ -142,36 +147,6 @@ export function makeClientPrediction(
       }
       pendingInputs = [...pendingInputs, { sequence, command }];
       state = stepPlayers(state, command);
-      return snapshot();
-    },
-    reconcile(acknowledgedSequence, authoritativePosition) {
-      pendingInputs = pendingInputs.filter(
-        (input) => input.sequence > acknowledgedSequence,
-      );
-      const player = state.players[0];
-      const corrected: SimulationState = {
-        ...state,
-        players: [
-          {
-            ...player,
-            player: {
-              ...player.player,
-              position: {
-                x: requireSimulationPixelPosition(
-                  authoritativePosition.x,
-                  "authoritativePosition.x",
-                ),
-                y: requireSimulationPixelPosition(
-                  authoritativePosition.y,
-                  "authoritativePosition.y",
-                ),
-              },
-            },
-          },
-          ...state.players.slice(1),
-        ],
-      };
-      state = replayPending(corrected);
       return snapshot();
     },
     reconcileState(acknowledgedSequence, authoritativeState) {

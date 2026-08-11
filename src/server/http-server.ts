@@ -375,10 +375,13 @@ export function makeMultiplayerHttpServer(
     playerId: string,
     input: QueuedSimulationInput,
   ): void {
-    const slot = snapshot.players.findIndex(
+    // The runner's `slot` field is the identity every consumer keys on; the
+    // array index only happens to match it while connected slots are
+    // contiguous.
+    const slot = snapshot.players.find(
       (player) => player.playerId === playerId,
-    );
-    if (slot < 0) {
+    )?.slot;
+    if (slot === undefined) {
       return;
     }
     const payload = JSON.stringify({

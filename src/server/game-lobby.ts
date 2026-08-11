@@ -245,15 +245,32 @@ export function makeMultiplayerLobby(
       nickname: player.nickname,
       avatarId: player.avatarId,
     }));
-    const creator = members.find(
-      (member) => member.playerId === game.creatorPlayerId,
-    );
-    if (creator === undefined) {
-      throw new Error("Game creator is absent from its own game.");
+    // The next course is hosted by the creator if they are still here, and
+    // otherwise by whoever remains. Requiring the creator used to throw here —
+    // inside the shared authoritative frame loop — so one party whose creator
+    // left froze every game on the server at their next level completion. The
+    // host must also be first: the replacement runner seats its host at slot 0
+    // and joins the rest, so an out-of-order list silently dropped a member.
+    const host =
+      members.find((member) => member.playerId === game.creatorPlayerId) ??
+      members[0];
+    if (host === undefined) {
+      // Everyone left during the completion presentation; nothing to advance.
+      return undefined;
     }
+    const orderedMembers = [
+      host,
+      ...members.filter((member) => member.playerId !== host.playerId),
+    ];
     game.levelId = nextId;
-    game.runner = makeRunner(gameId, creator, nextId, previous.mode, members);
-    game.runner.start(game.creatorPlayerId);
+    game.runner = makeRunner(
+      gameId,
+      host,
+      nextId,
+      previous.mode,
+      orderedMembers,
+    );
+    game.runner.start(host.playerId);
     return game.runner.snapshot();
   }
 

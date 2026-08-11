@@ -11,6 +11,7 @@ import {
   PlayerVitalityKind,
 } from "./player-vitality";
 import { makeInitialSimulationStateWithPlayerVitality } from "./simulation-state";
+import { requireSimulationPixelPosition } from "./simulation-units";
 import { stepSimulation } from "./step-simulation";
 import type { SimulationState } from "./simulation-state";
 
@@ -169,4 +170,94 @@ describe("per-enemy contact debounce", () => {
     }
     expect(current.players[0].outcome.kind).toBe(PlayerOutcomeKind.Defeated);
   });
+
+  it("a co-op player's touch neither defeats nor shields the primary", () => {
+    // Two players: the co-op member stands in the goomba's path while the
+    // primary waits behind. The goomba's touch defeats the co-op member alone —
+    // the party-wide contact list must not feed the primary's damage path (it
+    // used to: any teammate's touch read as the primary being hit). Walking on,
+    // the goomba's later genuinely-fresh touch on the primary must still kill —
+    // the teammate's contact must not have debounced the enemy for the primary
+    // either.
+    const level = makeLevelSpec(makeContactLevelInput());
+    if (!level.ok) {
+      throw new Error("level");
+    }
+    const stateResult = makeInitialSimulationStateWithPlayerVitality(
+      nominalFrameMilliseconds,
+      level.value,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!stateResult.ok) {
+      throw new Error("state");
+    }
+    const base = stateResult.value;
+    const coop = base.players[1]!;
+    let current: SimulationState = {
+      ...base,
+      // Past the co-op spawn-invincibility window.
+      clock: {
+        ...base.clock,
+        frameIndex: 700 as SimulationState["clock"]["frameIndex"],
+      },
+      players: [
+        base.players[0],
+        {
+          ...coop,
+          player: {
+            ...coop.player,
+            position: {
+              x: requireSimulationPixelPosition(48, "test.coop.x"),
+              y: coop.player.position.y,
+            },
+          },
+        },
+      ],
+    };
+    let coopDeathFrame = -1;
+    let primaryDeathFrame = -1;
+    for (let frame = 0; frame < 600 && primaryDeathFrame < 0; frame += 1) {
+      current = stepSimulation(
+        current,
+        neutralCommand(),
+        initialMovementConstants,
+        level.value,
+        [neutralCommand()],
+      );
+      if (
+        coopDeathFrame < 0 &&
+        current.players[1]!.outcome.kind !== PlayerOutcomeKind.Active
+      ) {
+        coopDeathFrame = frame;
+        expect(
+          current.players[0].outcome.kind,
+          "the primary, standing clear, must not die from a teammate's touch",
+        ).toBe(PlayerOutcomeKind.Active);
+      }
+      if (
+        primaryDeathFrame < 0 &&
+        current.players[0].outcome.kind !== PlayerOutcomeKind.Active
+      ) {
+        primaryDeathFrame = frame;
+      }
+    }
+    expect(coopDeathFrame).toBeGreaterThanOrEqual(0);
+    expect(
+      primaryDeathFrame,
+      "the enemy must still be able to hit the primary afterwards",
+    ).toBeGreaterThan(coopDeathFrame);
+  });
 });
+
+function neutralCommand(): SimulationInputCommand {
+  return {
+    horizontal: HorizontalInput.Neutral,
+    jumpPressed: false,
+    runHeld: false,
+    firePressed: false,
+    upHeld: false,
+    downHeld: false,
+  };
+}

@@ -1,4 +1,5 @@
 import type { BreakableBlockState } from "./breakable-block-state";
+import type { TileId } from "../domain/identifiers";
 import type { FrameDurationMilliseconds, TilePoint } from "../domain/units";
 import type { LevelSpec } from "../domain/level-spec";
 import { applyClimbableMovement } from "./climbable-interaction";
@@ -54,6 +55,12 @@ export function stepCoopPlayerKinematics(
   spawnedActors: readonly SpawnedActor[],
   vitality: PlayerVitalityState,
   makeCrawlMovementConstants: (base: MovementConstants) => MovementConstants,
+  // Positions of hidden blocks the party has already revealed: they are solid
+  // for every player. Omitting them meant a co-op player fell straight through
+  // the platform a teammate had just bumped into existence.
+  revealedHiddenPositionKeys: ReadonlySet<string>,
+  // Tiles a god-mode player may stand on (lava), identical to the primary's.
+  walkableHazardTileIds: ReadonlySet<TileId>,
 ): CoopPlayerKinematicsResult {
   const crouch = resolveCrouchState(
     player,
@@ -98,6 +105,11 @@ export function stepCoopPlayerKinematics(
     levelSpec,
     breakableBlocks,
     movementConstants.springLaunchSpeed,
+    revealedHiddenPositionKeys,
+    walkableHazardTileIds,
+    // A spring landing launches at the boosted speed while jump is held,
+    // exactly as the primary's collision call passes its own jump input.
+    crouch.inputCommand.jumpPressed,
   );
   // Re-stamp the crouch flag, exactly as the primary player's step does: the
   // collision rebuilders drop it, and without it the ducked hurtbox and the

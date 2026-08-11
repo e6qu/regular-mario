@@ -18,7 +18,7 @@ import {
   consecutiveDefeatAwardsExtraLife,
   countNewlyDefeated,
   type EnemyInteractionState,
-  playerContactsLiveEnemy,
+  liveEnemyContactEntityIds,
   resolveEnemyInteractionState,
   scoreForConsecutiveDefeat,
 } from "./enemy-interaction";
@@ -77,6 +77,7 @@ import {
 import {
   applyPowerUpCollectionToVitality,
   assertValidPlayerVitalityState,
+  isEnlargedPlayerVitalityKind,
   makeRecoveryFrameCount,
   PlayerVitalityKind,
   type PlayerVitalityState,
@@ -96,6 +97,7 @@ import {
 import {
   assertValidTimedHazardProjectilesState,
   resolveTimedHazardProjectilesState,
+  timedHazardProjectilesDamagePlayer,
 } from "./timed-hazard-projectile-state";
 import {
   assertValidPipeEntryState,
@@ -109,19 +111,24 @@ import {
   requireSimulationVelocity,
 } from "./simulation-units";
 import { advancePseudoRandom } from "./pseudo-random";
-import { resolveCheepFrenzyState } from "./cheep-frenzy-state";
+import {
+  cheepFrenzyTouchesPlayer,
+  resolveCheepFrenzyState,
+} from "./cheep-frenzy-state";
 import { playerTouchesFlameHazard } from "./flame-hazards";
 import {
   assertValidPlatformsState,
   resolvePlatformsState,
 } from "./platform-state";
 import {
+  aerialFrenzyDamagesPlayer,
   assertValidAerialFrenzyState,
   resolveAerialFrenzyState,
 } from "./aerial-frenzy-state";
 import { assertValidLoopZoneState, resolveLoopZones } from "./loop-zone-state";
 import {
   assertValidHatchedSpinyState,
+  hatchedSpiniesTouchPlayer,
   resolveHatchedSpinyState,
 } from "./hatched-spiny-state";
 import type {
@@ -198,10 +205,6 @@ export function stepSimulation(
   // state.players[i + 1]); empty/short means those players hold neutral. Single-
   // player callers omit this entirely.
   coopInputCommands: readonly SimulationInputCommand[] = [],
-  // Network co-op intentionally permits players to overlap.  Remote players
-  // otherwise become an accidental wall when one friend is idle, which makes
-  // a shared-screen Internet game needlessly easy to deadlock.
-  resolveCoopPlayerCollisions = true,
 ): SimulationState {
   const nextClock = makeNextSimulationClock(state);
   assertValidPlayerVitalityState(state.players[0].vitality);
@@ -240,6 +243,19 @@ export function stepSimulation(
   // state is resolved. Their *outcomes* still resolve afterwards, because
   // whether a co-op player was killed depends on where the primary step left
   // the enemies. Only movement is hoisted, not the fate of anybody.
+  //
+  // Their collision sees the same world the primary's does: hidden blocks the
+  // party has revealed are solid for everyone (a co-op player used to fall
+  // straight through the platform a teammate had just bumped into existence),
+  // and god mode's walkable lava applies to every player.
+  const partyRevealedHiddenPositionKeys = new Set(
+    state.interactiveBlocks.bumpedBlockTilePositions.map((position) =>
+      hiddenBlockPositionKey(position.x, position.y),
+    ),
+  );
+  const partyWalkableHazardTileIds = movementConstants.godMode
+    ? makeLavaTileIds(levelSpec)
+    : emptyWalkableHazardTileIds;
   const coopSteps = stepCoopPlayerMovement(
     state.players.slice(1),
     coopInputCommands,
@@ -248,6 +264,8 @@ export function stepSimulation(
     levelSpec,
     state.breakableBlocks,
     state.spawnedActors.spawnedActors,
+    partyRevealedHiddenPositionKeys,
+    partyWalkableHazardTileIds,
   );
   const primaryStepped = stepPrimaryPlayer(
     state,
@@ -262,30 +280,29 @@ export function stepSimulation(
   // a co-op player who stomped an enemy has been rebounded upward by it.
   const coopRuntimes = resolveCoopPlayerOutcomes(
     primaryStepped.players.slice(1),
-    state.clock.frameDurationMilliseconds,
-    Number(nextClock.frameIndex),
+    state.players.slice(1),
+    primaryStepped,
+    state,
     levelSpec,
-    primaryStepped.enemyMotion,
-    primaryStepped.enemies.defeatedEnemyEntityIds,
-    hasLevelTimerExpired(primaryStepped.levelTimer),
+    movementConstants,
   );
-  // Local co-op retains its solid-player mechanics. Online co-op opts out so
-  // an idle player cannot block the party's route.
+  // Every co-op mode keeps solid-player mechanics: players cannot walk through
+  // each other, can stand on each other's heads, and a stack rides its bottom
+  // player. Online play used to opt out so an idle friend could not become an
+  // accidental wall, but that also removed head-standing and made online feel
+  // different from local play; a body one tile tall is jumpable, so the wall
+  // concern is handled the same way the original games handle it.
   const runtimesBeforePlayerCollision = [primaryRuntime, ...coopRuntimes];
   const activePlayerIndices = runtimesBeforePlayerCollision.flatMap(
     (runtime, index) =>
       runtime.outcome.kind === PlayerOutcomeKind.Active ? [index] : [],
   );
-  const collidedActivePlayers = resolveCoopPlayerCollisions
-    ? resolvePlayerCollisions(
-        activePlayerIndices.map(
-          (index) => runtimesBeforePlayerCollision[index]!.player,
-        ),
-        activePlayerIndices.map((index) => state.players[index]!.player),
-      )
-    : activePlayerIndices.map(
-        (index) => runtimesBeforePlayerCollision[index]!.player,
-      );
+  const collidedActivePlayers = resolvePlayerCollisions(
+    activePlayerIndices.map(
+      (index) => runtimesBeforePlayerCollision[index]!.player,
+    ),
+    activePlayerIndices.map((index) => state.players[index]!.player),
+  );
   const collidedPlayerByIndex = new Map(
     activePlayerIndices.map((index, activeIndex) => [
       index,
@@ -295,9 +312,10 @@ export function stepSimulation(
   );
   // Any player reaching the goal completes the level for everyone: if a co-op
   // player touches the goal while the primary is still active, finish the level.
-  const anyCoopReachedGoal = coopRuntimes.some(
+  const coopGoalFinisher = coopRuntimes.find(
     (runtime) => detectLevelContactState(runtime.player, levelSpec).goal,
   );
+  const anyCoopReachedGoal = coopGoalFinisher !== undefined;
   const primaryOutcome =
     anyCoopReachedGoal &&
     primaryRuntime.outcome.kind === PlayerOutcomeKind.Active
@@ -318,7 +336,27 @@ export function stepSimulation(
       player: collidedPlayerByIndex.get(index + 1) ?? runtime.player,
     })),
   ];
-  return { ...primaryStepped, players };
+  // A finish through a co-op grab pays like any finish. The primary path's
+  // scoring keys off ITS outcome edge inside the world step, which runs before
+  // this fold — so a co-op player reaching the flag used to end the level with
+  // zero time bonus and zero grab-height score.
+  const coopFinishAwardsScores =
+    coopGoalFinisher !== undefined &&
+    state.players[0].outcome.kind !== PlayerOutcomeKind.Finished &&
+    primaryRuntime.outcome.kind === PlayerOutcomeKind.Active;
+  if (!coopFinishAwardsScores) {
+    return { ...primaryStepped, players };
+  }
+  return {
+    ...primaryStepped,
+    players,
+    timeBonusScore: computeTimeBonusScore(state.levelTimer.remainingFrames),
+    goalHeightScore: (primaryStepped.goalHeightScore +
+      scoreForGoalContactHeight(
+        coopGoalFinisher.player.position.y,
+        levelSpec.tileSizePixels,
+      )) as SimulationState["goalHeightScore"],
+  };
 }
 
 // The primary player's full pipeline (unchanged), selected by outcome.
@@ -527,6 +565,8 @@ function stepCoopPlayerMovement(
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
   spawnedActors: readonly SpawnedActor[],
+  revealedHiddenPositionKeys: ReadonlySet<string>,
+  walkableHazardTileIds: ReadonlySet<TileId>,
 ): readonly CoopPlayerStep[] {
   return coopRuntimes.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
@@ -549,6 +589,8 @@ function stepCoopPlayerMovement(
       spawnedActors,
       runtime.vitality,
       makeCrawlMovementConstants,
+      revealedHiddenPositionKeys,
+      walkableHazardTileIds,
     );
     return {
       runtime: { ...runtime, player: stepped.player },
@@ -566,13 +608,25 @@ function stepCoopPlayerMovement(
 // the block state is resolved, while fates still settle against the final world.
 function resolveCoopPlayerOutcomes(
   moved: readonly PlayerRuntime[],
-  frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
-  frameIndex: number,
+  previousRuntimes: readonly PlayerRuntime[],
+  // The world as the primary step left it this frame, and the world as the
+  // previous frame left it: fates settle against the final positions, while
+  // fresh-contact edges compare against where everything genuinely was.
+  steppedWorld: SimulationState,
+  previousWorld: SimulationState,
   levelSpec: LevelSpec,
-  enemyMotion: EnemyMotionState,
-  defeatedEnemyEntityIds: readonly EntityId[],
-  levelTimerExpired: boolean,
+  movementConstants: MovementConstants,
 ): readonly PlayerRuntime[] {
+  const frameDurationMilliseconds =
+    previousWorld.clock.frameDurationMilliseconds;
+  const nextFrameIndex = steppedWorld.clock.frameIndex;
+  const frameIndex = Number(nextFrameIndex);
+  const enemyMotion = steppedWorld.enemyMotion;
+  const defeatedEnemyEntityIds = steppedWorld.enemies.defeatedEnemyEntityIds;
+  const previousEnemyMotion = previousWorld.enemyMotion;
+  const previousDefeatedEnemyEntityIds =
+    previousWorld.enemies.defeatedEnemyEntityIds;
+  const levelTimerExpired = hasLevelTimerExpired(steppedWorld.levelTimer);
   if (moved.length === 0) {
     return moved;
   }
@@ -628,42 +682,133 @@ function resolveCoopPlayerOutcomes(
   // until the level ends. Keeping the stable slot is required by authoritative
   // multiplayer: network player IDs must never silently shift when somebody
   // dies. Defeated runtimes no longer collide or consume input above.
-  const runtimes = moved.map<PlayerRuntime>((runtime) => {
+  //
+  // Damage carries the same tiering as the primary path: a big player shrinks
+  // into the blinking recovery window instead of dying, star power / an active
+  // recovery window / god mode protect from enemy and hazard damage, and only
+  // a small unprotected player is defeated. This used to be a flat kill — a
+  // Fire co-op player died to a walker's touch that would merely have shrunk
+  // the host.
+  const runtimes = moved.map<PlayerRuntime>((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
       return runtime;
     }
-    const enemyContact = playerContactsLiveEnemy(
+    // The recovery window ticks down each frame exactly as for the primary;
+    // expiry returns the player to small (identical collider, no resize).
+    const tickedVitality = stepPlayerVitalityRecovery(runtime.vitality);
+    const levelContact = detectLevelContactState(runtime.player, levelSpec);
+    const fellIntoPit =
+      levelSpec.fallExitTransition === undefined &&
+      hasPlayerFallenIntoPit(runtime.player, levelSpec);
+    // Damage needs a FRESH enemy touch: an enemy this player was already
+    // overlapping on the previous frame cannot land a second hit without
+    // genuine separation. This is the primary's per-enemy damage debounce,
+    // expressed as a contact edge between consecutive frames.
+    const contactedNow = liveEnemyContactEntityIds(
       runtime.player,
       levelSpec,
       enemyMotion,
       defeatedEnemyEntityIds,
     );
-    const levelContact = detectLevelContactState(runtime.player, levelSpec);
-    const fellIntoPit =
-      levelSpec.fallExitTransition === undefined &&
-      hasPlayerFallenIntoPit(runtime.player, levelSpec);
+    const previousRuntime = previousRuntimes[index];
+    const contactedBefore = new Set(
+      previousRuntime === undefined
+        ? []
+        : liveEnemyContactEntityIds(
+            previousRuntime.player,
+            levelSpec,
+            previousEnemyMotion,
+            previousDefeatedEnemyEntityIds,
+          ),
+    );
+    const freshEnemyContacts = contactedNow.filter(
+      (entityId) => !contactedBefore.has(entityId),
+    );
+    const damageProtected =
+      runtime.invincibility.remainingFrames > 0 ||
+      tickedVitality.kind === PlayerVitalityKind.Recovering ||
+      movementConstants.godMode;
+    const enemyDamage = freshEnemyContacts.length > 0 && !damageProtected;
+    // Hazard-like contact reaches every player, exactly as it reaches the
+    // primary: hazard tiles, castle firebars and podoboos, hammers/Bullet
+    // Bills/cannonballs, cheep and aerial frenzies, and hatched spinies.
+    // Bullets and frenzy entities exempt a stomp-shaped landing — the classic
+    // bounce play must not hurt the bouncer.
+    const previousPlayer = previousRuntime?.player ?? runtime.player;
+    const hazardContacted =
+      levelContact.hazard ||
+      playerTouchesFlameHazard(runtime.player, levelSpec, nextFrameIndex) ||
+      timedHazardProjectilesDamagePlayer(
+        steppedWorld.timedHazardProjectiles,
+        previousPlayer,
+        runtime.player,
+        movementConstants,
+      ) ||
+      cheepFrenzyTouchesPlayer(steppedWorld.cheepFrenzy, runtime.player) ||
+      aerialFrenzyDamagesPlayer(
+        steppedWorld.aerialFrenzy,
+        previousPlayer,
+        runtime.player,
+        movementConstants,
+      ) ||
+      hatchedSpiniesTouchPlayer(steppedWorld.hatchedSpinies, runtime.player);
+    const hazardDamage = hazardContacted && !damageProtected;
     const reason = fellIntoPit
       ? PlayerDefeatReason.PitContact
-      : enemyContact && levelContact.hazard
+      : enemyDamage && hazardDamage
         ? PlayerDefeatReason.HazardAndEnemyContact
-        : enemyContact
+        : enemyDamage
           ? PlayerDefeatReason.EnemyContact
-          : levelContact.hazard
+          : hazardDamage
             ? PlayerDefeatReason.HazardContact
             : undefined;
     if (reason === undefined) {
-      return levelContact.goal
-        ? {
-            ...runtime,
-            outcome: {
+      return {
+        ...runtime,
+        vitality: tickedVitality,
+        outcome: levelContact.goal
+          ? {
               kind: PlayerOutcomeKind.Finished,
               reason: PlayerFinishReason.GoalContact,
-            },
-          }
-        : runtime;
+            }
+          : runtime.outcome,
+      };
+    }
+    // A pit swallows any tier; everything else shrinks a big player instead.
+    if (
+      reason !== PlayerDefeatReason.PitContact &&
+      isEnlargedPlayerVitalityKind(tickedVitality.kind)
+    ) {
+      const recovering: PlayerVitalityState = {
+        kind: PlayerVitalityKind.Recovering,
+        sourceEnemyEntityId:
+          freshEnemyContacts[0] ?? ("hazard-contact" as EntityId),
+        contactSide: EnemySideContactSide.Left,
+        startFrameIndex: nextFrameIndex,
+        remainingKnockbackFrames:
+          movementConstants.damageRecoveryKnockbackFrameCount,
+        remainingInvulnerabilityFrames:
+          movementConstants.damageRecoveryInvulnerabilityFrameCount,
+      };
+      return {
+        ...runtime,
+        vitality: recovering,
+        player: resizePlayerForVitality(
+          runtime.player,
+          recovering,
+          runtime.player.crouching === true,
+        ),
+        outcome: levelContact.goal
+          ? {
+              kind: PlayerOutcomeKind.Finished,
+              reason: PlayerFinishReason.GoalContact,
+            }
+          : runtime.outcome,
+      };
     }
     return {
       ...runtime,
+      vitality: tickedVitality,
       outcome: levelContact.goal
         ? {
             kind: PlayerOutcomeKind.DefeatedAndFinished,
@@ -1180,9 +1325,27 @@ function stepActiveSimulation(
   // untouched.
   const currentFrame = nextClock.frameIndex;
   const previousEnemyDamageFrames = state.enemyDamageContactFrameByEntityId;
+  // The interaction state's contact list is a party-wide union — the co-op fold
+  // above adds every player's touches. The debounce here gates the PRIMARY's
+  // damage, so a FRESH hit must come from an enemy the primary personally
+  // overlaps: otherwise a co-op player brushing enemy X registered X as having
+  // damaged the primary, and the primary then walked through X unharmed.
+  // Retention deliberately stays on the party-wide list: an enemy that has
+  // landed its hit remains debounced through the knockback's momentary
+  // separations rather than re-arming mid-engagement.
   const contactedEnemySet = new Set(enemies.contactedEnemyEntityIds);
+  const primaryContactedEnemyIds = new Set(
+    liveEnemyContactEntityIds(
+      playerAfterPowerUpResize,
+      levelSpec,
+      enemyMotion,
+      enemies.defeatedEnemyEntityIds,
+    ),
+  );
   const freshDamagingEnemyEntityIds = enemies.contactedEnemyEntityIds.filter(
-    (entityId) => !previousEnemyDamageFrames.has(entityId),
+    (entityId) =>
+      primaryContactedEnemyIds.has(entityId) &&
+      !previousEnemyDamageFrames.has(entityId),
   );
   const damagingEnemies: EnemyInteractionState = {
     ...enemies,
@@ -1458,8 +1621,13 @@ function stepActiveSimulation(
     hatchedSpinies.defeatedCount *
       scorePerProjectileKill) as SimulationState["bulletBillStompScore"];
 
+  // Party-wide, not primary-only: the retained state's collectible lists carry
+  // every player's pickups, so diffing them against the primary's own
+  // resolution silently discarded whatever a co-op player collected — their
+  // 1-UP mushrooms awarded nothing, and their coins pushed the session total
+  // across the every-100 boundary without the 1-UP.
   const extraLifeMushroomsCollected =
-    collectibles.collectedExtraLifeEntityIds.length -
+    partyCollectibles.collectedExtraLifeEntityIds.length -
     state.collectibles.collectedExtraLifeEntityIds.length;
 
   // Coin 1-Ups key off the whole-session coin total (the base from prior levels
@@ -1467,7 +1635,7 @@ function stepActiveSimulation(
   // level boundaries as in the original. The base is constant within a level.
   const coinExtraLives = computeCoinExtraLives(
     state.sessionCoinBase + state.collectibles.collectedCoinEntityIds.length,
-    state.sessionCoinBase + collectibles.collectedCoinEntityIds.length,
+    state.sessionCoinBase + partyCollectibles.collectedCoinEntityIds.length,
   );
 
   // 1-UPs earned this frame by stomp / kicked-shell chains past 8000 points.
