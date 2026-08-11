@@ -97,6 +97,7 @@ import {
 import {
   assertValidTimedHazardProjectilesState,
   resolveTimedHazardProjectilesState,
+  timedHazardProjectilesDamagePlayer,
 } from "./timed-hazard-projectile-state";
 import {
   assertValidPipeEntryState,
@@ -110,19 +111,24 @@ import {
   requireSimulationVelocity,
 } from "./simulation-units";
 import { advancePseudoRandom } from "./pseudo-random";
-import { resolveCheepFrenzyState } from "./cheep-frenzy-state";
+import {
+  cheepFrenzyTouchesPlayer,
+  resolveCheepFrenzyState,
+} from "./cheep-frenzy-state";
 import { playerTouchesFlameHazard } from "./flame-hazards";
 import {
   assertValidPlatformsState,
   resolvePlatformsState,
 } from "./platform-state";
 import {
+  aerialFrenzyDamagesPlayer,
   assertValidAerialFrenzyState,
   resolveAerialFrenzyState,
 } from "./aerial-frenzy-state";
 import { assertValidLoopZoneState, resolveLoopZones } from "./loop-zone-state";
 import {
   assertValidHatchedSpinyState,
+  hatchedSpiniesTouchPlayer,
   resolveHatchedSpinyState,
 } from "./hatched-spiny-state";
 import type {
@@ -237,6 +243,19 @@ export function stepSimulation(
   // state is resolved. Their *outcomes* still resolve afterwards, because
   // whether a co-op player was killed depends on where the primary step left
   // the enemies. Only movement is hoisted, not the fate of anybody.
+  //
+  // Their collision sees the same world the primary's does: hidden blocks the
+  // party has revealed are solid for everyone (a co-op player used to fall
+  // straight through the platform a teammate had just bumped into existence),
+  // and god mode's walkable lava applies to every player.
+  const partyRevealedHiddenPositionKeys = new Set(
+    state.interactiveBlocks.bumpedBlockTilePositions.map((position) =>
+      hiddenBlockPositionKey(position.x, position.y),
+    ),
+  );
+  const partyWalkableHazardTileIds = movementConstants.godMode
+    ? makeLavaTileIds(levelSpec)
+    : emptyWalkableHazardTileIds;
   const coopSteps = stepCoopPlayerMovement(
     state.players.slice(1),
     coopInputCommands,
@@ -245,6 +264,8 @@ export function stepSimulation(
     levelSpec,
     state.breakableBlocks,
     state.spawnedActors.spawnedActors,
+    partyRevealedHiddenPositionKeys,
+    partyWalkableHazardTileIds,
   );
   const primaryStepped = stepPrimaryPlayer(
     state,
@@ -260,15 +281,10 @@ export function stepSimulation(
   const coopRuntimes = resolveCoopPlayerOutcomes(
     primaryStepped.players.slice(1),
     state.players.slice(1),
-    state.clock.frameDurationMilliseconds,
-    nextClock.frameIndex,
+    primaryStepped,
+    state,
     levelSpec,
-    primaryStepped.enemyMotion,
-    primaryStepped.enemies.defeatedEnemyEntityIds,
-    state.enemyMotion,
-    state.enemies.defeatedEnemyEntityIds,
     movementConstants,
-    hasLevelTimerExpired(primaryStepped.levelTimer),
   );
   // Every co-op mode keeps solid-player mechanics: players cannot walk through
   // each other, can stand on each other's heads, and a stack rides its bottom
@@ -528,6 +544,8 @@ function stepCoopPlayerMovement(
   levelSpec: LevelSpec,
   breakableBlocks: BreakableBlockState,
   spawnedActors: readonly SpawnedActor[],
+  revealedHiddenPositionKeys: ReadonlySet<string>,
+  walkableHazardTileIds: ReadonlySet<TileId>,
 ): readonly CoopPlayerStep[] {
   return coopRuntimes.map((runtime, index) => {
     if (runtime.outcome.kind !== PlayerOutcomeKind.Active) {
@@ -550,6 +568,8 @@ function stepCoopPlayerMovement(
       spawnedActors,
       runtime.vitality,
       makeCrawlMovementConstants,
+      revealedHiddenPositionKeys,
+      walkableHazardTileIds,
     );
     return {
       runtime: { ...runtime, player: stepped.player },
@@ -568,17 +588,24 @@ function stepCoopPlayerMovement(
 function resolveCoopPlayerOutcomes(
   moved: readonly PlayerRuntime[],
   previousRuntimes: readonly PlayerRuntime[],
-  frameDurationMilliseconds: SimulationClock["frameDurationMilliseconds"],
-  nextFrameIndex: SimulationClock["frameIndex"],
+  // The world as the primary step left it this frame, and the world as the
+  // previous frame left it: fates settle against the final positions, while
+  // fresh-contact edges compare against where everything genuinely was.
+  steppedWorld: SimulationState,
+  previousWorld: SimulationState,
   levelSpec: LevelSpec,
-  enemyMotion: EnemyMotionState,
-  defeatedEnemyEntityIds: readonly EntityId[],
-  previousEnemyMotion: EnemyMotionState,
-  previousDefeatedEnemyEntityIds: readonly EntityId[],
   movementConstants: MovementConstants,
-  levelTimerExpired: boolean,
 ): readonly PlayerRuntime[] {
+  const frameDurationMilliseconds =
+    previousWorld.clock.frameDurationMilliseconds;
+  const nextFrameIndex = steppedWorld.clock.frameIndex;
   const frameIndex = Number(nextFrameIndex);
+  const enemyMotion = steppedWorld.enemyMotion;
+  const defeatedEnemyEntityIds = steppedWorld.enemies.defeatedEnemyEntityIds;
+  const previousEnemyMotion = previousWorld.enemyMotion;
+  const previousDefeatedEnemyEntityIds =
+    previousWorld.enemies.defeatedEnemyEntityIds;
+  const levelTimerExpired = hasLevelTimerExpired(steppedWorld.levelTimer);
   if (moved.length === 0) {
     return moved;
   }
@@ -681,7 +708,30 @@ function resolveCoopPlayerOutcomes(
       tickedVitality.kind === PlayerVitalityKind.Recovering ||
       movementConstants.godMode;
     const enemyDamage = freshEnemyContacts.length > 0 && !damageProtected;
-    const hazardDamage = levelContact.hazard && !damageProtected;
+    // Hazard-like contact reaches every player, exactly as it reaches the
+    // primary: hazard tiles, castle firebars and podoboos, hammers/Bullet
+    // Bills/cannonballs, cheep and aerial frenzies, and hatched spinies.
+    // Bullets and frenzy entities exempt a stomp-shaped landing — the classic
+    // bounce play must not hurt the bouncer.
+    const previousPlayer = previousRuntime?.player ?? runtime.player;
+    const hazardContacted =
+      levelContact.hazard ||
+      playerTouchesFlameHazard(runtime.player, levelSpec, nextFrameIndex) ||
+      timedHazardProjectilesDamagePlayer(
+        steppedWorld.timedHazardProjectiles,
+        previousPlayer,
+        runtime.player,
+        movementConstants,
+      ) ||
+      cheepFrenzyTouchesPlayer(steppedWorld.cheepFrenzy, runtime.player) ||
+      aerialFrenzyDamagesPlayer(
+        steppedWorld.aerialFrenzy,
+        previousPlayer,
+        runtime.player,
+        movementConstants,
+      ) ||
+      hatchedSpiniesTouchPlayer(steppedWorld.hatchedSpinies, runtime.player);
+    const hazardDamage = hazardContacted && !damageProtected;
     const reason = fellIntoPit
       ? PlayerDefeatReason.PitContact
       : enemyDamage && hazardDamage

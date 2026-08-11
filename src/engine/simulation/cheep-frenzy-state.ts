@@ -172,6 +172,17 @@ function moveCheep(
   return { ...cheep, position: { x: nextX, y: nextY }, bobbingDown };
 }
 
+// Whether any live frenzy cheep touches this player — the same overlap the
+// resolver reports for the primary, asked per co-op player.
+export function cheepFrenzyTouchesPlayer(
+  state: CheepFrenzyState,
+  player: PlayerSimulationState,
+): boolean {
+  return state.slots.some(
+    (cheep) => cheep !== null && cheepOverlapsPlayer(cheep, player),
+  );
+}
+
 function cheepOverlapsPlayer(
   cheep: FrenzyCheep,
   player: PlayerSimulationState,

@@ -175,6 +175,23 @@ function entityOverlapsPlayer(
   );
 }
 
+// Whether a live frenzy entity damages THIS player: an overlap that is not a
+// stomp-shaped landing. Asked per co-op player; the resolver's own
+// `playerContacted` answers it for the primary.
+export function aerialFrenzyDamagesPlayer(
+  state: AerialFrenzyState,
+  previousPlayer: PlayerSimulationState,
+  player: PlayerSimulationState,
+  movementConstants: MovementConstants,
+): boolean {
+  return state.slots.some(
+    (entity) =>
+      entity !== null &&
+      entityOverlapsPlayer(entity, player) &&
+      !isEntityStomp(previousPlayer, player, entity, movementConstants),
+  );
+}
+
 // A stomp follows the enemy rule: the player is falling and their feet cross
 // the entity's top within the forgiveness band while overlapping it.
 function isEntityStomp(

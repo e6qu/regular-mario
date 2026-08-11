@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { makeLevelSpec } from "../domain/level-spec";
+import {
+  makeFlatLevelInput,
+  requireMechanicsLevelSpec,
+} from "./mechanics-test-support";
 import { finishRouteLevelInput } from "../levels/finish-route-level";
 import { powerUpRouteLevelInput } from "../levels/power-up-route-level";
 import { firstAuthoredLevelSpec } from "./level-test-support";
@@ -405,6 +409,81 @@ describe("simulation players array", () => {
       neutral(),
       initialMovementConstants,
       firstAuthoredLevelSpec(),
+      [neutral()],
+    );
+    expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);
+  });
+
+  // Castle flame hazards used to exist only for slot 0: a firebar swept clean
+  // through every co-op player. They now damage each player with the same
+  // tiering as any hazard.
+  it("tiers co-op firebar damage: big shrinks, small dies", () => {
+    const level = requireMechanicsLevelSpec(
+      makeFlatLevelInput(16, {
+        firebars: [
+          {
+            firebarId: "bar-1",
+            x: 4,
+            y: 8,
+            orbCount: 6,
+            direction: "clockwise",
+            speed: "slow",
+          },
+        ],
+      }),
+    );
+    const result = makeInitialSimulationStateWithPlayerVitality(
+      nominalSixtyHertzFrameDurationMilliseconds,
+      level,
+      initialMovementConstants,
+      makeInitialPlayerVitalityState(),
+      2,
+    );
+    if (!result.ok) {
+      throw new Error("expected a valid firebar state");
+    }
+    // The base orb never leaves the anchor block (~68–76, 132–140); a player
+    // overlapping it touches the firebar at any rotation frame.
+    const base = afterSpawnInvincibility(result.value);
+    const coopOnAnchor = (
+      vitality: SimulationState["players"][number]["vitality"],
+    ): SimulationState => {
+      const positioned = {
+        ...base,
+        players: [
+          base.players[0],
+          {
+            ...base.players[1]!,
+            vitality,
+            player: {
+              ...base.players[1]!.player,
+              position: {
+                x: requireSimulationPixelPosition(66, "test.flame.x"),
+                y: requireSimulationPixelPosition(126, "test.flame.y"),
+              },
+            },
+          },
+        ] as SimulationState["players"],
+      };
+      return positioned;
+    };
+    const shrunk = stepSimulation(
+      coopOnAnchor(makePoweredPlayerVitalityState()),
+      neutral(),
+      initialMovementConstants,
+      level,
+      [neutral()],
+    );
+    expect(shrunk.players[1]!.vitality.kind).toBe(
+      PlayerVitalityKind.Recovering,
+    );
+    expect(shrunk.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Active);
+
+    const killed = stepSimulation(
+      coopOnAnchor(makeInitialPlayerVitalityState()),
+      neutral(),
+      initialMovementConstants,
+      level,
       [neutral()],
     );
     expect(killed.players[1]!.outcome.kind).toBe(PlayerOutcomeKind.Defeated);

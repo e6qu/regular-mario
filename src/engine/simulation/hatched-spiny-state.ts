@@ -135,6 +135,15 @@ function stepSpiny(
   };
 }
 
+// Whether any hatched spiny touches this player. Spinies are never stompable —
+// any overlap is harmful — so this is a plain per-player contact test.
+export function hatchedSpiniesTouchPlayer(
+  state: HatchedSpinyState,
+  player: PlayerSimulationState,
+): boolean {
+  return state.spinies.some((spiny) => spinyOverlapsPlayer(spiny, player));
+}
+
 function spinyOverlapsPlayer(
   spiny: HatchedSpiny,
   player: PlayerSimulationState,
