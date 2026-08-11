@@ -35,18 +35,41 @@ type Manifest = {
   readonly actorSprites: Readonly<Record<string, unknown>>;
 };
 
+type ContentSetsIndex = {
+  readonly assetSets: readonly { readonly id: string }[];
+  readonly mapSets: readonly { readonly id: string }[];
+};
+
 function loadShippedManifest(): Manifest {
   const candidates = globSync(
     "public/game-content/content-set-bundles/*/remote-manifest.json",
   );
-  const path = candidates[0];
-  if (path === undefined) {
+  if (candidates.length === 0) {
     throw new Error(
       "No content bundle found. Run `pnpm run build:release-content` first; " +
         "this check compares levels against the art that actually ships.",
     );
   }
-  return JSON.parse(readFileSync(path, "utf8")) as Manifest;
+  // A developer machine may hold extra local-only bundles beside the released
+  // one (the ROM dev skin never ships and never exists in CI). The index names
+  // what actually ships, so resolve the bundle through it rather than taking
+  // whichever directory the filesystem lists first.
+  const index = JSON.parse(
+    readFileSync("public/game-content/content-sets-index.json", "utf8"),
+  ) as ContentSetsIndex;
+  const assetSetId = index.assetSets[0]?.id;
+  const mapSetId = index.mapSets[0]?.id;
+  if (assetSetId === undefined || mapSetId === undefined) {
+    throw new Error("The content-sets index names no released bundle.");
+  }
+  const shippedPath = `public/game-content/content-set-bundles/${assetSetId}__${mapSetId}/remote-manifest.json`;
+  if (!candidates.includes(shippedPath)) {
+    throw new Error(
+      `The released bundle "${shippedPath}" is absent. Run ` +
+        "`pnpm run build:release-content` first.",
+    );
+  }
+  return JSON.parse(readFileSync(shippedPath, "utf8")) as Manifest;
 }
 
 /**
