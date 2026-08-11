@@ -593,6 +593,20 @@ function renderGame(
   const gameError = document.createElement("p");
   gameError.className = "multiplayer-game-error";
   gameError.setAttribute("role", "alert");
+  // Errors announce and then clear. A rejected request (say, R while alive —
+  // deliberately server-judged) used to paint a red banner that stayed over
+  // gameplay for the rest of the session.
+  let gameErrorTimeout: number | undefined;
+  const showGameError = (text: string): void => {
+    gameError.textContent = text;
+    if (gameErrorTimeout !== undefined) {
+      window.clearTimeout(gameErrorTimeout);
+    }
+    gameErrorTimeout = window.setTimeout(() => {
+      gameError.textContent = "";
+      gameErrorTimeout = undefined;
+    }, 6_000);
+  };
   let chatEditing = false;
   const makeChat = (inputLabel: string): HTMLElement => {
     const chat = document.createElement("section");
@@ -714,6 +728,8 @@ function renderGame(
   }
   let localPlayerSlot: number | undefined;
   let prediction: ReturnType<typeof makePrediction> | undefined;
+  // The slot-and-identity roster the current prediction was built against.
+  let predictionRosterKey: string | undefined;
   // A delayed stream can contain many new authoritative frames before the
   // server has consumed this browser's newest input. Reconciliation is safe
   // only when its acknowledgement advances; otherwise rewinding to each old
@@ -773,6 +789,14 @@ function renderGame(
     window.removeEventListener("keydown", keydown);
     window.removeEventListener("keyup", keyup);
     window.removeEventListener("keydown", escapeLeave);
+    window.removeEventListener("blur", releaseHeldInputOnFocusLoss);
+    document.removeEventListener(
+      "visibilitychange",
+      releaseHeldInputWhenHidden,
+    );
+    if (gameErrorTimeout !== undefined) {
+      window.clearTimeout(gameErrorTimeout);
+    }
     if (activeGameSessionByMount.get(mount)?.dispose === dispose) {
       activeGameSessionByMount.delete(mount);
     }
@@ -793,12 +817,16 @@ function renderGame(
     dispose();
     try {
       await requestJson("/game/leave", { method: "POST" });
-      await renderLobby(mount, userAssetBundle);
     } catch (error) {
-      exitingGame = false;
-      gameError.textContent =
-        error instanceof Error ? error.message : "Could not leave game.";
+      // The session's socket, renderer and inputs are already gone — leaving
+      // the player on a dead shell with a banner was unrecoverable. The lobby
+      // always is: a still-owned game resumes there, and leave can be retried.
+      gameShell.setAttribute(
+        "data-game-error",
+        error instanceof Error ? error.message : "Could not leave game.",
+      );
     }
+    await renderLobby(mount, userAssetBundle);
   }
   async function cancelCurrentGame(): Promise<void> {
     if (exitingGame) {
@@ -809,12 +837,13 @@ function renderGame(
     dispose();
     try {
       await requestJson(`/games/${gameId}/end`, { method: "POST" });
-      await renderLobby(mount, userAssetBundle);
     } catch (error) {
-      exitingGame = false;
-      gameError.textContent =
-        error instanceof Error ? error.message : "Could not cancel game.";
+      gameShell.setAttribute(
+        "data-game-error",
+        error instanceof Error ? error.message : "Could not cancel game.",
+      );
     }
+    await renderLobby(mount, userAssetBundle);
   }
   // The menu's open state lives here, not in the attribute. It used to be read
   // back out of the DOM — `getAttribute("data-menu-open") !== "true"` — which
@@ -879,11 +908,20 @@ function renderGame(
     // the local avatar. Present it each browser frame so coins, enemies and
     // other simulation-driven actors move at 60 Hz; 20 Hz server receipts
     // remain the reconciliation baseline.
-    const targetCameraLeftPixels = Math.max(
-      0,
-      Number(predictedPlayer.position.x) -
-        multiplayerClientCameraWidthPixels / 2,
-    );
+    //
+    // A defeated player's runtime is frozen where they died, so a camera that
+    // always follows the local player parks a spectator on their own corpse —
+    // unable to see the party they may revive into. Spectators follow the
+    // authoritative shared camera (the party's leader) instead.
+    const spectating =
+      predictedRuntime.outcome.kind !== PlayerOutcomeKind.Active;
+    const targetCameraLeftPixels = spectating
+      ? snapshot.cameraLeftPixels
+      : Math.max(
+          0,
+          Number(predictedPlayer.position.x) -
+            multiplayerClientCameraWidthPixels / 2,
+        );
     clientCameraLeftPixels =
       clientCameraLeftPixels === undefined
         ? targetCameraLeftPixels
@@ -954,10 +992,13 @@ function renderGame(
     );
     lastPredictionAnimationMilliseconds = nowMilliseconds;
     predictionFrameRemainderMilliseconds += elapsedMilliseconds;
+    // Only a playing phase advances the local simulation. The server does not
+    // step a paused game, so predicting through a pause accumulated the whole
+    // pause duration as silent divergence — and an idle player produces no
+    // acknowledgement progress afterwards, so nothing ever corrected it.
     if (
       prediction !== undefined &&
-      (latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing ||
-        latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Paused)
+      latestAuthoritativeSnapshot?.phase === MultiplayerGamePhase.Playing
     ) {
       while (
         predictionFrameRemainderMilliseconds >=
@@ -972,15 +1013,19 @@ function renderGame(
     } else {
       predictionFrameRemainderMilliseconds = 0;
     }
-    renderPresentation();
+    // Re-arm before painting: a throw inside presentation must surface, but it
+    // must not silently stop every future frame while inputs and intervals
+    // keep running against a frozen canvas.
     if (!disposed) {
       presentationAnimationFrame =
         window.requestAnimationFrame(animatePresentation);
     }
+    renderPresentation();
   }
   async function refreshGameChat(): Promise<void> {
     const response = await requestJson<{
       readonly messages: readonly {
+        readonly id: number;
         readonly nickname: string;
         readonly text: string;
       }[];
@@ -992,8 +1037,11 @@ function renderGame(
       for (const chatLog of chatLogs) {
         chatLog.textContent = rendered === "" ? "No messages yet." : rendered;
       }
-      response.messages.forEach((message, index) => {
-        const messageKey = `${String(index)}:${message.nickname}:${message.text}`;
+      response.messages.forEach((message) => {
+        // Keyed by the server's stable message id. An index-based key re-toasted
+        // every surviving message each time an old one rolled off the retained
+        // window and the survivors shifted position.
+        const messageKey = String(message.id);
         if (seenGameChatMessages.has(messageKey)) {
           return;
         }
@@ -1038,6 +1086,7 @@ function renderGame(
       );
       prediction = undefined;
       localPlayerSlot = undefined;
+      predictionRosterKey = undefined;
       latestImmediatelyPredictedInputSequence = -1;
       lastReconciledImmediatelyPredictedInputSequence = -1;
       completionConfirmationInFlight = false;
@@ -1056,13 +1105,23 @@ function renderGame(
       (player) => player.playerId === profile.playerId,
     );
     if (local !== undefined) {
+      // The roster is compared by identity, not by count. One player leaving
+      // while another joins between two received snapshots keeps the count and
+      // possibly this client's slot unchanged, yet every assumption inside the
+      // prediction — which body answers to which slot, whose held command is
+      // remembered — belongs to the old membership.
+      const rosterKey = snapshot.players
+        .map((player) => `${String(player.slot)}:${player.playerId}`)
+        .join(",");
       const requiresPredictionBaseline =
         localPlayerSlot !== local.slot ||
         prediction === undefined ||
+        predictionRosterKey !== rosterKey ||
         prediction.snapshot().state.players.length !== snapshot.players.length;
       if (requiresPredictionBaseline) {
         localPlayerSlot = local.slot;
         prediction = makePrediction(currentLevelId, local.slot);
+        predictionRosterKey = rosterKey;
       }
       const activePrediction = prediction;
       if (activePrediction === undefined) {
@@ -1199,19 +1258,39 @@ function renderGame(
       return;
     }
     if (message.type === "error" && "error" in message) {
-      gameError.textContent =
+      showGameError(
         typeof message.error === "string"
           ? message.error
-          : "Multiplayer protocol rejected a message.";
+          : "Multiplayer protocol rejected a message.",
+      );
       return;
     }
     if (message.type === "games-changed" && !exitingGame) {
-      void requestJson<GameSnapshot>(`/games/${gameId}/snapshot`).catch(() => {
-        if (!disposed) {
-          dispose();
-          void renderLobby(mount, userAssetBundle);
-        }
-      });
+      void requestJson<GameSnapshot>(`/games/${gameId}/snapshot`)
+        .then((snapshot) => {
+          if (disposed) {
+            return;
+          }
+          // A membership change that removed THIS player (an admin boot, a
+          // server-side leave) arrives as a game that still exists but no
+          // longer contains them. Staying mounted froze the session as a
+          // ghost: no prediction slot, no path back to the lobby.
+          const stillMember = snapshot.players.some(
+            (player) => player.playerId === profile.playerId,
+          );
+          if (!stillMember) {
+            dispose();
+            void renderLobby(mount, userAssetBundle);
+            return;
+          }
+          displaySnapshot(snapshot);
+        })
+        .catch(() => {
+          if (!disposed) {
+            dispose();
+            void renderLobby(mount, userAssetBundle);
+          }
+        });
       return;
     }
     if (
@@ -1233,6 +1312,7 @@ function renderGame(
       const command = relayedMessage["command"];
       if (
         prediction !== undefined &&
+        relayedMessage["gameId"] === gameId &&
         typeof slot === "number" &&
         isRecord(command)
       ) {
@@ -1450,8 +1530,9 @@ function renderGame(
         String(reviveRequestCount + 1),
       );
       void requestJson("/game/revive", { method: "POST" }).catch((error) => {
-        gameError.textContent =
-          error instanceof Error ? error.message : "Could not revive player.";
+        showGameError(
+          error instanceof Error ? error.message : "Could not revive player.",
+        );
       });
       return;
     }
@@ -1509,8 +1590,29 @@ function renderGame(
     held.delete(event.code);
     sendInput(true);
   };
+  // Alt-tab or tab-switch swallows the keyup: without this, the held command
+  // keeps heartbeating to the server and the player runs on — often into a pit
+  // — while nobody is looking at the window.
+  const releaseHeldInputOnFocusLoss = (): void => {
+    if (held.size === 0) {
+      return;
+    }
+    held.clear();
+    if (socket.readyState === WebSocket.OPEN) {
+      sendInput(true);
+    } else {
+      latestPredictionCommand = neutralInputCommand;
+    }
+  };
+  const releaseHeldInputWhenHidden = (): void => {
+    if (document.visibilityState === "hidden") {
+      releaseHeldInputOnFocusLoss();
+    }
+  };
   window.addEventListener("keydown", keydown);
   window.addEventListener("keyup", keyup);
+  window.addEventListener("blur", releaseHeldInputOnFocusLoss);
+  document.addEventListener("visibilitychange", releaseHeldInputWhenHidden);
   presentationAnimationFrame =
     window.requestAnimationFrame(animatePresentation);
   const snapshotInterval = window.setInterval(() => void update(), 50);
@@ -1723,6 +1825,7 @@ import {
   type SimulationInputCommand,
 } from "../engine/simulation/input-command";
 import { makeLevelSpec } from "../engine/domain/level-spec";
+import { PlayerOutcomeKind } from "../engine/simulation/player-outcome";
 import { initialMovementConstants } from "../engine/simulation/movement-model";
 import { makeInitialSimulationState } from "../engine/simulation/simulation-state";
 import { nominalSixtyHertzFrameDurationMilliseconds } from "../engine/simulation/simulation-units";

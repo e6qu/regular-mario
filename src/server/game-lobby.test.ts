@@ -272,6 +272,116 @@ describe("public multiplayer lobby", () => {
     ).toEqual([mira.playerId, ren.playerId].sort());
   });
 
+  // The creator's absence must never break the party's handoff: this throw
+  // used to escape into the shared authoritative frame loop and freeze every
+  // game on the server.
+  it("advances the next course when the creator has left", () => {
+    const lobby = makeTwoCourseLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const game = lobby.createGame(
+      mira,
+      "finish-route",
+      MultiplayerGameMode.Regular,
+    );
+    lobby.joinGame(ren, game.gameId);
+    lobby.startGame(mira.playerId, game.gameId);
+    lobby.leaveGame(mira.playerId);
+
+    let finished = false;
+    let frame = 1;
+    for (; frame <= 2_000 && !finished; frame += 1) {
+      lobby.submitGameInput(
+        {
+          playerId: ren.playerId,
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: {
+            horizontal: HorizontalInput.Right,
+            jumpPressed: false,
+            runHeld: true,
+            firePressed: false,
+            upHeld: false,
+            downHeld: false,
+          },
+        },
+        frame,
+      );
+      lobby.stepAll(frame);
+      finished =
+        lobby.gameSnapshot(game.gameId).phase === MultiplayerGamePhase.Finished;
+    }
+    expect(finished, "the remaining member should reach the goal").toBe(true);
+
+    lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
+
+    const handoff = lobby.gameSnapshot(game.gameId);
+    expect(handoff.levelId).toBe("first-authored");
+    expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
+    expect(handoff.players.map((player) => player.playerId)).toEqual([
+      ren.playerId,
+    ]);
+  });
+
+  // A rejoined creator sits at a later slot, so the member list handed to the
+  // next course's runner is no longer creator-first. The runner seats its host
+  // at slot 0 and joins the rest — an unordered list used to silently drop
+  // whichever member happened to be first.
+  it("keeps every member across the handoff after the creator left and rejoined", () => {
+    const lobby = makeTwoCourseLobby();
+    const mira = profile("mira", "Mira");
+    const ren = profile("ren", "Ren");
+    const game = lobby.createGame(
+      mira,
+      "finish-route",
+      MultiplayerGameMode.Regular,
+    );
+    lobby.joinGame(ren, game.gameId);
+    lobby.startGame(mira.playerId, game.gameId);
+    lobby.leaveGame(mira.playerId);
+    lobby.joinGame(mira, game.gameId);
+
+    // Ren runs and periodically jumps: the rejoined creator spawns idle in the
+    // shared screen ahead of the runner, and players are solid — the runner
+    // must hop over them on the way to the goal.
+    let finished = false;
+    let frame = 1;
+    for (; frame <= 3_000 && !finished; frame += 1) {
+      lobby.submitGameInput(
+        {
+          playerId: ren.playerId,
+          sequence: frame,
+          intendedFrame: frame,
+          receivedAtMilliseconds: frame,
+          command: {
+            horizontal: HorizontalInput.Right,
+            jumpPressed: frame % 48 < 12,
+            runHeld: true,
+            firePressed: false,
+            upHeld: false,
+            downHeld: false,
+          },
+        },
+        frame,
+      );
+      lobby.stepAll(frame);
+      finished =
+        lobby.gameSnapshot(game.gameId).phase === MultiplayerGamePhase.Finished;
+    }
+    expect(finished, "a member should reach the goal").toBe(true);
+
+    lobby.stepAll(frame + multiplayerCompletionPresentationMilliseconds);
+
+    const handoff = lobby.gameSnapshot(game.gameId);
+    expect(handoff.levelId).toBe("first-authored");
+    expect(handoff.phase).toBe(MultiplayerGamePhase.Playing);
+    expect(
+      handoff.players.map((player) => player.playerId).sort(),
+      "both members carry over into the next course",
+    ).toEqual([mira.playerId, ren.playerId].sort());
+  });
+
   it("keeps lobby and game chat separate and membership-gated", () => {
     const lobby = makeLobby();
     const mira = profile("mira", "Mira");
