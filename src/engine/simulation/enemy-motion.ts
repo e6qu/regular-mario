@@ -895,67 +895,46 @@ export function requireArmoredEnemyActorState(
   return armoredActor;
 }
 
+/**
+ * Every enemy actor of a motion state, indexed by entity id.
+ *
+ * Built once per state and remembered against it. The state is replaced whole
+ * every frame and never mutated, so the index cannot go stale — and the
+ * renderer asks for the same actors two to four times each, per actor, per
+ * frame, which used to mean a linear scan across five separate arrays every
+ * time.
+ */
+const enemyActorIndexByMotionState = new WeakMap<
+  EnemyMotionState,
+  ReadonlyMap<string, EnemyActorRuntimeState>
+>();
+
+function enemyActorIndex(
+  enemyMotion: EnemyMotionState,
+): ReadonlyMap<string, EnemyActorRuntimeState> {
+  const cached = enemyActorIndexByMotionState.get(enemyMotion);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const index = new Map<string, EnemyActorRuntimeState>();
+  for (const actor of collectEnemyActorRuntimeStates(enemyMotion)) {
+    index.set(actor.entityId, actor);
+  }
+  enemyActorIndexByMotionState.set(enemyMotion, index);
+  return index;
+}
+
 export function requireEnemyActorState(
   enemyMotion: EnemyMotionState,
   entityId: string,
 ): EnemyActorRuntimeState {
-  const patrolActor = enemyMotion.patrolActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
+  const actor = enemyActorIndex(enemyMotion).get(entityId);
 
-  if (patrolActor !== undefined) {
-    return patrolActor;
+  if (actor === undefined) {
+    throw new Error(`Enemy actor ${entityId} is missing.`);
   }
 
-  const flyingActor = enemyMotion.flyingActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
-
-  if (flyingActor !== undefined) {
-    return flyingActor;
-  }
-
-  const chasingActor = enemyMotion.chasingActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
-
-  if (chasingActor !== undefined) {
-    return chasingActor;
-  }
-
-  const armoredActor = enemyMotion.armoredActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
-
-  if (armoredActor !== undefined) {
-    return armoredActor;
-  }
-
-  const throwingActor = enemyMotion.throwingActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
-
-  if (throwingActor !== undefined) {
-    return throwingActor;
-  }
-
-  const aerialThrowingActor = enemyMotion.aerialThrowingActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
-
-  if (aerialThrowingActor !== undefined) {
-    return aerialThrowingActor;
-  }
-
-  const piranhaPlantActor = enemyMotion.piranhaPlantActors.find(
-    (candidate) => candidate.entityId === entityId,
-  );
-
-  if (piranhaPlantActor !== undefined) {
-    return piranhaPlantActor;
-  }
-
-  throw new Error(`Enemy actor ${entityId} is missing.`);
+  return actor;
 }
 
 function extractEntityId(actor: unknown): unknown {

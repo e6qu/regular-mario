@@ -614,6 +614,19 @@ export class BootScene extends Phaser.Scene {
     Phaser.GameObjects.Container
   > = new Map();
   private levelRenderedObjects: readonly Phaser.GameObjects.GameObject[] = [];
+  // Static level art paired with the column it occupies, so everything far off
+  // camera can be kept out of the render list. Only art whose visibility
+  // nothing else manages goes in here — see collectCullableTileArt.
+  private cullableTileArt: readonly {
+    readonly object: Phaser.GameObjects.GameObject & {
+      readonly x: number;
+      setVisible(visible: boolean): unknown;
+    };
+    readonly column: number;
+  }[] = [];
+  // The column window currently shown, so culling only runs when the camera
+  // crosses a tile boundary rather than every frame.
+  private culledColumnWindow: { first: number; last: number } | undefined;
   private readonly levelSequence: readonly LevelSpecInput[] | undefined;
   private readonly warpLevelsByName:
     | ReadonlyMap<string, LevelSpecInput>
@@ -753,6 +766,8 @@ export class BootScene extends Phaser.Scene {
   // One reusable view object for per-co-op-player sprite resolution; see
   // renderCoopPlayers. Never escapes the render call that fills it.
   private coopSpriteView: SimulationState | undefined;
+  // Bonk shouts for the co-op players, pooled per slot like their name labels.
+  private readonly coopReactionLabels: Phaser.GameObjects.Text[] = [];
   // How many broken/bumped blocks the tile scans last accounted for. A
   // mismatch (either direction, so a level rebuild resets naturally) means
   // the persistent tile art needs rescanning.
@@ -2005,6 +2020,7 @@ export class BootScene extends Phaser.Scene {
     this.levelRenderedObjects = this.children.list.filter(
       (child) => !childrenBefore.has(child),
     );
+    this.collectCullableTileArt();
 
     this.levelAdvanceDelayFramesRemaining = 0;
     this.levelCompleteSoundPlayed = false;
@@ -5373,6 +5389,96 @@ export class BootScene extends Phaser.Scene {
     return set;
   }
 
+  /**
+   * Gather the static level art that can be hidden when it is off camera.
+   *
+   * Deliberately excludes every object whose visibility something else owns —
+   * breakable bricks (hidden once broken), hidden blocks (invisible until
+   * revealed), spent-block swaps and castle bridge planks. Culling those would
+   * fight the code that manages them and could re-reveal a broken brick.
+   */
+  private collectCullableTileArt(): void {
+    const managed = new Set<Phaser.GameObjects.GameObject>();
+    for (const objects of this.breakableTileRenderObjects.values()) {
+      for (const object of objects) {
+        managed.add(object);
+      }
+    }
+    for (const objects of this.castleBridgeTilesByColumn.values()) {
+      for (const object of objects) {
+        managed.add(object);
+      }
+    }
+    for (const swap of this.usedBlockSwaps.values()) {
+      managed.add(swap.image);
+      if (swap.glyph !== undefined) {
+        managed.add(swap.glyph);
+      }
+    }
+    // Hidden blocks carry no render objects of their own (they are invisible
+    // until revealed, when a fresh image is created), so nothing to exclude.
+    const tileSize = this.levelSpec.tileSizePixels;
+    this.cullableTileArt = this.levelRenderedObjects.flatMap((object) => {
+      if (managed.has(object)) {
+        return [];
+      }
+      const candidate = object as Phaser.GameObjects.GameObject & {
+        x?: unknown;
+        setVisible?: unknown;
+      };
+      if (
+        typeof candidate.x !== "number" ||
+        !Number.isFinite(candidate.x) ||
+        typeof candidate.setVisible !== "function"
+      ) {
+        return [];
+      }
+      return [
+        {
+          object: candidate as (typeof this.cullableTileArt)[number]["object"],
+          column: Math.floor(candidate.x / tileSize),
+        },
+      ];
+    });
+    this.culledColumnWindow = undefined;
+  }
+
+  /**
+   * Keep only the columns near the camera in the render list.
+   *
+   * The Canvas renderer does no frustum culling of its own: it walks every
+   * object in the display list each frame and asks it to draw. On a
+   * 224-column course that is roughly a thousand objects of which about a
+   * tenth are on screen. Hiding the rest is the difference between drawing the
+   * level and drawing the visible part of it.
+   */
+  private updateTileCulling(): void {
+    if (this.cullableTileArt.length === 0) {
+      return;
+    }
+    const camera = this.cameras.main;
+    const tileSize = this.levelSpec.tileSizePixels;
+    // A margin either side so a fast camera never outruns the window, and so
+    // partially-entered columns are already drawn.
+    const marginColumns = 3;
+    const first = Math.floor(camera.scrollX / tileSize) - marginColumns;
+    const last =
+      Math.ceil((camera.scrollX + camera.displayWidth) / tileSize) +
+      marginColumns;
+    const current = this.culledColumnWindow;
+    if (
+      current !== undefined &&
+      current.first === first &&
+      current.last === last
+    ) {
+      return;
+    }
+    this.culledColumnWindow = { first, last };
+    for (const { object, column } of this.cullableTileArt) {
+      object.setVisible(column >= first && column <= last);
+    }
+  }
+
   private renderSimulationState(): void {
     // This is a render receipt, not a transport receipt: browser QA uses it to
     // prove that Phaser has consumed the state that is about to be painted.
@@ -5462,6 +5568,7 @@ export class BootScene extends Phaser.Scene {
         this.simulationState.players[0].player.collider.width,
         this.simulationState.players[0].player.collider.height,
       );
+    this.updateTileCulling();
     this.emitSwimBubbles();
 
     // God mode on lava: the player stands ON the surface (the engine makes it
@@ -5599,6 +5706,7 @@ export class BootScene extends Phaser.Scene {
       .setText("ouch")
       .setPosition(headBonkX + bonkShake, headBonkY)
       .setVisible(headBonking);
+    this.renderCoopReactionText();
     this.renderPlayerBloodiness();
 
     this.updateScoreHud(
@@ -6209,6 +6317,10 @@ export class BootScene extends Phaser.Scene {
       label.destroy();
     }
     this.coopPlayerNameLabels.length = 0;
+    for (const label of this.coopReactionLabels) {
+      label.destroy();
+    }
+    this.coopReactionLabels.length = 0;
     // The nickname survives on purpose: the label object is scene state, the
     // name is presentation data that the next render re-applies.
     this.primaryPlayerNameLabel?.destroy();
@@ -6504,6 +6616,61 @@ export class BootScene extends Phaser.Scene {
         // over it, not vanish behind it.
         .setDepth(60)
     );
+  }
+
+  /**
+   * Every player's bonk shout, not just the primary's.
+   *
+   * Co-op players carry their own reaction state now, but only slot 0's was
+   * ever drawn — a team-mate could headbutt a brick with nothing to show for
+   * it. Labels are pooled per co-op slot alongside their name labels.
+   */
+  private renderCoopReactionText(): void {
+    if (!this.exaggeratedReactions) {
+      for (const label of this.coopReactionLabels) {
+        label.setVisible(false);
+      }
+      return;
+    }
+    const coopRuntimes = this.simulationState.players.slice(1);
+    while (this.coopReactionLabels.length < coopRuntimes.length) {
+      this.coopReactionLabels.push(
+        this.add
+          .text(0, 0, "ouch", {
+            color: "#b91c1c",
+            fontFamily: "monospace",
+            fontSize: "12px",
+            fontStyle: "bold",
+          })
+          .setOrigin(0.5, 1)
+          .setDepth(50)
+          .setVisible(false),
+      );
+    }
+    while (this.coopReactionLabels.length > coopRuntimes.length) {
+      this.coopReactionLabels.pop()?.destroy();
+    }
+    coopRuntimes.forEach((runtime, index) => {
+      const label = this.coopReactionLabels[index];
+      if (label === undefined) {
+        return;
+      }
+      const bonking =
+        runtime.outcome.kind === PlayerOutcomeKind.Active &&
+        runtime.reaction.kind === PlayerReactionKind.HeadBonk;
+      label.setVisible(bonking);
+      if (!bonking) {
+        return;
+      }
+      const shake =
+        (this.simulationState.clock.frameIndex % 2 === 0 ? 1 : -1) * 1.5;
+      label.setPosition(
+        Number(runtime.player.position.x) +
+          Number(runtime.player.collider.width) / 2 +
+          shake,
+        Number(runtime.player.position.y) - 4,
+      );
+    });
   }
 
   private renderPlayerBloodiness(): void {
@@ -8061,7 +8228,12 @@ function renderLevelTiles(
     for (const [columnIndex, tileId] of row.entries()) {
       const collision = requireTileCollision(collisionLookup, tileId);
       const userImage = userAssetBundle.tileImages.get(tileId);
-      const childrenBeforeTileRender = new Set(scene.children.list);
+      // Where this cell's objects will start in the display list. Snapshotting
+      // the whole list into a Set per cell was ~3,400 cells × a list growing
+      // toward a thousand objects — on the order of a million insertions per
+      // level build, which multiplayer pays at every course handoff. Objects
+      // are only ever appended, so an index is the same answer.
+      const childrenBeforeTileRender = scene.children.list.length;
 
       if (collision === TileCollisionKind.Hidden) {
         // Invisible until bumped — record its position and render no art now.
@@ -8140,9 +8312,7 @@ function renderLevelTiles(
       if (collision === TileCollisionKind.Breakable) {
         breakableTileRenderObjects.set(
           makeTileRenderKey(columnIndex, rowIndex),
-          scene.children.list.filter(
-            (child) => !childrenBeforeTileRender.has(child),
-          ),
+          scene.children.list.slice(childrenBeforeTileRender),
         );
       }
 
@@ -8151,9 +8321,7 @@ function renderLevelTiles(
       if (tileId === castleBridgeTileId) {
         castleBridgeTilesByColumn.set(
           columnIndex,
-          scene.children.list.filter(
-            (child) => !childrenBeforeTileRender.has(child),
-          ),
+          scene.children.list.slice(childrenBeforeTileRender),
         );
       }
 
