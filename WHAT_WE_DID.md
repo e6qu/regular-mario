@@ -5,6 +5,41 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-13 (later) — render culling, and a wire format left alone on evidence
+
+- **The wire format was measured, not rewritten.** Per-message deflate landed
+  in the previous pass, and it collapses exactly the repetition a path
+  dictionary or float quantization would target: a sixteen-player keyframe is
+  11.4 KB raw but **1.6 KB compressed**, a delta 1376 → **346 bytes**, and one
+  client-second of traffic 38 KiB → **8 KiB**. Quantizing floats would have
+  bought ~19% of the raw bytes — almost nothing after deflate — at the cost of
+  the "the wire state is exactly the simulation state" invariant that
+  `game-runner.test.ts` pins. The measurement is now a committed budget test
+  (`wire-budget.test.ts`) so a new per-frame field cannot quietly blow it.
+- **Off-camera level art is culled.** The Canvas renderer does no frustum
+  culling: it walks the whole display list every frame. On a 224-column course
+  that is ~1000 objects of which about a tenth are on screen. Art outside a
+  column window either side of the camera is hidden, updated only when the
+  camera crosses a tile boundary. Art whose visibility something else owns is
+  excluded — breakable bricks, spent-block swaps, castle bridge planks, and
+  the cutscene-managed flagpole flag and ball.
+- **Enemy actor lookup is indexed** per motion state (built once, remembered
+  against a state that is replaced whole each frame) instead of a linear scan
+  across five arrays, two to four times per enemy per frame.
+- **The level build no longer snapshots the display list per tile cell** —
+  ~3,400 cells against a list approaching a thousand objects, on the order of
+  a million insertions per build, paid at every multiplayer course handoff.
+- **Presenting happens once per frame**, not additionally on every receipt and
+  every input send.
+- **Co-op players get their own bonk shouts** in shabby mode; only slot 0's
+  reaction was ever drawn.
+
+Two culling defects were caught by the browser gates rather than by review:
+the window was computed from `camera.scrollX`, which on a zoomed camera is not
+the world-left edge (four screenshot regressions), and the flagpole ball was
+being culled while a test reads its visibility as "still crowning the pole"
+(both cutscene tests).
+
 ## 2026-08-13 — collision correctness and a measured netcode/render sweep
 
 Measured first, on real World 1-1 with sixteen players: the simulation steps

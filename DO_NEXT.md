@@ -16,12 +16,23 @@
   would weaken the "the wire state is exactly the simulation state" invariant
   that `game-runner.test.ts` pins, so weigh that before taking it.
 
-- Remaining audited-but-unfixed render costs, in value order: Canvas renderer
-  does no frustum culling so the whole map's tiles are walked per frame
-  (`select-renderer.ts` default, or cull by column window); `renderPresentation`
-  runs on socket receipts and input sends as well as the frame loop; enemy
-  state lookup is a linear scan per actor per frame; the level build is
-  O(tiles × display-list) at every course handoff.
+- Tile culling is renderer-agnostic and now in place, so switching the default
+  renderer to WebGL is an independent question — take it on its own, with the
+  `boot.spec` screenshot baselines regenerated and inspected, never bundled
+  with behaviour changes.
+
+- Keep culling honest about ownership. Only art whose visibility nothing else
+  manages may be culled; breakable bricks, spent-block swaps, castle bridge
+  planks and the cutscene-managed flagpole flag/ball are excluded, because
+  their `visible` flag means something other than "on camera". Cull against
+  `camera.worldView`, never `scrollX` — on a zoomed camera they are different
+  coordinates.
+
+- Do not rewrite the wire format without re-measuring against deflate first.
+  As of 2026-08-13 a sixteen-player keyframe compresses 11.4 KB → 1.6 KB and a
+  delta 1376 → 346 bytes, so path dictionaries and float quantization are
+  optimising what the compressor already removed — and quantizing would cost
+  the exact-wire-state invariant. `wire-budget.test.ts` holds the budget.
 
 - Co-op mechanics parity is complete (see BUGS.md "closed" entry). Preserve
   its contracts: enemies target their NEAREST active player (activation

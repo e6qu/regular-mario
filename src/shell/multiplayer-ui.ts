@@ -1212,7 +1212,11 @@ function renderGame(
     // cadence. Apply it once here; the animation loop below only supplies the
     // lightweight predicted/interpolated player transforms.
     renderer.render(snapshot, authoritativeState);
-    renderPresentation();
+    // Presenting is the animation loop's job. Calling it here as well meant a
+    // receipt (20/s) and every input send (up to ~30/s while a key is held)
+    // each ran a full presentation pass — interpolation, a sixteen-element
+    // position map and the instrument writes — for a frame that had not been
+    // painted yet. The loop picks this up within one frame.
     if (
       snapshot.phase === MultiplayerGamePhase.Finished &&
       !completionPresentationStarted
@@ -1519,7 +1523,6 @@ function renderGame(
       "data-debug-input-send-count",
       String(sentInputCount),
     );
-    renderPresentation();
   }
   socket.addEventListener("open", () => {
     socketLifecycle = "open";
