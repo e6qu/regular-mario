@@ -44,7 +44,16 @@ export function runSpotlightWalkthrough(
     spotlight.remove();
     tip.remove();
     window.removeEventListener("resize", show);
+    window.removeEventListener("keydown", onKeyDown);
   };
+  // Escape leaves, as it does everywhere else in the product. The tip declares
+  // itself a dialog and offered no keyboard way out.
+  const onKeyDown = (event: KeyboardEvent): void => {
+    if (event.key === "Escape") {
+      finish();
+    }
+  };
+  window.addEventListener("keydown", onKeyDown);
   let index = 0;
   function show(): void {
     const step = steps[index];
@@ -58,13 +67,51 @@ export function runSpotlightWalkthrough(
     spotlight.style.top = `${String(rect.top - 6)}px`;
     spotlight.style.width = `${String(rect.width + 12)}px`;
     spotlight.style.height = `${String(rect.height + 12)}px`;
-    // Place the tip below the target, or above if there's no room.
-    const below = rect.bottom + 12;
-    const useAbove = below + 160 > window.innerHeight;
-    tip.style.left = `${String(Math.max(12, Math.min(rect.left, window.innerWidth - 360)))}px`;
-    tip.style.top = useAbove
-      ? `${String(Math.max(tipMinTopPixels, rect.top - 176))}px`
-      : `${String(below)}px`;
+    // Put the tip where it does not cover the thing it is describing — or, on
+    // a screen with no room for that, where it covers the least.
+    //
+    // It used to go below the target and flip above when the bottom ran out,
+    // with nothing stopping either position from landing on top of the panel
+    // it was pointing at. On a short landscape screen the card came down over
+    // the menu's own buttons, and because its controls take pointer events the
+    // primary action underneath became unclickable — including through a
+    // disabled Back button, which blocks a click without doing anything.
+    const gapPixels = 12;
+    const tipWidthPixels = 340;
+    const tipHeightPixels = 176;
+    const fitsHorizontally = (left: number): boolean =>
+      left >= gapPixels &&
+      left + tipWidthPixels <= window.innerWidth - gapPixels;
+    const fitsVertically = (top: number): boolean =>
+      top >= tipMinTopPixels &&
+      top + tipHeightPixels <= window.innerHeight - gapPixels;
+    const alignedLeft = Math.max(
+      gapPixels,
+      Math.min(rect.left, window.innerWidth - tipWidthPixels - gapPixels),
+    );
+    const verticallyCentred = Math.max(
+      tipMinTopPixels,
+      Math.min(
+        rect.top + rect.height / 2 - tipHeightPixels / 2,
+        window.innerHeight - tipHeightPixels - gapPixels,
+      ),
+    );
+    const placements: readonly { left: number; top: number }[] = [
+      // Below, then above: the natural reading positions.
+      { left: alignedLeft, top: rect.bottom + gapPixels },
+      { left: alignedLeft, top: rect.top - tipHeightPixels - gapPixels },
+      // Beside: on a short screen this is the only place that leaves the
+      // highlighted control reachable.
+      { left: rect.right + gapPixels, top: verticallyCentred },
+      { left: rect.left - tipWidthPixels - gapPixels, top: verticallyCentred },
+    ];
+    const placement =
+      placements.find(
+        (candidate) =>
+          fitsHorizontally(candidate.left) && fitsVertically(candidate.top),
+      ) ?? placements[0]!;
+    tip.style.left = `${String(Math.max(gapPixels, placement.left))}px`;
+    tip.style.top = `${String(Math.max(tipMinTopPixels, placement.top))}px`;
     tip.replaceChildren();
     const heading = document.createElement("div");
     heading.textContent = step.title;
@@ -86,6 +133,10 @@ export function runSpotlightWalkthrough(
       "padding:7px 12px;border-radius:7px;border:1px solid #475569;background:#1e293b;color:#e5e7eb;font:600 12px monospace;cursor:pointer;pointer-events:auto;";
     back.disabled = index === 0;
     back.style.opacity = index === 0 ? "0.4" : "1";
+    // A disabled button still sits in front of whatever is beneath it and
+    // swallows the click. Nothing about it is interactive, so it should not be
+    // in the way either.
+    back.style.pointerEvents = index === 0 ? "none" : "auto";
     back.addEventListener("click", () => {
       index = Math.max(0, index - 1);
       show();

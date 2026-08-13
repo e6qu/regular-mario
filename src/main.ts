@@ -700,6 +700,7 @@ function renderSessionBar(): void {
   // is active so it never covers the on-screen touch controls.
   if (sessions.length === 0 || activeSessionId !== undefined) {
     sessionBar.style.display = "none";
+    reserveSessionBarSpace(0);
     return;
   }
   sessionBar.style.display = "flex";
@@ -740,6 +741,18 @@ function renderSessionBar(): void {
     tab.append(open, close);
     sessionBar.append(tab);
   }
+  reserveSessionBarSpace(sessionBar.getBoundingClientRect().height);
+}
+
+// The bar is fixed to the bottom of the viewport, so on a short landscape
+// screen it lay straight over the bottom of the start menu — including the
+// PLAY button, which could not be clicked because the bar was on top of it.
+// Publishing its height lets the menu keep itself above it.
+function reserveSessionBarSpace(height: number): void {
+  document.documentElement.style.setProperty(
+    "--session-bar-height",
+    `${Math.round(height)}px`,
+  );
 }
 
 async function bootWithDefaultAssets(): Promise<void> {
@@ -2209,12 +2222,12 @@ async function renderStartMenu(
   panel.setAttribute("aria-label", "Start menu");
   panel.className = "start-menu-panel";
   panel.style.maxWidth = "480px";
-  panel.style.margin = "20px auto";
+  panel.style.margin = "20px auto calc(20px + var(--session-bar-height, 0px))";
   panel.style.padding = "18px 22px";
   // Never taller than the viewport: fit on short screens, scrolling only as a
   // last resort on very small ones.
   panel.style.boxSizing = "border-box";
-  panel.style.maxHeight = "calc(100vh - 16px)";
+  panel.style.maxHeight = "calc(100vh - 16px - var(--session-bar-height, 0px))";
   panel.style.overflowY = "auto";
   panel.style.borderRadius = "14px";
   panel.style.border = "5px solid #7a4a1e";
@@ -2506,10 +2519,20 @@ async function renderStartMenu(
   appElement!.appendChild(panel);
 
   // First visit (and not a deep-link that's about to auto-start): open the
-  // tutorial once automatically. Skipping/finishing it remembers that.
-  if (autoplay === undefined && !readMenuTutorialSeen()) {
+  // tutorial once automatically.
+  //
+  // "First visit" also means no game already in flight. Someone who has played
+  // and pressed Escape is coming back to the menu to do something, not to be
+  // taught it, and the tour opened straight over the controls they were
+  // reaching for. Being shown counts as seen — the 🎓 button brings it back.
+  if (
+    autoplay === undefined &&
+    sessions.length === 0 &&
+    !readMenuTutorialSeen()
+  ) {
     requestAnimationFrame(() => {
       if (document.body.contains(panel)) {
+        writeMenuTutorialSeen();
         runMenuTutorial();
       }
     });

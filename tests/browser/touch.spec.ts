@@ -103,6 +103,70 @@ test.describe("touch device (landscape)", () => {
     ).toBeGreaterThan(start);
   });
 
+  // The first-run walkthrough is a coach-mark over a live menu, not a modal:
+  // its own comment says the UI underneath stays interactive. On a short
+  // landscape screen its card came down on top of the menu, and because its
+  // controls take pointer events the primary action underneath stopped being
+  // clickable — including through the disabled Back button, which blocks a
+  // click without doing anything with it.
+  test("the first-run tutorial never covers the play button", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const tip = page.getByRole("dialog", { name: "Start menu tutorial" });
+    await expect(tip).toBeVisible();
+    const play = page.getByRole("button", { name: "▶ PLAY", exact: true });
+    const tipBox = await tip.boundingBox();
+    const playBox = await play.boundingBox();
+    if (tipBox === null || playBox === null) {
+      throw new Error(
+        "Expected the tutorial and the play button to be laid out.",
+      );
+    }
+    const overlaps =
+      tipBox.x < playBox.x + playBox.width &&
+      tipBox.x + tipBox.width > playBox.x &&
+      tipBox.y < playBox.y + playBox.height &&
+      tipBox.y + tipBox.height > playBox.y;
+    expect(overlaps, "the tutorial tip sits over the play button").toBe(false);
+    // And the button it is covering nothing of is genuinely clickable.
+    await play.click({ timeout: 5_000 });
+  });
+
+  // The paused-games bar is fixed to the bottom of the viewport and the menu
+  // knew nothing about it, so on a short landscape screen it covered the menu's
+  // primary button: the bar, not PLAY, was the element under the pointer.
+  test("the paused-games bar never covers the play button", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await bootPlayTest(page);
+    await page.keyboard.press("Escape");
+    const play = page.getByRole("button", { name: "▶ PLAY", exact: true });
+    await expect(play).toBeVisible();
+    await expect(
+      page.locator('[role="tablist"][aria-label="In-progress games"]'),
+    ).toBeVisible();
+    // The menu panel scrolls, so ask for the button where a real click finds
+    // it: brought into view first.
+    await play.scrollIntoViewIfNeeded();
+    const topmost = await page.evaluate(() => {
+      const button = [...document.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent.includes("\u25b6 PLAY"),
+      );
+      if (button === undefined) {
+        return "no play button";
+      }
+      const box = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.x + box.width / 2,
+        box.y + box.height / 2,
+      );
+      return hit === button ? "play" : (hit?.getAttribute("aria-label") ?? "?");
+    });
+    expect(topmost, "something is stacked over the play button").toBe("play");
+  });
+
   test("a suspended game's deck never doubles up beside the next game", async ({
     page,
   }) => {
