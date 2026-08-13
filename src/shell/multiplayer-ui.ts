@@ -91,6 +91,8 @@ function disposeMountedGameSession(mount: HTMLElement): void {
 const debugScreenshotWidthPixels = 320;
 const debugScreenshotHeightPixels = 180;
 const multiplayerClientCameraWidthPixels = 256;
+// The most simulation time one animation frame will catch up on after a stall.
+const maximumPredictionCatchUpMilliseconds = 50;
 const multiplayerCameraSmoothingPerAnimationFrame = 0.18;
 
 function makeDiagnosticScreenshot(source: HTMLCanvasElement): string {
@@ -940,9 +942,12 @@ function renderGame(
     // Interpolation remains for a player the prediction has no slot for — a
     // member who has just joined and whose keyframe has not arrived. That is a
     // genuine absence of information, not a default.
-    const interpolatedRemotePlayers = remoteInterpolator.positions(
-      performance.now(),
-    );
+    // Built lazily: it is only consulted for a player the prediction has no
+    // slot for (a member whose first keyframe has not arrived), which is rare,
+    // and building it allocated a Map plus an object per player every frame.
+    let interpolatedRemotePlayers:
+      | ReturnType<typeof remoteInterpolator.positions>
+      | undefined;
     const predictedPlayers = prediction.snapshot().state.players;
     const positions = snapshot.players.map((player) => {
       if (player.playerId === profile.playerId) {
@@ -958,6 +963,9 @@ function renderGame(
           y: Number(simulated.player.position.y),
         };
       }
+      interpolatedRemotePlayers ??= remoteInterpolator.positions(
+        performance.now(),
+      );
       const position = interpolatedRemotePlayers.get(player.playerId);
       return position === undefined
         ? { x: player.x, y: player.y }
@@ -986,9 +994,14 @@ function renderGame(
     );
   }
   function animatePresentation(nowMilliseconds: number): void {
+    // A stall is absorbed, not repaid. Catching up 250 ms meant fifteen full
+    // world steps inside one frame, which took long enough to cause the next
+    // stall — a spiral. The world is authoritative on the server and
+    // reconciles anyway, so dropping the backlog is both cheaper and closer
+    // to the truth than sprinting through it.
     const elapsedMilliseconds = Math.min(
       Math.max(0, nowMilliseconds - lastPredictionAnimationMilliseconds),
-      250,
+      maximumPredictionCatchUpMilliseconds,
     );
     lastPredictionAnimationMilliseconds = nowMilliseconds;
     predictionFrameRemainderMilliseconds += elapsedMilliseconds;
@@ -1107,6 +1120,14 @@ function renderGame(
       snapshot.players.filter((player) => player.playerId !== profile.playerId),
       performance.now(),
     );
+    // Decode the wire world exactly once per receipt. This is a full
+    // serialise-and-reparse of the entire state; it used to run three times
+    // for every 20 Hz packet (reconciliation, a player-count attribute, and
+    // the render), inside a socket callback that is not animation-frame
+    // aligned — so the cost landed straight on the frame it interrupted.
+    const authoritativeState = decodeMultiplayerSimulationState(
+      snapshot.simulationState,
+    );
     const local = snapshot.players.find(
       (player) => player.playerId === profile.playerId,
     );
@@ -1133,9 +1154,6 @@ function renderGame(
       if (activePrediction === undefined) {
         throw new Error("Multiplayer prediction was not initialised.");
       }
-      const authoritativeState = decodeMultiplayerSimulationState(
-        snapshot.simulationState,
-      );
       const requiresLifecycleReconcile =
         !requiresPredictionBaseline &&
         predictionRequiresLifecycleReconcile(
@@ -1193,7 +1211,7 @@ function renderGame(
     // Complete map/entity state is authoritative and changes at the network
     // cadence. Apply it once here; the animation loop below only supplies the
     // lightweight predicted/interpolated player transforms.
-    renderer.render(snapshot);
+    renderer.render(snapshot, authoritativeState);
     renderPresentation();
     if (
       snapshot.phase === MultiplayerGamePhase.Finished &&
@@ -1590,7 +1608,15 @@ function renderGame(
       event.preventDefault();
       const wasHeld = held.has(event.code);
       held.add(event.code);
-      sendInput(!wasHeld);
+      // Ignore the operating system's auto-repeat. It fires ~30 times a second
+      // for one physical hold, and every one of those used to become a socket
+      // message the server authenticated and relayed to the whole party. The
+      // key is already held as far as the simulation is concerned, and the
+      // 100 ms heartbeat keeps the server certain of it.
+      if (wasHeld) {
+        return;
+      }
+      sendInput(true);
     }
   };
   const keyup = (event: KeyboardEvent) => {

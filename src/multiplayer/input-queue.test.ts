@@ -101,6 +101,26 @@ describe("forgetting a player", () => {
     expect(queue.drainThroughFrame(playerId, 200, 0)).toEqual([]);
   });
 
+  // Expiry is a whole-queue sweep and both enqueue and drain used to run it,
+  // so a sixteen-player frame swept all sixteen queues sixteen times over.
+  it("still expires stale input for every player exactly once per moment", () => {
+    const queue = makeExpiringInputQueue(64, 3000);
+    const others = [0, 1, 2].map((index) =>
+      requireMultiplayerPlayerId(`player-${String(index)}`),
+    );
+    for (const id of others) {
+      queue.enqueue({ ...input(1, 1, 0), playerId: id }, 0);
+    }
+    expect(queue.metrics().depth).toBe(3);
+    // Well past the expiry window: one drain sweeps everybody's stale input.
+    expect(queue.drainThroughFrame(others[0]!, 1, 9_000)).toHaveLength(0);
+    expect(queue.metrics().depth).toBe(0);
+    expect(queue.metrics().expired).toBe(3);
+    // A second drain at the same moment must not re-count anything.
+    expect(queue.drainThroughFrame(others[1]!, 1, 9_000)).toHaveLength(0);
+    expect(queue.metrics().expired).toBe(3);
+  });
+
   it("is harmless for a player the queue has never seen", () => {
     const queue = makeExpiringInputQueue(16, 1_000);
     expect(() => queue.forget(playerId)).not.toThrow();

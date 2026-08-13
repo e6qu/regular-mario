@@ -230,7 +230,12 @@ export function applyStateDelta<Value>(
       }
       delete container[String(finalPart)];
     } else {
-      writeContainerPart(container, finalPart, cloneJson(change.value));
+      // The value is taken directly from the freshly parsed delta message, so
+      // nothing else holds a reference to it and the applied result is treated
+      // as immutable everywhere downstream. Cloning it here meant a full
+      // serialise-and-reparse per change — hundreds of them per receipt with a
+      // full party — for no ownership the caller did not already have.
+      writeContainerPart(container, finalPart, change.value);
     }
   }
   return result as Value;

@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 
 import { requireCharacterForMultiplayerAvatar } from "../multiplayer/avatar-character";
-import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import type { MultiplayerRenderedSnapshot } from "../multiplayer/rendered-snapshot";
 import type { SimulationState } from "../engine/simulation/simulation-state";
 import {
@@ -17,7 +16,16 @@ import type { UserAssetBundle } from "./user-asset-loader";
 
 export type MultiplayerPhaserRenderer = {
   readonly canvas: HTMLCanvasElement;
-  render(snapshot: MultiplayerRenderedSnapshot): void;
+  /**
+   * Present an authoritative receipt. The decoded world is supplied by the
+   * caller, which already had to decode it: decoding is a full serialise and
+   * reparse of the entire state, and this adapter used to do it twice more
+   * per packet — once purely to read a player count it already had.
+   */
+  render(
+    snapshot: MultiplayerRenderedSnapshot,
+    decodedState: SimulationState,
+  ): void;
   presentPredictedSimulationState(
     state: SimulationState,
     cameraLeftPixels: number,
@@ -112,6 +120,7 @@ export function makeMultiplayerPhaserRenderer(
   );
   const canvas = game.canvas;
   let latestSnapshot: MultiplayerRenderedSnapshot | undefined;
+  let latestDecodedState: SimulationState | undefined;
   let latestPlayerPositions:
     | readonly { readonly x: number; readonly y: number }[]
     | undefined;
@@ -133,13 +142,14 @@ export function makeMultiplayerPhaserRenderer(
       ready = true;
       canvas.tabIndex = 0;
       canvas.focus();
-      if (latestSnapshot !== undefined) {
+      if (latestSnapshot !== undefined && latestDecodedState !== undefined) {
         candidate.setPredictedPresentationEnabled(
           latestSnapshot.phase === MultiplayerGamePhase.Playing,
         );
         applySnapshot(
           candidate,
           latestSnapshot,
+          latestDecodedState,
           latestSnapshot.phase === MultiplayerGamePhase.Playing
             ? (latestPresentationState?.cameraLeftPixels ?? 0)
             : latestSnapshot.cameraLeftPixels,
@@ -169,11 +179,9 @@ export function makeMultiplayerPhaserRenderer(
   canvas.setAttribute("data-role", "multiplayer-phaser-canvas");
   return {
     canvas,
-    render(snapshot) {
+    render(snapshot, decodedState) {
       latestSnapshot = snapshot;
-      const decodedState = decodeMultiplayerSimulationState(
-        snapshot.simulationState,
-      );
+      latestDecodedState = decodedState;
       game.canvas.setAttribute(
         "data-authoritative-frame",
         String(snapshot.frame),
@@ -203,7 +211,12 @@ export function makeMultiplayerPhaserRenderer(
           snapshot.phase === MultiplayerGamePhase.Playing
             ? (latestPresentationState?.cameraLeftPixels ?? 0)
             : snapshot.cameraLeftPixels;
-        applySnapshot(scene, snapshot, presentationCameraLeftPixels);
+        applySnapshot(
+          scene,
+          snapshot,
+          decodedState,
+          presentationCameraLeftPixels,
+        );
       }
     },
     presentPredictedSimulationState(state, cameraLeftPixels) {
@@ -250,10 +263,11 @@ export function makeMultiplayerPhaserRenderer(
 function applySnapshot(
   scene: BootScene,
   snapshot: MultiplayerRenderedSnapshot,
+  decodedState: SimulationState,
   presentationCameraLeftPixels: number,
 ): void {
   scene.applyAuthoritativeSimulationState(
-    decodeMultiplayerSimulationState(snapshot.simulationState),
+    decodedState,
     presentationCameraLeftPixels,
   );
   const orderedPlayers = [...snapshot.players].sort(

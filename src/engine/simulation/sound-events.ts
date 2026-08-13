@@ -88,8 +88,10 @@ function hasNewProjectile(
   currentState: SimulationState,
 ): boolean {
   if (
+    previousState.projectiles.projectiles ===
+      currentState.projectiles.projectiles ||
     currentState.projectiles.projectiles.length <=
-    previousState.projectiles.projectiles.length
+      previousState.projectiles.projectiles.length
   ) {
     return false;
   }
@@ -110,14 +112,30 @@ function isAirborne(vertical: VerticalMovementState): boolean {
   );
 }
 
+/**
+ * Whether `currentIds` contains an id `previousIds` did not.
+ *
+ * Answered without building a set wherever possible: this runs several times
+ * per predicted frame over lists that grow all level long (every coin, every
+ * defeated enemy), so the set build was O(collected) sixty times a second.
+ * The exact check is still there for the one case the cheap answers cannot
+ * cover — a list that swapped a member without growing, which happens when a
+ * respawning Lakitu leaves the defeated list on the same frame something else
+ * joins it.
+ */
 function hasNewEntityId(
   previousIds: readonly string[],
   currentIds: readonly string[],
 ): boolean {
-  if (currentIds.length <= previousIds.length) {
+  if (previousIds === currentIds) {
     return false;
   }
-
+  if (currentIds.length > previousIds.length) {
+    return true;
+  }
+  if (currentIds.length === 0) {
+    return false;
+  }
   const previousSet = new Set(previousIds);
   return currentIds.some((entityId) => !previousSet.has(entityId));
 }
@@ -156,16 +174,25 @@ export function resolveSoundEvents(
   }
 
   // A beanstalk sprouting from its bumped block (the ROM's Sfx_GrowVine):
-  // a new climbable spawned actor appeared this frame.
-  const previousClimbableCount =
-    previousState.spawnedActors.spawnedActors.filter(
-      (actor) => actor.role === ActorRole.Climbable,
-    ).length;
-  const currentClimbableCount = currentState.spawnedActors.spawnedActors.filter(
-    (actor) => actor.role === ActorRole.Climbable,
-  ).length;
-  if (currentClimbableCount > previousClimbableCount) {
-    events.push(SoundEvent.VineGrow);
+  // a new climbable spawned actor appeared this frame. Counting is skipped
+  // entirely on the frames where the spawned-actor list did not change at
+  // all, which is nearly all of them.
+  if (
+    previousState.spawnedActors.spawnedActors !==
+    currentState.spawnedActors.spawnedActors
+  ) {
+    const climbableCount = (state: SimulationState): number => {
+      let count = 0;
+      for (const actor of state.spawnedActors.spawnedActors) {
+        if (actor.role === ActorRole.Climbable) {
+          count += 1;
+        }
+      }
+      return count;
+    };
+    if (climbableCount(currentState) > climbableCount(previousState)) {
+      events.push(SoundEvent.VineGrow);
+    }
   }
 
   if (

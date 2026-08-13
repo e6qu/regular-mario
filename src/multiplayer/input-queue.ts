@@ -80,8 +80,28 @@ export function makeExpiringInputQueue(
     depth: 0,
   };
 
+  // The last moment every player's queue was swept. Expiry is a whole-queue
+  // pass, and both `enqueue` and `drainThroughFrame` used to run it — so a
+  // sixteen-player frame rebuilt all sixteen queues sixteen times over, once
+  // per drain, allocating a replacement array each time whether or not
+  // anything had actually expired.
+  let lastExpiredAtMilliseconds = Number.NEGATIVE_INFINITY;
+
   function expire(nowMilliseconds: number): void {
+    if (nowMilliseconds === lastExpiredAtMilliseconds) {
+      return;
+    }
+    lastExpiredAtMilliseconds = nowMilliseconds;
     for (const [playerId, messages] of messagesByPlayerId) {
+      // Nothing to do for a queue whose oldest message is still fresh, which
+      // is the overwhelmingly common case.
+      if (
+        messages.length === 0 ||
+        nowMilliseconds - (messages[0]?.receivedAtMilliseconds ?? 0) <=
+          expiryMilliseconds
+      ) {
+        continue;
+      }
       const retained = messages.filter((message) => {
         const isExpired =
           nowMilliseconds - message.receivedAtMilliseconds > expiryMilliseconds;

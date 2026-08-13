@@ -149,6 +149,14 @@ export type AuthoritativeGameRunner = {
   step(nowMilliseconds: number): AuthoritativeGameSnapshot;
   stepPaused(nowMilliseconds: number): AuthoritativeGameSnapshot;
   snapshot(): AuthoritativeGameSnapshot;
+  /**
+   * The live simulation, for server logic that needs to read the world.
+   *
+   * Callers used to reach it by decoding `snapshot.simulationState` — a full
+   * serialise and reparse of the whole world, run every frame just to read a
+   * couple of pipe fields the runner was holding in memory all along.
+   */
+  simulationState(): SimulationState;
 };
 
 export type MakeAuthoritativeGameRunnerConfig = {
@@ -275,6 +283,14 @@ export function makeAuthoritativeGameRunner(
     if (cachedSnapshot !== undefined) {
       return cachedSnapshot;
     }
+    // The wire form is built on demand and remembered, from the world as it
+    // stands right now. The runner produces a snapshot every 60 Hz frame but
+    // the transport publishes at 20 Hz, so eagerly encoding meant two of every
+    // three encodes — a full stringify and reparse of the entire world — were
+    // thrown away. Capturing `state` here (rather than reading the mutable
+    // binding later) keeps a retained snapshot the world it described.
+    const encodedState = state;
+    let encodedWireState: MultiplayerSimulationWireState | undefined;
     cachedSnapshot = {
       gameId: config.gameId,
       snapshotSequence: (snapshotSequence += 1),
@@ -283,7 +299,10 @@ export function makeAuthoritativeGameRunner(
       phase,
       frame: Number(state.clock.frameIndex),
       cameraLeftPixels,
-      simulationState: encodeMultiplayerSimulationState(state),
+      get simulationState(): MultiplayerSimulationWireState {
+        encodedWireState ??= encodeMultiplayerSimulationState(encodedState);
+        return encodedWireState;
+      },
       players: players
         .filter((player) => player.connected)
         .map((player) => {
@@ -570,5 +589,6 @@ export function makeAuthoritativeGameRunner(
       return makeSnapshot();
     },
     snapshot: makeSnapshot,
+    simulationState: () => state,
   };
 }
