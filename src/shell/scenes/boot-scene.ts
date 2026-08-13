@@ -5417,6 +5417,16 @@ export class BootScene extends Phaser.Scene {
     }
     // Hidden blocks carry no render objects of their own (they are invisible
     // until revealed, when a fresh image is created), so nothing to exclude.
+    //
+    // The flagpole furniture is cutscene-managed: the flag lowers and the ball
+    // is knocked off by the finale, which owns their visibility. Culling them
+    // would also make "visible" mean "on camera" for objects whose visibility
+    // is read as "still crowning the pole".
+    for (const object of [this.flagObject, this.flagpoleBallObject]) {
+      if (object !== undefined) {
+        managed.add(object);
+      }
+    }
     const tileSize = this.levelSpec.tileSizePixels;
     this.cullableTileArt = this.levelRenderedObjects.flatMap((object) => {
       if (managed.has(object)) {
@@ -5461,10 +5471,13 @@ export class BootScene extends Phaser.Scene {
     // A margin either side so a fast camera never outruns the window, and so
     // partially-entered columns are already drawn.
     const marginColumns = 3;
-    const first = Math.floor(camera.scrollX / tileSize) - marginColumns;
-    const last =
-      Math.ceil((camera.scrollX + camera.displayWidth) / tileSize) +
-      marginColumns;
+    // `worldView`, not `scrollX`: on a zoomed camera `scrollX` is the centred
+    // scroll coordinate rather than the world-left edge — the same distinction
+    // that once put the multiplayer view 403 pixels off. `worldView` is the
+    // rectangle actually on screen.
+    const view = camera.worldView;
+    const first = Math.floor(view.x / tileSize) - marginColumns;
+    const last = Math.ceil(view.right / tileSize) + marginColumns;
     const current = this.culledColumnWindow;
     if (
       current !== undefined &&
