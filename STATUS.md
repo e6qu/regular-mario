@@ -2,6 +2,19 @@
 
 ## Current State
 
+**Render culling, and a wire format left alone on evidence (2026-08-13).**
+Off-camera level art no longer goes through the renderer (Canvas does no
+frustum culling of its own, and ~90% of a 224-column course is off screen);
+enemy lookups are indexed instead of scanned; the level build no longer
+snapshots the display list per tile cell; presentation happens once per frame;
+and co-op players get their own bonk shouts. The wire format was **measured
+rather than rewritten**: per-message deflate already takes a sixteen-player
+keyframe from 11.4 KB to 1.6 KB and a delta from 1376 to 346 bytes, so the
+planned path-dictionary/quantization work would have optimised what the
+compressor removes, at the cost of the exact-wire-state invariant — the
+measurement is now a committed budget test. 1060 unit tests, 133 single-player
+browser tests and 24 multiplayer browser tests pass.
+
 **Collision correctness and a measured netcode/render sweep (2026-08-13).**
 Benchmarked on real World 1-1 at sixteen players first: the world steps in
 0.21 ms/frame, keyframe ~11.5 KB, 20 Hz delta ~1.7 KB — so the cost was never
