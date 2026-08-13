@@ -2,6 +2,21 @@
 
 ## Current State
 
+**Game-wide bug and UX sweep (2026-08-14).** The campaign is a run again:
+clearing a level carried nothing forward — you finished 1-1 with five lives
+and fire power and started 1-2 with three and small — and each cleared level
+left its predecessor alive and suspended, stacking audio contexts until sound
+died. `enemy-stomp-route`, a public multiplayer course, drew a gate with no
+goal tile and could not be completed by anyone; `pipe-route`'s warp pipe was
+invisible. On the UX side: multiplayer had no entry point anywhere in the
+product, the lobby never refreshed (two friends could both sit at "No run is
+open yet"), a lost connection left a frozen canvas with no message and no way
+out, a defeated player was never told about R, and the editor's Play could
+fail in total silence. The renderer default stays Canvas — WebGL was tried and
+measured worse for this game, because its thumbnail/screenshot readback forces
+`preserveDrawingBuffer`. 1063 unit tests, 134 single-player browser tests and
+24 multiplayer browser tests pass.
+
 **Render culling, and a wire format left alone on evidence (2026-08-13).**
 Off-camera level art no longer goes through the renderer (Canvas does no
 frustum culling of its own, and ~90% of a 224-column course is off screen);

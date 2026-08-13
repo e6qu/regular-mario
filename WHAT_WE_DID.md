@@ -5,6 +5,36 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-14 — bug and UX sweep
+
+Two audits (engine/content, and the real user journeys) plus the WebGL default
+left open by the previous round.
+
+- **The campaign is a run again.** Clearing a level booted the next as a fresh
+  game and discarded lives, coins, score and power tier; it also left the old
+  level alive and suspended, stacking audio contexts until sound died around
+  the sixth. Totals now cross the boundary and the cleared level is destroyed.
+  Destroying it exposed a stale global: a torn-down scene kept answering
+  through the debug handle.
+- **A public course nobody could finish.** `enemy-stomp-route` drew a gate
+  with no goal tile behind it — finishing is tile-driven, the Exit actor is
+  just the picture. Fixed, with a test asserting every public course has one.
+  `pipe-route`'s warp pipe was invisible for the same class of reason (pipes
+  are drawn from tiles; it had only the actor).
+- **A culling regression** from the previous pass: a whole-level backdrop is
+  one wide image, and keying it on its origin column hid it three tiles in.
+- **The renderer default stays Canvas**, having been tried as `auto` and
+  measured worse _for this game_: the thumbnail and diagnostic-screenshot
+  readbacks force `preserveDrawingBuffer`, which is exactly what costs WebGL
+  its advantage. Two clients: watcher 40+/s → ~30/s. One client: 103 fps vs
+  Canvas's 120. Culling to visible columns was the real win and is
+  renderer-agnostic.
+- **UX**: multiplayer had no entry point at all; the lobby never refreshed; a
+  lost connection stranded the player on a frozen canvas with Escape disabled;
+  a defeated player was never told about R; the editor's Play could fail
+  silently; the controls were never taught; menu labels sat at ~1.3:1
+  contrast; and the page had no favicon, description or background.
+
 ## 2026-08-13 (later) — render culling, and a wire format left alone on evidence
 
 - **The wire format was measured, not rewritten.** Per-message deflate landed
