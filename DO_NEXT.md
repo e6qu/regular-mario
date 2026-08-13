@@ -1,5 +1,28 @@
 # DO_NEXT.md
 
+- Keep the transport's laziness: the authoritative snapshot's `simulationState`
+  is a memoised getter over the world as it stood when the snapshot was taken.
+  Do not make it eager again (the runner produces one per 60 Hz frame while the
+  transport publishes at 20 Hz), and do not read it to answer questions the
+  runner can answer from its live state — `runner.simulationState()` exists for
+  that. A retained snapshot is a delta baseline and must keep describing its
+  own frame.
+
+- Measure before optimising the multiplayer hot path. The numbers as of
+  2026-08-13, real World 1-1 at sixteen players: `stepSimulation` 0.21 ms,
+  encode 0.08 ms, delta build 0.08 ms, keyframe 11.5 KB, delta 1.7 KB, of
+  which `players` is about two thirds. The remaining known lever is the wire
+  format itself (per-change path addressing and full-precision floats); it
+  would weaken the "the wire state is exactly the simulation state" invariant
+  that `game-runner.test.ts` pins, so weigh that before taking it.
+
+- Remaining audited-but-unfixed render costs, in value order: Canvas renderer
+  does no frustum culling so the whole map's tiles are walked per frame
+  (`select-renderer.ts` default, or cull by column window); `renderPresentation`
+  runs on socket receipts and input sends as well as the frame loop; enemy
+  state lookup is a linear scan per actor per frame; the level build is
+  O(tiles × display-list) at every course handoff.
+
 - Co-op mechanics parity is complete (see BUGS.md "closed" entry). Preserve
   its contracts: enemies target their NEAREST active player (activation
   follows the furthest-advanced member); any player may start a pipe/vine

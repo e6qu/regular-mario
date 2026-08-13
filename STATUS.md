@@ -2,6 +2,23 @@
 
 ## Current State
 
+**Collision correctness and a measured netcode/render sweep (2026-08-13).**
+Benchmarked on real World 1-1 at sixteen players first: the world steps in
+0.21 ms/frame, keyframe ~11.5 KB, 20 Hz delta ~1.7 KB — so the cost was never
+the simulation but the JSON around it. Fixed: walking into a team-mate shoves
+them along instead of pinning you (an idle friend was an impassable wall,
+leaving a runner crawling at 0.028 px/frame), player separation is
+re-resolved against terrain (no more players shoved inside walls), riders take
+exactly one carrier, stacks carry bottom-up, and a falling player lands on the
+head they were above. The server produces the wire world on demand rather than every
+frame, reads the live world instead of decoding its own wire form, announces a
+completion once instead of blasting 60 Hz keyframes to every party for seven
+seconds, schedules keyframes per game, and compresses its socket. The client
+decodes each receipt once instead of three times, stops cloning every delta
+value, and no longer rebuilds sets/state copies per frame. Also fixed a real
+multiplayer visual bug: broken bricks and spent blocks never updated during
+play because the scans were gated on a render lane that play always suppresses.
+
 **Co-op parity completion landed (2026-08-11, second sweep).** The remaining
 mechanics gaps are closed: enemy AI (chasers, Bloopers, Hammer Bros, Lakitu,
 piranha holds, activation) reacts to the whole party; any player's stomp

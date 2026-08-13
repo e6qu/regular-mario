@@ -5,6 +5,45 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-08-13 — collision correctness and a measured netcode/render sweep
+
+Measured first, on real World 1-1 with sixteen players: the simulation steps
+in 0.21 ms/frame, the keyframe is ~11.5 KB and a 20 Hz delta ~1.7 KB. So the
+step was never the problem — moving the same state through JSON was, and a
+finished course was flooding the network.
+
+- **Player collision**: walking into a team-mate now shoves them along instead
+  of pinning you (an idle friend was an impassable wall — the runner's speed
+  was cancelled every frame, leaving them crawling at 0.028 px/frame, which on
+  a shared screen stalls the whole party). Separation pushes are re-resolved
+  against terrain (two players squeezed at a wall used to shove each other
+  inside the tiles), a rider rides exactly one carrier (straddling two doubled
+  their carry), a stack carries bottom-up so slot order cannot change the
+  result, a player who was above another lands on their head however deep the
+  overlap became, and no push crosses the world's left edge.
+- **Server**: the wire form of the world is produced on demand rather than
+  every 60 Hz frame (the transport publishes at 20 Hz); the lobby reads the
+  live world instead of decoding that wire form back every frame; a completed
+  course announces itself once instead of forcing a full keyframe at 60 Hz to
+  every party on the server for seven seconds; keyframes are scheduled per
+  game rather than from one global timer; the debug byte counters stopped
+  serialising each message a second time; WebSocket per-message deflate is on;
+  input-queue expiry sweeps once per moment instead of once per player.
+- **Client**: the world is decoded once per receipt instead of three times
+  (one decode existed purely to read a player count already on the snapshot);
+  delta application no longer clones every value through JSON; sound events
+  answer "anything new?" without building sets over lists that grow all level;
+  co-op sprite resolution reuses one view object instead of copying the whole
+  state per player per frame; a stalled frame catches up 50 ms rather than
+  250 ms (which took long enough to cause the next stall); remote
+  interpolation is built only when a player has no predicted slot; unchanged
+  depth writes no longer queue a display-list re-sort; and held-key
+  auto-repeat no longer sends ~30 socket messages a second per player.
+- **Fixed along the way**: the broken-brick / spent-block / revealed-hidden-
+  block scans were gated on the authoritative render lane, which during play
+  is always suppressed by the pending prediction — so in multiplayer they
+  never ran. They now run in whichever lane painted, keyed on a change count.
+
 ## 2026-08-11 — co-op parity completion (second sweep)
 
 - **Enemies see the whole party**: chasers, Bloopers, Hammer Bros, Lakitu and

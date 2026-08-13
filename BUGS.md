@@ -1,5 +1,48 @@
 # BUGS.md
 
+### An idle team-mate was an impassable wall — fixed (2026-08-13)
+
+Separation split the overlap and cancelled both players' horizontal speed
+every frame, so a runner behind a stationary team-mate lost velocity as fast
+as they built it: measured at 0.028 px/frame. On a shared screen that stalls
+the whole party, since the runner cannot get past. A single pusher now hands
+their whole overlap to the player in front, who is carried at the pusher's
+pace, and keeps their own speed. Only a genuine squeeze costs velocity — both
+running into each other, or the pushed player against terrain, in which case
+the remainder comes off the pusher. Caught by the `remote-smoothness` browser
+gate: the watcher saw the runner pinned one collider width behind them.
+
+### Player separation could bury players in terrain — fixed (2026-08-13)
+
+A separation push is a positional shove outside the movement integration and
+nothing re-resolved it against the level, so two players squeezed at a wall
+pushed each other straight into the tiles. Pushes now settle against terrain,
+and whatever the terrain refuses to let one player take is handed to the other
+so the pair still separates. Three sibling defects went with it: a rider
+straddling two carriers took both their movements and was flung at double
+speed; a three-high stack carried differently depending on slot order; and a
+fast faller was squirted out sideways instead of landing, because the
+shallower-axis rule ignored where the players were the frame before.
+
+### Broken bricks did not disappear while playing multiplayer — fixed (2026-08-13)
+
+The persistent tile scans (broken bricks, spent `?` blocks, revealed hidden
+blocks) were gated on the authoritative render lane. During play the client
+queues a predicted state every frame and a pending prediction suppresses the
+authoritative render entirely, so those scans never ran: a brick you broke
+stayed on screen until the game paused. They now run in whichever lane
+painted, keyed on a change count so the common frame does no map-sized work.
+
+### A finished course flooded every party on the server — fixed (2026-08-13)
+
+Completion bypasses the 20 Hz gate so every client can start the flag/castle
+presentation together, but the condition held for the whole seven-second
+presentation window and was computed across all games — sixty full-world
+keyframes a second, to every member of every party, for seven seconds. The
+completion is announced once. Keyframes are also scheduled per game now; a
+single global timer meant one party's first frame forced a full world to
+everybody else.
+
 ### Creator-leave froze every game on the server at the next handoff — fixed (2026-08-11)
 
 `advanceCompletedGame` required the creator to still be a member and threw
