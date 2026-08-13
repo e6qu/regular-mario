@@ -21,7 +21,6 @@ import {
   type AuthoritativeGameSnapshot,
   type MultiplayerPlayerProfile,
 } from "../multiplayer/game-runner";
-import { decodeMultiplayerSimulationState } from "../multiplayer/simulation-wire";
 import { multiplayerCompletionPresentationMilliseconds } from "../multiplayer/completion-presentation";
 import type { QueuedSimulationInput } from "../multiplayer/input-queue";
 import {
@@ -279,7 +278,10 @@ export function makeMultiplayerLobby(
     game: HostedGame,
     snapshot: AuthoritativeGameSnapshot,
   ): AuthoritativeGameSnapshot | undefined {
-    const state = decodeMultiplayerSimulationState(snapshot.simulationState);
+    // Read the live world. This used to decode the wire form every frame for
+    // every playing game — a full serialise and reparse — to look at two pipe
+    // fields the runner holds in memory.
+    const state = game.runner.simulationState();
     if (
       state.pipeEntry.phase === PipeEntryPhase.Entering &&
       state.pipeEntry.targetLevelName !== undefined

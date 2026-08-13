@@ -869,3 +869,48 @@ describe("authoritative multiplayer game runner", () => {
     });
   });
 });
+
+describe("authoritative snapshot encoding", () => {
+  // The runner produces a snapshot every 60 Hz frame, but the transport
+  // publishes at 20 Hz. Encoding the world eagerly meant two of every three
+  // encodes — a full serialise and reparse of the entire state — were built
+  // and thrown away.
+  it("does not encode the wire state until somebody reads it", () => {
+    const runner = makeRunner();
+    runner.start(requireMultiplayerPlayerId("mira"));
+    const snapshot = runner.step(1);
+    const descriptor = Object.getOwnPropertyDescriptor(
+      snapshot,
+      "simulationState",
+    );
+    expect(
+      typeof descriptor?.get,
+      "the wire state must be produced on demand, not eagerly",
+    ).toBe("function");
+  });
+
+  // A retained snapshot is a delta baseline. If its wire form were produced
+  // from the runner's live world when read, a baseline would silently become
+  // whatever the world looked like later.
+  it("keeps a retained snapshot describing the frame it was taken at", () => {
+    const runner = makeRunner();
+    runner.start(requireMultiplayerPlayerId("mira"));
+    const early = runner.step(1);
+    const earlyFrame = decodeMultiplayerSimulationState(early.simulationState)
+      .clock.frameIndex;
+    for (let frame = 2; frame <= 12; frame += 1) {
+      runner.step(frame);
+    }
+    expect(
+      decodeMultiplayerSimulationState(early.simulationState).clock.frameIndex,
+      "a retained snapshot must not follow the live world forward",
+    ).toBe(earlyFrame);
+  });
+
+  it("exposes the live simulation without a JSON round trip", () => {
+    const runner = makeRunner();
+    runner.start(requireMultiplayerPlayerId("mira"));
+    runner.step(1);
+    expect(runner.simulationState().clock.frameIndex).toBe(1);
+  });
+});

@@ -308,6 +308,23 @@ export function stepSimulation(
       (index) => runtimesBeforePlayerCollision[index]!.player,
     ),
     activePlayerIndices.map((index) => state.players[index]!.player),
+    // A separation push is a positional shove outside the movement
+    // integration, so it is re-resolved against the world the party just
+    // changed. Without this, two players squeezed together at a wall pushed
+    // each other straight into the tiles and ended the frame embedded in
+    // them — the defect the moving-platform carry already had to fix.
+    (before, after) =>
+      resolveSolidTileCollisionWithBlockBumps(
+        before,
+        after,
+        levelSpec,
+        primaryStepped.breakableBlocks,
+        movementConstants.springLaunchSpeed,
+        partyRevealedHiddenPositionKeys,
+        partyWalkableHazardTileIds,
+        // A shove is not a jump: it never buys the boosted spring launch.
+        false,
+      ).player,
   );
   const collidedPlayerByIndex = new Map(
     activePlayerIndices.map((index, activeIndex) => [

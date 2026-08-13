@@ -21,10 +21,7 @@ import type { QueuedSimulationInput } from "../multiplayer/input-queue";
 import { requireMultiplayerProtocolVersion } from "../multiplayer/protocol";
 import { MultiplayerGamePhase } from "../multiplayer/game-runner";
 import type { AuthoritativeGameSnapshot } from "../multiplayer/game-runner";
-import {
-  makeStateDelta,
-  stateTransportEncodedBytes,
-} from "../multiplayer/state-transport";
+import { makeStateDelta } from "../multiplayer/state-transport";
 import {
   makeAdminLayout,
   makeAdminLoginLayout,
@@ -295,9 +292,33 @@ export function makeMultiplayerHttpServer(
   const webSocketServer = new WebSocketServer({
     noServer: true,
     maxPayload: webSocketMaximumPayloadBytes,
+    // World state is JSON with heavily repeated key names and numeric
+    // prefixes, which is close to the best case for deflate: a 16-player
+    // keyframe is ~12 KB and a delta ~1.7 KB, twenty times a second, to every
+    // member. Compression is negotiated per connection, so a client that does
+    // not offer it simply gets the raw frames.
+    perMessageDeflate: {
+      // Buy the compression cheaply: the default memLevel/level allocate a lot
+      // per socket, which matters when sixteen of them share one small server.
+      zlibDeflateOptions: { level: 4, memLevel: 7 },
+      // Small control traffic (input relays, chat pings) costs more to
+      // compress than it saves, and the CPU is better spent on state.
+      threshold: 1024,
+      // Do not carry a compression context between messages: the sliding
+      // window per socket is the memory risk `ws` documents, and our state
+      // messages are self-similar enough to compress well without it.
+      serverNoContextTakeover: true,
+      clientNoContextTakeover: true,
+      concurrencyLimit: 10,
+    },
   });
   let lastSnapshotBroadcastMilliseconds = 0;
-  let lastKeyframeBroadcastMilliseconds = Number.NEGATIVE_INFINITY;
+  // When each game last received a full keyframe. Per game, not per server:
+  // a single global timer coupled every party's cadence together.
+  const lastKeyframeAtByGameId = new Map<string, number>();
+  // Games whose completion keyframe has already gone out, so the seven-second
+  // presentation window does not re-announce it on every frame.
+  const announcedFinishedGameIds = new Set<string>();
   let snapshotBroadcastCount = 0;
   let keyframeBroadcastCount = 0;
   let deltaBroadcastCount = 0;
@@ -348,7 +369,11 @@ export function makeMultiplayerHttpServer(
     const message = { type: "state-keyframes", snapshots };
     const encoded = JSON.stringify(message);
     keyframeBroadcastCount += 1;
-    keyframeBytes += stateTransportEncodedBytes(message);
+    // Measure the string we are about to send. Handing the object to
+    // `stateTransportEncodedBytes` serialised the entire world a second time
+    // for a debug counter, doubling the transport's encoding cost on every
+    // broadcast.
+    keyframeBytes += Buffer.byteLength(encoded, "utf8");
     for (const socket of sockets) {
       sendEncodedWebSocketMessage(socket, encoded, delayMilliseconds);
     }
@@ -405,15 +430,19 @@ export function makeMultiplayerHttpServer(
     for (const snapshot of snapshots) {
       latestSnapshotByGameId.set(snapshot.gameId, snapshot);
     }
-    const keyframeDue =
-      forceKeyframe ||
-      nowMilliseconds - lastKeyframeBroadcastMilliseconds >=
-        stateKeyframeIntervalMilliseconds ||
-      snapshots.some(
-        (snapshot) => !lastSentSnapshotByGameId.has(snapshot.gameId),
-      );
-    if (keyframeDue) {
-      for (const snapshot of snapshots) {
+    for (const snapshot of snapshots) {
+      const baseline = lastSentSnapshotByGameId.get(snapshot.gameId);
+      // Keyframes are decided per game, not for the whole server. A single
+      // global timer meant one party's first frame — anyone creating a game —
+      // forced a full world keyframe to the members of every OTHER live game,
+      // and the periodic cadence of every party was coupled to whichever one
+      // last refreshed.
+      const keyframeDue =
+        forceKeyframe ||
+        baseline === undefined ||
+        nowMilliseconds - (lastKeyframeAtByGameId.get(snapshot.gameId) ?? 0) >=
+          stateKeyframeIntervalMilliseconds;
+      if (keyframeDue) {
         // A player can belong to only one game. Sending every public game's
         // full world to every open socket multiplied bandwidth and JSON work
         // by the number of concurrent parties; route the receipt strictly to
@@ -424,13 +453,7 @@ export function makeMultiplayerHttpServer(
           snapshotDelayMilliseconds,
         );
         lastSentSnapshotByGameId.set(snapshot.gameId, snapshot);
-      }
-      lastKeyframeBroadcastMilliseconds = nowMilliseconds;
-      return;
-    }
-    for (const snapshot of snapshots) {
-      const baseline = lastSentSnapshotByGameId.get(snapshot.gameId);
-      if (baseline === undefined) {
+        lastKeyframeAtByGameId.set(snapshot.gameId, nowMilliseconds);
         continue;
       }
       lastSentSnapshotByGameId.set(snapshot.gameId, snapshot);
@@ -446,9 +469,9 @@ export function makeMultiplayerHttpServer(
           },
         ],
       };
-      deltaBroadcastCount += 1;
-      deltaBytes += stateTransportEncodedBytes(message);
       const encoded = JSON.stringify(message);
+      deltaBroadcastCount += 1;
+      deltaBytes += Buffer.byteLength(encoded, "utf8");
       for (const socket of socketsForSnapshot(snapshot)) {
         sendEncodedWebSocketMessage(socket, encoded, snapshotDelayMilliseconds);
       }
@@ -457,16 +480,35 @@ export function makeMultiplayerHttpServer(
 
   function broadcastSnapshots(nowMilliseconds: number): void {
     const snapshots = service.tick(nowMilliseconds);
-    const containsFinishedGame = snapshots.some(
-      (snapshot) => snapshot.phase === MultiplayerGamePhase.Finished,
-    );
+    // A course completion must reach every client at once — the clients run
+    // the flag/castle presentation off it — so it bypasses the 20 Hz gate and
+    // forces a keyframe. It must do that ONCE, though. This used to hold for
+    // as long as any game reported `finished`, which is the whole seven-second
+    // presentation window: sixty full-world keyframes a second, to every
+    // member of every party on the server, for seven seconds.
+    const newlyFinishedGameIds = snapshots
+      .filter(
+        (snapshot) =>
+          snapshot.phase === MultiplayerGamePhase.Finished &&
+          !announcedFinishedGameIds.has(snapshot.gameId),
+      )
+      .map((snapshot) => snapshot.gameId);
+    for (const gameId of newlyFinishedGameIds) {
+      announcedFinishedGameIds.add(gameId);
+    }
+    for (const snapshot of snapshots) {
+      if (snapshot.phase !== MultiplayerGamePhase.Finished) {
+        announcedFinishedGameIds.delete(snapshot.gameId);
+      }
+    }
+    const announcesCompletion = newlyFinishedGameIds.length > 0;
     if (
       snapshots.length > 0 &&
-      (containsFinishedGame ||
+      (announcesCompletion ||
         nowMilliseconds - lastSnapshotBroadcastMilliseconds >=
           snapshotBroadcastIntervalMilliseconds)
     ) {
-      broadcastTransportState(snapshots, nowMilliseconds, containsFinishedGame);
+      broadcastTransportState(snapshots, nowMilliseconds, announcesCompletion);
       lastSnapshotBroadcastMilliseconds = nowMilliseconds;
       snapshotBroadcastCount += 1;
     }
