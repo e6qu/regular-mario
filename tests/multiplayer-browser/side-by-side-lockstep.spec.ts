@@ -58,15 +58,22 @@ async function exactCanvasColorPixels(
 ): Promise<number> {
   return page.getByLabel(label).evaluate(
     (canvas, target) => {
-      const context = (canvas as HTMLCanvasElement).getContext("2d");
+      // Through a scratch 2D canvas: the game canvas may be a WebGL context,
+      // which has no 2D context of its own to read.
+      const source = canvas as HTMLCanvasElement;
+      const scratch = document.createElement("canvas");
+      scratch.width = source.width;
+      scratch.height = source.height;
+      const context = scratch.getContext("2d");
       if (context === null) {
-        throw new Error("Canvas has no readable 2D context.");
+        throw new Error("Scratch canvas has no readable 2D context.");
       }
+      context.drawImage(source, 0, 0);
       const pixels = context.getImageData(
         0,
         0,
-        (canvas as HTMLCanvasElement).width,
-        (canvas as HTMLCanvasElement).height,
+        source.width,
+        source.height,
       ).data;
       let matches = 0;
       for (let offset = 0; offset < pixels.length; offset += 4) {

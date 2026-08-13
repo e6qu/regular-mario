@@ -18,7 +18,9 @@ test("choosing a level updates the address bar to a shareable #play URL", async 
 }) => {
   await page.goto("/");
   await expect(page).toHaveURL(/#menu$/);
-  await expect(page.getByRole("button", { name: /PLAY/ })).toBeVisible();
-  await page.getByRole("button", { name: /PLAY/ }).click();
+  await expect(
+    page.getByRole("button", { name: "▶ PLAY", exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "▶ PLAY", exact: true }).click();
   await expect(page).toHaveURL(/#play\?skin=.*&level=/);
 });

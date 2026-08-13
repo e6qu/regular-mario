@@ -1574,7 +1574,9 @@ test("default route shows a start menu with three auto-populated dropdowns", asy
     .locator('select[aria-label="Game mode"] option')
     .allTextContents();
   expect(modeOptions).toHaveLength(2);
-  await expect(page.getByRole("button", { name: /PLAY/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "▶ PLAY", exact: true }),
+  ).toBeVisible();
   expectNoBrowserErrors(browserErrors);
 });
 

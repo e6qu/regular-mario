@@ -62,6 +62,14 @@ export enum BrowserLevelKey {
 
 export type LevelTheme = "overworld" | "underground" | "castle" | "water";
 
+/** The run totals that survive a campaign level boundary. */
+export type CarriedSessionTotals = {
+  readonly livesRemaining: number;
+  readonly sessionCoinTotal: number;
+  readonly sessionScoreBase: number;
+  readonly playerVitality: PlayerVitalityState;
+};
+
 export type BrowserGameBootstrap = {
   readonly levelInput: LevelSpecInput;
   readonly levelSequence: readonly LevelSpecInput[] | undefined;
@@ -85,7 +93,17 @@ export type BrowserGameBootstrap = {
   // The scene passes the main level the run currently belongs to, so that a
   // warp-zone jump mid-run advances from the warped-to world, not the level
   // the session started on.
-  readonly onAdvanceToNextLevel?: (currentMainLevelName?: string) => void;
+  /**
+   * Advance the campaign, handing on what the session has accumulated.
+   *
+   * The next level is booted as a fresh game, so anything the run has earned
+   * has to travel with it explicitly — otherwise clearing a level silently
+   * starts a new game at three lives and zero score.
+   */
+  readonly onAdvanceToNextLevel?: (
+    currentMainLevelName: string | undefined,
+    carriedSession: CarriedSessionTotals,
+  ) => void;
   // Classic HUD labels per main level name, so a warp-zone jump can retitle
   // the HUD (e.g. smb-4-1 -> "4-1").
   readonly worldLevelLabelByName?: ReadonlyMap<string, string>;
@@ -101,6 +119,8 @@ export type BrowserGameBootstrap = {
   // Colour theme for the tiles + backdrop (overworld / underground / castle).
   readonly theme?: LevelTheme;
   readonly initialPlayerVitality: PlayerVitalityState;
+  /** What a previous level of this run banked; absent on a fresh game. */
+  readonly carriedSession?: CarriedSessionTotals;
   // Which costume the player character wears (default castaway; "luigi" is the
   // green swap). Set from the ?character= query parameter.
   readonly playerCharacter?: PlayerCharacter;

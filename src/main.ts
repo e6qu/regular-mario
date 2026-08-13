@@ -18,6 +18,7 @@ import {
   classicCompatibilityViewport,
   selectBrowserGameBootstrap,
   type BrowserGameBootstrap,
+  type CarriedSessionTotals,
   type LevelTheme,
 } from "./shell/browser-level-selection";
 import {
@@ -637,10 +638,23 @@ function startSession(
   label: string,
   mode: SessionMode,
   onReturn: () => void,
+  // Whether the game being replaced should be destroyed rather than kept as a
+  // resumable tab. Advancing the campaign boots each level as a new game, and
+  // suspending them piled up live Phaser games — every one holding an audio
+  // context and, on the GPU renderer, a WebGL context. Browsers cap those at a
+  // handful, after which the audio context throws and the whole run goes
+  // silent. Nobody wants "level 3" back as a tab, either.
+  replacesActiveSession = false,
 ): GameSession {
   const current = sessions.find((session) => session.id === activeSessionId);
   if (current !== undefined) {
-    suspendSession(current);
+    if (replacesActiveSession) {
+      destroySessionGame(current);
+      sessions = sessions.filter((session) => session.id !== current.id);
+      activeSessionId = undefined;
+    } else {
+      suspendSession(current);
+    }
   }
   sessionCounter += 1;
   const id = `session-${String(sessionCounter)}`;
@@ -769,6 +783,7 @@ function bootCustomLevel(
   onExit: () => void,
   exitLabel: string,
   skinId: string,
+  onSkinLoadFailed?: (message: string) => void,
   warpLevels?: ReadonlyMap<string, LevelSpecInput>,
   theme?: LevelTheme,
 ): void {
@@ -808,9 +823,13 @@ function bootCustomLevel(
       skinBundleCache.set(skinId, bundle);
       boot(bundle);
     })
-    .catch((error: unknown) => {
-      throw new Error(
-        `The selected authored skin could not load: ${error instanceof Error ? error.message : String(error)}`,
+    .catch(() => {
+      // Report it where the player is looking. Throwing from inside a
+      // `.catch` callback produces an unhandled rejection, not UI: the player
+      // pressed Play in the editor, the network hiccuped, and absolutely
+      // nothing happened — no message, no spinner change, no navigation.
+      onSkinLoadFailed?.(
+        "The game's artwork could not be loaded, so the level can't start. Check your connection and try again.",
       );
     });
 }
@@ -855,12 +874,13 @@ function renderEditor(
     {
       // Playing tests the level, then ESC/death/button returns to the editor
       // with the same level and skin so editing continues seamlessly.
-      onPlay: (level, skinId, warpLevels, theme) => {
+      onPlay: (level, skinId, onFailed, warpLevels, theme) => {
         bootCustomLevel(
           level,
           () => renderEditor(level, skinId, warpLevels, theme),
           "editor",
           skinId,
+          onFailed,
           warpLevels,
           theme,
         );
@@ -2037,6 +2057,15 @@ function styleStartMenuSelect(select: HTMLSelectElement): void {
   // inside the two-column boxes; overflow clips rather than spills.
   select.style.fontSize = "13px";
   select.style.whiteSpace = "nowrap";
+  // The full value, for when the box is too narrow to show it. Truncation had
+  // the menu reading "Shabby Castaway (pa…" / "Super Mario Bros (a…" with no
+  // way to find out what was actually selected.
+  const carryTitle = (): void => {
+    select.title =
+      select.options[select.selectedIndex]?.textContent ?? select.title;
+  };
+  carryTitle();
+  select.addEventListener("change", carryTitle);
   select.style.overflow = "hidden";
   select.style.textOverflow = "ellipsis";
 }
@@ -2048,8 +2077,13 @@ function makeStartMenuLabel(text: string): HTMLElement {
   label.style.fontWeight = "bold";
   label.style.fontSize = "13px";
   label.style.letterSpacing = "1px";
-  label.style.color = "#ffe08a";
-  label.style.textShadow = "1px 1px 0 #3a2410";
+  // Dark ink on the panel's light band. The pale gold this replaces sat at
+  // roughly 1.3:1 against the sky-blue gradient behind it — every field name
+  // in the menu was close to unreadable, and the automated check could not see
+  // it because axe reports "incomplete" rather than a violation over a
+  // gradient.
+  label.style.color = "#3a2410";
+  label.style.textShadow = "0 1px 0 rgba(255, 247, 230, 0.55)";
   return label;
 }
 
@@ -2428,6 +2462,21 @@ async function renderStartMenu(
     renderEditor();
   });
   panel.appendChild(editButton);
+
+  // The multiplayer route existed with nothing anywhere in the product linking
+  // to it: a friend you sent the site to could only reach the lobby by being
+  // told to hand-type `#multiplayer`.
+  const friendsButton = document.createElement("button");
+  friendsButton.textContent = "👥 PLAY WITH FRIENDS";
+  friendsButton.className = "start-menu-friends";
+  friendsButton.style.cssText =
+    "display:block;width:100%;box-sizing:border-box;margin-top:10px;padding:9px 16px;" +
+    "font:700 13px monospace;letter-spacing:1px;cursor:pointer;border-radius:9px;" +
+    "border:3px solid #175f52;background:#1f9e86;color:#fff;text-shadow:1px 1px 0 #0d3b32;";
+  friendsButton.addEventListener("click", () => {
+    window.location.hash = "#multiplayer";
+  });
+  panel.appendChild(friendsButton);
 
   // Reset all locally-saved data (preferences and saved levels). Kept small and
   // low-contrast since it is destructive and rarely used; it confirms first.
@@ -2874,6 +2923,10 @@ async function bootSelectedContentSet(
   revengeMode: boolean,
   godMode: boolean,
   status: HTMLElement,
+  // Present when this boot continues a run rather than starting one. The
+  // campaign advances by booting the next level as a fresh game, so the run's
+  // lives, coins, score and power tier only survive if they are handed over.
+  carriedSession?: CarriedSessionTotals,
 ): Promise<void> {
   status.style.color = "#3a2410";
   status.textContent = "Loading…";
@@ -2949,6 +3002,7 @@ async function bootSelectedContentSet(
           selectedLevel.theme === "water"
             ? makeFirePlayerVitalityState()
             : makeInitialPlayerVitalityState(),
+        ...(carriedSession === undefined ? {} : { carriedSession }),
         userAssetBundle: { ...bundle, sounds },
         viewport: classicCompatibilityViewport,
         userLevelVisualName: selectedLevel.name,
@@ -2981,7 +3035,7 @@ async function bootSelectedContentSet(
         // warp-zone jump advances within the warped-to world.
         ...(nextLevelName !== undefined
           ? {
-              onAdvanceToNextLevel: (currentMainLevelName?: string) => {
+              onAdvanceToNextLevel: (currentMainLevelName, carriedSession) => {
                 const fromIndex = mainLevelNames.indexOf(
                   currentMainLevelName ?? selectedLevel.name,
                 );
@@ -3005,6 +3059,7 @@ async function bootSelectedContentSet(
                   revengeMode,
                   godMode,
                   status,
+                  carriedSession,
                 );
               },
             }
@@ -3015,6 +3070,9 @@ async function bootSelectedContentSet(
       () => {
         void renderStartMenu();
       },
+      // Continuing a run replaces the level just cleared rather than leaving
+      // it suspended behind the new one.
+      carriedSession !== undefined,
     );
   } catch (error) {
     status.style.color = "#8a1c1c";

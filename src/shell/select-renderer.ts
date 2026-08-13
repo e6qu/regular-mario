@@ -2,13 +2,30 @@
 // the node test environment (importing Phaser there throws — it needs `window`).
 // The choice→Phaser-constant mapping lives in create-game-config.ts.
 
-// The renderer backend Phaser uses. "canvas" is the historical default (a
-// software 2D fill that thumbnail capture reads back directly); "webgl" batches
-// on the GPU (faster, especially on mobile); "auto" prefers WebGL and falls
-// back to Canvas when it is unavailable.
+// The renderer backend Phaser uses. "canvas" is a software 2D fill that
+// thumbnail capture reads back directly; "webgl" batches on the GPU (faster,
+// especially on mobile); "auto" prefers WebGL and falls back to Canvas when it
+// is unavailable.
 export type RendererChoice = "canvas" | "webgl" | "auto";
 
 const rendererStorageKey = "regular-mario:renderer";
+/**
+ * Canvas by default, WebGL by choice.
+ *
+ * The GPU renderer was tried as the default and measured worse for this game,
+ * for a reason specific to it: thumbnail capture and the diagnostic screenshot
+ * both read pixels back out of the canvas, which forces
+ * `preserveDrawingBuffer` on every WebGL context we create — and that is the
+ * flag that costs WebGL its advantage. Measured with two clients sharing a
+ * machine, the watching client's rendered frame rate fell from comfortably
+ * past 40/s to about 30/s; with one client it was 103 fps against Canvas's
+ * 120. The batching win never materialised.
+ *
+ * What made the 224-column courses affordable was culling the level to the
+ * columns on screen, which is renderer-agnostic and already in place. Keep
+ * WebGL a first-class choice (the menu selector and `?renderer=`), and revisit
+ * the default if the readback requirement ever goes away.
+ */
 const defaultRenderer: RendererChoice = "canvas";
 
 export function isRendererChoice(
