@@ -259,6 +259,28 @@ function collectPairSeparation(
 
   const leftIndex = a.x <= b.x ? indexA : indexB;
   const rightIndex = leftIndex === indexA ? indexB : indexA;
+  const left = resolved[leftIndex]!;
+  const right = resolved[rightIndex]!;
+  const leftPushes = left.vx > 0;
+  const rightPushes = right.vx < 0;
+
+  // Walking into somebody shoves them along; it does not stop you dead.
+  //
+  // Splitting the overlap and cancelling both players' speed made an idle
+  // team-mate an impassable wall: the runner lost their velocity every frame
+  // and crawled at a fraction of a pixel, unable to get past a friend who was
+  // simply standing there. A single pusher now hands their whole overlap to
+  // the player in front, who is carried at the pusher's pace. Only a genuine
+  // squeeze — both running into each other, or the pushed player against
+  // terrain — costs anybody their speed.
+  if (leftPushes !== rightPushes) {
+    const pushedIndex = leftPushes ? rightIndex : leftIndex;
+    const displacement = leftPushes ? overlapX : 0 - overlapX;
+    corrections.deltaX[pushedIndex] =
+      (corrections.deltaX[pushedIndex] ?? 0) + displacement;
+    return;
+  }
+
   const push = overlapX / 2;
   corrections.deltaX[leftIndex] = (corrections.deltaX[leftIndex] ?? 0) - push;
   corrections.deltaX[rightIndex] = (corrections.deltaX[rightIndex] ?? 0) + push;
@@ -304,6 +326,27 @@ function separateBlockedPair(
   }
   const left = a.x <= b.x ? a : b;
   const right = left === a ? b : a;
+  const leftPushes = left.vx > 0;
+  const rightPushes = right.vx < 0;
+
+  // A single pusher shoves the other player the whole way; whatever terrain
+  // refuses to let the pushed player take comes off the pusher instead, and
+  // only then does the pusher lose their speed — they have hit a wall through
+  // somebody else's body.
+  if (leftPushes !== rightPushes) {
+    const pusher = leftPushes ? left : right;
+    const pushed = leftPushes ? right : left;
+    const direction = leftPushes ? 1 : -1;
+    const pushedStartX = pushed.x;
+    applyShove(pushed, direction * overlapX, 0, settle);
+    const remaining = overlapX - Math.abs(pushed.x - pushedStartX);
+    if (remaining > separationTolerancePixels) {
+      applyShove(pusher, 0 - direction * remaining, 0, settle);
+      pusher.vx = 0;
+    }
+    return;
+  }
+
   const leftStartX = left.x;
   applyShove(left, 0 - overlapX / 2, 0, settle);
   const remainingAfterLeft = overlapX - (leftStartX - left.x);

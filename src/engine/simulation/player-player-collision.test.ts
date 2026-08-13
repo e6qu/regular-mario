@@ -137,7 +137,8 @@ describe("resolvePlayerCollisions", () => {
 
   // Zeroing both players' speed stopped the player in front too, so a pair
   // walking the same way both halted the moment the one behind caught up.
-  it("stops only the player moving into the other", () => {
+  // Neither is stopped now: the one behind shoves the one in front along.
+  it("keeps both players moving when one walks into the other's back", () => {
     const runningIntoBack: PlayerSimulationState = {
       ...playerAt(100, 100),
       velocity: {
@@ -156,7 +157,7 @@ describe("resolvePlayerCollisions", () => {
       [runningIntoBack, walkingAway],
       [runningIntoBack, walkingAway],
     );
-    expect(Number(back!.velocity.x)).toBe(0);
+    expect(Number(back!.velocity.x)).toBe(80);
     expect(Number(front!.velocity.x)).toBe(40);
   });
 
@@ -223,5 +224,90 @@ describe("resolvePlayerCollisions", () => {
     );
     // The rider was carried right with its platform-player.
     expect(Number(ru!.position.x)).toBeGreaterThan(100 + 5);
+  });
+});
+
+describe("pushing past a team-mate", () => {
+  // Splitting the overlap and cancelling both players' speed made an idle
+  // team-mate an impassable wall: the runner lost their velocity every frame
+  // and crawled a fraction of a pixel, unable to get past a friend who was
+  // simply standing there.
+  it("shoves an idle team-mate along instead of stopping dead", () => {
+    const runnerSpeed = 90;
+    let runner: PlayerSimulationState = {
+      ...playerAt(100, 100),
+      velocity: {
+        x: requireSimulationVelocity(runnerSpeed, "player.velocity.x"),
+        y: requireSimulationVelocity(0, "player.velocity.y"),
+      },
+    };
+    let idle = playerAt(100 + width(runner), 100);
+    const startIdleX = Number(idle.position.x);
+    // Walk the runner forward a few frames, as the movement step would.
+    for (let frame = 0; frame < 5; frame += 1) {
+      const advanced: PlayerSimulationState = {
+        ...runner,
+        position: {
+          x: requireSimulationPixelPosition(
+            Number(runner.position.x) + 2,
+            "player.position.x",
+          ),
+          y: runner.position.y,
+        },
+      };
+      const [nextRunner, nextIdle] = resolvePlayerCollisions(
+        [advanced, idle],
+        [runner, idle],
+      );
+      runner = nextRunner!;
+      idle = nextIdle!;
+    }
+    // The runner keeps their speed...
+    expect(Number(runner.velocity.x)).toBe(runnerSpeed);
+    // ...and the team-mate has been carried forward, still touching.
+    expect(Number(idle.position.x)).toBeGreaterThan(startIdleX + 5);
+    expect(Number(runner.position.x) + width(runner)).toBeCloseTo(
+      Number(idle.position.x),
+      1,
+    );
+  });
+
+  it("still stops a runner whose team-mate is against a wall", () => {
+    const wallLeftEdgeX = 128;
+    const settle = (
+      _before: PlayerSimulationState,
+      after: PlayerSimulationState,
+    ): PlayerSimulationState => {
+      const right = Number(after.position.x) + width(after);
+      return right <= wallLeftEdgeX
+        ? after
+        : {
+            ...after,
+            position: {
+              x: requireSimulationPixelPosition(
+                wallLeftEdgeX - width(after),
+                "player.position.x",
+              ),
+              y: after.position.y,
+            },
+          };
+    };
+    const pinned = playerAt(wallLeftEdgeX - 14, 100);
+    const runner: PlayerSimulationState = {
+      ...playerAt(wallLeftEdgeX - 14 - 12, 100),
+      velocity: {
+        x: requireSimulationVelocity(90, "player.velocity.x"),
+        y: requireSimulationVelocity(0, "player.velocity.y"),
+      },
+    };
+    const [resolvedRunner, resolvedPinned] = resolvePlayerCollisions(
+      [runner, pinned],
+      [runner, pinned],
+      settle,
+    );
+    expect(Number(resolvedPinned!.position.x) + width(resolvedPinned!)).toBe(
+      wallLeftEdgeX,
+    );
+    expect(Number(resolvedRunner!.velocity.x)).toBe(0);
   });
 });
