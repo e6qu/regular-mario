@@ -753,6 +753,11 @@ export class BootScene extends Phaser.Scene {
   // One reusable view object for per-co-op-player sprite resolution; see
   // renderCoopPlayers. Never escapes the render call that fills it.
   private coopSpriteView: SimulationState | undefined;
+  // How many broken/bumped blocks the tile scans last accounted for. A
+  // mismatch (either direction, so a level rebuild resets naturally) means
+  // the persistent tile art needs rescanning.
+  private lastRenderedBrokenBlockCount = -1;
+  private lastRenderedBumpedBlockCount = -1;
   // Monotonic counter so every newly-seen bot cycles onto a fresh robot variant.
   private coopBotNextVariant = 0;
   // Body parts flung by exploding bots — kept apart from the primary's
@@ -2574,7 +2579,7 @@ export class BootScene extends Phaser.Scene {
       !this.authoritativeCompletionPresentationActive &&
       predictedState === undefined
     ) {
-      this.renderSimulationState("authoritative");
+      this.renderSimulationState();
     }
     if (predictedState !== undefined) {
       this.simulationState = predictedState.state;
@@ -2584,7 +2589,7 @@ export class BootScene extends Phaser.Scene {
         "data-rendered-camera-left",
         String(predictedState.cameraLeftPixels),
       );
-      this.renderSimulationState("predicted");
+      this.renderSimulationState();
     }
     if (
       state !== undefined ||
@@ -5368,9 +5373,7 @@ export class BootScene extends Phaser.Scene {
     return set;
   }
 
-  private renderSimulationState(
-    presentationSource: "authoritative" | "predicted" = "authoritative",
-  ): void {
+  private renderSimulationState(): void {
     // This is a render receipt, not a transport receipt: browser QA uses it to
     // prove that Phaser has consumed the state that is about to be painted.
     // Keeping it on the canvas makes a frozen scene distinguishable from a
@@ -5724,11 +5727,26 @@ export class BootScene extends Phaser.Scene {
       collectedExtraLifeEntityIdStrings,
       collectedInvincibilityEntityIdStrings,
     );
-    if (presentationSource === "authoritative") {
-      // Persistent tile mutations are committed at the ordered server
-      // boundary. Re-running these scans for every locally predicted frame is
-      // unnecessary work and visibly stalls large maps.
+    // Persistent tile mutations are rescanned only when the party has
+    // actually changed one — these scans walk map-sized collections and
+    // visibly stall large maps if run every frame.
+    //
+    // They used to be gated on the authoritative lane instead, which looked
+    // equivalent and was not: during play the client queues a predicted state
+    // every frame, and a pending prediction suppresses the authoritative
+    // render entirely. So in multiplayer these three never ran while playing —
+    // a brick you broke stayed on screen, a spent `?` block kept its glyph,
+    // and a revealed hidden block stayed invisible, until the game paused.
+    const brokenBlockCount =
+      this.simulationState.breakableBlocks.brokenBlockTilePositions.length;
+    const bumpedBlockCount =
+      this.simulationState.interactiveBlocks.bumpedBlockTilePositions.length;
+    if (brokenBlockCount !== this.lastRenderedBrokenBlockCount) {
+      this.lastRenderedBrokenBlockCount = brokenBlockCount;
       this.renderBreakableTiles();
+    }
+    if (bumpedBlockCount !== this.lastRenderedBumpedBlockCount) {
+      this.lastRenderedBumpedBlockCount = bumpedBlockCount;
       this.renderUsedInteractiveBlocks();
       this.renderRevealedHiddenBlocks();
     }
