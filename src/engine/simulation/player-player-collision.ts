@@ -177,6 +177,18 @@ function wasAbove(
   return boxOf(upper).bottom <= boxOf(lower).top + landingTolerancePixels;
 }
 
+/** How deeply two players overlap, or undefined when they do not. */
+function penetrationBetween(
+  a: MutablePlayer,
+  b: MutablePlayer,
+): { readonly overlapX: number; readonly overlapY: number } | undefined {
+  const boxA = mutableBox(a);
+  const boxB = mutableBox(b);
+  const overlapX = Math.min(boxA.right - boxB.left, boxB.right - boxA.left);
+  const overlapY = Math.min(boxA.bottom - boxB.top, boxB.bottom - boxA.top);
+  return overlapX <= 0 || overlapY <= 0 ? undefined : { overlapX, overlapY };
+}
+
 /** Per-player corrections accumulated over one relaxation pass. */
 type PassCorrections = {
   readonly deltaX: number[];
@@ -210,13 +222,11 @@ function collectPairSeparation(
 ): void {
   const a = resolved[indexA]!;
   const b = resolved[indexB]!;
-  const boxA = mutableBox(a);
-  const boxB = mutableBox(b);
-  const overlapX = Math.min(boxA.right - boxB.left, boxB.right - boxA.left);
-  const overlapY = Math.min(boxA.bottom - boxB.top, boxB.bottom - boxA.top);
-  if (overlapX <= 0 || overlapY <= 0) {
+  const penetration = penetrationBetween(a, b);
+  if (penetration === undefined) {
     return;
   }
+  const { overlapX, overlapY } = penetration;
 
   // A player who was above the other last frame and is not rising is landing
   // on their head — resolve vertically however deep the overlap has become.
@@ -307,13 +317,11 @@ function separateBlockedPair(
   b: MutablePlayer,
   settle: TerrainSettle,
 ): void {
-  const boxA = mutableBox(a);
-  const boxB = mutableBox(b);
-  const overlapX = Math.min(boxA.right - boxB.left, boxB.right - boxA.left);
-  const overlapY = Math.min(boxA.bottom - boxB.top, boxB.bottom - boxA.top);
-  if (overlapX <= 0 || overlapY <= 0) {
+  const penetration = penetrationBetween(a, b);
+  if (penetration === undefined) {
     return;
   }
+  const { overlapX, overlapY } = penetration;
   if (overlapY <= overlapX) {
     const upper = a.y < b.y ? a : b;
     const lower = upper === a ? b : a;

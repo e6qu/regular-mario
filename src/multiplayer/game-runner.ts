@@ -290,7 +290,11 @@ export function makeAuthoritativeGameRunner(
     // thrown away. Capturing `state` here (rather than reading the mutable
     // binding later) keeps a retained snapshot the world it described.
     const encodedState = state;
-    let encodedWireState: MultiplayerSimulationWireState | undefined;
+    // A holder rather than a nullable value: the wire state is `unknown`, so
+    // there is no sentinel that could not also be a legitimate encoding.
+    let encodedWireState:
+      | { readonly value: MultiplayerSimulationWireState }
+      | undefined;
     cachedSnapshot = {
       gameId: config.gameId,
       snapshotSequence: (snapshotSequence += 1),
@@ -300,8 +304,10 @@ export function makeAuthoritativeGameRunner(
       frame: Number(state.clock.frameIndex),
       cameraLeftPixels,
       get simulationState(): MultiplayerSimulationWireState {
-        encodedWireState ??= encodeMultiplayerSimulationState(encodedState);
-        return encodedWireState;
+        encodedWireState ??= {
+          value: encodeMultiplayerSimulationState(encodedState),
+        };
+        return encodedWireState.value;
       },
       players: players
         .filter((player) => player.connected)

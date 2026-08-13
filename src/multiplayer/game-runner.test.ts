@@ -884,9 +884,9 @@ describe("authoritative snapshot encoding", () => {
       "simulationState",
     );
     expect(
-      descriptor?.get,
+      typeof descriptor?.get,
       "the wire state must be produced on demand, not eagerly",
-    ).toBeTypeOf("function");
+    ).toBe("function");
   });
 
   // A retained snapshot is a delta baseline. If its wire form were produced
