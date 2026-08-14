@@ -164,3 +164,60 @@ describe("editor coin blocks", () => {
     expect(level?.tiles[3]?.[5]).toBe("coin-block-3");
   });
 });
+
+describe("editor pipes", () => {
+  // "d" is the pipe-mouth brush.
+  const pipeRows: readonly string[] = [
+    "..........",
+    "..........",
+    "..........",
+    "..........",
+    "..........",
+    "..........",
+    "..p..d.x..",
+    "gggggggggg",
+  ];
+
+  // A pipe actor needs a target tile or the level it is in fails validation —
+  // and the whole shared level went with it, decoding to nothing at all.
+  it("decodes a shared level containing a pipe", () => {
+    expect(decodeSharedLevel(encode(10, 8, pipeRows))).toBeDefined();
+  });
+
+  it("gives an unconnected pipe its own cell as its destination", () => {
+    const level = decodeSharedLevel(encode(10, 8, pipeRows));
+    const pipe = level?.actors.find((actor) => actor.x === 5 && actor.y === 6);
+    expect(pipe?.targetTileX).toBe(5);
+    expect(pipe?.targetTileY).toBe(6);
+  });
+
+  // A Pipe actor is never rendered, so a pipe is only ever seen as the mouth
+  // tiles under it. The palette had no way to paint the mouth's left half.
+  it("draws a whole two-tile mouth under the pipe", () => {
+    const level = decodeSharedLevel(encode(10, 8, pipeRows));
+    expect(level?.tiles[6]?.[5]).toBe("pipe-top-left");
+    expect(level?.tiles[6]?.[6]).toBe("pipe-top-right");
+  });
+
+  it("never draws the mouth over something the author painted", () => {
+    const rows = [...pipeRows];
+    // A ground tile immediately right of the pipe stays ground.
+    rows[6] = "..p..dg.x.";
+    const level = decodeSharedLevel(encode(10, 8, rows));
+    expect(level?.tiles[6]?.[5]).toBe("pipe-top-left");
+    expect(level?.tiles[6]?.[6]).toBe("grass");
+  });
+
+  // The destination lives on the actor, not in any cell, so a cells-only code
+  // could not describe it: every shared warp pointed nowhere.
+  it("carries a connected pipe's destination through a shared link", () => {
+    const level = decodeSharedLevel(`${encode(10, 8, pipeRows)}.5-6-8-6`);
+    const pipe = level?.actors.find((actor) => actor.x === 5 && actor.y === 6);
+    expect(pipe?.targetTileX).toBe(8);
+    expect(pipe?.targetTileY).toBe(6);
+  });
+
+  it("still decodes a link shared before destinations were carried", () => {
+    expect(decodeSharedLevel(encode(10, 8, validRows))).toBeDefined();
+  });
+});

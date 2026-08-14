@@ -8,7 +8,9 @@ import {
   makeEnemyChallengeActorDefinitions,
   makeSegmentedTileRow,
   makeTileRun,
+  pipeMouthTileDefinitions,
   standardSurfaceTileDefinitions,
+  withPipeMouthsAt,
 } from "./level-builder";
 
 const showcaseHeightTiles = 8;
@@ -19,6 +21,7 @@ const showcaseTileDefinitions: LevelSpecInputType["tileDefinitions"] = [
     tileId: "empty-question-block",
     collision: TileCollisionKind.Interactive,
   },
+  ...pipeMouthTileDefinitions,
 ];
 
 function sky(width: number): string[] {
@@ -55,15 +58,25 @@ const showcaseOverworldInput: LevelSpecInput = {
       { tile: "stone", length: 4 },
       { tile: "sky", length: 32 - 16 },
     ]),
-    makeSegmentedTileRow(32, [
-      { tile: "sky", length: 6 },
-      { tile: "thorn", length: 1 },
-      { tile: "sky", length: 4 },
-      { tile: "stone", length: 3 },
-      { tile: "sky", length: 4 },
-      { tile: "gate", length: 1 },
-      { tile: "sky", length: 32 - 19 },
-    ]),
+    // The row a player walking this course actually occupies, so it is the row
+    // that carries the pipe they step into and the gate that ends the level.
+    //
+    // The finish used to be a goal tile at column 18 — twelve tiles before the
+    // gate the player can see, on a 32-tile course. The level ended in open sky
+    // halfway along, and the spike hunter, the pipe and the gate itself were
+    // all authored past a finish nobody could get past.
+    withPipeMouthsAt(
+      makeSegmentedTileRow(32, [
+        { tile: "sky", length: 6 },
+        { tile: "thorn", length: 1 },
+        { tile: "sky", length: 4 },
+        { tile: "stone", length: 3 },
+        { tile: "sky", length: 16 },
+        { tile: "gate", length: 1 },
+        { tile: "sky", length: 1 },
+      ]),
+      [27],
+    ),
     makeSegmentedTileRow(32, [
       { tile: "grass", length: 6 },
       { tile: "sky", length: 1 },
@@ -83,11 +96,11 @@ const showcaseOverworldInput: LevelSpecInput = {
       entityId: "warp-pipe-1",
       actorId: "green-pipe",
       x: 27,
-      y: 5,
+      y: 6,
       targetTileX: 30,
-      targetTileY: 5,
+      targetTileY: 6,
     },
-    { entityId: "gate-1", actorId: "open-gate", x: 30, y: 5 },
+    { entityId: "gate-1", actorId: "open-gate", x: 30, y: 6 },
   ],
   enemyPatrolSpeedByEntityId: {
     "beetle-1": 50,

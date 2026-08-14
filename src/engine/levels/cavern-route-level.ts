@@ -73,10 +73,12 @@ export const cavernRouteLevelInput: LevelSpecInput = {
       y: 11,
     },
     {
+      // On the goal tile, not a row above it: the gate is the picture of the
+      // finish, so it has to stand where the finish actually is.
       entityId: "gate-1",
       actorId: "open-gate",
       x: 22,
-      y: 12,
+      y: 13,
     },
   ],
   enemyPatrolSpeedByEntityId: {

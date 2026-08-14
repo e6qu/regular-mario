@@ -2372,6 +2372,21 @@ test("reports authored hazard tile contact from browser movement", async ({
   // The retry's active state + reset frame index (asserted above) confirm the
   // respawn; the player's rendering is covered by the screenshot-regression
   // tests. The feedback text clearing is still a meaningful pixel check.
+  //
+  // A respawn opens with the WORLD card, which is a full-screen panel and dark
+  // pixels of its own, so count once it has played out rather than through it.
+  // Wait for it to appear before waiting for it to go: the retry arms it a
+  // moment after the respawned snapshot is readable, so a bare wait for "not
+  // visible" is satisfied by the gap before it ever shows.
+  for (const visible of [true, false]) {
+    await page.waitForFunction(
+      (expected) =>
+        window.__originalBrowserPlatformerDebug!.getSimulationSnapshot()
+          .flowCard.visible === expected,
+      visible,
+      { timeout: 10000 },
+    );
+  }
   expect(await countOutcomeFeedbackDarkPixels(page)).toBeLessThan(
     defeatedFeedbackPixelCount,
   );

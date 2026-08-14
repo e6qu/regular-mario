@@ -1,30 +1,18 @@
+import { ActorRole, type LevelSpecInput } from "../domain/level-spec";
 import {
-  ActorRole,
-  TileCollisionKind,
-  type LevelSpecInput,
-} from "../domain/level-spec";
+  makeGoalTileRow,
+  makeTileRun,
+  standardSkyGrassTileDefinitions,
+} from "./level-builder";
 
 const powerUpRouteWidthTiles = 16;
 const powerUpRouteHeightTiles = 6;
-
-function makeTileRun(tileId: string, length: number): string[] {
-  return Array.from({ length }, () => tileId);
-}
 
 export const powerUpRouteLevelInput: LevelSpecInput = {
   widthTiles: powerUpRouteWidthTiles,
   heightTiles: powerUpRouteHeightTiles,
   tileSizePixels: 16,
-  tileDefinitions: [
-    {
-      tileId: "sky",
-      collision: TileCollisionKind.Empty,
-    },
-    {
-      tileId: "grass",
-      collision: TileCollisionKind.Solid,
-    },
-  ],
+  tileDefinitions: standardSkyGrassTileDefinitions,
   actorDefinitions: [
     {
       actorId: "runner-start",
@@ -48,7 +36,7 @@ export const powerUpRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", powerUpRouteWidthTiles),
     makeTileRun("sky", powerUpRouteWidthTiles),
     makeTileRun("sky", powerUpRouteWidthTiles),
-    makeTileRun("sky", powerUpRouteWidthTiles),
+    makeGoalTileRow(powerUpRouteWidthTiles, 14),
     makeTileRun("grass", powerUpRouteWidthTiles),
   ],
   actors: [

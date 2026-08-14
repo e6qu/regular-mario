@@ -1,5 +1,6 @@
 import type { LevelSpecInput } from "../domain/level-spec";
 import {
+  makeGoalTileRow,
   makeRouteActorDefinitions,
   makeTileRun,
   standardSkyGrassTileDefinitions,
@@ -19,7 +20,7 @@ export const projectileRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", projectileRouteWidthTiles),
     makeTileRun("sky", projectileRouteWidthTiles),
     makeTileRun("sky", projectileRouteWidthTiles),
-    makeTileRun("sky", projectileRouteWidthTiles),
+    makeGoalTileRow(projectileRouteWidthTiles, 12),
     makeTileRun("grass", projectileRouteWidthTiles),
   ],
   actors: [

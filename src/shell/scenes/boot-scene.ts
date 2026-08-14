@@ -2885,10 +2885,13 @@ export class BootScene extends Phaser.Scene {
         return false;
       }
       const targetWorld = /^smb-(\d+)-\d+$/.exec(actor.targetLevelName)?.[1];
+      // A level with no world of its own — an authored route, an editor level,
+      // a fixture — is not in any of the worlds its pipes lead to, so every
+      // one of them leaves for another world. Requiring a world on both sides
+      // meant a level built entirely out of warp pipes raised no banner.
       return (
         targetWorld !== undefined &&
-        ownWorld !== undefined &&
-        targetWorld !== ownWorld
+        (ownWorld === undefined || targetWorld !== ownWorld)
       );
     });
     if (warpPipes.length === 0) {
@@ -4602,13 +4605,6 @@ export class BootScene extends Phaser.Scene {
     if (!this.pendingGameOver && retriedFromDeath) {
       this.carriedPlayerVitality = makeInitialPlayerVitalityState();
     }
-    // The ROM shows the WORLD card (with the decremented life count) on every
-    // respawn — and a TIME UP card first when the clock ran out.
-    if (retriedFromDeath) {
-      this.levelIntroFramesRemaining = retriedFromTimeUp
-        ? worldCardFrames + timeUpCardFrames
-        : worldCardFrames;
-    }
     // Halfway checkpoint: a player defeated (not finished) past the level's
     // halfway column, in the main level itself, retries from the checkpoint
     // rather than the top — like the original's HalfwayPage respawn.
@@ -4663,6 +4659,18 @@ export class BootScene extends Phaser.Scene {
     this.pendingGameOver = false;
     this.cameras.main.startFollow(this.playerRectangle, true, 0.2, 0.12);
     this.resetRun();
+    // The ROM shows the WORLD card (with the decremented life count) on every
+    // respawn — and a TIME UP card first when the clock ran out.
+    //
+    // After resetRun, not before it: a plain retry does not rebuild the level,
+    // so resetRun clears the intro card to stop a stale one showing, and it
+    // used to clear this one too. The card was armed and then wiped a few
+    // lines later, so no respawn ever showed one.
+    if (retriedFromDeath) {
+      this.levelIntroFramesRemaining = retriedFromTimeUp
+        ? worldCardFrames + timeUpCardFrames
+        : worldCardFrames;
+    }
     this.exitPause();
     this.renderSimulationState();
   }
@@ -7439,6 +7447,11 @@ export class BootScene extends Phaser.Scene {
         },
         levelTimer: {
           remainingFrames: this.simulationState.levelTimer.remainingFrames,
+        },
+        flowCard: {
+          visible: this.flowCardTitleText?.visible ?? false,
+          title: this.flowCardTitleText?.text ?? "",
+          subtitle: this.flowCardSubtitleText?.text ?? "",
         },
         pathAnnotations: {
           paths: this.levelSpec.pathAnnotations.map((pathAnnotation) => ({

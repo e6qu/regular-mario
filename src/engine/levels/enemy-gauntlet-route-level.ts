@@ -65,7 +65,9 @@ export const enemyGauntletRouteLevelInput: LevelSpecInput = {
     { entityId: "spark-1", actorId: "spark-cap", x: 13, y: 4 },
     { entityId: "hunter-1", actorId: "spike-hunter", x: 22, y: 5 },
     { entityId: "crab-1", actorId: "shellback", x: 25, y: 5 },
-    { entityId: "gate-1", actorId: "open-gate", x: 27, y: 5 },
+    // On the goal tile at column 26, not the column after it: the gate is the
+    // picture of the finish, so it has to stand where the finish actually is.
+    { entityId: "gate-1", actorId: "open-gate", x: 26, y: 5 },
   ],
   enemyPatrolSpeedByEntityId: {
     "hunter-1": 48,

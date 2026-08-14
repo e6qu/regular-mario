@@ -1,9 +1,12 @@
 import type { LevelSpecInput } from "../domain/level-spec";
 import { ActorRole } from "../domain/level-spec";
 import {
+  makeGoalTileRow,
   makeRouteActorDefinitions,
   makeTileRun,
+  pipeMouthTileDefinitions,
   standardSkyGrassTileDefinitions,
+  withPipeMouthsAt,
 } from "./level-builder";
 
 // A two-level fixture exercising a cross-level warp pipe: entering the pipe in
@@ -19,7 +22,10 @@ export const warpRouteUndergroundLevelInput: LevelSpecInput = {
   widthTiles: undergroundWidthTiles,
   heightTiles,
   tileSizePixels: 16,
-  tileDefinitions: standardSkyGrassTileDefinitions,
+  tileDefinitions: [
+    ...standardSkyGrassTileDefinitions,
+    ...pipeMouthTileDefinitions,
+  ],
   actorDefinitions: [
     ...makeRouteActorDefinitions(),
     { actorId: "green-pipe", role: ActorRole.Pipe },
@@ -29,7 +35,7 @@ export const warpRouteUndergroundLevelInput: LevelSpecInput = {
     makeTileRun("sky", undergroundWidthTiles),
     makeTileRun("sky", undergroundWidthTiles),
     makeTileRun("sky", undergroundWidthTiles),
-    makeTileRun("sky", undergroundWidthTiles),
+    makeGoalTileRow(undergroundWidthTiles, 10),
     makeTileRun("grass", undergroundWidthTiles),
   ],
   actors: [
@@ -42,7 +48,10 @@ export const warpRouteLevelInput: LevelSpecInput = {
   widthTiles: mainWidthTiles,
   heightTiles,
   tileSizePixels: 16,
-  tileDefinitions: standardSkyGrassTileDefinitions,
+  tileDefinitions: [
+    ...standardSkyGrassTileDefinitions,
+    ...pipeMouthTileDefinitions,
+  ],
   actorDefinitions: [
     ...makeRouteActorDefinitions(),
     { actorId: "green-pipe", role: ActorRole.Pipe },
@@ -52,7 +61,7 @@ export const warpRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", mainWidthTiles),
     makeTileRun("sky", mainWidthTiles),
     makeTileRun("sky", mainWidthTiles),
-    makeTileRun("sky", mainWidthTiles),
+    withPipeMouthsAt(makeGoalTileRow(mainWidthTiles, 8), [4]),
     makeTileRun("grass", mainWidthTiles),
   ],
   actors: [
