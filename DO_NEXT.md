@@ -1,15 +1,30 @@
 # DO_NEXT.md
 
-- Known-but-unfixed, from the 2026-08-14 audits, in value order: nine more
-  authored fixture levels have an exit actor and no goal tile (same defect as
-  the public course fixed here, but they are fixtures); four levels put the
-  goal tile and the drawn gate in different places, so `showcase-level` ends
-  half a level before its gate; three more levels have invisible pipes; the
-  editor cannot draw a whole pipe and its help text says it can; an editor
-  share link containing a pipe decodes to nothing; the WORLD/TIME-UP card
-  never shows on a death retry because `resetRun` clears the counter the
-  retry path had just set; and the warp-zone fixture demonstrates neither the
-  banner nor the warp it exists for.
+- The 2026-08-14 audit list is closed. `authored-route-coherence.test.ts` now
+  holds the two rules those defects broke: a route with a gate has a goal tile
+  in the gate's own cell, and every Pipe actor has a pipe mouth drawn on it.
+  Both are properties of the whole authored set, not a list of known-bad
+  levels, so a new route cannot reintroduce either.
+
+- Two of those levels needed a judgement call rather than the rule. The
+  hard-landing fixture's gate sits at column 0, under the launch ledge: the
+  runner's fall crosses the gate row several tiles right, so a gate there is a
+  finish it passes through in mid-air, ending the route before the landing the
+  fixture exists to show. `showcase-level`'s pipe and gate moved down a row, to
+  where every other route puts them — one row above the ground, where a walking
+  player meets them.
+
+- A pipe mouth is not solid, in the editor or in the authored routes. A warp
+  pipe is entered by standing on the mouth and pressing Down, so a solid mouth
+  is a wall to climb rather than a pipe to step onto; the editor drew its
+  mouths Solid and broke both connect-pipe browser journeys the moment the
+  mouths became real tiles. Keep `pipe-top-left`/`pipe-top-right` Empty and the
+  body tiles Solid.
+
+- The shared-level code has an optional fourth group carrying warp
+  destinations ("x-y-tx-ty", joined by "_"). Codes shared before it exist have
+  three groups and still decode. A cross-area destination cannot be expressed —
+  the code carries one area.
 
 - Do not re-try the WebGL default without first removing the pixel-readback
   requirement (thumbnails, diagnostic screenshot). While those exist, every

@@ -19,7 +19,10 @@ import {
   warpRouteUndergroundLevelInput,
   warpRouteUndergroundLevelName,
 } from "../engine/levels/warp-route-level";
-import { warpZoneRouteLevelInput } from "../engine/levels/warp-zone-route-level";
+import {
+  warpZoneDestinationLevelsByName,
+  warpZoneRouteLevelInput,
+} from "../engine/levels/warp-zone-route-level";
 import { powerUpRouteLevelInput } from "../engine/levels/power-up-route-level";
 import { projectileRouteLevelInput } from "../engine/levels/projectile-route-level";
 import { requirePublicOriginalLevel } from "../engine/levels/public-level-catalog";
@@ -392,10 +395,15 @@ function makeBrowserGameBootstrap(
         ]),
       };
     case BrowserLevelKey.WarpZoneRoute:
-      return makeSingleLevelBootstrap(
-        warpZoneRouteLevelInput,
-        makeInitialPlayerVitalityState(),
-      );
+      return {
+        ...makeSingleLevelBootstrap(
+          warpZoneRouteLevelInput,
+          makeInitialPlayerVitalityState(),
+        ),
+        // Without these the fixture's three pipes named destinations that did
+        // not exist, so the route built to demonstrate a warp could not warp.
+        warpLevelsByName: warpZoneDestinationLevelsByName,
+      };
     default: {
       const invalidLevelKey: never = levelKey;
       throw new Error(

@@ -712,8 +712,62 @@ const keyByCellChar = new Map(
   Object.entries(cellCharByKey).map(([key, char]) => [char, key]),
 );
 
-// A shareable level code: "<width>.<height>.<cells>" (one char per cell). Only
-// uses URL-safe characters, so it drops straight into a `#level=` fragment.
+// A shareable level code: "<width>.<height>.<cells>" (one char per cell),
+// optionally followed by ".<links>" carrying the warp destinations. Only uses
+// URL-safe characters, so it drops straight into a `#level=` fragment.
+//
+// A pipe's destination lives on the actor, not in any cell, so a cells-only
+// code could not describe one: a shared level's warps all pointed nowhere.
+// Each link is "x-y-tx-ty", joined by "_". A cross-area destination cannot be
+// expressed — the code carries a single area — so it shares as a warp to the
+// same tile within this one.
+function encodeWarpLinks(level: LevelSpecInput): string {
+  const pipeActorIds = new Set(
+    level.actorDefinitions
+      // Input roles are strings; ActorRole.Pipe === "pipe".
+      .filter((definition) => definition.role === "pipe")
+      .map((definition) => definition.actorId),
+  );
+  const links = level.actors.flatMap((actor) => {
+    if (
+      !pipeActorIds.has(actor.actorId) ||
+      actor.targetTileX === undefined ||
+      actor.targetTileY === undefined
+    ) {
+      return [];
+    }
+    return [
+      `${String(actor.x)}-${String(actor.y)}-${String(actor.targetTileX)}-${String(actor.targetTileY)}`,
+    ];
+  });
+  return links.join("_");
+}
+
+function decodeWarpLinks(
+  encoded: string,
+): Map<string, { readonly x: number; readonly y: number }> {
+  const warps = new Map<string, { readonly x: number; readonly y: number }>();
+  if (encoded === "") {
+    return warps;
+  }
+  for (const link of encoded.split("_")) {
+    const parts = link.split("-").map(Number);
+    const [x, y, targetX, targetY] = parts;
+    if (
+      parts.length !== 4 ||
+      x === undefined ||
+      y === undefined ||
+      targetX === undefined ||
+      targetY === undefined ||
+      !parts.every((part) => Number.isInteger(part) && part >= 0)
+    ) {
+      continue;
+    }
+    warps.set(`${String(x)},${String(y)}`, { x: targetX, y: targetY });
+  }
+  return warps;
+}
+
 function encodeSharedLevel(level: LevelSpecInput): string {
   const { cells, width, height } = cellsFromLevelInput(level);
   const chars = cells
@@ -733,19 +787,27 @@ function encodeSharedLevel(level: LevelSpecInput): string {
         .join(""),
     )
     .join("");
-  return `${String(width)}.${String(height)}.${chars}`;
+  const links = encodeWarpLinks(level);
+  return links === ""
+    ? `${String(width)}.${String(height)}.${chars}`
+    : `${String(width)}.${String(height)}.${chars}.${links}`;
 }
 
 export function decodeSharedLevel(encoded: string): LevelSpecInput | undefined {
   // Cell chars: lowercase letters/"." for tiles, digits 1-9 for coin blocks,
   // A-I for coin bricks (both N coins), and J-Z for the newer mechanics.
-  const match = /^(\d+)\.(\d+)\.([.a-zA-Z1-9]*)$/.exec(encoded);
+  // The trailing warp-link group is optional: codes shared before pipes could
+  // carry their destinations have three groups and still decode.
+  const match = /^(\d+)\.(\d+)\.([.a-zA-Z1-9]*)(?:\.([\d\-_]*))?$/.exec(
+    encoded,
+  );
   if (match === null) {
     return undefined;
   }
   const width = Number(match[1]);
   const height = Number(match[2]);
   const chars = match[3] ?? "";
+  const warps = decodeWarpLinks(match[4] ?? "");
   // Bound the dimensions to the editor's own limits: a hand-crafted or oversized
   // #level= link must not build a multi-thousand-cell DOM grid that janks the tab.
   if (
@@ -769,7 +831,7 @@ export function decodeSharedLevel(encoded: string): LevelSpecInput | undefined {
       return keyByCellChar.get(char) ?? skyKey;
     }),
   );
-  const level = levelInputFromCells(cells, width, height);
+  const level = levelInputFromCells(cells, width, height, warps);
   return makeLevelSpec(level).ok ? level : undefined;
 }
 
@@ -2591,15 +2653,23 @@ function extraTileDefinitionsFor(
       collision: TileCollisionKind.Hazard,
     });
   }
-  for (const pipeTileId of [
-    "pipe-top-left",
-    "pipe-top-right",
-    "pipe-left",
-    "pipe-right",
-  ]) {
-    if (usedTileIds.has(pipeTileId)) {
+  // A pipe's mouth is not solid; its body is.
+  //
+  // A warp pipe is entered by standing on the mouth and pressing Down, so a
+  // solid mouth is a wall the player has to climb instead of a pipe they can
+  // step onto — the authored routes keep theirs Empty for the same reason.
+  for (const mouthTileId of ["pipe-top-left", "pipe-top-right"]) {
+    if (usedTileIds.has(mouthTileId)) {
       definitions.push({
-        tileId: pipeTileId,
+        tileId: mouthTileId,
+        collision: TileCollisionKind.Empty,
+      });
+    }
+  }
+  for (const bodyTileId of ["pipe-left", "pipe-right"]) {
+    if (usedTileIds.has(bodyTileId)) {
+      definitions.push({
+        tileId: bodyTileId,
         collision: TileCollisionKind.Solid,
       });
     }
@@ -2673,6 +2743,32 @@ function levelInputFromCells(
     }),
   );
 
+  // Draw the pipe mouths.
+  //
+  // A Pipe actor is never rendered (see isRenderedActorRole) — a pipe is only
+  // ever seen as the pipe-mouth tiles under it. The palette could paint the
+  // actor and the mouth's right half, but nothing could paint its left half,
+  // so an editor pipe was always half-drawn at best while the help text said
+  // "paint a pipe mouth". The mouth is two tiles wide, so the cell to the
+  // right gets the other half when it is empty sky — never over anything the
+  // author painted there.
+  cells.forEach((row, y) => {
+    row.forEach((key, x) => {
+      const item = paletteByKey.get(key);
+      if (item?.kind !== "actor" || item.role !== ActorRole.Pipe) {
+        return;
+      }
+      const tileRow = tiles[y];
+      if (tileRow === undefined) {
+        return;
+      }
+      tileRow[x] = "pipe-top-left";
+      if (tileRow[x + 1] === "sky") {
+        tileRow[x + 1] = "pipe-top-right";
+      }
+    });
+  });
+
   const actors: {
     entityId: string;
     actorId: string;
@@ -2702,17 +2798,25 @@ function levelInputFromCells(
       // A connected warp pipe carries its destination tile.
       const warp =
         item.role === ActorRole.Pipe ? pipeWarps?.get(`${x},${y}`) : undefined;
+      // An unconnected pipe warps to where it already is.
+      //
+      // A pipe actor without a target tile fails validation, and the level it
+      // is in fails with it: painting a pipe and pressing Play used to report
+      // an invalid level, and a shared link containing a pipe decoded to
+      // nothing at all. Going nowhere is what an unconnected pipe means; the
+      // 🔗 Connect tool is what gives it somewhere to go.
+      const destination = warp ?? { x, y, targetLevelName: undefined };
       actors.push({
         entityId,
         actorId: item.actorId,
         x,
         y,
-        ...(warp !== undefined
+        ...(item.role === ActorRole.Pipe
           ? {
-              targetTileX: warp.x,
-              targetTileY: warp.y,
-              ...(warp.targetLevelName !== undefined
-                ? { targetLevelName: warp.targetLevelName }
+              targetTileX: destination.x,
+              targetTileY: destination.y,
+              ...(destination.targetLevelName !== undefined
+                ? { targetLevelName: destination.targetLevelName }
                 : {}),
             }
           : {}),

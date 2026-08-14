@@ -201,6 +201,49 @@ function expectGoldenReplayState(
   );
 }
 
+// A run that walks right into the gate and stops on it.
+//
+// Both twelve-tile routes put their gate in column 10, so a player who runs
+// right ends halted against the same goal tile; only the frame count differs.
+function expectGoldenGoalContactState(
+  finalState: SimulationState,
+  frameIndex: number,
+): void {
+  expectGoldenReplayState(finalState, {
+    frameIndex,
+    playerPosition: {
+      x: 146.110_000_003_704_22,
+      y: 64,
+    },
+    playerVelocity: {
+      x: 150,
+      y: 0,
+    },
+    playerMovement: {
+      horizontal: HorizontalMovementState.Running,
+      vertical: VerticalMovementState.Grounded,
+    },
+    playerVitality: {
+      kind: "small",
+    },
+    levelContacts: {
+      hazard: false,
+      goal: true,
+    },
+    playerOutcome: {
+      kind: PlayerOutcomeKind.Finished,
+      reason: PlayerFinishReason.GoalContact,
+    },
+    collectedCoinEntityIds: [],
+    collectedItemEntityIds: [],
+    contactedEnemyEntityIds: [],
+    defeatedEnemyEntityIds: [],
+    enemyContactResponse: {
+      kind: "none",
+    },
+  });
+}
+
 function expectRightwardHazardReplayState(
   finalState: SimulationState,
   playerPositionX: number,
@@ -475,41 +518,15 @@ describe("replay fixture", () => {
       }),
     );
 
-    expectGoldenReplayState(finalState, {
-      frameIndex: 200,
-      playerPosition: {
-        x: 146.110_000_003_704_22,
-        y: 64,
-      },
-      playerVelocity: {
-        x: 150,
-        y: 0,
-      },
-      playerMovement: {
-        horizontal: HorizontalMovementState.Running,
-        vertical: VerticalMovementState.Grounded,
-      },
-      playerVitality: {
-        kind: "small",
-      },
-      levelContacts: {
-        hazard: false,
-        goal: true,
-      },
-      playerOutcome: {
-        kind: PlayerOutcomeKind.Finished,
-        reason: PlayerFinishReason.GoalContact,
-      },
-      collectedCoinEntityIds: [],
-      collectedItemEntityIds: [],
-      contactedEnemyEntityIds: [],
-      defeatedEnemyEntityIds: [],
-      enemyContactResponse: {
-        kind: "none",
-      },
-    });
+    expectGoldenGoalContactState(finalState, 200);
   });
 
+  // Running right along this route now ends at its gate.
+  //
+  // The golden used to record a pit death at x=221 on a 192-pixel-wide course:
+  // the route drew a gate and had no goal tile, so a player who ran into the
+  // gate passed straight through it and off the end of the world. The recorded
+  // run was the bug.
   it("replays the flying enemy route deterministically", () => {
     const finalState = runAuthoredReplay(
       singleSegmentReplayFixture(
@@ -519,39 +536,7 @@ describe("replay fixture", () => {
       requireLevelSpec(flyingEnemyRouteLevelInput),
     );
 
-    expectGoldenReplayState(finalState, {
-      frameIndex: 120,
-      playerPosition: {
-        x: 221.110_000_005_204_03,
-        y: 97.062_500_001_142_5,
-      },
-      playerVelocity: {
-        x: 150,
-        y: 270,
-      },
-      playerMovement: {
-        horizontal: HorizontalMovementState.Running,
-        vertical: VerticalMovementState.Falling,
-      },
-      playerVitality: {
-        kind: "small",
-      },
-      levelContacts: {
-        hazard: false,
-        goal: false,
-      },
-      playerOutcome: {
-        kind: PlayerOutcomeKind.Defeated,
-        reason: PlayerDefeatReason.PitContact,
-      },
-      collectedCoinEntityIds: [],
-      collectedItemEntityIds: [],
-      contactedEnemyEntityIds: [],
-      defeatedEnemyEntityIds: [],
-      enemyContactResponse: {
-        kind: EnemyContactResponseKind.None,
-      },
-    });
+    expectGoldenGoalContactState(finalState, 120);
   });
 
   it("replays the chasing enemy route deterministically", () => {

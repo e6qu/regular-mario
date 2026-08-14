@@ -307,6 +307,9 @@ export type BrowserSimulationSnapshot = {
   readonly levelProgression: BrowserLevelProgressionSnapshot;
   readonly cutscene: BrowserCutsceneSnapshot;
   readonly levelTimer: BrowserLevelTimerSnapshot;
+  // The full-screen flow card (WORLD / TIME UP / GAME OVER), so a test can see
+  // which beat is on screen rather than inferring it from the canvas.
+  readonly flowCard: BrowserFlowCardSnapshot;
   readonly pathAnnotations: BrowserPathAnnotationsSnapshot;
   readonly camera: BrowserCameraSnapshot;
   readonly levelContacts: LevelContactState;
@@ -338,6 +341,12 @@ export type BrowserSimulationSnapshot = {
   readonly player: PlayerSimulationState;
   readonly playerReaction: PlayerReactionState;
   readonly enemyStompReaction: StompReactionState;
+};
+
+type BrowserFlowCardSnapshot = {
+  readonly visible: boolean;
+  readonly title: string;
+  readonly subtitle: string;
 };
 
 export type BrowserPlatformerDebugApi = {

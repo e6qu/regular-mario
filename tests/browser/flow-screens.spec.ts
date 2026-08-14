@@ -85,6 +85,26 @@ test("lives count down across deaths and reach game over", async ({ page }) => {
   expect(restarted.gameOver).toBe(false);
 });
 
+// The ROM shows the WORLD card, with the life count it just spent, on every
+// respawn. This one was armed by the retry and then cleared by the run reset a
+// few lines later in the same function, so no respawn ever showed one.
+test("a death respawn shows the WORLD card again", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 520 });
+  await page.goto(playRoute);
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(120);
+
+  await dieWalkingRight(page);
+  await retry(page);
+
+  const card = (await snapshot(page)).flowCard;
+  expect(card.visible, "no WORLD card on the respawn").toBe(true);
+  expect(card.title).toContain("WORLD");
+});
+
 test("a warp-zone level raises the WELCOME TO WARP ZONE banner", async ({
   page,
 }) => {
@@ -97,6 +117,43 @@ test("a warp-zone level raises the WELCOME TO WARP ZONE banner", async ({
     () => window.__originalBrowserPlatformerDebug !== undefined,
   );
   expect((await snapshot(page)).warpZone).toBe(true);
+});
+
+// The fixture that exists to demonstrate a warp zone demonstrated neither half
+// of one: the banner is raised by pipes leaving for another world, and the
+// route has no world of its own, so it never qualified; and its pipes named
+// destination levels that were not loaded, so entering one warped nowhere.
+test("the warp-zone fixture raises its banner and warps", async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 520 });
+  await page.goto("/?browserLevel=warp-zone-route");
+  await page.waitForFunction(
+    () => window.__originalBrowserPlatformerDebug !== undefined,
+  );
+  expect((await snapshot(page)).warpZone, "no warp-zone banner").toBe(true);
+
+  // Walk onto the first pipe and press Down. It is at tile 4, and entry keys
+  // on the player's centre tile, so stop before walking past it.
+  await page.keyboard.press("Space");
+  await page.keyboard.down("ArrowRight");
+  await page.waitForFunction(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot().player
+        .position.x >= 45,
+    undefined,
+    { timeout: 8000 },
+  );
+  await page.keyboard.up("ArrowRight");
+  await page.waitForTimeout(200);
+  await page.keyboard.down("ArrowDown");
+  // The destination room is ten tiles wide; the route itself is fourteen.
+  await page.waitForFunction(
+    () =>
+      window.__originalBrowserPlatformerDebug!.getSimulationSnapshot().level
+        .widthTiles === 10,
+    undefined,
+    { timeout: 8000 },
+  );
+  await page.keyboard.up("ArrowDown");
 });
 
 test("an ordinary level shows no warp-zone banner", async ({ page }) => {

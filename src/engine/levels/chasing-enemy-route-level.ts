@@ -1,5 +1,9 @@
 import { ActorRole, type LevelSpecInput } from "../domain/level-spec";
-import { makeTileRun, standardSurfaceTileDefinitions } from "./level-builder";
+import {
+  makeGoalTileRow,
+  makeTileRun,
+  standardSurfaceTileDefinitions,
+} from "./level-builder";
 
 const chasingEnemyRouteWidthTiles = 12;
 const chasingEnemyRouteHeightTiles = 6;
@@ -28,7 +32,7 @@ export const chasingEnemyRouteLevelInput: LevelSpecInput = {
     makeTileRun("sky", chasingEnemyRouteWidthTiles),
     makeTileRun("sky", chasingEnemyRouteWidthTiles),
     makeTileRun("sky", chasingEnemyRouteWidthTiles),
-    makeTileRun("sky", chasingEnemyRouteWidthTiles),
+    makeGoalTileRow(chasingEnemyRouteWidthTiles, 10),
     makeTileRun("grass", chasingEnemyRouteWidthTiles),
   ],
   actors: [
