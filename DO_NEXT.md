@@ -26,6 +26,14 @@
   three groups and still decode. A cross-area destination cannot be expressed —
   the code carries one area.
 
+- `prediction-drift.spec.ts` bounds a backward step at 3px, and the number is
+  derived rather than tuned: the guest runs at 150 px/s and reconciles at
+  20 Hz, so one tick of real divergence is about seven pixels and a rubber-band
+  worth the name is tens. It was 1px, which is the pixel-rounding bound, and a
+  loaded CI runner produced a single 2px step in 60 samples. If this flakes
+  again, look for a cause rather than raising it further: past 7px the test
+  stops describing the thing it is named after.
+
 - Do not re-try the WebGL default without first removing the pixel-readback
   requirement (thumbnails, diagnostic screenshot). While those exist, every
   WebGL context is created with `preserveDrawingBuffer`, which is the flag

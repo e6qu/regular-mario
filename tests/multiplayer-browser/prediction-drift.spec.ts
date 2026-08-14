@@ -112,17 +112,27 @@ test("a running guest is never yanked backwards", async ({ browser }) => {
       travelledPx: (samples.at(-1) ?? 0) - (samples[0] ?? 0),
     });
     expect(samples.at(-1) ?? 0).toBeGreaterThan(samples[0] ?? 0);
-    // Magnitude, not count. A rubber-band yank is the guest being dragged tens
-    // of pixels back to where the server thought it was, and that is what this
-    // guards. The rendered position is snapped to whole pixels, so two readings
-    // either side of a sub-pixel position differ by one with nothing having
-    // been yanked — counting those made the guarantee depend on which side of a
-    // rounding boundary the sampler happened to catch.
+    // Magnitude, not count. A rubber-band yank is the guest being dragged back
+    // to where the server thought it was, and that is what this guards. The
+    // rendered position is snapped to whole pixels, so two readings either side
+    // of a sub-pixel position differ by one with nothing having been yanked —
+    // counting those made the guarantee depend on which side of a rounding
+    // boundary the sampler happened to catch.
+    //
+    // The bound comes from what a yank costs, not from what looks tidy. The
+    // guest runs at 150 px/s and reconciles at 20 Hz, so the smallest real
+    // rubber-band — one tick of divergence — drags it about seven pixels back,
+    // and anything worth the name is tens. A few pixels is rounding plus
+    // scheduler jitter: a loaded CI runner produced a single 2px step in 60
+    // samples on a commit whose only change was one line of Markdown, and the
+    // same build passed the run before it and three runs locally. Three keeps
+    // every real yank caught and stops the guarantee turning on whether the
+    // runner was busy.
     expect(
       worstBackwardStep,
       `the guest was pulled back ${String(worstBackwardStep)}px, across ` +
         `${String(backwardSteps.length)} of ${String(samples.length)} samples`,
-    ).toBeLessThanOrEqual(1);
+    ).toBeLessThanOrEqual(3);
 
     await cancelGame(host);
   } finally {
