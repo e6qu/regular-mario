@@ -22,7 +22,7 @@
   body tiles Solid.
 
 - The shared-level code has an optional fourth group carrying warp
-  destinations ("x-y-tx-ty", joined by "_"). Codes shared before it exist have
+  destinations ("x-y-tx-ty", joined by "\_"). Codes shared before it exist have
   three groups and still decode. A cross-area destination cannot be expressed —
   the code carries one area.
 
