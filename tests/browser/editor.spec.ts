@@ -634,10 +634,17 @@ test("editor theme recolours the level backdrop (underground is dark)", async ({
     if (canvas === null) {
       return -1;
     }
-    const context = canvas.getContext("2d");
+    // Read through a scratch 2D canvas rather than the game canvas's own
+    // context: the game may be running on WebGL, where `getContext("2d")`
+    // returns null. Same pattern as the samplers in boot.spec.
+    const scratch = document.createElement("canvas");
+    scratch.width = canvas.width;
+    scratch.height = canvas.height;
+    const context = scratch.getContext("2d");
     if (context === null) {
       return -1;
     }
+    context.drawImage(canvas, 0, 0);
     const pixel = context.getImageData(
       Math.round(canvas.width / 2),
       Math.round(canvas.height * 0.32),

@@ -115,6 +115,7 @@ import {
 } from "../../engine/simulation/pipe-state";
 import type {
   BrowserGameBootstrap,
+  CarriedSessionTotals,
   LevelTheme,
 } from "../browser-level-selection";
 import { GameAudio, type DeathSoundKind } from "../game-audio";
@@ -622,7 +623,8 @@ export class BootScene extends Phaser.Scene {
       readonly x: number;
       setVisible(visible: boolean): unknown;
     };
-    readonly column: number;
+    readonly firstColumn: number;
+    readonly lastColumn: number;
   }[] = [];
   // The column window currently shown, so culling only runs when the camera
   // crosses a tile boundary rather than every frame.
@@ -1039,7 +1041,10 @@ export class BootScene extends Phaser.Scene {
       this.hasFinishedOutcome() &&
       this.browserGameBootstrap.onAdvanceToNextLevel !== undefined
     ) {
-      this.browserGameBootstrap.onAdvanceToNextLevel(this.currentMainLevelName);
+      this.browserGameBootstrap.onAdvanceToNextLevel(
+        this.currentMainLevelName,
+        this.carriedSessionTotals(),
+      );
       return;
     }
 
@@ -1180,6 +1185,15 @@ export class BootScene extends Phaser.Scene {
     // The first level starts at the bootstrap's tier (usually small); later
     // levels carry the tier the player finished the prior level with.
     this.carriedPlayerVitality = browserGameBootstrap.initialPlayerVitality;
+    // A campaign level booted as the next step of a run starts from what the
+    // previous level banked, not from a new game's defaults.
+    const carriedSession = browserGameBootstrap.carriedSession;
+    if (carriedSession !== undefined) {
+      this.carriedLivesRemaining = carriedSession.livesRemaining;
+      this.carriedSessionCoinTotal = carriedSession.sessionCoinTotal;
+      this.carriedSessionScoreBase = carriedSession.sessionScoreBase;
+      this.carriedPlayerVitality = carriedSession.playerVitality;
+    }
     window.addEventListener("keydown", this.handleEarlyStartKey);
   }
 
@@ -1428,12 +1442,22 @@ export class BootScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setVisible(false);
+    // The last moment before play, and the only place the controls were never
+    // stated: the menu tutorial covers skins and maps and never mentions that
+    // you move with the arrows. Say it here, and say "tap" to a device with no
+    // keys to press.
+    const coarsePointer =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
     this.startPromptText = this.add
       .text(
         outcomeFeedbackPositionX,
         outcomeFeedbackPositionY,
-        "PRESS ANY KEY TO START",
+        coarsePointer
+          ? "TAP TO START\n← → move · A jump · B run"
+          : "PRESS ANY KEY TO START\n← → move · Space jump · Shift run",
         {
+          align: "center",
           color: "#111827",
           fontFamily: "monospace",
           fontSize: "16px",
@@ -4415,6 +4439,24 @@ export class BootScene extends Phaser.Scene {
   // The tier to carry into the next level: an enlarged tier (Super/Fire) is
   // kept as-is; small and the transient post-hit recovering state both carry as
   // small, since the recovering state is tied to the level being left.
+  /**
+   * What this run has earned, for a campaign level boundary.
+   *
+   * Advancing the campaign boots a fresh game, so these have to travel with
+   * it: without them, clearing a level restarted the whole run at three lives
+   * and no score.
+   */
+  private carriedSessionTotals(): CarriedSessionTotals {
+    return {
+      livesRemaining: this.simulationState.livesRemaining,
+      sessionCoinTotal:
+        this.simulationState.sessionCoinBase +
+        this.simulationState.collectibles.collectedCoinEntityIds.length,
+      sessionScoreBase: this.carriedSessionScoreBase + this.currentLevelScore(),
+      playerVitality: this.tierToCarryForward(),
+    };
+  }
+
   private tierToCarryForward(): PlayerVitalityState {
     return isEnlargedPlayerVitalityKind(
       this.simulationState.players[0].vitality.kind,
@@ -5130,6 +5172,7 @@ export class BootScene extends Phaser.Scene {
               onContinue: () => {
                 this.browserGameBootstrap.onAdvanceToNextLevel?.(
                   this.currentMainLevelName,
+                  this.carriedSessionTotals(),
                 );
               },
             }
@@ -5434,6 +5477,8 @@ export class BootScene extends Phaser.Scene {
       }
       const candidate = object as Phaser.GameObjects.GameObject & {
         x?: unknown;
+        displayWidth?: unknown;
+        width?: unknown;
         setVisible?: unknown;
       };
       if (
@@ -5443,10 +5488,26 @@ export class BootScene extends Phaser.Scene {
       ) {
         return [];
       }
+      // A span, not a column. Some level art is one object far wider than a
+      // tile — a whole-level painted backdrop is a single image anchored at
+      // its left edge — and keying that on the column its origin happens to
+      // sit in hid the entire artwork as soon as the camera scrolled three
+      // tiles past the start.
+      const spanPixels =
+        typeof candidate.displayWidth === "number" &&
+        Number.isFinite(candidate.displayWidth)
+          ? candidate.displayWidth
+          : typeof candidate.width === "number" &&
+              Number.isFinite(candidate.width)
+            ? candidate.width
+            : tileSize;
       return [
         {
           object: candidate as (typeof this.cullableTileArt)[number]["object"],
-          column: Math.floor(candidate.x / tileSize),
+          firstColumn: Math.floor(candidate.x / tileSize),
+          lastColumn: Math.floor(
+            (candidate.x + Math.max(0, spanPixels - 1)) / tileSize,
+          ),
         },
       ];
     });
@@ -5487,8 +5548,8 @@ export class BootScene extends Phaser.Scene {
       return;
     }
     this.culledColumnWindow = { first, last };
-    for (const { object, column } of this.cullableTileArt) {
-      object.setVisible(column >= first && column <= last);
+    for (const { object, firstColumn, lastColumn } of this.cullableTileArt) {
+      object.setVisible(lastColumn >= first && firstColumn <= last);
     }
   }
 
@@ -7586,6 +7647,16 @@ export class BootScene extends Phaser.Scene {
     };
 
     window.__originalBrowserPlatformerDebug = debugApi;
+    // The handle is a single global owned by whichever scene published last.
+    // Retract it when this scene ends, or a destroyed game keeps answering
+    // through it — every accessor reaches into a torn-down camera and throws.
+    // Only retract our own: a scene that has already been replaced must not
+    // pull the live game's handle out from under it.
+    this.registerSceneTeardown(() => {
+      if (window.__originalBrowserPlatformerDebug === debugApi) {
+        delete window.__originalBrowserPlatformerDebug;
+      }
+    });
   }
 }
 

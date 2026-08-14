@@ -4,20 +4,57 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Original Browser Platformer</title>
+    <meta
+      name="description"
+      content="An original browser platformer: run, jump and stomp through hand-built courses, design your own, or play them with friends."
+    />
+    <meta name="theme-color" content="#7ec0ff" />
+    <!-- Inline so it costs no request and cannot 404: the sky and sand the
+         game itself is painted in. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%237ec0ff'/%3E%3Crect y='11' width='16' height='5' fill='%23dcc38c'/%3E%3Crect x='5' y='5' width='6' height='6' fill='%238a5a2b'/%3E%3Crect x='6' y='7' width='2' height='2' fill='%23fff7e6'/%3E%3C/svg%3E"
+    />
     <style>
       body {
         margin: 0;
+        /* The page's own ground colour. Without it the browser paints white
+           until the menu mounts, which reads as a flash on every load. */
+        background: #7ec0ff;
       }
 
-      #app[role="application"] {
+      /* The app root fills the window whatever role it is given: it is a
+         `region` on the menu and only becomes an `application` in some states,
+         so keying the layout on the role left it unset most of the time. */
+      #app {
         width: 100vw;
         height: 100vh;
         overflow: hidden;
+      }
+
+      /* One visible focus ring for the whole product. Menus, editor tools and
+         the timeline all draw their own backgrounds with `border: none`, so
+         keyboard users had nothing to follow outside the multiplayer screens. */
+      :focus-visible {
+        outline: 3px solid #38bdf8;
+        outline-offset: 2px;
       }
     </style>
   </head>
   <body>
     <main id="app"></main>
+    <noscript>
+      <p
+        style="
+          margin: 0;
+          padding: 24px;
+          font: 600 14px/1.6 monospace;
+          color: #3a2410;
+        "
+      >
+        This game needs JavaScript to run. Enable it and reload the page.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -83,6 +83,17 @@ type MountedGameSession = {
 };
 
 const activeGameSessionByMount = new WeakMap<HTMLElement, MountedGameSession>();
+// The lobby's own refresh timer, so it is stopped whenever the mount moves on
+// to a game or a re-render.
+const lobbyRefreshByMount = new WeakMap<HTMLElement, number>();
+
+function stopLobbyRefresh(mount: HTMLElement): void {
+  const handle = lobbyRefreshByMount.get(mount);
+  if (handle !== undefined) {
+    window.clearInterval(handle);
+    lobbyRefreshByMount.delete(mount);
+  }
+}
 
 function disposeMountedGameSession(mount: HTMLElement): void {
   activeGameSessionByMount.get(mount)?.dispose();
@@ -184,7 +195,59 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-menu p { margin: 0 0 12px; }
     .multiplayer-game-menu button { margin: 4px; padding: 8px 11px; border: 3px solid #172033; background: #ffd54a; color: #172033; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 3px 3px 0 #b9682f; }
     .multiplayer-game-menu button[data-danger=true] { background: #ef7860; }
-    .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
+    .multiplayer-death-prompt {
+    position: absolute;
+    inset: auto auto 8% 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    display: grid;
+    gap: 2px;
+    justify-items: center;
+    padding: 10px 18px;
+    border: 3px solid #6b1f1f;
+    border-radius: 12px;
+    background: rgba(38, 10, 10, 0.88);
+    color: #ffe9e4;
+    text-align: center;
+    pointer-events: none;
+  }
+  .multiplayer-death-prompt strong {
+    font: 800 14px monospace;
+    letter-spacing: 1px;
+  }
+  .multiplayer-death-prompt span {
+    font: 600 12px monospace;
+    color: #ffb9ab;
+  }
+  .multiplayer-game-disconnected {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    z-index: 30;
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    box-sizing: border-box;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 20px 24px;
+    border: 3px solid #10403a;
+    border-radius: 14px;
+    background: #0f2f2b;
+    color: #eefaf6;
+    text-align: center;
+    box-shadow: 0 18px 40px rgba(4, 20, 18, 0.55);
+  }
+  .multiplayer-game-disconnected h2 {
+    margin: 0;
+    font: 800 18px monospace;
+    letter-spacing: 1px;
+  }
+  .multiplayer-game-disconnected p {
+    margin: 0;
+    font: 500 13px/1.5 monospace;
+    color: #bfe6dc;
+  }
+  .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
     .multiplayer-game-error:empty { display: none; }
     @media (max-width: 620px) { .multiplayer-panel { width: calc(100% - 16px); margin: 8px auto; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
       .multiplayer-profile-card, .multiplayer-create-card { flex-direction: column; align-items: stretch; }
@@ -207,7 +270,59 @@ function installMultiplayerVisualLanguage(): void {
       .multiplayer-game-chat-feed p { padding: 5px 7px; font-size: 12px; }
       .multiplayer-game-menu > section { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 10px; font-size: 13px; box-shadow: 4px 4px 0 #285a37; }
       .multiplayer-game-menu button { margin: 2px; padding: 6px 8px; }
-      .multiplayer-game-error { top: 8px; left: 8px; max-width: calc(100vw - 16px); font-size: 12px; }
+      .multiplayer-death-prompt {
+    position: absolute;
+    inset: auto auto 8% 50%;
+    transform: translateX(-50%);
+    z-index: 25;
+    display: grid;
+    gap: 2px;
+    justify-items: center;
+    padding: 10px 18px;
+    border: 3px solid #6b1f1f;
+    border-radius: 12px;
+    background: rgba(38, 10, 10, 0.88);
+    color: #ffe9e4;
+    text-align: center;
+    pointer-events: none;
+  }
+  .multiplayer-death-prompt strong {
+    font: 800 14px monospace;
+    letter-spacing: 1px;
+  }
+  .multiplayer-death-prompt span {
+    font: 600 12px monospace;
+    color: #ffb9ab;
+  }
+  .multiplayer-game-disconnected {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    z-index: 30;
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    box-sizing: border-box;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 20px 24px;
+    border: 3px solid #10403a;
+    border-radius: 14px;
+    background: #0f2f2b;
+    color: #eefaf6;
+    text-align: center;
+    box-shadow: 0 18px 40px rgba(4, 20, 18, 0.55);
+  }
+  .multiplayer-game-disconnected h2 {
+    margin: 0;
+    font: 800 18px monospace;
+    letter-spacing: 1px;
+  }
+  .multiplayer-game-disconnected p {
+    margin: 0;
+    font: 500 13px/1.5 monospace;
+    color: #bfe6dc;
+  }
+  .multiplayer-game-error { top: 8px; left: 8px; max-width: calc(100vw - 16px); font-size: 12px; }
     }
   `;
   document.head.append(style);
@@ -322,6 +437,7 @@ async function renderLobby(
   // is deliberately at the lobby boundary as well as renderGame: no caller can
   // accidentally render a lobby over a live Phaser/WebSocket/audio session.
   disposeMountedGameSession(mount);
+  stopLobbyRefresh(mount);
   const [lobby, levelResponse] = await Promise.all([
     requestJson<{
       readonly profile: PlayerProfile;
@@ -565,6 +681,57 @@ async function renderLobby(
   panel.append(lobbyChat);
   mount.append(panel);
   await appendSemanticLayout(panel);
+
+  // Keep the lobby live. It used to render once: a friend's newly-opened run
+  // never appeared, and lobby chat only advanced when YOU sent a message — so
+  // two people could sit looking at "No run is open yet" while both were in
+  // the lobby. Re-render only when something actually changed, and never while
+  // somebody is typing into it or a button has focus, so a refresh cannot eat
+  // a half-written nickname or move the control under a click.
+  const lobbySignature = (snapshot: {
+    readonly games: readonly GameSummary[];
+    readonly activeGame: GameSummary | undefined;
+    readonly messages: readonly { readonly text: string }[];
+  }): string =>
+    JSON.stringify([
+      snapshot.games.map((game) => [game.gameId, game.playerCount, game.phase]),
+      snapshot.activeGame?.gameId,
+      snapshot.messages.length,
+    ]);
+  let renderedSignature = lobbySignature(lobby);
+  const refresh = window.setInterval(() => {
+    const focused = document.activeElement;
+    if (
+      focused instanceof HTMLInputElement ||
+      focused instanceof HTMLTextAreaElement ||
+      focused instanceof HTMLSelectElement ||
+      focused instanceof HTMLButtonElement
+    ) {
+      return;
+    }
+    void (async () => {
+      try {
+        const next = await requestJson<{
+          readonly games: readonly GameSummary[];
+          readonly activeGame: GameSummary | undefined;
+          readonly messages: readonly { readonly text: string }[];
+        }>("/lobby");
+        if (lobbyRefreshByMount.get(mount) !== refresh) {
+          return;
+        }
+        const signature = lobbySignature(next);
+        if (signature === renderedSignature) {
+          return;
+        }
+        renderedSignature = signature;
+        await renderLobby(mount, userAssetBundle);
+      } catch {
+        // A blip is not worth tearing the lobby down for; the next tick tries
+        // again, and any real session failure surfaces on the next action.
+      }
+    })();
+  }, 2_500);
+  lobbyRefreshByMount.set(mount, refresh);
 }
 
 function renderGame(
@@ -577,6 +744,10 @@ function renderGame(
   // A route refresh/rejoin may arrive while an earlier game shell is still
   // mounted. DOM replacement alone does not destroy Phaser or its audio graph.
   disposeMountedGameSession(mount);
+  // And stop the lobby watching for changes: entering a game is itself a
+  // change, so a still-running poll would notice it and re-render the lobby
+  // straight over the game it just started.
+  stopLobbyRefresh(mount);
   mount.replaceChildren();
   const gameShell = document.createElement("section");
   gameShell.className = "multiplayer-game-shell";
@@ -675,12 +846,27 @@ function renderGame(
   gameMenuPanel.append(
     Object.assign(document.createElement("h2"), { textContent: "Game menu" }),
     Object.assign(document.createElement("p"), {
-      textContent: "Escape closes this menu. P pauses or resumes for everyone.",
+      textContent:
+        "Escape closes this menu · P pauses or resumes for everyone · " +
+        "T opens chat · R rejoins the party after you are knocked out",
     }),
   );
   gameMenu.append(gameMenuPanel);
+  const deathPrompt = document.createElement("div");
+  deathPrompt.className = "multiplayer-death-prompt";
+  deathPrompt.setAttribute("role", "status");
+  deathPrompt.hidden = true;
+  deathPrompt.append(
+    Object.assign(document.createElement("strong"), {
+      textContent: "You are out",
+    }),
+    Object.assign(document.createElement("span"), {
+      textContent: "Press R to rejoin your party",
+    }),
+  );
   gameShell.append(
     gameHost,
+    deathPrompt,
     gameChatFeed,
     gameChatOverlay,
     gameMenu,
@@ -1207,6 +1393,14 @@ function renderGame(
         ? instrumentAbsent
         : instrumentBoolean(local.spectator),
     );
+    // Tell a defeated player what to do. Dying silently turned you into a
+    // spectator watching somebody else's camera, with the key that brings you
+    // back mentioned nowhere in the product.
+    const spectating =
+      local !== undefined &&
+      local.spectator &&
+      snapshot.phase !== MultiplayerGamePhase.Finished;
+    deathPrompt.hidden = !spectating;
     latestAuthoritativeSnapshot = snapshot;
     // Complete map/entity state is authoritative and changes at the network
     // cadence. Apply it once here; the animation loop below only supplies the
@@ -1239,14 +1433,31 @@ function renderGame(
       !initialDebugScreenshotSubmitted
     ) {
       initialDebugScreenshotSubmitted = true;
-      socket.send(
-        JSON.stringify({
-          type: "screenshot",
-          protocolVersion: multiplayerProtocolVersion,
-          gameId,
-          pngDataUrl: makeDiagnosticScreenshot(renderer.canvas),
-        }),
-      );
+      // Off the critical path. Copying the game canvas costs a full readback
+      // of its drawing buffer — on a GPU renderer at a 3× device pixel ratio
+      // that is millions of pixels, and it was being paid inside a socket
+      // callback, landing as a ~300 ms stall in the middle of play. This is a
+      // diagnostic for the admin surface; it can wait for an idle moment.
+      const captureDiagnosticScreenshot = (): void => {
+        if (disposed || socket.readyState !== WebSocket.OPEN) {
+          return;
+        }
+        socket.send(
+          JSON.stringify({
+            type: "screenshot",
+            protocolVersion: multiplayerProtocolVersion,
+            gameId,
+            pngDataUrl: makeDiagnosticScreenshot(renderer.canvas),
+          }),
+        );
+      };
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(captureDiagnosticScreenshot, {
+          timeout: 2_000,
+        });
+      } else {
+        window.setTimeout(captureDiagnosticScreenshot, 250);
+      }
     }
   }
   async function confirmCompletedGame(
@@ -1538,6 +1749,24 @@ function renderGame(
   socket.addEventListener("close", (event) => {
     socketLifecycle = `closed:${String(event.code)}`;
     recordSocketLifecycle();
+    // A socket that closes while the player is still meant to be playing is a
+    // dead session: say so, rather than leaving a frozen canvas on screen.
+    //
+    // Only for an abnormal close. A normal close is this client tidying up, and
+    // 4001 is the server deliberately superseding this socket because the same
+    // player opened a newer one — a rejoin, not a failure. Treating those as
+    // disconnects put a "Disconnected" panel over a perfectly live game.
+    const deliberateCloseCodes = new Set([1000, 1001, 4001]);
+    if (
+      !disposed &&
+      !exitingGame &&
+      gameShell.isConnected &&
+      !deliberateCloseCodes.has(event.code)
+    ) {
+      failGameSession(
+        "The connection to the game was lost. Your party may still be playing.",
+      );
+    }
   });
   socket.addEventListener("error", () => {
     socketLifecycle = "error";
@@ -1664,6 +1893,35 @@ function renderGame(
       sendInput(false);
     }
   }, 100);
+  /**
+   * The end of the road for this game view.
+   *
+   * A terminal failure used to write its message into a DOM attribute nothing
+   * renders and then dispose the session — which also disabled Escape. The
+   * player was left looking at a motionless canvas with no message, no menu
+   * and no way back except reloading the page.
+   */
+  function failGameSession(message: string): void {
+    gameShell.setAttribute("data-game-error", message);
+    if (disposed) {
+      return;
+    }
+    dispose();
+    const panel = document.createElement("section");
+    panel.className = "multiplayer-game-disconnected";
+    const heading = document.createElement("h2");
+    heading.textContent = "Disconnected";
+    const detail = document.createElement("p");
+    detail.setAttribute("role", "alert");
+    detail.textContent = message;
+    const back = makeButton("Back to the lobby", () => {
+      void renderLobby(mount, userAssetBundle);
+    });
+    panel.append(heading, detail, back);
+    gameShell.append(panel);
+    back.focus();
+  }
+
   async function update(): Promise<void> {
     try {
       if (socket.readyState === WebSocket.OPEN) {
@@ -1674,11 +1932,11 @@ function renderGame(
       );
       displaySnapshot(snapshot);
     } catch (error) {
-      gameShell.setAttribute(
-        "data-game-error",
-        error instanceof Error ? error.message : "Game connection failed.",
+      failGameSession(
+        error instanceof Error
+          ? error.message
+          : "The connection to the game was lost.",
       );
-      dispose();
     }
   }
   void update();

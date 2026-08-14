@@ -41,6 +41,8 @@ test("running game surface has no serious WCAG violations", async ({
 
 test("start menu has no serious WCAG violations", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("button", { name: /PLAY/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "▶ PLAY", exact: true }),
+  ).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });

@@ -19,6 +19,9 @@ export type LevelEditorCallbacks = {
   readonly onPlay: (
     level: LevelSpecInput,
     skinId: string,
+    // Called when the play-test could not start, so the editor can say so
+    // instead of appearing to ignore the button.
+    onFailed: (message: string) => void,
     warpLevels?: ReadonlyMap<string, LevelSpecInput>,
     theme?: LevelTheme,
   ) => void;
@@ -1990,6 +1993,10 @@ export function renderLevelEditor(
     callbacks.onPlay(
       set.main,
       skinSelect.value,
+      (message) => {
+        status.style.color = "#fca5a5";
+        status.textContent = message;
+      },
       set.warpLevels.size > 0 ? set.warpLevels : undefined,
       themeSelect.value as LevelTheme,
     );

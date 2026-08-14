@@ -336,9 +336,21 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
   const cadence = await page.evaluate(async (samplingMilliseconds) => {
     const frameIntervals: number[] = [];
     const longTaskDurations: number[] = [];
+    const bootTaskDurations: number[] = [];
+    // Separate boot from play. This observer is buffered, so it also receives
+    // tasks from before sampling began — page load and scene construction —
+    // and folding those into the live figure made a one-off startup cost read
+    // as gameplay jank. Booting a GPU renderer uploads every sprite as a
+    // texture, which is a few hundred milliseconds once, while the player is
+    // looking at the start card. Both are bounded, with their own budgets.
+    const samplingStart = performance.now();
     const observer = new PerformanceObserver((entries) => {
       for (const entry of entries.getEntries()) {
-        longTaskDurations.push(entry.duration);
+        if (entry.startTime < samplingStart) {
+          bootTaskDurations.push(entry.duration);
+        } else {
+          longTaskDurations.push(entry.duration);
+        }
       }
     });
     observer.observe({ type: "longtask", buffered: true });
@@ -366,6 +378,7 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
       percentile95FrameMilliseconds:
         sorted[Math.floor(sorted.length * 0.95)] ?? Number.POSITIVE_INFINITY,
       longestTaskMilliseconds: Math.max(0, ...longTaskDurations),
+      longestBootTaskMilliseconds: Math.max(0, ...bootTaskDurations),
     };
   }, sampleDurationMilliseconds);
 
@@ -378,6 +391,10 @@ test("a live game maintains render and snapshot cadence", async ({ page }) => {
   expect(cadence.meanFrameMilliseconds).toBeLessThan(24);
   expect(cadence.percentile95FrameMilliseconds).toBeLessThan(40);
   expect(cadence.longestTaskMilliseconds).toBeLessThan(100);
+  // Startup is allowed to be expensive, but not unbounded: this catches a
+  // regression that moves per-frame work into the boot path or makes the
+  // renderer's texture upload pathological.
+  expect(cadence.longestBootTaskMilliseconds).toBeLessThan(700);
   // At 3 s injected latency the first packets cannot arrive during a fixed
   // 2 s observation. Sample past the configured delivery delay, then require
   // live stream traffic rather than mistaking the configured network condition

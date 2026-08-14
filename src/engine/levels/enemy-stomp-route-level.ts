@@ -23,12 +23,17 @@ export const enemyStompRouteLevelInput: LevelSpecInput = {
       role: ActorRole.Exit,
     },
   ],
+  // The finish is tile-driven: the deterministic core ends a level on contact
+  // with a Goal tile, and the Exit actor is only the picture of a gate. This
+  // route had the picture and no goal tile, so walking into the visible gate
+  // did nothing — and it is a public multiplayer course, where a party could
+  // never complete it. The goal tile sits under the gate the player can see.
   tiles: [
     makeTileRun("sky", stompRouteWidthTiles),
     makeTileRun("sky", stompRouteWidthTiles),
     makeTileRun("sky", stompRouteWidthTiles),
     makeTileRun("sky", stompRouteWidthTiles),
-    makeTileRun("sky", stompRouteWidthTiles),
+    [...makeTileRun("sky", 10), "gate", "sky"],
     makeTileRun("grass", stompRouteWidthTiles),
   ],
   actors: [

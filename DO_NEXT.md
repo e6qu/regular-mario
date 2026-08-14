@@ -1,5 +1,27 @@
 # DO_NEXT.md
 
+- Known-but-unfixed, from the 2026-08-14 audits, in value order: nine more
+  authored fixture levels have an exit actor and no goal tile (same defect as
+  the public course fixed here, but they are fixtures); four levels put the
+  goal tile and the drawn gate in different places, so `showcase-level` ends
+  half a level before its gate; three more levels have invisible pipes; the
+  editor cannot draw a whole pipe and its help text says it can; an editor
+  share link containing a pipe decodes to nothing; the WORLD/TIME-UP card
+  never shows on a death retry because `resetRun` clears the counter the
+  retry path had just set; and the warp-zone fixture demonstrates neither the
+  banner nor the warp it exists for.
+
+- Do not re-try the WebGL default without first removing the pixel-readback
+  requirement (thumbnails, diagnostic screenshot). While those exist, every
+  WebGL context is created with `preserveDrawingBuffer`, which is the flag
+  that costs it its advantage — measured worse than Canvas both with one
+  client and with two.
+
+- The multiplayer waiting room described by `.multiplayer-game-room*` in the
+  stylesheet was never built: Create starts a live level immediately, alone.
+  Either build the room those classes describe (roster, share link, start when
+  ready) or delete the dead CSS.
+
 - Keep the transport's laziness: the authoritative snapshot's `simulationState`
   is a memoised getter over the world as it stood when the snapshot was taken.
   Do not make it eager again (the runner produces one per 60 Hz frame while the
