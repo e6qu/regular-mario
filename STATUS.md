@@ -2,6 +2,12 @@
 
 ## Current State
 
+**The login limiter counts players behind the proxy (2026-09-29).** Deployed
+behind a reverse proxy, the limiter keyed every login by the proxy's address,
+so five wrong passwords from anyone locked every player out. It now keys by
+the client a trusted proxy forwards (`TRUSTED_PROXIES`); admin login is
+throttled too, and a throttled login answers 429 with `Retry-After`.
+
 **Game-wide bug and UX sweep (2026-08-14).** The campaign is a run again:
 clearing a level carried nothing forward — you finished 1-1 with five lives
 and fire power and started 1-2 with three and small — and each cleared level

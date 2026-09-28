@@ -110,7 +110,8 @@ its local player.
   in an HttpOnly, Secure (in production), SameSite cookie. It expires after 24
   hours and reconnecting resumes the existing active-game slot when available.
   No username/password account system is introduced. Rate-limit password
-  attempts at the server boundary.
+  attempts at the server boundary, per client: behind a reverse proxy the
+  client is the address a trusted proxy (`TRUSTED_PROXIES`) forwards.
 - A distinct `ADMIN_PASSWORD` creates a separate, short-lived (one-hour)
   admin session. The protected admin UI/API can boot a player, expire all user
   sessions, inspect lobby/game state, pause a selected game, advance exactly

@@ -1,5 +1,17 @@
 # BUGS.md
 
+### Five wrong passwords from anyone locked every player out — fixed (2026-09-29)
+
+The login limiter keyed failures by the socket peer. Deployed behind a
+reverse proxy, every request arrives from the proxy, so every player shared
+one budget of five failures a minute: one person mistyping five times locked
+the whole server out of `/api/login`, and any successful login cleared an
+attacker's count. The limiter now keys by the client a trusted proxy forwards
+(`TRUSTED_PROXIES`); a direct client is still its peer and its own
+`X-Forwarded-For` is ignored. `/api/admin/login` had no limiter and now has
+one. A throttled login answered 401 because its message mentioned the
+password; it now answers 429 with `Retry-After`.
+
 ### An idle team-mate was an impassable wall — fixed (2026-08-13)
 
 Separation split the overlap and cancelled both players' horizontal speed

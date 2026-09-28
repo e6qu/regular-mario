@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-09-29 — the login limiter counts players, not the proxy
+
+- Deployed behind a reverse proxy, the login limiter saw one client, so five
+  wrong passwords from anyone locked every player out. `TRUSTED_PROXIES`
+  names the proxies whose `X-Forwarded-For` names the client
+  (`src/server/client-address.ts`); a list entry that is not an address or a
+  CIDR range stops startup.
+- Admin login is throttled like player login, and a throttled login answers
+  429 with `Retry-After` instead of 401.
+
 ## 2026-08-14 — bug and UX sweep
 
 Two audits (engine/content, and the real user journeys) plus the WebGL default

@@ -1,3 +1,9 @@
+export class TooManyLoginAttemptsError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super("Too many password attempts. Try again shortly.");
+  }
+}
+
 export type LoginAttemptLimiter = {
   assertAllowed(address: string, nowMilliseconds: number): void;
   recordFailure(address: string, nowMilliseconds: number): void;
@@ -30,8 +36,16 @@ export function makeLoginAttemptLimiter(
 
   return {
     assertAllowed(address, nowMilliseconds) {
-      if (recent(address, nowMilliseconds).length >= maximumAttempts) {
-        throw new Error("Too many password attempts. Try again shortly.");
+      const failures = recent(address, nowMilliseconds);
+      if (failures.length >= maximumAttempts) {
+        const oldest =
+          failures[failures.length - maximumAttempts] ?? nowMilliseconds;
+        throw new TooManyLoginAttemptsError(
+          Math.max(
+            1,
+            Math.ceil((oldest + windowMilliseconds - nowMilliseconds) / 1000),
+          ),
+        );
       }
     },
     recordFailure(address, nowMilliseconds) {
