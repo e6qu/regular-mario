@@ -29,7 +29,11 @@ import {
   makeLobbyLayout,
   makeLoginLayout,
 } from "./layout";
-import { makeLoginAttemptLimiter } from "./login-attempt-limiter";
+import type { ClientAddressResolver } from "./client-address";
+import {
+  makeLoginAttemptLimiter,
+  TooManyLoginAttemptsError,
+} from "./login-attempt-limiter";
 import {
   makeMultiplayerService,
   type MakeMultiplayerServiceConfig,
@@ -76,6 +80,7 @@ export type MakeMultiplayerHttpServerConfig = {
   readonly service: MakeMultiplayerServiceConfig;
   readonly staticRoot?: string;
   readonly secureCookies: boolean;
+  readonly clientAddress: ClientAddressResolver;
   readonly snapshotDelayMilliseconds?: number;
   readonly logger?: ServerLogger;
 };
@@ -282,6 +287,10 @@ export function makeMultiplayerHttpServer(
   // predecessor rather than duplicating heartbeat/input traffic and snapshots.
   const socketByPlayerId = new Map<string, WebSocket>();
   const loginAttemptLimiter = makeLoginAttemptLimiter(
+    maximumLoginAttemptsPerWindow,
+    loginAttemptWindowMilliseconds,
+  );
+  const adminLoginAttemptLimiter = makeLoginAttemptLimiter(
     maximumLoginAttemptsPerWindow,
     loginAttemptWindowMilliseconds,
   );
@@ -538,7 +547,6 @@ export function makeMultiplayerHttpServer(
     const cookies = parseCookies(request);
     const playerToken = cookies.get(sessionCookieName);
     const adminToken = cookies.get(adminCookieName);
-    const address = request.socket.remoteAddress ?? "unknown";
     response.once("finish", () => {
       config.logger?.("http_request", {
         method: request.method ?? "unknown",
@@ -557,6 +565,7 @@ export function makeMultiplayerHttpServer(
         return;
       }
       if (request.method === "POST" && url.pathname === "/api/login") {
+        const address = config.clientAddress(request);
         const currentTime = now();
         loginAttemptLimiter.assertAllowed(address, currentTime);
         let loggedIn;
@@ -578,10 +587,20 @@ export function makeMultiplayerHttpServer(
         return;
       }
       if (request.method === "POST" && url.pathname === "/api/admin/login") {
-        const token = service.loginAdmin(
-          requireString(await readJsonBody(request), "password"),
-          now(),
-        );
+        const address = config.clientAddress(request);
+        const currentTime = now();
+        adminLoginAttemptLimiter.assertAllowed(address, currentTime);
+        let token;
+        try {
+          token = service.loginAdmin(
+            requireString(await readJsonBody(request), "password"),
+            currentTime,
+          );
+        } catch (error) {
+          adminLoginAttemptLimiter.recordFailure(address, currentTime);
+          throw error;
+        }
+        adminLoginAttemptLimiter.reset(address);
         response.setHeader(
           "set-cookie",
           adminCookie(token, config.secureCookies),
@@ -905,6 +924,11 @@ export function makeMultiplayerHttpServer(
         error.message === "Unsupported multiplayer protocol version."
       ) {
         protocolErrorCount += 1;
+      }
+      if (error instanceof TooManyLoginAttemptsError) {
+        response.setHeader("retry-after", String(error.retryAfterSeconds));
+        failure(response, 429, error);
+        return;
       }
       failure(
         response,

@@ -4,6 +4,7 @@ import {
   makeMultiplayerHttpServer,
   makeProductionServiceConfig,
 } from "./http-server";
+import { parseTrustedProxies } from "./client-address";
 import { makeFileServerLogger } from "./file-logger";
 import { multiplayerAuthoritativeFramesPerSecond } from "../multiplayer/domain";
 
@@ -45,6 +46,7 @@ const app = makeMultiplayerHttpServer({
   ),
   staticRoot: resolve(process.cwd(), "dist"),
   secureCookies: process.env["NODE_ENV"] === "production",
+  clientAddress: parseTrustedProxies(process.env["TRUSTED_PROXIES"] ?? ""),
   ...(snapshotDelayMilliseconds === undefined
     ? {}
     : { snapshotDelayMilliseconds }),

@@ -1,5 +1,9 @@
 # DO_NEXT.md
 
+- A deployment behind a reverse proxy sets `TRUSTED_PROXIES` to the proxy's
+  address; until it does, logins are keyed by the proxy and every player
+  shares one attempt budget.
+
 - The 2026-08-14 audit list is closed. `authored-route-coherence.test.ts` now
   holds the two rules those defects broke: a route with a gate has a goal tile
   in the gate's own cell, and every Pipe actor has a pipe mouth drawn on it.
