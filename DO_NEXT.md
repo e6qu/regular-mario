@@ -1,8 +1,8 @@
 # DO_NEXT.md
 
-- The deployment sets `TRUSTED_PROXIES` to the reverse proxy's address, which
-  the infra repository pins on the game's network; until it does, logins are
-  keyed by the proxy and every player shares one attempt budget.
+- A deployment behind a reverse proxy sets `TRUSTED_PROXIES` to the proxy's
+  address; until it does, logins are keyed by the proxy and every player
+  shares one attempt budget.
 
 - The 2026-08-14 audit list is closed. `authored-route-coherence.test.ts` now
   holds the two rules those defects broke: a route with a gate has a goal tile
