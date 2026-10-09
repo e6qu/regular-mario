@@ -74,7 +74,9 @@ repos:
 
       - id: unit-tests
         name: unit tests
-        entry: pnpm run test
+        # The tests read the generated release content, which a fresh
+        # checkout does not have yet; build it first, as `pnpm run check` does.
+        entry: sh -c 'pnpm run build:release-content && pnpm run test'
         language: system
         pass_filenames: false
         stages: [pre-commit]
