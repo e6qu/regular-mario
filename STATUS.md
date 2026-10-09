@@ -12,8 +12,10 @@ targets. Pointer tracking supports multiple fingers, thumb rolling, cancellation
 and focus loss. Online play now forwards these commands through prediction and
 the server input queue, with touch actions for pause, chat, revival and leaving.
 Targeted Chromium/WebKit navigation, online touch and pixel-parity tests pass,
-as do builds and the full unit/pre-commit checks except the existing dependency
-vulnerability audit; see BUGS.md.
+as do builds and the full unit/pre-commit checks. PR #39's pre-existing
+dependency audit failure is resolved by patched transitive overrides for
+`brace-expansion@5.0.12` and `source-map-js@1.2.2`; the audit reports no known
+vulnerabilities. Registry age and license evidence is in the dependency README.
 
 **The login limiter counts players behind the proxy (2026-09-29).** Deployed
 behind a reverse proxy, the limiter keyed every login by the proxy's address,

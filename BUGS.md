@@ -1,15 +1,14 @@
 # BUGS.md
 
-### Existing dependency vulnerability gate — open (2026-10-09)
+### Existing dependency vulnerability gate — fixed (2026-10-09)
 
-The mobile task's full pre-commit run passes dependency age, repository content,
-licenses, formatting, lint, dead code, duplication, typecheck and all unit tests.
-The vulnerability gate fails on the unchanged dependency lock: three high and
-one moderate advisory affect `brace-expansion@5.0.9` (through ESLint/minimatch)
-and `source-map-js@1.2.1` (through Vite/PostCSS). The mobile task changes neither
-package metadata nor the lockfile. Resolve these in dependency maintenance,
-with the existing version-age and license policy, rather than treating this
-run as an entirely green pre-commit gate.
+PR #39's Gate failed on three high and one moderate advisory affecting
+`brace-expansion@5.0.9` (through ESLint/minimatch) and `source-map-js@1.2.1`
+(through Vite/PostCSS), while the full browser suites passed. The overrides now
+select patched `brace-expansion@5.0.12` and `source-map-js@1.2.2`; the lockfile
+changes only those packages. Registry publication dates, licenses and advisory
+evidence are recorded in `docs/dependencies/README.md`. The audit reports no
+known vulnerabilities, with the gate kept at its existing severity threshold.
 
 ### Phone menus and tutorials overflowed; touch gameplay was cramped — fixed (2026-10-09)
 

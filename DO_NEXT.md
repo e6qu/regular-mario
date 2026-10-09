@@ -1,9 +1,8 @@
 # DO_NEXT.md
 
-- Dependency maintenance: the 2026-10-09 vulnerability gate fails on existing
-  `brace-expansion@5.0.9` and `source-map-js@1.2.1` advisories (three high, one
-  moderate). Refresh these under the dependency age/license policy and rerun
-  the audit. The mobile-layout commit does not change dependency versions.
+- Preserve the patched tooling overrides: `brace-expansion@5.0.12` and
+  `source-map-js@1.2.2` resolve PR #39's pre-existing vulnerability failures.
+  Check registry age/license evidence and the audit before changing these pins.
 
 - Preserve the phone layout contract: menus work in portrait and landscape;
   gameplay remains landscape with a touch return action in the rotate prompt.

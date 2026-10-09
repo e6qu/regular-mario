@@ -5,6 +5,21 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-10-09 — fix PR #39's pre-existing CI dependency failures
+
+- CI's browser suites passed; Gate stopped at four advisories in the existing
+  ESLint/minimatch and Vite/PostCSS dependency graph.
+- Updated the brace-expansion override to 5.0.12 and added source-map-js 1.2.2.
+  Only these two transitive packages changed in the lockfile; direct dependency
+  versions and vulnerability thresholds are unchanged.
+- Verified the latest patched releases, publication dates (both older than
+  three days), MIT/BSD-3-Clause licenses and maintainer repositories from npm.
+  Recorded the evidence in `docs/dependencies/README.md` and closed the BUGS
+  entry instead of leaving a pre-existing blocker for later maintenance.
+- Validation: the frozen install, every full pre-commit gate (including all
+  unit tests and the vulnerability audit), and the production release build
+  pass. The audit reports no known vulnerabilities.
+
 ## 2026-10-09 — small-phone layout and touch play
 
 - The menu uses viewport and safe-area bounds, a scrollable panel, one column on
