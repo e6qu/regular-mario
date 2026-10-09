@@ -4,6 +4,13 @@
 // tutorials look and behave identically (and aren't duplicated). The dimmed UI
 // underneath stays fully interactive — only the tip's own buttons capture input.
 
+// A phone gets the full menu/editor without a floating coach-mark covering it.
+// Tablets in portrait and desktop screens retain the walkthrough.
+export const phoneWalkthroughMediaQuery =
+  "(max-width: 600px), (pointer: coarse) and (max-height: 540px)";
+
+const activeWalkthroughs = new WeakMap<HTMLElement, () => void>();
+
 export type WalkthroughStep = {
   readonly target: HTMLElement;
   readonly title: string;
@@ -26,6 +33,10 @@ export function runSpotlightWalkthrough(
   steps: readonly WalkthroughStep[],
   options: WalkthroughOptions,
 ): void {
+  activeWalkthroughs.get(container)?.();
+  if (window.matchMedia(phoneWalkthroughMediaQuery).matches) {
+    return;
+  }
   const tipMinTopPixels = options.tipMinTopPixels ?? 56;
   const spotlight = document.createElement("div");
   spotlight.setAttribute("aria-hidden", "true");
@@ -36,16 +47,30 @@ export function runSpotlightWalkthrough(
   tip.setAttribute("role", "dialog");
   tip.setAttribute("aria-label", options.ariaLabel);
   tip.style.cssText =
-    "position:fixed;z-index:99999;max-width:340px;background:#0b1220;color:#f8fafc;" +
+    "position:fixed;z-index:99999;box-sizing:border-box;width:min(340px,calc(100vw - 24px));" +
+    "max-height:calc(100dvh - 68px);overflow:auto;background:#0b1220;color:#f8fafc;" +
     "border:2px solid #38bdf8;border-radius:12px;padding:16px 18px;font:14px/1.55 monospace;" +
     "box-shadow:0 10px 30px rgba(0,0,0,0.5);pointer-events:none;";
-  const finish = (): void => {
-    options.onFinish?.();
+  const close = (): void => {
     spotlight.remove();
     tip.remove();
     window.removeEventListener("resize", show);
     window.removeEventListener("keydown", onKeyDown);
+    window.removeEventListener("scroll", place, true);
+    observer.disconnect();
+    activeWalkthroughs.delete(container);
   };
+  const finish = (): void => {
+    options.onFinish?.();
+    close();
+  };
+  const observer = new MutationObserver(() => {
+    if (!container.isConnected) {
+      close();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  activeWalkthroughs.set(container, close);
   // Escape leaves, as it does everywhere else in the product. The tip declares
   // itself a dialog and offered no keyboard way out.
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -55,13 +80,11 @@ export function runSpotlightWalkthrough(
   };
   window.addEventListener("keydown", onKeyDown);
   let index = 0;
-  function show(): void {
+  function place(): void {
     const step = steps[index];
     if (step === undefined) {
-      finish();
       return;
     }
-    step.target.scrollIntoView({ block: "center", inline: "nearest" });
     const rect = step.target.getBoundingClientRect();
     spotlight.style.left = `${String(rect.left - 6)}px`;
     spotlight.style.top = `${String(rect.top - 6)}px`;
@@ -77,8 +100,8 @@ export function runSpotlightWalkthrough(
     // primary action underneath became unclickable — including through a
     // disabled Back button, which blocks a click without doing anything.
     const gapPixels = 12;
-    const tipWidthPixels = 340;
-    const tipHeightPixels = 176;
+    const tipWidthPixels = tip.getBoundingClientRect().width;
+    const tipHeightPixels = tip.getBoundingClientRect().height;
     const fitsHorizontally = (left: number): boolean =>
       left >= gapPixels &&
       left + tipWidthPixels <= window.innerWidth - gapPixels;
@@ -111,7 +134,19 @@ export function runSpotlightWalkthrough(
           fitsHorizontally(candidate.left) && fitsVertically(candidate.top),
       ) ?? placements[0]!;
     tip.style.left = `${String(Math.max(gapPixels, placement.left))}px`;
-    tip.style.top = `${String(Math.max(tipMinTopPixels, placement.top))}px`;
+    tip.style.top = `${String(Math.max(tipMinTopPixels, Math.min(placement.top, window.innerHeight - tipHeightPixels - gapPixels)))}px`;
+  }
+  function show(): void {
+    if (window.matchMedia(phoneWalkthroughMediaQuery).matches) {
+      close();
+      return;
+    }
+    const step = steps[index];
+    if (step === undefined) {
+      finish();
+      return;
+    }
+    step.target.scrollIntoView({ block: "center", inline: "nearest" });
     tip.replaceChildren();
     const heading = document.createElement("div");
     heading.textContent = step.title;
@@ -125,12 +160,12 @@ export function runSpotlightWalkthrough(
     const skip = document.createElement("button");
     skip.textContent = "Skip";
     skip.style.cssText =
-      "padding:7px 12px;border-radius:7px;border:1px solid #475569;background:transparent;color:#cbd5e1;font:600 12px monospace;cursor:pointer;margin-right:auto;pointer-events:auto;";
+      "min-height:44px;padding:7px 12px;border-radius:7px;border:1px solid #475569;background:transparent;color:#cbd5e1;font:600 12px monospace;cursor:pointer;margin-right:auto;pointer-events:auto;";
     skip.addEventListener("click", finish);
     const back = document.createElement("button");
     back.textContent = "Back";
     back.style.cssText =
-      "padding:7px 12px;border-radius:7px;border:1px solid #475569;background:#1e293b;color:#e5e7eb;font:600 12px monospace;cursor:pointer;pointer-events:auto;";
+      "min-height:44px;padding:7px 12px;border-radius:7px;border:1px solid #475569;background:#1e293b;color:#e5e7eb;font:600 12px monospace;cursor:pointer;pointer-events:auto;";
     back.disabled = index === 0;
     back.style.opacity = index === 0 ? "0.4" : "1";
     // A disabled button still sits in front of whatever is beneath it and
@@ -144,15 +179,17 @@ export function runSpotlightWalkthrough(
     const next = document.createElement("button");
     next.textContent = index === steps.length - 1 ? "Done" : "Next";
     next.style.cssText =
-      "padding:7px 14px;border-radius:7px;border:none;background:#0f766e;color:#fff;font:700 12px monospace;cursor:pointer;pointer-events:auto;";
+      "min-height:44px;padding:7px 14px;border-radius:7px;border:none;background:#0f766e;color:#fff;font:700 12px monospace;cursor:pointer;pointer-events:auto;";
     next.addEventListener("click", () => {
       index += 1;
       show();
     });
     controls.append(skip, back, next);
     tip.append(heading, body, controls);
+    place();
   }
   window.addEventListener("resize", show);
+  window.addEventListener("scroll", place, true);
   container.append(spotlight, tip);
   show();
 }

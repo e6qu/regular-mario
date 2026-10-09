@@ -143,6 +143,15 @@ their compatibility-conformance checks. See
 - **`browser-debug-api.ts`** — the `window.__originalBrowserPlatformerDebug`
   snapshot API that browser tests read.
 
+The menu/editor spotlight walkthrough is suppressed at phone sizes. Menus use
+safe-area and dynamic-viewport bounds with internal scrolling; gameplay uses
+landscape side panels and a portrait return action. The same deck serves local
+and online play: local commands are consumed by `BootScene.update`, while
+render-only online scenes publish touch edges and menu/pause requests through
+`BrowserGameBootstrap.touchControls`. The multiplayer shell combines keyboard
+and touch commands before prediction and server transport. Pointer cancellation,
+focus loss and lifecycle transitions release held input.
+
 ## Renderer (Canvas / WebGL)
 
 Phaser ships both a Canvas-2D and a WebGL renderer, selected by config.

@@ -25,7 +25,10 @@ import {
   parsePlayerCharacter,
   type PlayerCharacter,
 } from "./shell/player-character";
-import { runSpotlightWalkthrough } from "./shell/spotlight-tutorial";
+import {
+  phoneWalkthroughMediaQuery,
+  runSpotlightWalkthrough,
+} from "./shell/spotlight-tutorial";
 import { decodeSharedLevel, renderLevelEditor } from "./shell/level-editor";
 import {
   renderDeployInfoFooter,
@@ -127,31 +130,42 @@ sessionBarStyle.textContent = `
 }`;
 document.head.append(sessionBarStyle);
 
-// Short-viewport (mobile-landscape) responsive rules: menus are designed for a
-// tall portrait/desktop column, so on a short screen we compact them — smaller
-// title/padding and a two-column control grid — so they fit without scrolling.
+// Keep the menu inside the visible viewport, with its own touch scroll area.
+// Preserve the sky/sand panel and chunky controls at phone sizes.
 const responsiveMenuStyle = document.createElement("style");
 responsiveMenuStyle.textContent = `
-@media (max-height: 540px) {
-  .start-menu-panel { margin: 5px auto !important; padding: 8px 18px !important; }
-  .start-menu-coin { font-size: 16px !important; }
-  .start-menu-panel h1 { font-size: 16px !important; margin: 1px 0 6px 0 !important; letter-spacing: 1px !important; }
-  /* Three columns so the six fields fit in two rows on a short landscape screen. */
-  .start-menu-controls { display: grid !important; grid-template-columns: 1fr 1fr 1fr; column-gap: 12px; text-align: left; }
-  .start-menu-controls .start-menu-field > div { font-size: 11px !important; }
-  .start-menu-controls select { margin-top: 2px !important; margin-bottom: 5px !important; padding: 6px 4px !important; font-size: 12px !important; }
-  .start-menu-panel button { margin-top: 5px !important; }
-  .start-menu-panel .start-menu-play { padding: 8px 28px !important; font-size: 16px !important; }
+.start-menu-panel {
+  width: min(480px, 100%);
+  margin: 0 auto;
+  padding: 18px 22px;
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom) - var(--session-bar-height, 0px));
+  overflow: auto;
+  overscroll-behavior: contain;
 }
-/* Very short (small phone landscape, ~320px tall): reclaim more height by
-   dropping the decorative coin and the big title, and tightening the buttons. */
-@media (max-height: 360px) {
-  .start-menu-panel { margin: 3px auto !important; padding: 5px 16px !important; }
-  .start-menu-coin { display: none !important; }
-  .start-menu-panel h1 { font-size: 13px !important; margin: 0 0 4px 0 !important; }
-  .start-menu-controls select { margin-bottom: 3px !important; padding: 5px 4px !important; }
-  .start-menu-panel button { margin-top: 3px !important; }
-  .start-menu-panel .start-menu-play { padding: 6px 24px !important; font-size: 15px !important; }
+.start-menu-header { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.start-menu-header h1 { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+.start-menu-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; text-align: left; }
+.start-menu-panel button, .start-menu-panel select, .start-menu-field > label { min-height: 44px; }
+.start-menu-status { overflow-wrap: anywhere; }
+@media (max-width: 380px) {
+  .start-menu-panel { padding: 12px; }
+  .start-menu-panel h1 { font-size: 20px !important; letter-spacing: 1px !important; }
+  .start-menu-controls { grid-template-columns: minmax(0, 1fr); }
+  .start-menu-controls select { font-size: 16px !important; }
+}
+@media (max-height: 540px) and (min-width: 540px) {
+  .start-menu-panel { width: min(720px, 100%); padding: 10px 14px; }
+  .start-menu-coin { display: none; }
+  .start-menu-panel h1 { font-size: 18px !important; margin: 0 !important; letter-spacing: 1px !important; }
+  .start-menu-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; }
+  .start-menu-controls .start-menu-field > div { font-size: 11px !important; }
+  .start-menu-controls select { padding: 6px 4px !important; margin-bottom: 6px !important; }
+}
+@media (pointer: coarse) {
+  .start-menu-controls select { font-size: 16px !important; }
+}
+@media ${phoneWalkthroughMediaQuery} {
+  button[aria-label="Start menu tutorial"], button[aria-label="Start editor tutorial"] { display: none; }
 }
 /* The Play button's loading spinner: a small ring that spins while the level's
    content bundle loads, so a tap gives instant feedback even on a slow network. */
@@ -180,13 +194,29 @@ rotatePrompt.innerHTML =
   '<div style="font-size:60px;line-height:1" aria-hidden="true">📱↻</div>' +
   '<div style="font-size:20px;font-weight:800;letter-spacing:1px">Rotate to landscape</div>' +
   '<div style="font-size:14px;color:#9fb0d0;max-width:320px">Turn your device sideways to play.</div>';
+const rotateMenuButton = document.createElement("button");
+rotateMenuButton.type = "button";
+rotateMenuButton.textContent = "Back to menu";
+rotateMenuButton.style.cssText =
+  "min-height:44px;padding:10px 18px;border:2px solid #ffd54a;border-radius:8px;" +
+  "background:#fff3d6;color:#3a2410;font:700 16px monospace;cursor:pointer;";
+rotateMenuButton.addEventListener("click", () => {
+  const active = sessions.find((session) => session.id === activeSessionId);
+  if (active !== undefined) {
+    suspendActiveSession();
+  }
+});
+rotatePrompt.append(rotateMenuButton);
 document.body.append(rotatePrompt);
 
 const isCoarsePointer =
   window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 function updateOrientationPrompt(): void {
   const portrait = window.matchMedia("(orientation: portrait)").matches;
-  rotatePrompt.style.display = isCoarsePointer && portrait ? "flex" : "none";
+  rotatePrompt.style.display =
+    isCoarsePointer && portrait && gameLayer.style.display === "block"
+      ? "flex"
+      : "none";
 }
 updateOrientationPrompt();
 window.addEventListener("resize", updateOrientationPrompt);
@@ -559,6 +589,7 @@ function resumeSession(session: GameSession): void {
 }
 function showGameLayer(): void {
   gameLayer.style.display = "block";
+  updateOrientationPrompt();
   // Hide the help hint during play (it would cover the touch A button); the "?"
   // key still opens the overlay.
   keymapHint.style.display = "none";
@@ -569,6 +600,7 @@ function showGameLayer(): void {
 }
 function showUiLayer(): void {
   gameLayer.style.display = "none";
+  updateOrientationPrompt();
   keymapHint.style.display = "";
   setDeployInfoFooterVisible(true);
   renderSessionBar();
@@ -729,14 +761,14 @@ function renderSessionBar(): void {
     open.textContent = `${recent ? "✨ " : ""}${session.mode === "design" ? "✎" : "▶"} ${session.label}`;
     open.style.cssText =
       "background:none;border:none;color:#e7ecf7;font:600 12px monospace;" +
-      "padding:8px 4px 8px 12px;cursor:pointer;min-height:36px;";
+      "padding:8px 4px 8px 12px;cursor:pointer;min-height:44px;";
     open.addEventListener("click", () => activateSession(session.id));
     const close = document.createElement("button");
     close.setAttribute("aria-label", `Close ${session.label}`);
     close.textContent = "✕";
     close.style.cssText =
       "background:none;border:none;color:#93a0bd;font:600 13px monospace;" +
-      "padding:8px 10px;cursor:pointer;min-height:36px;min-width:36px;";
+      "padding:8px 10px;cursor:pointer;min-height:44px;min-width:44px;";
     close.addEventListener("click", () => closeSession(session.id));
     tab.append(open, close);
     sessionBar.append(tab);
@@ -2221,14 +2253,7 @@ async function renderStartMenu(
   panel.setAttribute("role", "region");
   panel.setAttribute("aria-label", "Start menu");
   panel.className = "start-menu-panel";
-  panel.style.maxWidth = "480px";
-  panel.style.margin = "20px auto calc(20px + var(--session-bar-height, 0px))";
-  panel.style.padding = "18px 22px";
-  // Never taller than the viewport: fit on short screens, scrolling only as a
-  // last resort on very small ones.
   panel.style.boxSizing = "border-box";
-  panel.style.maxHeight = "calc(100vh - 16px - var(--session-bar-height, 0px))";
-  panel.style.overflowY = "auto";
   panel.style.borderRadius = "14px";
   panel.style.border = "5px solid #7a4a1e";
   panel.style.background = "linear-gradient(#7ec0ff, #9fd0ff 60%, #d9b98a)";
@@ -2362,6 +2387,7 @@ async function renderStartMenu(
   playButton.style.textShadow = "1px 1px 0 #135020";
 
   const status = document.createElement("p");
+  status.className = "start-menu-status";
   status.style.fontFamily = "monospace";
   status.style.color = "#3a2410";
   status.style.minHeight = "18px";
@@ -2374,10 +2400,7 @@ async function renderStartMenu(
   // Two columns by default so the six fields fit in three rows instead of a tall
   // six-row stack (a short landscape screen tightens this further to three
   // columns via the responsive rules).
-  controls.style.display = "grid";
-  controls.style.gridTemplateColumns = "1fr 1fr";
-  controls.style.columnGap = "14px";
-  controls.style.textAlign = "left";
+
   const appendField = (labelText: string, control: HTMLElement): void => {
     const field = document.createElement("div");
     field.className = "start-menu-field";
@@ -2389,8 +2412,10 @@ async function renderStartMenu(
     controls.appendChild(field);
   };
 
-  panel.appendChild(coin);
-  panel.appendChild(title);
+  const header = document.createElement("div");
+  header.className = "start-menu-header";
+  header.append(coin, title);
+  panel.append(header);
 
   // A guided walkthrough of every menu control, mirroring the editor's tutorial.
   panel.style.position = "relative";
@@ -2399,7 +2424,7 @@ async function renderStartMenu(
   tutorialButton.textContent = "🎓 Tutorial";
   tutorialButton.setAttribute("aria-label", "Start menu tutorial");
   tutorialButton.style.cssText =
-    "position:absolute;top:10px;right:12px;padding:6px 10px;font:700 11px monospace;" +
+    "padding:6px 10px;font:700 11px monospace;" +
     "letter-spacing:0.5px;cursor:pointer;border-radius:8px;border:2px solid #7a4a1e;" +
     "background:#fff3d6;color:#6b3410;";
   const fieldOf = (control: HTMLElement): HTMLElement =>
@@ -2450,7 +2475,7 @@ async function renderStartMenu(
     );
   };
   tutorialButton.addEventListener("click", runMenuTutorial);
-  panel.appendChild(tutorialButton);
+  header.appendChild(tutorialButton);
 
   appendField("SKIN", assetSelect);
   appendField("MAP", mapSelect);
@@ -2528,7 +2553,8 @@ async function renderStartMenu(
   if (
     autoplay === undefined &&
     sessions.length === 0 &&
-    !readMenuTutorialSeen()
+    !readMenuTutorialSeen() &&
+    !window.matchMedia(phoneWalkthroughMediaQuery).matches
   ) {
     requestAnimationFrame(() => {
       if (document.body.contains(panel)) {

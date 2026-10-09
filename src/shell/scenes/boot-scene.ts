@@ -986,6 +986,7 @@ export class BootScene extends Phaser.Scene {
     fire: false,
   };
   private touchControlPanels: HTMLElement[] = [];
+  private resetTouchPointers: () => void = () => {};
   private touchStartRequested = false;
   private exitRequested = false;
   private runRecorder!: RunRecorder;
@@ -1083,6 +1084,7 @@ export class BootScene extends Phaser.Scene {
   };
 
   private readonly handleWindowResize = (): void => {
+    this.clearHeldTouchState();
     this.resizeToDisplay();
   };
 
@@ -1741,71 +1743,97 @@ export class BootScene extends Phaser.Scene {
       );
     }
 
-    // On touch, the browser applies *implicit pointer capture* on pointerdown,
-    // which suppresses pointerenter/leave and would stop the thumb rolling from
-    // one D-pad arm to the next without lifting (◀→▶) — so release the capture
-    // immediately and drive press/release off boundary crossings too.
-    const press = (
-      onDown: () => void,
-      button: HTMLElement,
-    ): ((e: Event) => void) => {
-      return (event: Event): void => {
-        event.preventDefault();
-        const pointerEvent = event as PointerEvent;
-        if (button.hasPointerCapture(pointerEvent.pointerId)) {
-          button.releasePointerCapture(pointerEvent.pointerId);
-        }
-        this.touchStartRequested = true;
-        // On mobile the music can only start from a user gesture (no keydown
-        // ever fires); the pointerdown handler is that gesture, so unlock/start
-        // the soundtrack here rather than from the rAF-driven start path.
-        if (!this.backgroundMusicStarted) {
-          this.backgroundMusicStarted = this.gameAudio.startBackgroundMusic(
-            this.currentTheme,
-          );
-        }
-        onDown();
-        button.style.filter = "brightness(1.5)";
-        buzzTouchControl();
-      };
+    // Track each finger independently. Touch pointer capture prevents the
+    // mouse-style enter/leave events from following a thumb across the D-pad;
+    // hit-test moves instead, and release only the finger that ended/cancelled.
+    type Binding = {
+      readonly button: HTMLElement;
+      readonly onDown: () => void;
+      readonly onUp: () => void;
     };
-    // Rolling onto a button while a finger is already down (buttons !== 0)
-    // presses it; a plain hover (a pen with no button) does not.
-    const enter = (
-      onDown: () => void,
-      button: HTMLElement,
-    ): ((e: Event) => void) => {
-      return (event: Event): void => {
-        if ((event as PointerEvent).buttons === 0) {
-          return;
-        }
-        onDown();
-        button.style.filter = "brightness(1.5)";
-        // A tick when the thumb rolls onto a fresh button (e.g. ◀ → ▶).
+    const bindings = new Map<HTMLElement, Binding>();
+    const pointers = new Map<number, Binding | undefined>();
+    const updatePointer = (id: number, binding: Binding | undefined): void => {
+      const previous = pointers.get(id);
+      pointers.set(id, binding);
+      if (previous === binding) {
+        return;
+      }
+      if (
+        previous !== undefined &&
+        ![...pointers.values()].includes(previous)
+      ) {
+        previous.onUp();
+        previous.button.style.filter = "";
+      }
+      if (binding !== undefined) {
+        binding.onDown();
+        binding.button.style.filter = "brightness(1.5)";
         buzzTouchControl();
-      };
+      }
+      this.publishTouchInput();
     };
-    const release = (
-      onUp: () => void,
-      button: HTMLElement,
-    ): ((e: Event) => void) => {
-      return (event: Event): void => {
-        event.preventDefault();
-        onUp();
-        button.style.filter = "";
-      };
+    this.resetTouchPointers = (): void => {
+      pointers.clear();
+      for (const binding of bindings.values()) {
+        binding.button.style.filter = "";
+      }
     };
     const bind = (
       button: HTMLElement,
       onDown: () => void,
       onUp: () => void,
     ): void => {
-      button.addEventListener("pointerdown", press(onDown, button));
-      button.addEventListener("pointerenter", enter(onDown, button));
-      button.addEventListener("pointerup", release(onUp, button));
-      button.addEventListener("pointerleave", release(onUp, button));
-      button.addEventListener("pointercancel", release(onUp, button));
+      const binding = { button, onDown, onUp };
+      bindings.set(button, binding);
+      button.addEventListener("pointerdown", (event) => {
+        event.preventDefault();
+        this.touchStartRequested = true;
+        if (!this.backgroundMusicStarted) {
+          this.backgroundMusicStarted = this.gameAudio.startBackgroundMusic(
+            this.currentTheme,
+          );
+        }
+        updatePointer(event.pointerId, binding);
+        button.setPointerCapture(event.pointerId);
+      });
     };
+    const events = new AbortController();
+    window.addEventListener(
+      "pointermove",
+      (event) => {
+        if (!pointers.has(event.pointerId)) {
+          return;
+        }
+        const target = document.elementFromPoint(event.clientX, event.clientY);
+        updatePointer(
+          event.pointerId,
+          target instanceof HTMLElement ? bindings.get(target) : undefined,
+        );
+      },
+      { signal: events.signal },
+    );
+    const endPointer = (event: PointerEvent): void => {
+      updatePointer(event.pointerId, undefined);
+      pointers.delete(event.pointerId);
+    };
+    window.addEventListener("pointerup", endPointer, { signal: events.signal });
+    window.addEventListener("pointercancel", endPointer, {
+      signal: events.signal,
+    });
+    window.addEventListener("blur", () => this.clearHeldTouchState(), {
+      signal: events.signal,
+    });
+    document.addEventListener(
+      "visibilitychange",
+      () => {
+        if (document.hidden) {
+          this.clearHeldTouchState();
+        }
+      },
+      { signal: events.signal },
+    );
+    this.registerSceneTeardown(() => events.abort());
 
     const deck = buildNesControlDeck();
     bind(
@@ -1844,10 +1872,20 @@ export class BootScene extends Phaser.Scene {
         this.touchState.fire = false;
       },
     );
-    // SELECT is unused in play; START reaches the menu (like Esc).
-    deck.buttonStart.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
-      this.exitRequested = true;
+    deck.buttonPause.addEventListener("click", () => {
+      if (this.browserGameBootstrap.touchControls !== undefined) {
+        this.browserGameBootstrap.touchControls.onPause();
+      } else if (!this.awaitingStart) {
+        this.togglePause();
+      }
+    });
+    // START reaches the menu (like Esc).
+    deck.buttonStart.addEventListener("click", () => {
+      if (this.browserGameBootstrap.touchControls !== undefined) {
+        this.browserGameBootstrap.touchControls.onMenu();
+      } else {
+        this.exitRequested = true;
+      }
     });
 
     let scale = readTouchControlScale();
@@ -1861,7 +1899,7 @@ export class BootScene extends Phaser.Scene {
     sizeToggle.textContent = "⤢";
     sizeToggle.setAttribute("aria-label", "touch-control-size");
     sizeToggle.style.cssText =
-      "margin-bottom:auto;width:34px;height:24px;border-radius:8px;" +
+      "margin-bottom:auto;width:44px;height:44px;border-radius:8px;" +
       "background:#2a2a2a;color:#cfcfcf;border:2px solid #555;touch-action:none;" +
       "font:700 13px monospace;-webkit-tap-highlight-color:transparent;";
     sizeToggle.addEventListener("pointerdown", (event) => {
@@ -1928,16 +1966,24 @@ export class BootScene extends Phaser.Scene {
       .setFontSize(hudPixels)
       .setScale(crispScale)
       .setPosition(hud.x, hud.y);
+    const availableHudWidth = width - scoreTextPositionX * 2;
+    if (this.scoreText.width > availableHudWidth) {
+      this.scoreText.setFontSize(
+        Math.floor((hudPixels * availableHudWidth) / this.scoreText.width),
+      );
+    }
 
     const feedbackPixels = Math.max(18, Math.round(height * 0.04));
     const feedback = toWorld(width / 2, height / 3);
     this.outcomeFeedbackText
+      .setWordWrapWidth(width - 16)
       .setFontSize(feedbackPixels)
       .setScale(crispScale)
       .setPosition(feedback.x, feedback.y);
     // Sit the start cue below the WORLD card's title/subtitle, not over them.
     const center = toWorld(width / 2, height * 0.74);
     this.startPromptText
+      .setWordWrapWidth(width - 28)
       .setFontSize(feedbackPixels)
       .setScale(crispScale)
       .setPosition(center.x, center.y);
@@ -1945,6 +1991,10 @@ export class BootScene extends Phaser.Scene {
     const hintPixels = Math.max(10, Math.round(height * 0.016));
     const hint = toWorld(width - 4, 3);
     this.exitHintText
+      .setVisible(
+        this.browserGameBootstrap.onExitToMenu !== undefined &&
+          this.touchControlPanels.length === 0,
+      )
       .setFontSize(hintPixels)
       .setScale(crispScale)
       .setPosition(hint.x, hint.y);
@@ -4756,6 +4806,7 @@ export class BootScene extends Phaser.Scene {
   // a finger is still down (pause hide, session suspend): the hidden button
   // never receives its pointerup, so the flag would stay latched.
   private clearHeldTouchState(): void {
+    this.resetTouchPointers();
     this.touchState.left = false;
     this.touchState.right = false;
     this.touchState.up = false;
@@ -4763,6 +4814,26 @@ export class BootScene extends Phaser.Scene {
     this.touchState.jump = false;
     this.touchState.run = false;
     this.touchState.fire = false;
+    this.publishTouchInput();
+  }
+
+  public releaseTouchInput(): void {
+    this.clearHeldTouchState();
+  }
+
+  private publishTouchInput(): void {
+    const result = makeSimulationInputCommand(
+      makeHorizontalInput(this.touchState.left, this.touchState.right),
+      this.touchState.jump,
+      this.touchState.run,
+      this.touchState.fire,
+      this.touchState.up,
+      this.touchState.down,
+    );
+    if (!result.ok) {
+      throw new Error("Touch controls produced an invalid input command.");
+    }
+    this.browserGameBootstrap.touchControls?.onInput(result.value);
   }
 
   // True when the god-mode player stands on a lava tile (the engine lands
@@ -7798,9 +7869,11 @@ function writeTouchControlScale(scale: number): void {
 }
 
 function applyTouchControlScale(panel: HTMLElement, scale: number): void {
-  panel.style.flexBasis = `min(${(32 * scale).toFixed(1)}vw,${Math.round(
-    176 * scale,
-  )}px)`;
+  panel.style.setProperty(
+    "--touch-panel-width",
+    `calc(clamp(148px, 22vw, 176px) * ${String(scale)})`,
+  );
+  panel.style.flexBasis = "var(--touch-panel-width)";
   panel.style.setProperty("--ctl", String(scale));
 }
 
@@ -7820,8 +7893,9 @@ function makeTouchSidePanel(
   panel.style.cssText =
     "flex-grow:0;flex-shrink:0;height:100%;box-sizing:border-box;" +
     "display:flex;flex-direction:column;justify-content:flex-end;" +
-    "align-items:center;gap:14px;" +
-    `padding:12px max(10px,${safeInset}) max(16px,env(safe-area-inset-bottom));` +
+    "align-items:center;gap:12px;" +
+    `padding:max(8px,env(safe-area-inset-top)) 6px max(8px,env(safe-area-inset-bottom));` +
+    `padding-${side}:max(6px,${safeInset});` +
     "background:linear-gradient(#c9c9c9,#9c9c9c);" +
     `border-${side === "left" ? "right" : "left"}:3px solid #6a1b1b;` +
     "font-family:monospace;touch-action:none;user-select:none;" +
@@ -7843,6 +7917,7 @@ type NesControlDeck = {
   readonly buttonA: HTMLElement;
   readonly buttonB: HTMLElement;
   readonly buttonStart: HTMLElement;
+  readonly buttonPause: HTMLElement;
 };
 
 // A classic controller face split across the two flanking panels: the black
@@ -7852,11 +7927,11 @@ function buildNesControlDeck(): NesControlDeck {
   // Sizes scale with the panel's `--ctl` custom property (the user's size
   // choice), on top of the responsive min(vw, px-cap).
   // --- D-pad (a 3×3 grid; only the plus-shaped arms are buttons) ---
-  const arm = "calc(min(14vw,48px) * var(--ctl, 1))";
+  const arm = "min(calc(48px * var(--ctl, 1)), calc((100% - 1px) / 3))";
   const dpad = document.createElement("div");
   dpad.style.cssText =
-    `display:grid;grid-template-columns:repeat(3,${arm});` +
-    `grid-template-rows:repeat(3,${arm});`;
+    "width:100%;aspect-ratio:1;max-width:calc(144px * var(--ctl, 1));display:grid;" +
+    `grid-template-columns:repeat(3,${arm});grid-template-rows:repeat(3,1fr);`;
   const makeArm = (
     label: string,
     ariaLabel: string,
@@ -7887,37 +7962,35 @@ function buildNesControlDeck(): NesControlDeck {
   // --- Right cluster: SELECT/START pills over the round B/A buttons ---
   const actions = document.createElement("div");
   actions.style.cssText =
-    "display:flex;flex-direction:column;align-items:center;gap:14px;";
+    "width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;";
 
   const pillGroup = document.createElement("div");
-  pillGroup.style.cssText = "display:flex;gap:8px;";
+  pillGroup.style.cssText = "width:100%;display:flex;gap:6px;";
   const makePill = (label: string): HTMLButtonElement => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
     button.setAttribute("aria-label", `touch-${label.toLowerCase()}`);
     button.style.cssText =
-      "width:calc(min(15vw,60px) * var(--ctl, 1));" +
-      "height:calc(min(4.5vw,18px) * var(--ctl, 1));border-radius:9px;" +
+      "flex:1;min-width:0;min-height:44px;padding:0 2px;border-radius:9px;" +
       "background:#2a2a2a;color:#cfcfcf;border:2px solid #555;touch-action:none;" +
       "font:700 calc(min(2.4vw,9px) * var(--ctl, 1)) monospace;letter-spacing:1px;";
     return button;
   };
-  const buttonSelect = makePill("SELECT");
+  const buttonPause = makePill("PAUSE");
   const buttonStart = makePill("START");
-  pillGroup.append(buttonSelect, buttonStart);
+  pillGroup.append(buttonPause, buttonStart);
 
   const abGroup = document.createElement("div");
   abGroup.style.cssText =
-    "display:flex;align-items:flex-end;gap:calc(min(4vw,14px) * var(--ctl, 1));";
+    "width:100%;display:flex;align-items:flex-end;gap:6px;";
   const makeRound = (label: string): HTMLButtonElement => {
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = label;
     button.setAttribute("aria-label", `touch-${label}`);
     button.style.cssText =
-      "width:calc(min(15vw,58px) * var(--ctl, 1));" +
-      "height:calc(min(15vw,58px) * var(--ctl, 1));border-radius:50%;" +
+      "flex:1;min-width:0;aspect-ratio:1;max-width:calc(58px * var(--ctl, 1));border-radius:50%;" +
       "background:radial-gradient(circle at 38% 32%,#e64b4b,#b21414);" +
       "color:#fff;border:3px solid #7a0f0f;touch-action:none;" +
       "font:800 calc(min(6vw,22px) * var(--ctl, 1)) monospace;";
@@ -7941,6 +8014,7 @@ function buildNesControlDeck(): NesControlDeck {
     buttonA,
     buttonB,
     buttonStart,
+    buttonPause,
   };
 }
 

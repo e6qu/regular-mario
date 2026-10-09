@@ -2,6 +2,19 @@
 
 ## Current State
 
+**Small-phone layout and touch interactions (2026-10-09).** The start menu
+fits the visible viewport in either orientation and scrolls above paused-session
+tabs. Phone-sized screens suppress the menu/editor spotlight tutorial without
+marking it seen. The rotate prompt appears only during play and offers a touch
+return to the menu. The game deck fits narrower side panels; the HUD and start
+cue fit the remaining canvas; PAUSE, START and size controls have larger touch
+targets. Pointer tracking supports multiple fingers, thumb rolling, cancellation
+and focus loss. Online play now forwards these commands through prediction and
+the server input queue, with touch actions for pause, chat, revival and leaving.
+Targeted Chromium/WebKit navigation, online touch and pixel-parity tests pass,
+as do builds and the full unit/pre-commit checks except the existing dependency
+vulnerability audit; see BUGS.md.
+
 **The login limiter counts players behind the proxy (2026-09-29).** Deployed
 behind a reverse proxy, the limiter keyed every login by the proxy's address,
 so five wrong passwords from anyone locked every player out. It now keys by

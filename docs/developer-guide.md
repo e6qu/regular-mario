@@ -235,7 +235,8 @@ navigation:
   `renderer`. `playRouteFromQuery` parses it; menu changes mirror back into the
   URL.
 - **Start menu** (`renderStartMenu`): the dropdown start screen + first-run
-  spotlight tutorial; launches the game on Play.
+  spotlight tutorial on larger screens; phone screens get a scrollable menu
+  without coach-marks. Launches the game on Play.
 - **Content loading**: fetches the content-sets index and per-bundle manifests,
   loads bundles through the asset loader (memoized).
 - **Sessions** (`GameSession`, `startSession`): several games can be suspended
@@ -248,7 +249,10 @@ navigation:
 (large by design — it is the whole rendering/feel layer). Responsibilities:
 
 - **Input capture** — raw `window` `keydown`/`keyup` by `event.code` + DOM touch
-  panels → `SimulationInputCommand` each frame.
+  panels → `SimulationInputCommand` each frame. Pointer IDs track simultaneous
+  fingers and thumb rolls; lifecycle changes clear held state. Render-only
+  online scenes publish touch edges through bootstrap callbacks to the network
+  shell instead of stepping a local world.
 - **Game loop** (`update`) — poll keys, call `stepSimulation` once, then render;
   handles pause/replay/scrub branches.
 - **Rendering** (`renderSimulationState`) — tiles, actors, projectiles,
