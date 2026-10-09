@@ -1,5 +1,19 @@
 # DO_NEXT.md
 
+- Preserve the patched tooling overrides: `brace-expansion@5.0.12` and
+  `source-map-js@1.2.2` resolve PR #39's pre-existing vulnerability failures.
+  Check registry age/license evidence and the audit before changing these pins.
+
+- Preserve the phone layout contract: menus work in portrait and landscape;
+  gameplay remains landscape with a touch return action in the rotate prompt.
+  Menu/editor spotlights stay disabled at phone sizes without consuming their
+  seen preference. Keep menu actions above the measured paused-session bar.
+- `mobile-layout.spec.ts` and `mobile-touch.spec.ts` exercise actual multi-finger
+  browser touch streams, not mouse substitutes. Online deck edges must keep
+  reaching the existing prediction/server queue, and a focus-loss release must
+  submit only one neutral edge. Keep PAUSE, chat, revival and leaving reachable
+  without a keyboard.
+
 - A deployment behind a reverse proxy sets `TRUSTED_PROXIES` to the proxy's
   address; until it does, logins are keyed by the proxy and every player
   shares one attempt budget.

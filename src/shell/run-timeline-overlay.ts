@@ -94,6 +94,10 @@ function makeTimelineOverlayStyle(): HTMLStyleElement {
 @media (prefers-reduced-motion: reduce) {
   .tl-glisten, .tl-glisten-text { animation: none; }
 }
+@media (pointer: coarse) {
+  .tl-overlay { max-height: 65dvh; overflow-y: auto; overscroll-behavior: contain; }
+  .tl-overlay button { min-height: 44px; min-width: 44px; }
+}
 /* Short-viewport (mobile-landscape) compaction so the end-of-run replay bar
    fits without covering the whole screen: smaller padding, a shorter filmstrip,
    and a smaller complete banner. */

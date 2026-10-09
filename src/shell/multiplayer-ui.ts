@@ -29,6 +29,17 @@ const neutralInputCommand: SimulationInputCommand = {
   downHeld: false,
 };
 
+function isNeutralInput(command: SimulationInputCommand): boolean {
+  return (
+    command.horizontal === HorizontalInput.Neutral &&
+    !command.jumpPressed &&
+    !command.runHeld &&
+    !command.firePressed &&
+    !command.upHeld &&
+    !command.downHeld
+  );
+}
+
 /**
  * Rebuild a relayed command, refusing anything malformed.
  *
@@ -135,7 +146,7 @@ function installMultiplayerVisualLanguage(): void {
   style.textContent = `
     .multiplayer-panel, .multiplayer-panel *, .multiplayer-game-shell, .multiplayer-game-shell * { box-sizing: border-box; }
     .multiplayer-panel { --mp-ink: #172033; --mp-sea: #8ed4ea; --mp-foam: #e8f7f2; --mp-sand: #fff9e9; --mp-sun: #ffd54a; --mp-leaf: #285a37; --mp-clay: #b9682f;
-      width: min(980px, calc(100% - 48px)); margin: 24px auto; padding: clamp(18px, 3vw, 32px); color: var(--mp-ink);
+      width: min(980px, calc(100% - 48px)); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; margin: 24px auto; padding: clamp(18px, 3vw, 32px); color: var(--mp-ink);
       background: linear-gradient(160deg, var(--mp-sea) 0 9.5rem, var(--mp-foam) 9.5rem 100%); font-family: monospace;
       border: 5px solid var(--mp-ink); box-shadow: 9px 9px 0 var(--mp-leaf); }
     .multiplayer-panel h1, .multiplayer-panel h2 { margin: 0; letter-spacing: .08em; }
@@ -169,8 +180,8 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-lobby-chat [role=log] { grid-column: 1 / -1; margin: 0; min-height: 4.2em; max-height: 12em; overflow: auto; white-space: pre-wrap; }
     .multiplayer-lobby-chat input { width: 100%; min-width: 0; margin: 0; }
     .multiplayer-lobby-chat button { margin: 0; }
-    .multiplayer-game-shell { position: relative; height: 100vh; min-height: 0; overflow: hidden; background: #172033; }
-    .multiplayer-game-host { position: absolute; inset: 0; min-width: 0; min-height: 0; overflow: hidden; }
+    .multiplayer-game-shell { display: flex; position: relative; height: 100dvh; min-height: 0; overflow: hidden; background: #172033; }
+    .multiplayer-game-host { position: relative; flex: 1; height: 100%; min-width: 0; min-height: 0; overflow: hidden; }
     .multiplayer-game-host canvas { display: block; }
     .multiplayer-game-room { padding: clamp(20px, 5vw, 52px); border: 5px solid #172033; background: #f5f7fb; box-shadow: 9px 9px 0 #285a37; }
     .multiplayer-game-room__eyebrow { margin: 0 0 8px; color: #285a37; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -190,7 +201,7 @@ function installMultiplayerVisualLanguage(): void {
     .multiplayer-game-shell[data-chat-open=true] .multiplayer-game-chat-feed { visibility: hidden; }
     .multiplayer-game-menu { position: absolute; z-index: 5; inset: 0; display: none; place-items: center; background: rgb(23 32 51 / 40%); }
     .multiplayer-game-shell[data-menu-open=true] .multiplayer-game-menu { display: grid; }
-    .multiplayer-game-menu > section { width: min(430px, calc(100vw - 36px)); min-width: 0; max-height: calc(100vh - 36px); overflow: auto; padding: 18px; border: 4px solid #172033; background: #f5f7fb; box-shadow: 7px 7px 0 #285a37; color: #172033; font: 700 16px/1.35 monospace; }
+    .multiplayer-game-menu > section { width: min(430px, calc(100vw - 36px)); min-width: 0; max-height: calc(100dvh - 36px); overflow: auto; padding: 18px; border: 4px solid #172033; background: #f5f7fb; box-shadow: 7px 7px 0 #285a37; color: #172033; font: 700 16px/1.35 monospace; }
     .multiplayer-game-menu h2 { margin: 0 0 8px; }
     .multiplayer-game-menu p { margin: 0 0 12px; }
     .multiplayer-game-menu button { margin: 4px; padding: 8px 11px; border: 3px solid #172033; background: #ffd54a; color: #172033; font: inherit; font-weight: 800; cursor: pointer; box-shadow: 3px 3px 0 #b9682f; }
@@ -249,11 +260,19 @@ function installMultiplayerVisualLanguage(): void {
   }
   .multiplayer-game-error { position: absolute; z-index: 4; top: 16px; left: 16px; max-width: min(520px, calc(100vw - 32px)); margin: 0; color: #fffef6; background: rgb(130 24 24 / 88%); font: 700 14px/1.35 monospace; }
     .multiplayer-game-error:empty { display: none; }
-    @media (max-width: 620px) { .multiplayer-panel { width: calc(100% - 16px); margin: 8px auto; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
+    .multiplayer-orientation { display: none; }
+    @media (pointer: coarse) {
+      .multiplayer-panel button, .multiplayer-panel input, .multiplayer-panel select, .multiplayer-game-menu button { min-height: 44px; }
+      .multiplayer-game-chat-overlay textarea { font-size: 16px; }
+    }
+    @media (pointer: coarse) and (orientation: portrait) {
+      .multiplayer-orientation { display: flex; position: absolute; inset: 0; z-index: 40; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px; background: #172033; color: #fff; text-align: center; font: 700 16px/1.5 monospace; }
+    }
+    @media (max-width: 620px) { .multiplayer-panel { max-height: calc(100dvh - 16px); width: calc(100% - 16px); margin: 8px auto; padding: 14px; box-shadow: 5px 5px 0 #285a37; }
       .multiplayer-profile-card, .multiplayer-create-card { flex-direction: column; align-items: stretch; }
       .multiplayer-game-card { align-items: stretch; flex-direction: column; }
       .multiplayer-game-card button { width: 100%; }
-      .multiplayer-game-shell { height: 100vh; min-height: 0; } }
+      .multiplayer-game-shell { height: 100dvh; min-height: 0; } }
     @media (max-height: 540px) and (orientation: landscape) {
       .multiplayer-panel { width: calc(100% - 16px); margin: 5px auto; padding: 9px; box-shadow: 4px 4px 0 #285a37; }
       .multiplayer-panel h1, .multiplayer-panel h2 { margin-bottom: 7px; font-size: 1rem; }
@@ -263,12 +282,12 @@ function installMultiplayerVisualLanguage(): void {
       .multiplayer-panel input, .multiplayer-panel select { max-width: 100%; min-width: 0; margin: 2px; padding: 5px; }
       .multiplayer-panel button { margin: 3px; padding: 6px 8px; }
       .multiplayer-profile-card, .multiplayer-create-card { flex-direction: row; gap: 6px; }
-      .multiplayer-profile-card button, .multiplayer-create-card button { min-height: 34px; }
+      .multiplayer-profile-card button, .multiplayer-create-card button { min-height: 44px; }
       .multiplayer-game-card { flex-direction: row; padding: 7px; }
       .multiplayer-game-card button { width: auto; }
       .multiplayer-game-chat-overlay, .multiplayer-game-chat-feed { left: 8px; bottom: 8px; width: min(360px, calc(100vw - 16px)); }
       .multiplayer-game-chat-feed p { padding: 5px 7px; font-size: 12px; }
-      .multiplayer-game-menu > section { width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 10px; font-size: 13px; box-shadow: 4px 4px 0 #285a37; }
+      .multiplayer-game-menu > section { width: min(360px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); padding: 10px; font-size: 13px; box-shadow: 4px 4px 0 #285a37; }
       .multiplayer-game-menu button { margin: 2px; padding: 6px 8px; }
       .multiplayer-death-prompt {
     position: absolute;
@@ -799,12 +818,10 @@ function renderGame(
     chatInputs.push(input);
     input.addEventListener("focus", () => {
       chatEditing = true;
+      releaseHeldInputOnFocusLoss();
       setGameShellInstrument(gameShell, "data-chat-open", "true");
     });
-    input.addEventListener("blur", () => {
-      chatEditing = false;
-      setGameShellInstrument(gameShell, "data-chat-open", "false");
-    });
+
     const row = document.createElement("form");
     row.className = "multiplayer-game-room__chat-row";
     const send = async (): Promise<void> => {
@@ -829,7 +846,17 @@ function renderGame(
       }
     });
     row.append(input, makeButton("Send game chat", send));
-    chat.append(heading, log, row);
+    chat.append(
+      heading,
+      log,
+      row,
+      makeButton("Close chat", () => {
+        chatEditing = false;
+        input.blur();
+        setGameShellInstrument(gameShell, "data-chat-open", "false");
+        renderer.canvas.focus();
+      }),
+    );
     return chat;
   };
   // Gameplay intentionally has no menu drawer. Escape leaves, P toggles
@@ -846,9 +873,10 @@ function renderGame(
   gameMenuPanel.append(
     Object.assign(document.createElement("h2"), { textContent: "Game menu" }),
     Object.assign(document.createElement("p"), {
-      textContent:
-        "Escape closes this menu · P pauses or resumes for everyone · " +
-        "T opens chat · R rejoins the party after you are knocked out",
+      textContent: window.matchMedia("(pointer: coarse)").matches
+        ? "Pause the party, chat with friends, or rejoin after you are knocked out."
+        : "Escape closes this menu · P pauses or resumes for everyone · " +
+          "T opens chat · R rejoins the party after you are knocked out",
     }),
   );
   gameMenu.append(gameMenuPanel);
@@ -861,7 +889,9 @@ function renderGame(
       textContent: "You are out",
     }),
     Object.assign(document.createElement("span"), {
-      textContent: "Press R to rejoin your party",
+      textContent: window.matchMedia("(pointer: coarse)").matches
+        ? "Tap START, then Rejoin party"
+        : "Press R to rejoin your party",
     }),
   );
   gameShell.append(
@@ -873,15 +903,41 @@ function renderGame(
     gameError,
     semanticInspector,
   );
+  const orientation = document.createElement("div");
+  orientation.className = "multiplayer-orientation";
+  orientation.setAttribute("aria-label", "Rotate your device to landscape");
+  orientation.append(
+    Object.assign(document.createElement("p"), {
+      textContent: "Turn your device sideways to play.",
+    }),
+    makeButton("Back to lobby", () => void leaveCurrentGame()),
+  );
+  gameShell.append(orientation);
   mount.append(gameShell);
   // Phaser measures its parent during boot. Mount first so every browser
   // session sees the real viewport instead of a detached, zero-sized host.
-  let renderer = makeMultiplayerPhaserRenderer(
-    gameHost,
-    levelId,
-    false,
-    userAssetBundle,
-  );
+  let touchCommand = neutralInputCommand;
+  const touchControls = {
+    onInput(command: SimulationInputCommand): void {
+      if (
+        command.horizontal === touchCommand.horizontal &&
+        command.jumpPressed === touchCommand.jumpPressed &&
+        command.runHeld === touchCommand.runHeld &&
+        command.firePressed === touchCommand.firePressed &&
+        command.upHeld === touchCommand.upHeld &&
+        command.downHeld === touchCommand.downHeld
+      ) {
+        return;
+      }
+      touchCommand = isNeutralInput(command) ? neutralInputCommand : command;
+      if (!disposed && !gameMenuOpen && !chatEditing) {
+        sendInput(true);
+      }
+    },
+    onMenu: () => setGameMenuOpen(!gameMenuOpen),
+    onPause: () => void togglePartyPause(),
+  };
+  let renderer: ReturnType<typeof makeMultiplayerPhaserRenderer>;
   void appendSemanticLayout(semanticInspector);
 
   let sequence = 0;
@@ -1040,6 +1096,9 @@ function renderGame(
   let gameMenuOpen = false;
   const setGameMenuOpen = (open: boolean): void => {
     gameMenuOpen = open;
+    if (open) {
+      releaseHeldInputOnFocusLoss();
+    }
     setGameShellInstrument(
       gameShell,
       "data-menu-open",
@@ -1053,6 +1112,13 @@ function renderGame(
   cancelButton.dataset.danger = "true";
   gameMenuPanel.append(
     makeButton("Resume", () => setGameMenuOpen(false)),
+    makeButton("Pause / resume party", () => void togglePartyPause()),
+    makeButton("Game chat", () => {
+      setGameMenuOpen(false);
+      setGameShellInstrument(gameShell, "data-chat-open", "true");
+      chatInputs.at(-1)?.focus();
+    }),
+    makeButton("Rejoin party", () => void revivePlayer()),
     makeButton("Leave game", () => void leaveCurrentGame()),
     cancelButton,
   );
@@ -1066,6 +1132,8 @@ function renderGame(
       if (active instanceof HTMLElement) {
         active.blur();
       }
+      chatEditing = false;
+      setGameShellInstrument(gameShell, "data-chat-open", "false");
       return;
     }
     event.preventDefault();
@@ -1282,12 +1350,14 @@ function renderGame(
       // course's larger frame number makes every new keyboard command look
       // implausibly far in the future to the authoritative input queue.
       latestAuthoritativeFrame = snapshot.frame;
+      releaseHeldInputOnFocusLoss();
       renderer.destroy();
       renderer = makeMultiplayerPhaserRenderer(
         gameHost,
         currentLevelId,
         false,
         userAssetBundle,
+        touchControls,
       );
       prediction = undefined;
       localPlayerSlot = undefined;
@@ -1656,17 +1726,18 @@ function renderGame(
     }
   });
   function currentHeldInputCommand(): SimulationInputCommand {
+    const left =
+      held.has("ArrowLeft") || touchCommand.horizontal === HorizontalInput.Left;
+    const right =
+      held.has("ArrowRight") ||
+      touchCommand.horizontal === HorizontalInput.Right;
     const commandResult = makeSimulationInputCommand(
-      held.has("ArrowLeft")
-        ? "left"
-        : held.has("ArrowRight")
-          ? "right"
-          : "neutral",
-      held.has("Space") || held.has("ArrowUp"),
-      held.has("ShiftLeft") || held.has("ShiftRight"),
-      held.has("KeyX"),
-      held.has("ArrowUp"),
-      held.has("ArrowDown"),
+      left === right ? "neutral" : left ? "left" : "right",
+      held.has("Space") || held.has("ArrowUp") || touchCommand.jumpPressed,
+      held.has("ShiftLeft") || held.has("ShiftRight") || touchCommand.runHeld,
+      held.has("KeyX") || touchCommand.firePressed,
+      held.has("ArrowUp") || touchCommand.upHeld,
+      held.has("ArrowDown") || touchCommand.downHeld,
     );
     if (!commandResult.ok) {
       throw new Error(
@@ -1693,7 +1764,10 @@ function renderGame(
     }
     sequence += 1;
     sentInputCount += 1;
-    const command = currentHeldInputCommand();
+    const command =
+      gameMenuOpen || chatEditing
+        ? neutralInputCommand
+        : currentHeldInputCommand();
     latestPredictionCommand = command;
     if (predictImmediately && prediction !== undefined) {
       const priorPrediction = prediction.snapshot();
@@ -1742,7 +1816,7 @@ function renderGame(
     // before the WebSocket finishes connecting. Send that already-held state
     // on connect instead of leaving the authoritative game idle until another
     // physical key edge occurs.
-    if (held.size > 0) {
+    if (held.size > 0 || touchCommand !== neutralInputCommand) {
       sendInput(true);
     }
   });
@@ -1772,6 +1846,30 @@ function renderGame(
     socketLifecycle = "error";
     recordSocketLifecycle();
   });
+  async function revivePlayer(): Promise<void> {
+    const reviveRequestCount = Number(
+      gameShell.getAttribute("data-debug-revive-request-count") ?? "0",
+    );
+    gameShell.setAttribute(
+      "data-debug-revive-request-count",
+      String(reviveRequestCount + 1),
+    );
+    await requestJson("/game/revive", { method: "POST" }).catch((error) => {
+      showGameError(
+        error instanceof Error ? error.message : "Could not revive player.",
+      );
+    });
+  }
+  async function togglePartyPause(): Promise<void> {
+    releaseHeldInputOnFocusLoss();
+    await requestJson("/game/toggle-pause", { method: "POST" }).catch(
+      (error) => {
+        showGameError(
+          error instanceof Error ? error.message : "Could not pause party.",
+        );
+      },
+    );
+  }
   const keydown = (event: KeyboardEvent) => {
     // R is a server-authoritative lifecycle request. It must work even when
     // the pause menu is open or a stale receipt still says paused; the server
@@ -1782,18 +1880,7 @@ function renderGame(
       latestAuthoritativeSnapshot?.phase !== MultiplayerGamePhase.Finished
     ) {
       event.preventDefault();
-      const reviveRequestCount = Number(
-        gameShell.getAttribute("data-debug-revive-request-count") ?? "0",
-      );
-      gameShell.setAttribute(
-        "data-debug-revive-request-count",
-        String(reviveRequestCount + 1),
-      );
-      void requestJson("/game/revive", { method: "POST" }).catch((error) => {
-        showGameError(
-          error instanceof Error ? error.message : "Could not revive player.",
-        );
-      });
+      void revivePlayer();
       return;
     }
     if (gameMenuOpen) {
@@ -1809,7 +1896,7 @@ function renderGame(
       // The displayed receipt can be seconds behind over the supported delay
       // range. The server owns the current phase and chooses pause or resume;
       // a client must never infer that lifecycle transition from a stale view.
-      void requestJson("/game/toggle-pause", { method: "POST" });
+      void togglePartyPause();
       return;
     }
     if (
@@ -1862,11 +1949,16 @@ function renderGame(
   // keeps heartbeating to the server and the player runs on — often into a pit
   // — while nobody is looking at the window.
   const releaseHeldInputOnFocusLoss = (): void => {
-    if (held.size === 0) {
+    const hadInput = held.size > 0 || touchCommand !== neutralInputCommand;
+    held.clear();
+    // Set the shell state first so the scene's release notification cannot
+    // submit a second neutral edge and advance prediction twice.
+    touchCommand = neutralInputCommand;
+    renderer.releaseTouchInput();
+    if (!hadInput) {
       return;
     }
-    held.clear();
-    if (socket.readyState === WebSocket.OPEN) {
+    if (!disposed && socket.readyState === WebSocket.OPEN) {
       sendInput(true);
     } else {
       latestPredictionCommand = neutralInputCommand;
@@ -1881,6 +1973,13 @@ function renderGame(
   window.addEventListener("keyup", keyup);
   window.addEventListener("blur", releaseHeldInputOnFocusLoss);
   document.addEventListener("visibilitychange", releaseHeldInputWhenHidden);
+  renderer = makeMultiplayerPhaserRenderer(
+    gameHost,
+    levelId,
+    false,
+    userAssetBundle,
+    touchControls,
+  );
   presentationAnimationFrame =
     window.requestAnimationFrame(animatePresentation);
   const snapshotInterval = window.setInterval(() => void update(), 50);
@@ -1889,7 +1988,7 @@ function renderGame(
   // long key hold alive through connection establishment and packet loss while
   // staying well below the authoritative 60 Hz simulation cadence.
   const inputHeartbeatInterval = window.setInterval(() => {
-    if (held.size > 0) {
+    if (held.size > 0 || touchCommand !== neutralInputCommand) {
       sendInput(false);
     }
   }, 100);

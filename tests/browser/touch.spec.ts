@@ -9,7 +9,7 @@ import {
 
 const rotatePrompt = '[aria-label="Rotate your device to landscape"]';
 
-// Gameplay is landscape-only on touch devices.
+// Gameplay is landscape-only on touch devices; the menu works in portrait.
 test.describe("touch device (landscape)", () => {
   test.use({ hasTouch: true, viewport: { width: 760, height: 420 } });
 
@@ -27,6 +27,7 @@ test.describe("touch device (landscape)", () => {
       "touch-A",
       "touch-B",
       "touch-start",
+      "touch-pause",
     ]) {
       await expect(page.locator(`button[aria-label="${label}"]`)).toBeVisible();
     }
@@ -103,34 +104,16 @@ test.describe("touch device (landscape)", () => {
     ).toBeGreaterThan(start);
   });
 
-  // The first-run walkthrough is a coach-mark over a live menu, not a modal:
-  // its own comment says the UI underneath stays interactive. On a short
-  // landscape screen its card came down on top of the menu, and because its
-  // controls take pointer events the primary action underneath stopped being
-  // clickable — including through the disabled Back button, which blocks a
-  // click without doing anything with it.
-  test("the first-run tutorial never covers the play button", async ({
-    page,
-  }) => {
+  test("the phone menu has no spotlight tutorial", async ({ page }) => {
     await page.goto("/");
-    const tip = page.getByRole("dialog", { name: "Start menu tutorial" });
-    await expect(tip).toBeVisible();
-    const play = page.getByRole("button", { name: "▶ PLAY", exact: true });
-    const tipBox = await tip.boundingBox();
-    const playBox = await play.boundingBox();
-    if (tipBox === null || playBox === null) {
-      throw new Error(
-        "Expected the tutorial and the play button to be laid out.",
-      );
-    }
-    const overlaps =
-      tipBox.x < playBox.x + playBox.width &&
-      tipBox.x + tipBox.width > playBox.x &&
-      tipBox.y < playBox.y + playBox.height &&
-      tipBox.y + tipBox.height > playBox.y;
-    expect(overlaps, "the tutorial tip sits over the play button").toBe(false);
-    // And the button it is covering nothing of is genuinely clickable.
-    await play.click({ timeout: 5_000 });
+    await expect(
+      page.getByRole("dialog", { name: "Start menu tutorial" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Start menu tutorial" }),
+    ).toBeHidden();
+    await page.getByRole("button", { name: "▶ PLAY", exact: true }).tap();
+    await expect(page.locator("canvas")).toBeVisible();
   });
 
   // The paused-games bar is fixed to the bottom of the viewport and the menu
@@ -307,9 +290,7 @@ test.describe("touch device (landscape)", () => {
           .__audioOscillators,
     );
     // A control press is the user gesture that unlocks and starts the music.
-    await page
-      .locator('button[aria-label="touch-right"]')
-      .dispatchEvent("pointerdown");
+    await page.locator('button[aria-label="touch-right"]').tap();
     await page.waitForTimeout(200);
     const after = await page.evaluate(
       () =>

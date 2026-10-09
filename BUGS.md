@@ -1,5 +1,44 @@
 # BUGS.md
 
+### Existing dependency vulnerability gate — fixed (2026-10-09)
+
+PR #39's Gate failed on three high and one moderate advisory affecting
+`brace-expansion@5.0.9` (through ESLint/minimatch) and `source-map-js@1.2.1`
+(through Vite/PostCSS), while the full browser suites passed. The overrides now
+select patched `brace-expansion@5.0.12` and `source-map-js@1.2.2`; the lockfile
+changes only those packages. Registry publication dates, licenses and advisory
+evidence are recorded in `docs/dependencies/README.md`. The audit reports no
+known vulnerabilities, with the gate kept at its existing severity threshold.
+
+### Phone menus and tutorials overflowed; touch gameplay was cramped — fixed (2026-10-09)
+
+The global portrait rotate overlay blocked even the menu. The menu's tall
+content and absolute Tutorial button did not fit small phones, and the
+landscape grid could not override an inline column count. The tutorial placed
+its padded card using guessed dimensions. Menu layout now uses safe-area and
+visible-viewport bounds with internal scrolling and responsive columns; the
+rotate prompt is gameplay-only with a Back action; and phone spotlights are
+disabled without marking them seen. Larger-screen cards use measured dimensions.
+
+At 568×320 the touch deck consumed 352px and left a 216px canvas with a clipped
+HUD. Smaller panels, panel-relative controls and fitted text keep controls and
+HUD inside the screen. Unused SELECT becomes PAUSE. Per-pointer tracking fixes
+real-touch thumb rolls and multiple fingers; cancellation/focus loss clears
+held commands. Pause/retry/menu/session-resume actions are exercised by taps.
+
+### Online touch controls never reached the server — fixed (2026-10-09)
+
+The shared deck changed BootScene's local state, but render-only scenes never
+consumed that state; the network shell sent keyboard commands alone. The deck's
+START request was ignored too, and its panels were mounted into a non-flex
+shell. Touch command edges now feed the existing network/prediction path with a
+held-input heartbeat, and panels flank a flexible canvas host. START and PAUSE
+call online actions directly; the menu offers chat, revival and leaving.
+Chat stays open when Send takes focus and has a Close action. Focus loss sends
+one neutral edge, and renderer replacement removes the previous deck before
+mounting another. An online browser journey proves server movement, jump,
+pause/resume, chat, real defeat/revival and a portrait return to the lobby.
+
 ### Five wrong passwords from anyone locked every player out — fixed (2026-09-29)
 
 The login limiter keyed failures by the socket peer. Deployed behind a

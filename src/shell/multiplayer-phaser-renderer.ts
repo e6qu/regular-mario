@@ -9,7 +9,10 @@ import {
   makeInitialPlayerVitalityState,
 } from "../engine/simulation/player-vitality";
 import { validateDefaultVglcSmbSpriteCoverage } from "./sprite-coverage";
-import { selectBrowserGameBootstrap } from "./browser-level-selection";
+import {
+  selectBrowserGameBootstrap,
+  type BrowserGameBootstrap,
+} from "./browser-level-selection";
 import { createGameConfig } from "./create-game-config";
 import { BootScene } from "./scenes/boot-scene";
 import type { UserAssetBundle } from "./user-asset-loader";
@@ -34,6 +37,7 @@ export type MultiplayerPhaserRenderer = {
     positions: readonly { readonly x: number; readonly y: number }[],
   ): void;
   beginCompletionPresentation(): void;
+  releaseTouchInput(): void;
   destroy(): void;
 };
 
@@ -55,6 +59,7 @@ export function makeMultiplayerPhaserRenderer(
   levelId: string,
   revengeMode: boolean,
   userAssetBundle: UserAssetBundle,
+  touchControls: NonNullable<BrowserGameBootstrap["touchControls"]>,
 ): MultiplayerPhaserRenderer {
   // Phaser may leave a boot-time canvas attached while replacing a scene. The
   // multiplayer host owns exactly one authoritative canvas; stale local-seed
@@ -116,6 +121,7 @@ export function makeMultiplayerPhaserRenderer(
       userAssetBundle,
       authoritativeRenderOnly: true,
       awaitStart: false,
+      touchControls,
     }),
   );
   const canvas = game.canvas;
@@ -240,6 +246,11 @@ export function makeMultiplayerPhaserRenderer(
         requireRemoteScene(game).beginAuthoritativeCompletionPresentation();
       }
     },
+    releaseTouchInput() {
+      if (ready && !destroyed) {
+        requireRemoteScene(game).releaseTouchInput();
+      }
+    },
     destroy() {
       destroyed = true;
       // Silence whatever scene exists, ready or not. The readiness gate meant a
@@ -251,6 +262,11 @@ export function makeMultiplayerPhaserRenderer(
       if (scene instanceof BootScene) {
         scene.releaseAuthoritativeRenderAudio();
       }
+      // Panels belong to this renderer and must leave with its canvas, before
+      // a new course mounts (Phaser teardown is deferred).
+      parent.parentElement
+        ?.querySelectorAll('[data-role^="touch-control-"]')
+        .forEach((panel) => panel.remove());
       game.destroy(true);
       // Phaser's asynchronous destruction does not consistently detach the
       // canvas before a newly advanced server course mounts its replacement.

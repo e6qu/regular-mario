@@ -5,6 +5,57 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-10-09 — fix PR #39's pre-existing CI dependency failures
+
+- CI's browser suites passed; Gate stopped at four advisories in the existing
+  ESLint/minimatch and Vite/PostCSS dependency graph.
+- Updated the brace-expansion override to 5.0.12 and added source-map-js 1.2.2.
+  Only these two transitive packages changed in the lockfile; direct dependency
+  versions and vulnerability thresholds are unchanged.
+- Verified the latest patched releases, publication dates (both older than
+  three days), MIT/BSD-3-Clause licenses and maintainer repositories from npm.
+  Recorded the evidence in `docs/dependencies/README.md` and closed the BUGS
+  entry instead of leaving a pre-existing blocker for later maintenance.
+- Validation: the frozen install, every full pre-commit gate (including all
+  unit tests and the vulnerability audit), and the production release build
+  pass. The audit reports no known vulnerabilities.
+
+## 2026-10-09 — small-phone layout and touch play
+
+- The menu uses viewport and safe-area bounds, a scrollable panel, one column on
+  the narrowest phones and three in short landscape. Its header no longer puts
+  Tutorial over the title; all menu actions and paused-session tabs remain
+  reachable. Native selects use 16px text on touch devices.
+- Menu/editor spotlights are disabled below 601px wide and on short touch
+  screens (540px tall or less), without saving a tutorial-seen preference.
+  Larger screens retain a measured, bounded card; relaunching replaces the
+  previous walkthrough and leaving its container removes listeners.
+- Portrait navigation is available: the rotate prompt belongs to gameplay and
+  has a Back-to-menu action. Online portrait play offers Back to lobby.
+- The touch deck reserves less width, sizes its contents to its panel and
+  replaces unused SELECT with PAUSE. HUD text fits the actual canvas width and
+  long feedback/start cues wrap. Pause controls scroll within the viewport.
+- Actual pointer IDs drive held controls: move/run/jump can be held together,
+  fingers can roll across the D-pad, and cancellation, blur, hide, rotation,
+  pause and session switches clear held state.
+- Online touch controls previously rendered without ever sending a command.
+  They now use the existing prediction/heartbeat/server input path; START opens
+  a touch menu with pause, chat, revive and leave actions. Chat has a Close
+  action and stays open while tapping Send. Renderer handoffs remove old decks
+  synchronously, and focus loss publishes one neutral input edge.
+- Browser coverage exercises 320×568, 390×664 and 568×320 menus, real multi-touch
+  commands, cancellation/focus loss, pause/retry/session resume, the retained
+  desktop tutorial and a real online touch journey through death and revival.
+  Screenshots are kept locally under ignored `playwright_adhoc/mobile-layout/`.
+- Validation: 73 targeted local Chromium browser cases (the input-only case
+  uses an enemy-free play-test to separate release from knockback), five online
+  cases including pixel parity, and five WebKit navigation cases pass. The
+  WebKit run skips the Chromium-CDP multi-finger case. Release/server builds
+  and every pre-commit gate except the vulnerability audit pass, including
+  all unit tests. The unchanged lockfile pins `brace-expansion@5.0.9` and
+  `source-map-js@1.2.1`; their audit reports three high and one moderate
+  advisory. Dependency maintenance is recorded separately in BUGS/DO_NEXT.
+
 ## 2026-09-29 — the login limiter counts players, not the proxy
 
 - Deployed behind a reverse proxy, the login limiter saw one client, so five

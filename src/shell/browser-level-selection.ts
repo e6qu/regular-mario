@@ -1,3 +1,4 @@
+import type { SimulationInputCommand } from "../engine/simulation/input-command";
 import type { LevelSpecInput } from "../engine/domain/level-spec";
 import { armoredEnemyRouteLevelInput } from "../engine/levels/armored-enemy-route-level";
 import { castleClearRouteLevelInput } from "../engine/levels/castle-clear-route-level";
@@ -91,6 +92,12 @@ export type BrowserGameBootstrap = {
   // ESC works in-game) that tears the game down and runs this — returning to the
   // start menu, or back to the editor when a level was launched from there.
   readonly onExitToMenu?: () => void;
+  // Online play receives the deck's command edges through the network shell.
+  readonly touchControls?: {
+    readonly onInput: (command: SimulationInputCommand) => void;
+    readonly onMenu: () => void;
+    readonly onPause: () => void;
+  };
   // When provided, the finish overlay offers a "Next level" action that tears the
   // game down and launches the next level (the following one in the map set).
   // The scene passes the main level the run currently belongs to, so that a
