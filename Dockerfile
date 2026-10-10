@@ -1,4 +1,7 @@
-FROM node:26-bookworm-slim AS build
+# Node comes from the Amazon ECR Public copy of Docker's official images,
+# pinned to the same index digest Docker Hub serves: Docker Hub limits
+# anonymous pulls per address, and the shared CI runners exhaust it.
+FROM public.ecr.aws/docker/library/node:26-bookworm-slim@sha256:86f07bc9c5dce4578cf37e5a418b7bfc7f817cda25cde66e2b66e95ed86c4567 AS build
 
 WORKDIR /app
 # Node 26 ships no corepack (removed after Node 24), so `corepack enable` exits
@@ -13,7 +16,8 @@ RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build:release && pnpm run build:server
 
-FROM node:26-bookworm-slim
+# Same image and digest as the build stage, for the same reason.
+FROM public.ecr.aws/docker/library/node:26-bookworm-slim@sha256:86f07bc9c5dce4578cf37e5a418b7bfc7f817cda25cde66e2b66e95ed86c4567
 
 WORKDIR /app
 ENV NODE_ENV=production
