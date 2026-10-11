@@ -5,6 +5,19 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-10-11 — keep container image pins current
+
+- Nothing compared the pinned image digests with what Docker Hub serves, so a
+  pin would only move when someone remembered to move it.
+- `scripts/check-image-pins.mjs` (`pnpm run check:image-pins`) finds every
+  `public.ecr.aws/docker/library` and `mirror.gcr.io` pin in the tracked tree.
+  It fails when Docker Hub has served a newer digest for the tag, or a newer
+  release of the same variant and major version, for at least 24 hours, and
+  when the mirror serves a different digest than the pin. ECR Public requests
+  are spaced a second apart to stay inside its anonymous rate limit.
+- The new `Image pins` workflow runs it on pull requests, pushes to `main` and
+  daily. Unit tests cover pin discovery, release ordering and the quarantine.
+
 ## 2026-10-09 — fix PR #39's pre-existing CI dependency failures
 
 - CI's browser suites passed; Gate stopped at four advisories in the existing
