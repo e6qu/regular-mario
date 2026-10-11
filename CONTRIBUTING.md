@@ -136,6 +136,24 @@ adoption. See
 [`docs/decisions/0002-dependency-policy.md`](docs/decisions/0002-dependency-policy.md);
 the `dependency-policy` and `transitive-license-policy` gates enforce it.
 
+Container images are copies of Docker Hub images, pinned by tag and digest:
+`public.ecr.aws/docker/library/<name>` for official images and
+`mirror.gcr.io/<repository>` for the rest, because Docker Hub limits anonymous
+pulls and the shared CI runners exhaust that limit. The `Image pins` workflow
+runs `pnpm run check:image-pins` on every pull request, on every push to `main`
+and daily. For each pin it reads Docker Hub's tag API and the mirror's manifest:
+
+- **ok**: the pin is the digest Docker Hub serves for the tag, and the mirror
+  serves the same digest.
+- **HELD**: Docker Hub moved the tag, or published a newer release with the same
+  variant and major version, less than 24 hours ago.
+- **DRIFT** (fails): that newer digest or release is at least 24 hours old, or
+  the mirror serves a different digest than the pin.
+
+To bump a pin, take the digest Docker Hub serves for the tag and confirm the
+mirror serves the same one, for example with
+`docker buildx imagetools inspect public.ecr.aws/docker/library/node:<tag>`.
+
 ## Commits and pull requests
 
 - Keep each change scoped; prefer one commit per completed task with a clear,
