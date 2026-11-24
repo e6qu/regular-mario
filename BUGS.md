@@ -216,6 +216,13 @@ exact game ID from a separate admin browser session.
 
 ## Known Bugs
 
+### Talk mode — open (2026-11-22)
+
+- A talk's beetles start walking when they come on screen and are not bounded to
+  their room, so on a long slide one can wander into the previous room.
+- The 22-tile level is 352 px tall; at 720 px and zoom 2 an 8-px strip of
+  camera background shows under the ground.
+
 ### Single-player/multiplayer mechanics gaps — closed (2026-08-11, second sweep)
 
 Every parity gap recorded after the first 2026-08-11 sweep is now fixed:

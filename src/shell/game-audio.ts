@@ -1,4 +1,5 @@
 import { SoundEvent } from "../engine/simulation/sound-events";
+import { isAudioMuted, onAudioMutedChange } from "./audio-mute";
 import romMusicData from "./smb-rom-music.json";
 
 type ToneSpec = {
@@ -20,6 +21,7 @@ function midiToHertz(midi: number): number {
 }
 
 type RomNote = { readonly midi: number | null; readonly seconds: number };
+export type MusicNote = RomNote;
 type RomPart = {
   readonly melody: readonly RomNote[];
   readonly bass: readonly RomNote[];
@@ -37,6 +39,9 @@ type SongVoice = {
   readonly pluck?: boolean;
 };
 type Song = { readonly voices: readonly SongVoice[] };
+// A looping song: each voice loops its own notes. Talk mode plays its own songs.
+export type MusicSong = Song;
+export type MusicVoice = SongVoice;
 
 // An original, bouncy ukulele-style tune for Revenge mode, composed here from
 // scratch (major-key arpeggios over a plucked root bass) — not derived from any
@@ -275,6 +280,25 @@ export class GameAudio {
   // Timers for the currently-playing one-shot jingle, cleared when a new jingle
   // or the background music takes over.
   private jingleTimers: ReturnType<typeof setTimeout>[] = [];
+  // Every sound reaches the speakers through this gain, so muting is one switch
+  // that also silences notes already playing and keeps the music in time.
+  private masterGain: GainNode | undefined;
+  private readonly stopFollowingMute = onAudioMutedChange((muted) => {
+    this.masterGain?.gain.setValueAtTime(
+      muted ? 0 : 1,
+      this.masterGain.context.currentTime,
+    );
+  });
+
+  // The node standing for the speakers: the master gain, made on first use.
+  private speakers(audioContext: AudioContext): AudioNode {
+    if (this.masterGain === undefined) {
+      this.masterGain = audioContext.createGain();
+      this.masterGain.gain.value = isAudioMuted() ? 0 : 1;
+      this.masterGain.connect(audioContext.destination);
+    }
+    return this.masterGain;
+  }
 
   public registerSoundBuffers(
     buffers: ReadonlyMap<SoundEvent, AudioBuffer>,
@@ -294,6 +318,19 @@ export class GameAudio {
     this.revengeMusic = enabled;
   }
 
+  // A song that replaces the level theme's (talk mode's per-world music), or undefined
+  // to go back to the theme's. Swapped in place when the music is already playing.
+  private songOverride: Song | undefined;
+  public setSongOverride(song: Song | undefined): void {
+    if (this.songOverride === song) {
+      return;
+    }
+    this.songOverride = song;
+    if (this.musicEnabled && !this.revengeMusic && song !== undefined) {
+      this.switchLoopingSong(song);
+    }
+  }
+
   public startBackgroundMusic(theme?: string): boolean {
     if (this.musicEnabled) {
       return true;
@@ -309,13 +346,15 @@ export class GameAudio {
     this.tempoScale = 1;
     this.currentSong = this.revengeMusic
       ? revengeSong
-      : (songsByTheme[theme ?? "overworld"] ?? overworldSong);
+      : (this.songOverride ??
+        songsByTheme[theme ?? "overworld"] ??
+        overworldSong);
     // Water levels play the theme as if heard underwater and hummed by a
     // nervous, nasal, Morty-ish voice — a small comedic touch.
     this.musicOutput =
       theme === "water"
         ? this.makeUnderwaterMortyBus(audioContext)
-        : audioContext.destination;
+        : this.speakers(audioContext);
     this.musicEnabled = true;
     this.voiceTimers = this.currentSong.voices.map(() => undefined);
     this.currentSong.voices.forEach((_voice, voiceIndex) => {
@@ -343,6 +382,7 @@ export class GameAudio {
       return;
     }
     this.disposed = true;
+    this.stopFollowingMute();
     this.stopBackgroundMusic();
     this.setLavaSizzle(false);
     const audioContext = this.audioContext;
@@ -351,6 +391,7 @@ export class GameAudio {
     this.soundBuffers = new Map();
     this.noiseBuffer = undefined;
     this.glottalWave = undefined;
+    this.masterGain = undefined;
     if (audioContext !== undefined && audioContext.state !== "closed") {
       // Best-effort: a context already closing rejects, and there is nothing
       // useful to do about it while tearing down.
@@ -390,7 +431,9 @@ export class GameAudio {
     }
     const target = active
       ? starSong
-      : (songsByTheme[levelTheme ?? "overworld"] ?? overworldSong);
+      : (this.songOverride ??
+        songsByTheme[levelTheme ?? "overworld"] ??
+        overworldSong);
     if (this.currentSong === target) {
       return;
     }
@@ -516,7 +559,7 @@ export class GameAudio {
     input.connect(nasal);
     nasal.connect(muffle);
     muffle.connect(tremolo);
-    tremolo.connect(audioContext.destination);
+    tremolo.connect(this.speakers(audioContext));
 
     wobble.start(now);
     waver.start(now);
@@ -594,7 +637,7 @@ export class GameAudio {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + sustain);
 
       oscillator.connect(gain);
-      gain.connect(this.musicOutput ?? audioContext.destination);
+      gain.connect(this.musicOutput ?? this.speakers(audioContext));
       oscillator.start(now);
       oscillator.stop(now + sustain + 0.02);
     } catch {
@@ -663,7 +706,7 @@ export class GameAudio {
       amp.gain.setValueAtTime(peak, now + Math.min(0.07, sustain * 0.5));
       amp.gain.exponentialRampToValueAtTime(0.0001, now + sustain);
       mix.connect(amp);
-      amp.connect(this.musicOutput ?? audioContext.destination);
+      amp.connect(this.musicOutput ?? this.speakers(audioContext));
 
       source.start(now);
       vibrato.start(now);
@@ -755,7 +798,7 @@ export class GameAudio {
       flutterDepth.connect(gain.gain);
       source.connect(filter);
       filter.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.speakers(audioContext));
       source.start(now);
       flutter.start(now);
       this.sizzleNodes = { source, flutter, gain };
@@ -870,7 +913,7 @@ export class GameAudio {
       );
       source.connect(filter);
       filter.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.speakers(audioContext));
       source.start(now);
       source.stop(now + options.durationSeconds);
     } catch {
@@ -1034,7 +1077,7 @@ export class GameAudio {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.24);
       oscillator.connect(nasal);
       nasal.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.speakers(audioContext));
       oscillator.start(now);
       oscillator.stop(now + 0.26);
     } catch {
@@ -1344,7 +1387,7 @@ export class GameAudio {
       amp.gain.setValueAtTime(gain, startTime + durationSeconds * 0.7);
       amp.gain.exponentialRampToValueAtTime(0.0001, startTime + totalSeconds);
       tilt.connect(amp);
-      amp.connect(audioContext.destination);
+      amp.connect(this.speakers(audioContext));
 
       for (const osc of sources) {
         osc.start(startTime);
@@ -1382,7 +1425,7 @@ export class GameAudio {
       );
       source.connect(highpass);
       highpass.connect(amp);
-      amp.connect(audioContext.destination);
+      amp.connect(this.speakers(audioContext));
       source.start(startTime);
       source.stop(startTime + durationSeconds + 0.02);
     } catch {
@@ -1426,7 +1469,7 @@ export class GameAudio {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
       oscillator.connect(formant);
       formant.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.speakers(audioContext));
       oscillator.start(now);
       oscillator.stop(now + duration + 0.02);
       vibrato.start(now);
@@ -1446,7 +1489,7 @@ export class GameAudio {
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + buffer.duration);
       source.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.speakers(audioContext));
       source.start(now);
     } catch {
       // Audio playback is best-effort; never throw from the simulation step.
@@ -1472,7 +1515,7 @@ export class GameAudio {
       );
 
       oscillator.connect(gain);
-      gain.connect(audioContext.destination);
+      gain.connect(this.speakers(audioContext));
       oscillator.start(now);
       oscillator.stop(now + spec.durationSeconds);
     } catch {

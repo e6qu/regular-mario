@@ -2,6 +2,14 @@
 
 ## Current State
 
+**Talk mode (2026-11-22).** `#talk=<talk.json url>` plays a presentation as an
+original level, one room per slide, with slide text drawn in a new original bitmap
+font; see `src/shell/talk/` and `src/engine/levels/talk-level.ts`. Verified in
+Chrome: the room camera, PageDown/PageUp jumps, jumping the beetle, and a pipe
+that lands at the next slide. Published talk:
+https://e6qu.github.io/presentations/who-answers-the-syscall/play/ opens it on
+this game's Pages deploy, same origin as the talk's `talk.json`.
+
 **Small-phone layout and touch interactions (2026-10-09).** The start menu
 fits the visible viewport in either orientation and scrolls above paused-session
 tabs. Phone-sized screens suppress the menu/editor spotlight tutorial without
