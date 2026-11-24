@@ -1,7 +1,14 @@
 # DO_NEXT.md
 
+- Talk mode: no browser (Playwright) spec yet; add one that boots a two-slide
+  talk, presses PageDown and reads the live region. A talk JSON comes from
+  e6qu.github.io's `scripts/talk-json.mjs`; same-origin hosting avoids CORS.
+
 - Preserve the patched tooling overrides: `brace-expansion@5.0.12` and
-  `source-map-js@1.2.2` resolve PR #39's pre-existing vulnerability failures.
+  `source-map-js@1.2.2` resolve PR #39's pre-existing vulnerability failures;
+  `minimatch@11.0.1` (eslint and typescript-eslint still ask for ^10) and
+  `zod@4.6.6` (knip) resolve the 2026-11 advisories. Drop the minimatch pin once
+  eslint ≥10.15 and typescript-eslint ≥8.73 are old enough to adopt.
   Check registry age/license evidence and the audit before changing these pins.
 
 - Preserve the phone layout contract: menus work in portrait and landscape;

@@ -1,3 +1,4 @@
+import { toggleAudioMuted } from "../audio-mute";
 import Phaser from "phaser";
 
 const authoritativeRenderSceneReadyEvent = "authoritative-render-scene-ready";
@@ -1049,6 +1050,17 @@ export class BootScene extends Phaser.Scene {
       return;
     }
 
+    // M mutes and unmutes every sound (the choice is remembered; see audio-mute.ts).
+    if (
+      event.code === "KeyM" &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      toggleAudioMuted();
+      return;
+    }
+
     // ESC leaves the level (handled in update() to avoid tearing down mid-event).
     if (event.key === "Escape") {
       this.exitRequested = true;
@@ -1554,7 +1566,9 @@ export class BootScene extends Phaser.Scene {
         },
       )
       .setScrollFactor(0)
-      .setDepth(60);
+      .setDepth(60)
+      // a talk's slides hang where the HUD would sit; the talk keeps no score
+      .setVisible(this.browserGameBootstrap.talk === undefined);
     this.gameAudio = new GameAudio();
     this.gameAudio.setVocalSoundtrack(
       this.browserGameBootstrap.vocalSoundtrack === true,
@@ -1579,6 +1593,12 @@ export class BootScene extends Phaser.Scene {
     window.addEventListener("resize", this.handleWindowResize);
 
     this.publishDebugApi();
+    this.browserGameBootstrap.talk?.bindMusic((song) => {
+      this.gameAudio.setSongOverride(song);
+    });
+    this.browserGameBootstrap.talk?.bindMovePlayer((xPixels, yPixels) => {
+      this.teleportPrimaryPlayer(xPixels, yPixels);
+    });
     this.renderSimulationState();
     this.authoritativeRenderSceneReady = true;
     this.events.emit(authoritativeRenderSceneReadyEvent);
@@ -2090,6 +2110,7 @@ export class BootScene extends Phaser.Scene {
     this.renderedActors = renderedActorSummary.actors;
     this.renderedActorRoleCounts = renderedActorSummary.roleCounts;
     this.renderWarpZoneBanner();
+    this.browserGameBootstrap.talk?.decorateWorld(this);
 
     this.levelRenderedObjects = this.children.list.filter(
       (child) => !childrenBefore.has(child),
@@ -4340,6 +4361,7 @@ export class BootScene extends Phaser.Scene {
     }
 
     this.renderSimulationState();
+    this.reportTalkPlayerPosition();
 
     this.maybeCaptureThumbnail();
 
@@ -7330,6 +7352,70 @@ export class BootScene extends Phaser.Scene {
     };
   }
 
+  // Moves the primary player to (x, y) at rest. Used by the debug API and by talk mode
+  // to jump between rooms. Fails loudly on states a teleport cannot change: a paused
+  // game, or a run that has already ended.
+  private teleportPrimaryPlayer(xPixels: number, yPixels: number): void {
+    // Fail loudly on states a teleport cannot meaningfully change, instead
+    // of silently moving a sprite the frozen simulation will never step —
+    // the calling test would otherwise hang to its timeout.
+    if (this.paused) {
+      throw new Error("teleportPlayer: the game is paused.");
+    }
+    if (
+      this.simulationState.players[0].outcome.kind !== PlayerOutcomeKind.Active
+    ) {
+      throw new Error("teleportPlayer: the run has already ended.");
+    }
+    const x = makePixelPosition(xPixels, "debug.teleport.x");
+    const y = makePixelPosition(yPixels, "debug.teleport.y");
+    const zeroVelocity = makeVelocityPixelsPerSecond(
+      0,
+      "debug.teleport.velocity",
+    );
+    if (!x.ok || !y.ok || !zeroVelocity.ok) {
+      throw new Error("teleportPlayer requires valid pixel positions.");
+    }
+    const [primary, ...others] = this.simulationState.players;
+    this.simulationState = {
+      ...this.simulationState,
+      players: [
+        {
+          ...primary,
+          player: {
+            ...primary.player,
+            position: { x: x.value, y: y.value },
+            velocity: { x: zeroVelocity.value, y: zeroVelocity.value },
+          },
+        },
+        ...others,
+      ],
+    };
+    this.renderSimulationState();
+  }
+
+  // Tells talk mode where the primary player is, after each rendered frame.
+  private reportTalkPlayerPosition(): void {
+    const talk = this.browserGameBootstrap.talk;
+    if (talk === undefined) {
+      return;
+    }
+    const position = this.simulationState.players[0].player.position;
+    talk.afterRender({ xPixels: position.x, yPixels: position.y });
+    // Frame the room the player is in rather than the player: the follow offset
+    // makes the camera's effective target the room's centre, so it rests while the
+    // player walks about a room and pans when the player crosses into the next.
+    // and with no horizontal deadzone, so the room sits exactly in the middle
+    const camera = this.cameras.main;
+    if (camera.deadzone !== null && camera.deadzone.width !== 0) {
+      camera.setDeadzone(0, camera.deadzone.height);
+    }
+    camera.setFollowOffset(
+      this.playerRectangle.x - talk.roomCenterXPixels(position.x),
+      0,
+    );
+  }
+
   private publishDebugApi(): void {
     const debugApi: BrowserPlatformerDebugApi = {
       renderMultiplayerWireStateForDebug: (state, cameraLeftPixels) => {
@@ -7345,43 +7431,7 @@ export class BootScene extends Phaser.Scene {
         }
       },
       teleportPlayer: (xPixels: number, yPixels: number) => {
-        // Fail loudly on states a teleport cannot meaningfully change, instead
-        // of silently moving a sprite the frozen simulation will never step —
-        // the calling test would otherwise hang to its timeout.
-        if (this.paused) {
-          throw new Error("teleportPlayer: the game is paused.");
-        }
-        if (
-          this.simulationState.players[0].outcome.kind !==
-          PlayerOutcomeKind.Active
-        ) {
-          throw new Error("teleportPlayer: the run has already ended.");
-        }
-        const x = makePixelPosition(xPixels, "debug.teleport.x");
-        const y = makePixelPosition(yPixels, "debug.teleport.y");
-        const zeroVelocity = makeVelocityPixelsPerSecond(
-          0,
-          "debug.teleport.velocity",
-        );
-        if (!x.ok || !y.ok || !zeroVelocity.ok) {
-          throw new Error("teleportPlayer requires valid pixel positions.");
-        }
-        const [primary, ...others] = this.simulationState.players;
-        this.simulationState = {
-          ...this.simulationState,
-          players: [
-            {
-              ...primary,
-              player: {
-                ...primary.player,
-                position: { x: x.value, y: y.value },
-                velocity: { x: zeroVelocity.value, y: zeroVelocity.value },
-              },
-            },
-            ...others,
-          ],
-        };
-        this.renderSimulationState();
+        this.teleportPrimaryPlayer(xPixels, yPixels);
       },
       setPlayerVitality: (kind: "small" | "powered" | "fire") => {
         if (this.paused) {

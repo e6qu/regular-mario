@@ -5,6 +5,110 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-23 — talk mode: a look, a song and platforms for every world
+
+- Each world of a talk now has its own theme (`src/shell/talk/talk-themes.ts`),
+  picked from the world's name (plains, ruins, cave, ghost house, forest, island,
+  sky, palace, valley, castle; unknown names take the next theme in turn). The
+  slides before the first world are on the plains.
+- Original scenery per theme (`talk-backdrop.ts`): rolling hills and bushes; desert
+  dunes and broken columns at dusk; a cave wall with stalactites, stalagmites and
+  crystals; boarded walls, moonlit windows and candles; a misty night forest with
+  fireflies and mushrooms; a beach with palms and waves; a floor of clouds with
+  floating islets; a palace of tiles, columns and gems; a valley of spires over a
+  lava glow; a castle of stone with banners and torches. Drawn once per theme into a
+  canvas wider than a room; each room shows a seeded slice, so neighbouring rooms
+  differ. A themed ground strip covers the walkway's tiles. The talk level no longer
+  places hill and bush tiles of its own.
+- An original chiptune loop per theme (`talk-music.ts`), composed from scratch in a
+  small step notation: a bouncy plains walk, a desert air, a walking cave bass with
+  bell drips, a creeping ghost-house line, a lilting forest song, a beach skip, a sky
+  waltz, palace arpeggios, a driving valley riff, a tense castle climb. Talk mode no
+  longer plays the level-theme music; `GameAudio.setSongOverride` swaps the looping
+  song in place when the castaway enters a new world (the mute toggle still governs
+  it). New hook: `TalkSceneHooks.bindMusic`.
+- Floating platforms vary per room (`talk-platforms.ts`): one to five blocks as a
+  row, a staircase, a single or a cloud, from the world's materials (crates, used
+  crates, planks, stone, clouds), at a seeded place and height. They keep clear of
+  the stand point, the props, the sign, the walkway, the herd on the mounts slide,
+  and of stairs, pipes and the gate. `makeTalkLevel` takes them per room and checks
+  each lands on empty sky in the allowed rows.
+
+## 2026-11-22 — talk mode: a presentation played as a level
+
+- `#talk=<url of a talk.json>&slide=<n>` loads a talk script (slides exported from
+  a Markdown deck) and boots it as one long original level: one 640-px room per
+  slide, its text on a sign in the sky drawn with a new original 5×7 bitmap font
+  (`src/shell/talk/talk-font.ts`). Short slides are drawn at 2×.
+- What stands between two rooms comes from the next slide's transition: crates
+  (`run`), a beetle (`ouch`), a pipe down to the next room (`pipe`), a staircase
+  (`card`), or nothing. The ground is unbroken and god mode is on, so a talk cannot
+  be lost mid-sentence.
+- The castaway walks between rooms with the normal controls; PageDown/PageUp (what
+  clickers send), Home and End jump between rooms. The camera frames the room, not
+  the player. A polite live region reads each slide, links included.
+- BootScene gained one optional bootstrap field, `talk` (`TalkSceneHooks`), called
+  after the level's objects are built, after each render, and once with a
+  teleport; `teleportPrimaryPlayer` is shared with the debug API. The score HUD
+  hides in talk mode.
+- A talk that overflows a sign, or uses a character the font lacks, fails before
+  it boots, naming the slides.
+- Presenter controls: a slide bar (previous, a list of every slide, next, a
+  speaker icon), and a typed slide number then Enter. M mutes everywhere in the
+  game: all sound now reaches the speakers through one master gain
+  (`src/shell/audio-mute.ts`), remembered in localStorage.
+- Slide art: every slide names its graphics (`art`): a scene ("mounts", "email")
+  or one to four props from an original 87-prop pixel-art library
+  (`talk-props.ts`), joined by "+". Props stand or float in the room, animate,
+  and the first is drawn large on the sign when the text leaves room. A talk
+  whose slides lack art, or share it, fails before it boots.
+- Two more sign scenes: "world-map" draws the talk's worlds as islands on a sea,
+  joined by a path, built from its section slides; "egress" draws one request
+  leaving a VM through the egress proxy and the credential broker, with two
+  envelopes animated over the sign (one gets the real key, one is stamped
+  "denied"). A slide whose text leaves too little room for its scene fails to
+  prepare.
+- The boss's message renders as an email window (title bar, From/To/Date/Subject
+  headers), and section slides show a one-line bridge from the previous world.
+- Talk tables keep a column at least as wide as its longest word (up to 12
+  characters), taking the space from wider columns, so "Windows" no longer wraps
+  as "Window / s".
+- A section slide with `numbered: false` shows its name and bridge line without
+  "WORLD n"; the world still sets the HUD and the room.
+- A slide's links are hyperlinks on its sign: each link's text, wherever it is drawn
+  (capitalised kickers included), is a run of its own in a blue link tone, underlined
+  in the gap under its line; a click opens its page in a new tab, and the pointer
+  turns to a hand over one. A link must be an http or https address. A link that
+  names its `context` (the text it sits in) is drawn only there, so the same words
+  elsewhere on the slide stay plain.
+- A table row can open with an icon (`table.icons`, prop ids): the prop is drawn
+  before the row's first cell, at its own size: the icon column is as wide as the
+  widest icon, each row as tall as its icon. A `dialogue` slide sets its bullets as a script, the
+  speaker before ": " in its own accent-coloured column. The world map labels each
+  island with its name only.
+- Every sign has a copy button in its top-right corner (`talk-copy.ts`): a click
+  puts the slide's text on the clipboard, in the order the sign shows it, then each
+  link's address once, and a short notice over the slide bar says so (or why it
+  could not: the clipboard needs https or localhost). The layout keeps that corner
+  clear (`reserveTopRight`): a line that starts beside the button wraps short of it.
+- A section or content slide can carry a picture (`picture`, an id from
+  `talk-pictures.ts`), drawn under its text as big as the height left allows (up to eight sign pixels per
+  pixel; the sign picks the zoom that draws it biggest): original pixel art up to
+  288×64, whose colours may carry an alpha byte for see-through parts (the ghost
+  forest's trees). An unknown picture id fails the script's parse.
+- A slide whose props are all switch blocks keeps swapping them (`talk-shuffle.ts`):
+  each step two neighbours trade places, the right-bound one hopping over the other,
+  alternating pairs, so three blocks visit all six orders and come back.
+- A content slide can carry a diagram (`diagram`), drawn on the sign in place of its
+  list (`talk-diagram.ts`), from the same text runs, boxes and prop icons as the rest
+  of the layout. A sequence: actors in columns (icon and name), lifelines, arrows with
+  their words over them (replies dashed), shaded notes. A flow: nodes on a grid (icon,
+  words wrapped under it) joined by right-angled arrows, dotted edges dashed. Words
+  sit on a patch of paper so lines never run through them. A diagram whose words do
+  not fit the sign's width overflows, so the sign zooms out. The script's parse
+  refuses an edge or message to an unknown id and two nodes on one grid place. New
+  box tones: `line`, `note`, `paper`.
+
 ## 2026-10-09 — fix PR #39's pre-existing CI dependency failures
 
 - CI's browser suites passed; Gate stopped at four advisories in the existing

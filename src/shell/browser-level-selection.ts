@@ -1,3 +1,4 @@
+import type { TalkSceneHooks } from "./talk/talk-scene-hooks";
 import type { SimulationInputCommand } from "../engine/simulation/input-command";
 import type { LevelSpecInput } from "../engine/domain/level-spec";
 import { armoredEnemyRouteLevelInput } from "../engine/levels/armored-enemy-route-level";
@@ -155,6 +156,8 @@ export type BrowserGameBootstrap = {
   // Multiplayer's presentation scene receives complete state from the server.
   // It must render that state, never advance a competing local simulation.
   readonly authoritativeRenderOnly?: boolean;
+  // Talk mode: a presentation whose slides are rooms of the level (src/shell/talk).
+  readonly talk?: TalkSceneHooks;
 };
 
 export type BrowserGameViewport = {

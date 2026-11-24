@@ -31,6 +31,13 @@ import {
 } from "./shell/spotlight-tutorial";
 import { decodeSharedLevel, renderLevelEditor } from "./shell/level-editor";
 import {
+  createTalkController,
+  prepareTalk,
+  type TalkController,
+} from "./shell/talk/talk-mode";
+import type { TalkSceneHooks } from "./shell/talk/talk-scene-hooks";
+import { parseTalkScript } from "./shell/talk/talk-script";
+import {
   renderDeployInfoFooter,
   setDeployInfoFooterVisible,
 } from "./shell/deploy-info-footer";
@@ -831,10 +838,13 @@ function bootCustomLevel(
   onSkinLoadFailed?: (message: string) => void,
   warpLevels?: ReadonlyMap<string, LevelSpecInput>,
   theme?: LevelTheme,
+  // Talk mode boots its level here too, with its scene hooks and god mode on.
+  talkMode?: { readonly talk: TalkSceneHooks; readonly godMode: boolean },
 ): void {
   const boot = (userAssetBundle: UserAssetBundle): void => {
     startSession(
       {
+        ...(talkMode ?? {}),
         levelInput,
         levelSequence: undefined,
         levelIndex: 0,
@@ -3168,9 +3178,91 @@ function playRouteFromQuery(query: string): PlayRoute | null {
   };
 }
 
+// "#talk=<url of a talk.json>&slide=<n>" plays a presentation (src/shell/talk).
+function talkRouteFromHash(
+  raw: string,
+): { readonly scriptUrl: string; readonly slide: number } | undefined {
+  if (!raw.startsWith("talk=")) {
+    return undefined;
+  }
+  const parameters = new URLSearchParams(raw);
+  const scriptUrl = parameters.get("talk");
+  const slide = Number(parameters.get("slide") ?? "1");
+  if (
+    scriptUrl === null ||
+    scriptUrl.length === 0 ||
+    !Number.isInteger(slide) ||
+    slide < 1
+  ) {
+    throw new Error(`Malformed talk link: #${raw}`);
+  }
+  return { scriptUrl, slide };
+}
+
+let activeTalk: TalkController | undefined;
+
+function bootTalk(route: {
+  readonly scriptUrl: string;
+  readonly slide: number;
+}): void {
+  activeTalk?.dispose();
+  activeTalk = undefined;
+  const showError = (message: string): void => {
+    clearApp();
+    const error = document.createElement("p");
+    error.textContent = message;
+    appElement!.replaceChildren(error);
+  };
+  void fetch(new URL(route.scriptUrl, window.location.href))
+    .then((response) =>
+      response.ok
+        ? (response.json() as Promise<unknown>)
+        : Promise.reject(
+            new Error(
+              `The talk could not be loaded (HTTP ${String(response.status)}).`,
+            ),
+          ),
+    )
+    .then((json) => {
+      const prepared = prepareTalk(parseTalkScript(json));
+      const controller = createTalkController(
+        prepared,
+        route.slide - 1,
+        document,
+      );
+      activeTalk = controller;
+      bootCustomLevel(
+        controller.levelInput,
+        () => {
+          controller.dispose();
+          activeTalk = undefined;
+          void renderStartMenu();
+        },
+        "Menu",
+        "castaway-parody",
+        showError,
+        undefined,
+        "overworld",
+        { talk: controller.hooks, godMode: true },
+      );
+    })
+    .catch((reason: unknown) => {
+      showError(
+        reason instanceof Error
+          ? reason.message
+          : "The talk could not be loaded.",
+      );
+    });
+}
+
 // Route to the area named by the URL hash so every screen is a shareable link.
 function applyRoute(): void {
   const raw = window.location.hash.replace(/^#/, "");
+  const talk = talkRouteFromHash(raw);
+  if (talk !== undefined) {
+    bootTalk(talk);
+    return;
+  }
   // #play?... restores the selection AND starts the level; #menu?... just
   // restores a shared configuration in the open menu.
   if (raw.startsWith("play?") || raw.startsWith("menu?")) {
