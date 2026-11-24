@@ -42,6 +42,12 @@ import {
   setDeployInfoFooterVisible,
 } from "./shell/deploy-info-footer";
 import { createGameConfig } from "./shell/create-game-config";
+import {
+  decodeContentPack,
+  rewritePackedSources,
+  type ContentPackFiles,
+} from "./shell/content-pack";
+import { configureGameCanvasForAccessibility } from "./shell/game-canvas-accessibility";
 import { resetStoredState, storedStateKeys } from "./shell/reset-stored-state";
 import {
   isRendererChoice,
@@ -445,7 +451,6 @@ const shouldImportAssets =
 const hasExplicitBrowserLevel = searchParameters.has(
   browserLevelSearchParameterName,
 );
-const gameCanvasLabel = "Original platformer game canvas";
 const importApplicationLabel = "User asset import";
 const manifestFileName = "manifest.json";
 const customAssetSetId = "custom";
@@ -508,14 +513,6 @@ function configureAppElementForImport(): void {
   appElement!.setAttribute("role", "region");
   appElement!.setAttribute("aria-label", importApplicationLabel);
   appElement!.removeAttribute("tabindex");
-}
-
-function configureGameCanvasForAccessibility(canvas: HTMLCanvasElement): void {
-  canvas.setAttribute("role", "img");
-  canvas.setAttribute("aria-label", gameCanvasLabel);
-  canvas.tabIndex = 0;
-  // Keep the upscaled canvas crisp (nearest-neighbor) instead of blurred.
-  canvas.style.imageRendering = "pixelated";
 }
 
 // ----- Game sessions -------------------------------------------------------
@@ -2852,33 +2849,6 @@ function classicLevelMap(
   return result;
 }
 
-// Rewrite every relative URL source whose target ships in the prefetched
-// bundle pack into a file source, so the loader reads it from memory.
-function rewritePackedSources(
-  value: unknown,
-  packedNames: Set<string>,
-): unknown {
-  if (Array.isArray(value)) {
-    return value.map((entry) => rewritePackedSources(entry, packedNames));
-  }
-  if (value === null || typeof value !== "object") {
-    return value;
-  }
-  const record = value as Record<string, unknown>;
-  if (
-    record["kind"] === "url" &&
-    typeof record["url"] === "string" &&
-    packedNames.has(record["url"])
-  ) {
-    return { kind: "file", fileName: record["url"] };
-  }
-  const rewritten: Record<string, unknown> = {};
-  for (const [key, entry] of Object.entries(record)) {
-    rewritten[key] = rewritePackedSources(entry, packedNames);
-  }
-  return rewritten;
-}
-
 // The single-request pack next to a remote manifest: every bundled file as
 // base64. One fetch replaces hundreds of small ones — a transient CDN 5xx on
 // any of those used to fail the whole boot.
@@ -2894,28 +2864,7 @@ async function tryFetchBundleBlob(
     if (!response.ok) {
       return undefined;
     }
-    const pack = (await response.json()) as {
-      readonly files?: Record<
-        string,
-        { readonly type?: string; readonly base64?: string }
-      >;
-    };
-    if (pack.files === undefined) {
-      return undefined;
-    }
-    const files: File[] = [];
-    for (const [name, entry] of Object.entries(pack.files)) {
-      if (typeof entry.base64 !== "string") {
-        return undefined;
-      }
-      const binary = atob(entry.base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let index = 0; index < binary.length; index += 1) {
-        bytes[index] = binary.charCodeAt(index);
-      }
-      files.push(new File([bytes], name, { type: entry.type ?? "" }));
-    }
-    return files;
+    return decodeContentPack((await response.json()) as ContentPackFiles);
   } catch {
     return undefined;
   }

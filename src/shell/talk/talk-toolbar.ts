@@ -73,6 +73,7 @@ const controlStyle = [
 
 export function createTalkToolbar(
   document: Document,
+  host: HTMLElement,
   titles: readonly string[],
   actions: TalkToolbarActions,
 ): TalkToolbar {
@@ -136,7 +137,7 @@ export function createTalkToolbar(
   const stopFollowingMute = onAudioMutedChange(showMuted);
 
   bar.append(previous, picker, next, mute);
-  document.body.append(bar);
+  host.append(bar);
 
   return {
     element: bar,

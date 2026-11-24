@@ -5,6 +5,23 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-24 — Talk mode as a library
+
+- `src/lib/talk.ts` (`mountTalk`, re-exporting the talk format) and
+  `src/lib/talk-script.ts` (the format alone, Phaser-free). The talk controller
+  now takes a host element and an `onSlideChange` callback and exposes `goTo`.
+- `src/shell/content-pack.ts` (pack decoding, shared with `main.ts`) and
+  `src/shell/game-canvas-accessibility.ts` moved out of `main.ts`.
+- `scripts/build-talk-library.mjs` builds `lib-dist/`: ES modules with Phaser as
+  a peer dependency, declarations, and the skin pack (379 sprite files; no levels).
+  Vite rewrites the skin's `new URL(…, import.meta.url)`; the script restores it
+  so consumers' bundlers copy the pack. Verified in a fresh Vite consumer
+  installed from the packed tarball: mounts on slide 12, `goTo`, `dispose`.
+- `.github/workflows/release-talk-library.yml`: `v*` tag → check, build, pack,
+  GitHub Release asset (refuses to overwrite an existing release).
+- `LICENSE` now holds the full AGPL-3.0 text from gnu.org (it said to add it
+  before any release).
+
 ## 2026-11-23 — talk mode: a look, a song and platforms for every world
 
 - Each world of a talk now has its own theme (`src/shell/talk/talk-themes.ts`),

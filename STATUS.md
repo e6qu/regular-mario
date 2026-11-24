@@ -2,6 +2,12 @@
 
 ## Current State
 
+**Talk library (2026-11-24).** `src/lib/talk.ts` exports `mountTalk()`: talk mode
+mounted into any element, without the app shell or the start card, with the
+castaway skin as one pack (`talk-skin.json`, sprites only). `pnpm run
+build:talk-library` writes the package to `lib-dist/`; a `v*` tag attaches
+`regular-mario-<version>.tgz` to a GitHub Release. See `docs/talk-library.md`.
+
 **Talk mode (2026-11-22).** `#talk=<talk.json url>` plays a presentation as an
 original level, one room per slide, with slide text drawn in a new original bitmap
 font; see `src/shell/talk/` and `src/engine/levels/talk-level.ts`. Verified in

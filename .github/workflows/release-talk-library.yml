@@ -1,0 +1,46 @@
+name: Release the talk library
+
+# A v* tag builds the talk library (src/lib, see docs/talk-library.md), packs it
+# and attaches regular-mario-<version>.tgz to that tag's GitHub Release, where
+# e6qu.github.io's deck builder pins it by URL.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-talk-library-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      # The repository's own gate, including the content policy that keeps
+      # third-party expression out of what gets published.
+      - run: pnpm run check
+      - run: pnpm run build:talk-library
+      - name: Pack
+        id: pack
+        working-directory: lib-dist
+        run: |
+          file=$(npm pack --pack-destination "$RUNNER_TEMP" | tail -1)
+          test "$file" = "regular-mario-${GITHUB_REF_NAME#v}.tgz"
+          echo "file=$RUNNER_TEMP/$file" >> "$GITHUB_OUTPUT"
+      # A published version is immutable: refuse rather than replace its tarball.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release $GITHUB_REF_NAME already exists; not overwriting it." >&2
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" "${{ steps.pack.outputs.file }}" \
+            --title "Talk library $GITHUB_REF_NAME" \
+            --notes "Regular Mario's talk mode as a library. Install: see docs/talk-library.md."
