@@ -86,9 +86,10 @@ describe("authored route coherence", () => {
     const exits = actorsInRole(route.input, ActorRole.Exit);
     if (exits.length > 0) {
       it(`${route.name} finishes at the gate it draws`, () => {
-        const goals = cellsOf(route.input, (tileId) =>
-          goalTileIds(route.input).has(tileId),
-        );
+        // once per route, not per cell: validating a wide level for every tile
+        // made this take seconds
+        const goalIds = goalTileIds(route.input);
+        const goals = cellsOf(route.input, (tileId) => goalIds.has(tileId));
         expect(
           goals.length,
           "draws a gate but has no goal tile to finish on",
