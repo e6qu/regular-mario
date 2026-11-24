@@ -5,6 +5,20 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-24 — Talk mode: a backdrop of its own for every slide
+
+- Each room draws its own backdrop, one room wide, seeded by its theme and room:
+  the theme's scenery laid out afresh, its fixed pieces (sun, moon, far isle,
+  sky islands, pillars, banners) moved, and one of three landmarks per theme in
+  front, in the theme's colours, never the same as the room before's. The ground
+  stays one strip per theme, sliced per room.
+- Only the castaway's room and its neighbours hold a backdrop canvas; talk mode
+  stages them on arrival (and before a jump) and drops the rest, so a 75-slide
+  talk keeps three canvases instead of some 90 MB of them.
+- Tests: every room's drawing is unique (30 rooms per theme) and stable; every
+  room starts with its theme's sky and shares the theme's core colours;
+  neighbouring rooms never share a landmark.
+
 ## 2026-11-24 — Talk mode as a library
 
 - `src/lib/talk.ts` (`mountTalk`, re-exporting the talk format) and

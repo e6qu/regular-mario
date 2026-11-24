@@ -74,10 +74,11 @@ import {
   drawTalkBackdrop,
   drawTalkGround,
   talkBackdropHeightPixels,
-  talkBackdropOffsetPixels,
+  talkGroundOffsetPixels,
   talkBackdropTopPixels,
   talkBackdropWidthPixels,
   talkGroundStripHeightPixels,
+  talkGroundWidthPixels,
 } from "./talk-backdrop";
 import { talkThemeSong } from "./talk-music";
 
@@ -502,52 +503,74 @@ function animateProps(props: readonly StagedProp[], now: number): void {
   }
 }
 
-const backdropTextureKey = (theme: TalkThemeId): string =>
-  `talk-backdrop-${theme}`;
+const roomBackdropTextureKey = (room: number): string =>
+  `talk-backdrop-room-${String(room)}`;
 const groundTextureKey = (theme: TalkThemeId): string => `talk-ground-${theme}`;
 
-// A room's scenery and ground: a slice of its world's backdrop, chosen per room, so
-// neighbouring rooms of one world never look the same.
-function stageBackdrop(
+// A room's ground: a slice of its world's ground strip, chosen per room.
+function stageGround(
   scene: Phaser.Scene,
   room: number,
   theme: TalkThemeId,
 ): void {
   canvasTexture(
     scene,
-    backdropTextureKey(theme),
-    {
-      widthPixels: talkBackdropWidthPixels,
-      heightPixels: talkBackdropHeightPixels,
-    },
-    (context) => {
-      drawTalkBackdrop(context, theme);
-    },
-  );
-  canvasTexture(
-    scene,
     groundTextureKey(theme),
     {
-      widthPixels: talkBackdropWidthPixels,
+      widthPixels: talkGroundWidthPixels,
       heightPixels: talkGroundStripHeightPixels,
     },
     (context) => {
       drawTalkGround(context, theme);
     },
   );
-  const offset = talkBackdropOffsetPixels(room);
-  const left = room * roomWidthPixels - offset;
+  const offset = talkGroundOffsetPixels(room);
   scene.add
-    .image(left, talkBackdropTopPixels, backdropTextureKey(theme))
-    .setOrigin(0, 0)
-    .setCrop(offset, 0, roomWidthPixels, talkBackdropHeightPixels)
-    .setDepth(backdropDepth);
-  scene.add
-    .image(left, groundTopPixels, groundTextureKey(theme))
+    .image(
+      room * roomWidthPixels - offset,
+      groundTopPixels,
+      groundTextureKey(theme),
+    )
     .setOrigin(0, 0)
     .setCrop(offset, 0, roomWidthPixels, talkGroundStripHeightPixels)
     .setDepth(groundDepth);
 }
+
+// A room's own backdrop (talk-backdrop.ts draws a different one for every room). One
+// canvas per room for a whole talk would hold some 90 MB, so only the rooms around the
+// castaway have theirs: talk mode stages them as it arrives and drops the far ones.
+interface RoomBackdrop {
+  readonly image: Phaser.GameObjects.Image;
+  readonly key: string;
+}
+
+function stageRoomBackdrop(
+  scene: Phaser.Scene,
+  room: number,
+  theme: TalkThemeId,
+): RoomBackdrop {
+  const key = roomBackdropTextureKey(room);
+  canvasTexture(
+    scene,
+    key,
+    {
+      widthPixels: talkBackdropWidthPixels,
+      heightPixels: talkBackdropHeightPixels,
+    },
+    (context) => {
+      drawTalkBackdrop(context, theme, room);
+    },
+  );
+  const image = scene.add
+    .image(room * roomWidthPixels, talkBackdropTopPixels, key)
+    .setOrigin(0, 0)
+    .setDepth(backdropDepth);
+  return { image, key };
+}
+
+// Rooms whose backdrop is kept: the castaway's, and its neighbours either side, which
+// the camera shows while it pans.
+const backdropReachRooms = 1;
 
 interface HerdMember {
   readonly index: number;
@@ -686,6 +709,9 @@ export function createTalkController(
   let typedAt = 0;
   let herd: HerdMember[] = [];
   let staged: StagedProp[] = [];
+  // the scene the world was last decorated in, and the room backdrops staged in it
+  let worldScene: Phaser.Scene | undefined;
+  let backdrops = new Map<number, RoomBackdrop>();
   let egress: EgressActors | null = null;
 
   const status = document.createElement("p");
@@ -694,12 +720,37 @@ export function createTalkController(
     "position:fixed;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0";
   host.append(status);
 
+  // Stages the backdrops of `room` and its neighbours, and drops those further away.
+  const stageBackdropsAround = (room: number): void => {
+    const scene = worldScene;
+    if (scene === undefined) {
+      return;
+    }
+    for (const [held, backdrop] of backdrops) {
+      if (Math.abs(held - room) > backdropReachRooms) {
+        backdrop.image.destroy();
+        scene.textures.remove(backdrop.key);
+        backdrops.delete(held);
+      }
+    }
+    const first = Math.max(0, room - backdropReachRooms);
+    const last = Math.min(count - 1, room + backdropReachRooms);
+    for (let near = first; near <= last; near++) {
+      const theme = prepared.themes[near];
+      if (!backdrops.has(near) && theme !== undefined) {
+        backdrops.set(near, stageRoomBackdrop(scene, near, theme));
+      }
+    }
+  };
+
   const goTo = (room: number): void => {
     const target = Math.min(count - 1, Math.max(0, room));
     if (movePlayer === undefined) {
       pendingStart = target;
       return;
     }
+    // before the move, so the room the camera lands on already has its scenery
+    stageBackdropsAround(target);
     try {
       movePlayer(talkStandXPixels(target), talkStandYPixels());
     } catch (error) {
@@ -822,9 +873,16 @@ export function createTalkController(
     herd = [];
     staged = [];
     egress = null;
+    for (const backdrop of backdrops.values()) {
+      backdrop.image.destroy();
+      scene.textures.remove(backdrop.key);
+    }
+    backdrops = new Map();
+    worldScene = scene;
     prepared.themes.forEach((theme, index) => {
-      stageBackdrop(scene, index, theme);
+      stageGround(scene, index, theme);
     });
+    stageBackdropsAround(currentRoom < 0 ? pendingStart : currentRoom);
     layouts.forEach((layout, index) => {
       const key = `talk-panel-${String(index)}`;
       canvasTexture(
@@ -949,6 +1007,7 @@ export function createTalkController(
       return;
     }
     currentRoom = room;
+    stageBackdropsAround(room);
     toolbar.setCurrent(room);
     options.onSlideChange?.(room);
     playThemeOf(room);
