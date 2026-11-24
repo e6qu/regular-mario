@@ -1,6 +1,8 @@
 {
   "entry": [
     "scripts/*.mjs",
+    "src/lib/talk.ts",
+    "src/lib/talk-script.ts",
     "src/server/main.ts",
     "tests/multiplayer-browser/**/*.ts"
   ],

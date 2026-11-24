@@ -12,6 +12,7 @@
     "start:server": "pnpm run build:release && pnpm run build:server && node server-dist/main.js",
     "build:release-content": "node scripts/build-release-content.mjs",
     "build:release": "pnpm run build:release-content && pnpm run typecheck && VITE_STATIC_CONTENT=1 vite build",
+    "build:talk-library": "pnpm run build:release-content && pnpm run typecheck && node scripts/build-talk-library.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

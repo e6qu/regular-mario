@@ -7,6 +7,7 @@
     ".cache/**",
     "content/**",
     "dist/**",
+    "lib-dist/**",
     "node_modules/**",
     "playwright-report/**",
     "test-results/**",

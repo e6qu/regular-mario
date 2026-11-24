@@ -569,8 +569,17 @@ function signArt(
 export interface TalkController {
   readonly hooks: TalkSceneHooks;
   readonly levelInput: TalkLevel["levelInput"];
+  // Walks the castaway to a slide's room (0-based); clamped to the talk.
+  readonly goTo: (index: number) => void;
   // Removes the key handler, the slide bar and the live region; call when the talk ends.
   readonly dispose: () => void;
+}
+
+export interface TalkControllerOptions {
+  // Where the live region, the notice and the slide bar go (the page's body by default).
+  readonly host?: HTMLElement;
+  // Called with the room's 0-based index whenever the castaway enters another room.
+  readonly onSlideChange?: (index: number) => void;
 }
 
 function canvasTexture(
@@ -665,7 +674,9 @@ export function createTalkController(
   prepared: PreparedTalk,
   startSlide: number,
   document: Document,
+  options: TalkControllerOptions = {},
 ): TalkController {
+  const host = options.host ?? document.body;
   const { script, level, layouts } = prepared;
   const count = script.slides.length;
   let movePlayer: ((xPixels: number, yPixels: number) => void) | undefined;
@@ -681,7 +692,7 @@ export function createTalkController(
   status.setAttribute("role", "status");
   status.style.cssText =
     "position:fixed;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0";
-  document.body.append(status);
+  host.append(status);
 
   const goTo = (room: number): void => {
     const target = Math.min(count - 1, Math.max(0, room));
@@ -721,7 +732,7 @@ export function createTalkController(
     "transition:opacity .3s",
     "pointer-events:none",
   ].join(";");
-  document.body.append(notice);
+  host.append(notice);
   let noticeTimer: ReturnType<typeof setTimeout> | undefined;
   const showNotice = (text: string): void => {
     notice.textContent = text;
@@ -754,6 +765,7 @@ export function createTalkController(
 
   const toolbar = createTalkToolbar(
     document,
+    host,
     script.slides.map(talkSlideName),
     {
       go: goTo,
@@ -938,6 +950,7 @@ export function createTalkController(
     }
     currentRoom = room;
     toolbar.setCurrent(room);
+    options.onSlideChange?.(room);
     playThemeOf(room);
     const slide = script.slides[room];
     if (slide !== undefined) {
@@ -966,6 +979,7 @@ export function createTalkController(
   return {
     hooks,
     levelInput: level.levelInput,
+    goTo,
     dispose: () => {
       window.removeEventListener("keydown", onKey, true);
       toolbar.dispose();

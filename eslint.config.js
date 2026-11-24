@@ -13,6 +13,7 @@ export default typescriptEslint.config(
       ".cache/**",
       "dist/**",
       "server-dist/**",
+      "lib-dist/**",
       "node_modules/**",
       "playwright-report/**",
       "test-results/**",
