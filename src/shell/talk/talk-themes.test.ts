@@ -4,7 +4,9 @@ import {
   drawTalkBackdrop,
   drawTalkGround,
   talkBackdropHeightPixels,
-  talkBackdropOffsetPixels,
+  talkGroundOffsetPixels,
+  talkGroundWidthPixels,
+  talkLandmarkIndex,
   talkBackdropWidthPixels,
   talkGroundStripHeightPixels,
 } from "./talk-backdrop";
@@ -18,6 +20,8 @@ import {
   talkSlideThemes,
   talkThemeForWorld,
   talkThemeIds,
+  talkThemes,
+  type TalkThemeId,
 } from "./talk-themes";
 
 const worlds = [
@@ -137,7 +141,7 @@ describe("talk backdrops", () => {
     const skies = new Set<string>();
     for (const theme of talkThemeIds) {
       const backdrop = record((context) => {
-        drawTalkBackdrop(context as never, theme);
+        drawTalkBackdrop(context as never, theme, 0);
       });
       expect(backdrop.colors.size).toBeGreaterThanOrEqual(5);
       skies.add([...backdrop.colors].slice(0, 3).join());
@@ -147,19 +151,73 @@ describe("talk backdrops", () => {
       expect(ground.rects).toBeGreaterThan(10);
     }
     expect(skies.size).toBe(talkThemeIds.length);
-    expect(talkBackdropWidthPixels).toBeGreaterThan(640);
+    expect(talkBackdropWidthPixels).toBe(640);
+    expect(talkGroundWidthPixels).toBeGreaterThan(640);
     expect(talkBackdropHeightPixels).toBeGreaterThan(352);
     expect(talkGroundStripHeightPixels).toBeGreaterThan(32);
   });
 
-  it("shows each room its own slice of the backdrop", () => {
+  it("shows each room its own slice of the ground", () => {
     const offsets = Array.from({ length: 20 }, (_, index) =>
-      talkBackdropOffsetPixels(index),
+      talkGroundOffsetPixels(index),
     );
     expect(new Set(offsets).size).toBeGreaterThan(15);
     for (const offset of offsets) {
       expect(offset).toBeGreaterThanOrEqual(0);
-      expect(offset).toBeLessThanOrEqual(talkBackdropWidthPixels - 640);
+      expect(offset).toBeLessThanOrEqual(talkGroundWidthPixels - 640);
+    }
+  });
+
+  // Every rectangle a backdrop draws, as one string: two rooms look the same only if
+  // these are equal.
+  const drawing = (theme: TalkThemeId, room: number): string => {
+    const calls: string[] = [];
+    const context = {
+      fillStyle: "",
+      fillRect: (x: number, y: number, w: number, h: number) => {
+        calls.push(
+          `${String(context.fillStyle)} ${String(x)},${String(y)},${String(w)},${String(h)}`,
+        );
+      },
+    };
+    drawTalkBackdrop(context, theme, room);
+    return calls.join(";");
+  };
+
+  it("gives every room its own backdrop, the same on every run", () => {
+    for (const theme of talkThemeIds) {
+      const rooms = Array.from({ length: 30 }, (_, room) =>
+        drawing(theme, room),
+      );
+      expect(new Set(rooms).size).toBe(rooms.length);
+      expect(drawing(theme, 7)).toBe(rooms[7]);
+    }
+  });
+
+  it("keeps every room in its theme: its sky first, and the theme's colours throughout", () => {
+    for (const theme of talkThemeIds) {
+      const colourSets = Array.from({ length: 30 }, (_, room) => {
+        const calls = drawing(theme, room).split(";");
+        expect(calls[0]?.startsWith(talkThemes[theme].sky[0] ?? "")).toBe(true);
+        return new Set(calls.map((call) => call.split(" ")[0]));
+      });
+      // the colours every room of the world uses: its sky and its scenery
+      const shared = [...(colourSets[0] ?? [])].filter((colour) =>
+        colourSets.every((set) => set.has(colour)),
+      );
+      expect(shared.length).toBeGreaterThanOrEqual(
+        talkThemes[theme].sky.length + 2,
+      );
+    }
+  });
+
+  it("never gives neighbouring rooms the same landmark", () => {
+    for (const theme of talkThemeIds) {
+      for (let room = 0; room < 40; room++) {
+        expect(talkLandmarkIndex(theme, room)).not.toBe(
+          talkLandmarkIndex(theme, room + 1),
+        );
+      }
     }
   });
 });
