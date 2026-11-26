@@ -5,6 +5,13 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-26 — Talk mode: the scroll of ancient wisdom is papyrus
+
+- The History picture's scroll is now old papyrus: crossed fibre strips, browned
+  and ragged edges, age stains, faded ink and a faded capital. The columns, rods,
+  wax seal and glints are unchanged.
+- The palette lost the parchment colours nothing uses any more.
+
 ## 2026-11-26 — Talk library: check the signs at build time
 
 - Laying out every slide's sign moved out of talk mode into `talk-signs.ts`, which
