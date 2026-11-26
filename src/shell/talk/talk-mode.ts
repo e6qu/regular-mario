@@ -30,11 +30,7 @@ import {
   type TalkPalette,
 } from "./talk-art";
 import { talkCellWidthPixels, talkGlyphRows } from "./talk-font";
-import {
-  layoutTalkSlideToFit,
-  talkLinkAt,
-  type TalkLayout,
-} from "./talk-layout";
+import { talkLinkAt, type TalkLayout } from "./talk-layout";
 import { talkSlideText } from "./talk-copy";
 import { talkShufflePlaces } from "./talk-shuffle";
 import {
@@ -42,7 +38,6 @@ import {
   drawTalkPanel,
   drawTalkText,
   talkCopyButtonAt,
-  talkCopyButtonCorner,
   talkPanelCanvasSize,
   talkPanelColors,
   talkPanelFreeArea,
@@ -51,22 +46,9 @@ import {
 import type { TalkSceneHooks } from "./talk-scene-hooks";
 import type { TalkScript, TalkSlide, TalkTransition } from "./talk-script";
 import { talkProps, type TalkPropId } from "./talk-props";
-import {
-  checkTalkArt,
-  isFloatingProp,
-  TalkArtError,
-  type TalkSceneSpec,
-} from "./talk-scene";
-import {
-  drawTalkWorldMap,
-  talkMapMinimumHeight,
-  type TalkMapWorld,
-} from "./talk-map";
-import {
-  drawTalkEgressDiagram,
-  talkEgressMinimumHeight,
-  talkEgressTravellers,
-} from "./talk-egress";
+import { isFloatingProp, type TalkSceneSpec } from "./talk-scene";
+import { drawTalkWorldMap, type TalkMapWorld } from "./talk-map";
+import { drawTalkEgressDiagram, talkEgressTravellers } from "./talk-egress";
 import { createTalkToolbar } from "./talk-toolbar";
 import { talkSlideThemes, type TalkThemeId } from "./talk-themes";
 import { talkRoomPlatforms } from "./talk-platforms";
@@ -81,19 +63,15 @@ import {
   talkGroundWidthPixels,
 } from "./talk-backdrop";
 import { talkThemeSong } from "./talk-music";
+import { layoutTalkSigns } from "./talk-signs";
 
 // the world's scenery hangs behind everything; its ground covers the walkway's tiles
 const backdropDepth = -10;
 const groundDepth = 1;
 const panelDepth = -3;
 const artDepth = -2;
-// short slides are drawn up to twice the base size, to read from the back of the room
-const maximumTextZoom = 2;
 const roomWidthPixels = talkRoomWidthTiles * talkTileSizePixels;
 const groundTopPixels = talkGroundRow * talkTileSizePixels;
-const textWidth = talkPanelWidthPixels - 2 * talkPanelPaddingPixels;
-// the footer line ("12/29") keeps its own row at the bottom of the sign
-const textHeight = talkPanelHeightPixels - 2 * talkPanelPaddingPixels - 10;
 // a typed slide number is forgotten if Enter does not follow within this time
 const typedNumberTimeoutMilliseconds = 2000;
 
@@ -115,25 +93,6 @@ const propScale = 2;
 const propFloatPixels = 56;
 const propFrameMilliseconds = 450;
 const propBobPixels = 2;
-
-export class TalkOverflowError extends Error {
-  constructor(
-    readonly slides: readonly {
-      readonly index: number;
-      readonly overflowPixels: number;
-    }[],
-  ) {
-    super(
-      `These slides do not fit their sign: ${slides
-        .map(
-          (slide) =>
-            `${String(slide.index + 1)} (+${String(slide.overflowPixels)} px)`,
-        )
-        .join(", ")}`,
-    );
-    this.name = "TalkOverflowError";
-  }
-}
 
 // What stands between a room and the next one is chosen by the next slide's transition.
 export function talkRoomFeature(
@@ -167,43 +126,7 @@ export interface PreparedTalk {
 // Lays out every slide and builds the level. Throws, before anything is drawn, if a
 // slide overflows its sign, uses a character the font lacks, or has no art of its own.
 export function prepareTalk(script: TalkScript): PreparedTalk {
-  const scenes = checkTalkArt(script.slides.map((slide) => slide.art));
-  // the world map keeps its text small, to leave the sign to the map
-  const layouts = script.slides.map((slide, index) =>
-    layoutTalkSlideToFit(
-      slide,
-      {
-        widthPixels: textWidth,
-        heightPixels: textHeight,
-        // the copy button sits in the sign's top-right corner
-        reserveTopRight: talkCopyButtonCorner,
-      },
-      scenes[index]?.special === "world-map" ||
-        scenes[index]?.special === "egress"
-        ? 1
-        : maximumTextZoom,
-    ),
-  );
-  // the scenes drawn on the sign itself need room under the text
-  layouts.forEach((layout, index) => {
-    const special = scenes[index]?.special;
-    const needed =
-      special === "world-map"
-        ? talkMapMinimumHeight
-        : special === "egress"
-          ? talkEgressMinimumHeight
-          : 0;
-    const free = talkPanelFreeArea(
-      layout,
-      talkPanelWidthPixels,
-      talkPanelHeightPixels,
-    ).height;
-    if (free < needed) {
-      throw new TalkArtError(
-        `Slide ${String(index + 1)}: its ${String(special)} picture needs ${String(needed)} px under the text; it has ${String(free)}.`,
-      );
-    }
-  });
+  const { layouts, scenes } = layoutTalkSigns(script);
   const worlds: TalkMapWorld[] = script.slides.flatMap((slide, index) =>
     slide.template === "section" && slide.world !== null
       ? [
@@ -214,12 +137,6 @@ export function prepareTalk(script: TalkScript): PreparedTalk {
         ]
       : [],
   );
-  const overflowing = layouts
-    .map((layout, index) => ({ index, overflowPixels: layout.overflowPixels }))
-    .filter((entry) => entry.overflowPixels > 0);
-  if (overflowing.length > 0) {
-    throw new TalkOverflowError(overflowing);
-  }
   const features = script.slides.map((_, index) =>
     talkRoomFeature(script.slides[index + 1]?.transition ?? null),
   );
