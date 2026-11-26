@@ -13,7 +13,7 @@ and install Phaser (a peer dependency) at the version the package names:
 
 ```json
 "dependencies": {
-  "regular-mario": "https://github.com/e6qu/regular-mario/releases/download/v0.1.0/regular-mario-0.1.0.tgz",
+  "regular-mario": "https://github.com/e6qu/regular-mario/releases/download/v0.2.0/regular-mario-0.2.0.tgz",
   "phaser": "4.2.0"
 }
 ```
@@ -42,8 +42,21 @@ talk.dispose(); // stops the game and removes what it added to the page
   fetched from.
 - Sounds and music are synthesised; the M key or the slide bar mutes them.
 
-`regular-mario/talk-script` exports `parseTalkScript`, `TalkScriptError` and the
-format's types without Phaser, so a build step in Node can validate a talk.
+`regular-mario/talk-script` works without Phaser, so a build step in Node can
+check a talk before anyone presses Play:
+
+```js
+import { checkTalkSigns, parseTalkScript } from "regular-mario/talk-script";
+
+checkTalkSigns(parseTalkScript(talkJson));
+```
+
+- `parseTalkScript` validates the format; it throws a `TalkScriptError`.
+- `checkTalkSigns` lays out every slide's sign exactly as the game does. It
+  throws a `TalkOverflowError` naming each slide whose text doesn't fit and by
+  how many pixels, a `TalkArtError` for a slide's art, or an
+  `UnsupportedTalkCharacterError` for a character the game's font lacks.
+- The format's types are exported too.
 
 ## Keys
 

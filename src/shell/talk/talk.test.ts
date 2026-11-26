@@ -25,12 +25,12 @@ import {
   prepareTalk,
   talkRoomFeature,
   talkSlideSpeech,
-  TalkOverflowError,
   talkMountPace,
   talkSlideName,
   talkTypedSlide,
 } from "./talk-mode";
 import { talkSlideText } from "./talk-copy";
+import { layoutTalkSigns, TalkOverflowError } from "./talk-signs";
 import { talkPictureIds, talkPictures } from "./talk-pictures";
 import {
   drawTalkCopyButton,
@@ -481,6 +481,22 @@ describe("talk mode", () => {
         slides: [slide({ title: "A", art: "key" }), crowded],
       }),
     ).toThrow(/2 \(\+/);
+  });
+
+  it("lays out the signs without the game, as talk mode draws them", () => {
+    const talk = {
+      title: "T",
+      slides: [
+        slide({ title: "A", art: "key" }),
+        slide({ title: "B", art: "coin" }),
+      ],
+    };
+    const signs = layoutTalkSigns(talk);
+    expect(signs.layouts).toEqual(prepareTalk(talk).layouts);
+    expect(signs.scenes.map((scene) => scene.props)).toEqual([
+      ["key"],
+      ["coin"],
+    ]);
   });
 
   it("reads a slide out with its position, text and links", () => {

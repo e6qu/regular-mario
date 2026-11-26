@@ -5,6 +5,16 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-26 — Talk library: check the signs at build time
+
+- Laying out every slide's sign moved out of talk mode into `talk-signs.ts`, which
+  needs no Phaser. Talk mode builds its rooms from it as before.
+- `regular-mario/talk-script` exports `checkTalkSigns`, plus the errors it throws
+  (`TalkOverflowError`, `TalkArtError`, `UnsupportedTalkCharacterError`). A deck's
+  build can now refuse a talk whose text overflows a sign. Until now, Mario mode only
+  found that out when someone pressed Play, and then refused to start.
+- Test: the signs laid out without the game match talk mode's own.
+
 ## 2026-11-24 — Talk mode: a backdrop of its own for every slide
 
 - Each room draws its own backdrop, one room wide, seeded by its theme and room:
