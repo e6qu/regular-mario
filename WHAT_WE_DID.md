@@ -11,6 +11,10 @@ committed — only numeric metadata, code, docs, and scripts.
   snapshot packages; kept runtime Node and production modules only.
 - Added a checksum-pinned CI image scan and real non-root startup/static-serving
   check. Secret matches stay out of logs; unfixed advisories remain visible.
+- Verified the real image boots and serves static content on GitHub; advanced
+  the signed snapshot to include the age-eligible libzstd1 disclosure fix.
+  Recorded 50 remaining high advisories with no vendor fix, no criticals or
+  secrets, and completed the independent supply-chain review.
 - Made Docker pruning noninteractive, passed the source revision into container
   builds, and made missing scanner results fail closed.
 - Repaired the image check's missing admission guard with a failing-before,

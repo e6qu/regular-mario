@@ -65,12 +65,22 @@ contains separately licensed Debian packages. The existing BuildKit pin moved
 to the official digest published on 2026-11-20, also beyond the window.
 
 Debian packages resolve against signed main/security snapshots from
-`20261124T000000Z`; the build rejects a snapshot inside the admission window.
+`20261124T220000Z`; the build rejects a snapshot inside the admission window.
 Historical snapshot expiry is disabled only because the snapshot is deliberately
 immutable; archive signature and package hash verification remain enabled.
 The existing runtime and trust boundary are unchanged. The alternative of
 retaining Debian 12 left fixable apt, PAM, and Perl vulnerabilities in the
 container scanned on 2026-11-27.
+
+The first built-image scan found one additional fixable high advisory,
+[CVE-2026-124851](https://security-tracker.debian.org/tracker/CVE-2026-124851),
+in `libzstd1`. The signed snapshot now includes `1.5.7+dfsg-1+deb13u1`.
+[Debian snapshot metadata](https://snapshot.debian.org/mr/file/438e6410ee403c5787b8d4f737a4e8bbe607f287/info)
+first saw its amd64 binary at 2026-11-24T21:57:23Z;
+[DSA-6657-1](https://www.debian.org/security/2026/dsa-6657) announced it at
+21:58 UTC, more than three days before adoption. The same scan reported
+50 high advisories without Debian fixes, zero critical advisories, and zero
+secrets. These residual advisories remain visible and require vendor updates.
 
 The image prunes development dependencies after building and removes the base
 image's unused npm/npx/Yarn package-manager files. The reported `undici@6.28.0`

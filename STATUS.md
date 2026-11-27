@@ -6,7 +6,9 @@
 Debian 13, signed three-day-old OS snapshots, production dependencies only, and
 no runtime package managers. The PR image gate builds, boots, and scans the
 actual unprivileged runtime, with noninteractive production pruning and explicit
-source revision metadata. The image-pin checker rejects both stale pins and
+source revision metadata. The initial runner scan found 50 high advisories
+without vendor fixes, no critical advisories or secrets, and one fixable
+`libzstd1` advisory; the signed snapshot now includes its age-eligible fix. The image-pin checker rejects both stale pins and
 adoption inside the three-day quarantine; its failing-before regression passes.
 See `docs/dependencies/README.md` for the findings, provenance, and scan boundary.
 

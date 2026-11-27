@@ -5,7 +5,7 @@ FROM public.ecr.aws/docker/library/node:26.13.1-trixie-slim@sha256:abe7e5a82b61a
 
 # Freeze signed OS packages beyond the repository's three-day admission window.
 # The archive signatures authenticate packages even during HTTP CA bootstrap.
-ARG DEBIAN_SNAPSHOT=20261124T000000Z
+ARG DEBIAN_SNAPSHOT=20261124T220000Z
 RUN node -e 'const v=process.argv[1]; const match=/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(v); const time=match ? Date.parse(`${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`) : NaN; if (!Number.isFinite(time) || Date.now()-time <= 3*86400000) throw new Error("Debian snapshot must be older than three days")' "$DEBIAN_SNAPSHOT" \
     && printf 'Types: deb\nURIs: http://snapshot.debian.org/archive/debian/%s\nSuites: trixie trixie-updates\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\nCheck-Valid-Until: no\n\nTypes: deb\nURIs: http://snapshot.debian.org/archive/debian-security/%s\nSuites: trixie-security\nComponents: main\nSigned-By: /usr/share/keyrings/debian-archive-keyring.gpg\nCheck-Valid-Until: no\n' "$DEBIAN_SNAPSHOT" "$DEBIAN_SNAPSHOT" > /etc/apt/sources.list.d/debian.sources \
     && printf 'Acquire::Retries "3";\nAcquire::http::Timeout "30";\n' > /etc/apt/apt.conf.d/80-bounded-downloads \
