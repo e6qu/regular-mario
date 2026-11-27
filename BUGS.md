@@ -7,7 +7,10 @@ The deployed container scan found fixable apt, PAM, and Perl advisories plus
 The Dockerfile now applies signed Debian 13 snapshot updates, prunes development
 dependencies, and removes npm/npx/Yarn from the runtime. CI verifies the actual
 image, including non-root execution, production imports, startup, static serving,
-and vulnerability/secret results. Unfixed OS advisories stay visible.
+and vulnerability/secret results. Unfixed OS advisories stay visible. The first
+runner build exposed pnpm requiring noninteractive mode for pruning; Docker now
+sets it explicitly. CI also passes the source SHA into the bundle and rejects
+missing or incomplete scanner results.
 
 The image freshness checker also accepted a newly published current digest.
 It now rejects admission inside the three-day window, proven by a regression

@@ -5,7 +5,8 @@
 **Production container security.** The image recipe uses pinned Node 26.13.1 on
 Debian 13, signed three-day-old OS snapshots, production dependencies only, and
 no runtime package managers. The PR image gate builds, boots, and scans the
-actual unprivileged runtime. The image-pin checker rejects both stale pins and
+actual unprivileged runtime, with noninteractive production pruning and explicit
+source revision metadata. The image-pin checker rejects both stale pins and
 adoption inside the three-day quarantine; its failing-before regression passes.
 See `docs/dependencies/README.md` for the findings, provenance, and scan boundary.
 

@@ -14,6 +14,7 @@ RUN node -e 'const v=process.argv[1]; const match=/^(\d{4})(\d{2})(\d{2})T(\d{2}
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS build
+ARG GITHUB_SHA
 WORKDIR /app
 # Node 26 ships no corepack (removed after Node 24), so `corepack enable` exits
 # 127 and the image could never build. Install the pinned pnpm directly -- the
@@ -26,7 +27,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 RUN pnpm run build:release && pnpm run build:server \
-    && pnpm prune --prod --ignore-scripts
+    && CI=true pnpm prune --prod --ignore-scripts
 
 FROM base AS runtime
 # Deployment runs Node directly. Package managers and development dependencies

@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the production image
-        run: timeout --kill-after=10 600 docker build --tag regular-mario:security-check .
+        run: timeout --kill-after=10 600 docker build --build-arg GITHUB_SHA="$GITHUB_SHA" --tag regular-mario:security-check .
       - name: Exercise the production runtime
         run: |
           set -euo pipefail
@@ -49,7 +49,9 @@ jobs:
             --timeout 3m --format json --output "$RUNNER_TEMP/runtime-security.json" regular-mario:security-check
           node --input-type=module - "$RUNNER_TEMP/runtime-security.json" <<'JS'
           import { readFileSync } from "node:fs";
-          const results = JSON.parse(readFileSync(process.argv[2], "utf8")).Results ?? [];
+          const report = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          if (!Array.isArray(report.Results) || !report.Results.length || report.Metadata?.OS?.Family !== "debian") throw new Error("Missing Debian runtime scan results");
+          const results = report.Results;
           const vulnerabilities = results.flatMap(result => result.Vulnerabilities ?? []).filter(item => ["HIGH", "CRITICAL"].includes(item.Severity));
           const secrets = results.flatMap(result => result.Secrets ?? []);
           const fixable = vulnerabilities.filter(item => item.FixedVersion);
