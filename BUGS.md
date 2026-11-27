@@ -1,5 +1,18 @@
 # BUGS.md
 
+### Production image retained vulnerable package tools and OS packages
+
+The deployed container scan found fixable apt, PAM, and Perl advisories plus
+`undici@6.28.0` and `brace-expansion@5.0.9` beneath the base image's global npm.
+The Dockerfile now applies signed Debian 13 snapshot updates, prunes development
+dependencies, and removes npm/npx/Yarn from the runtime. CI verifies the actual
+image, including non-root execution, production imports, startup, static serving,
+and vulnerability/secret results. Unfixed OS advisories stay visible.
+
+The image freshness checker also accepted a newly published current digest.
+It now rejects admission inside the three-day window, proven by a regression
+that failed before the guard was added.
+
 ### Existing dependency vulnerability gate — fixed (2026-10-09)
 
 PR #39's Gate failed on three high and one moderate advisory affecting

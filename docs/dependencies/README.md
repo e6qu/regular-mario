@@ -53,3 +53,41 @@ versions are the latest registry releases and more than three days old.
 The frozen install and transitive license/audit gates verify the resolved graph;
 the full lint, test and build gate verifies its use by existing tooling. Keep
 these pins until upstream resolutions select an equally safe version.
+
+## Production container security
+
+The runtime uses Docker's official Node 26.13.1 Debian 13 image, pinned to
+`sha256:abe7e5a82b61a8ef67b315b85497c9e65173387ccf2f4a029248184b8e020be5`.
+[Docker Hub metadata](https://hub.docker.com/v2/repositories/library/node/tags/26.13.1-trixie-slim)
+records publication at 2026-11-24T11:41:05.538038Z, beyond the three-day window
+when adopted. Node is MIT-licensed; [the official image](https://github.com/nodejs/docker-node)
+contains separately licensed Debian packages. The existing BuildKit pin moved
+to the official digest published on 2026-11-20, also beyond the window.
+
+Debian packages resolve against signed main/security snapshots from
+`20261124T000000Z`; the build rejects a snapshot inside the admission window.
+Historical snapshot expiry is disabled only because the snapshot is deliberately
+immutable; archive signature and package hash verification remain enabled.
+The existing runtime and trust boundary are unchanged. The alternative of
+retaining Debian 12 left fixable apt, PAM, and Perl vulnerabilities in the
+container scanned on 2026-11-27.
+
+The image prunes development dependencies after building and removes the base
+image's unused npm/npx/Yarn package-manager files. The reported `undici@6.28.0`
+and `brace-expansion@5.0.9` findings were in
+`/usr/local/lib/node_modules/npm/node_modules/`, not the application's patched
+lockfile. The server starts Node directly and needs only its production modules.
+
+The CI-only scanner is [Aqua Trivy 0.76.2](https://github.com/aquasecurity/trivy/releases/tag/v0.76.2),
+Apache-2.0, published 2026-11-05. Its official Linux archive is SHA-256 verified
+before execution; it is never installed in production. CI builds and boots the
+actual unprivileged image, checks that runtime package tools and development
+modules are absent, and scans the filesystem. High/critical findings with
+available fixed versions and any secret findings fail the gate. Unfixed
+advisories remain visible in the log; no advisory is globally suppressed and a
+passing gate does not mean all possible vulnerabilities are absent. Scanner
+secret-match text is never printed or uploaded.
+
+The image-pin check also rejects adopting a freshly published digest; merely
+waiting before suggesting a newer digest did not enforce admission. Its new
+negative control failed before the repair and passes afterward.

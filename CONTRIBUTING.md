@@ -146,8 +146,9 @@ and daily. For each pin it reads Docker Hub's tag API and the mirror's manifest:
 - **ok**: the pin is the digest Docker Hub serves for the tag, and the mirror
   serves the same digest.
 - **HELD**: Docker Hub moved the tag, or published a newer release with the same
-  variant and major version, less than 24 hours ago.
-- **DRIFT** (fails): that newer digest or release is at least 24 hours old, or
+  variant and major version, less than three days ago.
+- **DRIFT** (fails): the selected digest is still inside the three-day
+  quarantine, that newer digest or release is at least three days old, or
   the mirror serves a different digest than the pin.
 
 To bump a pin, take the digest Docker Hub serves for the tag and confirm the

@@ -5,6 +5,15 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-27 — Production image security and dependency admission
+
+- Moved the exact Node runtime pin to Debian 13 and applied signed, age-eligible
+  snapshot packages; kept runtime Node and production modules only.
+- Added a checksum-pinned CI image scan and real non-root startup/static-serving
+  check. Secret matches stay out of logs; unfixed advisories remain visible.
+- Repaired the image check's missing admission guard with a failing-before,
+  passing-after regression; aligned its window with the three-day repo policy.
+
 ## 2026-11-26 — Talk mode: the scroll of ancient wisdom is papyrus
 
 - The History picture's scroll is now old papyrus: crossed fibre strips, browned
@@ -164,7 +173,7 @@ committed — only numeric metadata, code, docs, and scripts.
 - `scripts/check-image-pins.mjs` (`pnpm run check:image-pins`) finds every
   `public.ecr.aws/docker/library` and `mirror.gcr.io` pin in the tracked tree.
   It fails when Docker Hub has served a newer digest for the tag, or a newer
-  release of the same variant and major version, for at least 24 hours, and
+  release of the same variant and major version, for at least three days, and
   when the mirror serves a different digest than the pin. ECR Public requests
   are spaced a second apart to stay inside its anonymous rate limit.
 - The new `Image pins` workflow runs it on pull requests, pushes to `main` and

@@ -9,8 +9,8 @@
 //          serves that digest too
 //   HELD   Docker Hub has something newer (a new digest for the tag, or a newer
 //          release with the same variant and major version), but it is less
-//          than 24 hours old
-//   DRIFT  Docker Hub has had something newer for at least 24 hours, or the
+//          than three days old
+//   DRIFT  Docker Hub has had something newer for at least three days, or the
 //          mirror serves a different digest for the tag than the pin: fails
 //
 // ECR Public allows one unauthenticated request per second, so requests to it
@@ -21,7 +21,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const quarantineMilliseconds = 24 * 60 * 60 * 1000;
+const quarantineMilliseconds = 3 * 24 * 60 * 60 * 1000;
 const ecrSpacingMilliseconds = 1100;
 const pinPattern =
   /(public\.ecr\.aws\/docker\/library|mirror\.gcr\.io)\/([a-z0-9._/-]+):([\w.-]+)@(sha256:[0-9a-f]{64})/g;
@@ -96,6 +96,9 @@ function compareVersions(a, b) {
 export function verdict({ pinned, hub, hubPushedAt, mirror, newer, now }) {
   const problems = [];
   const held = [];
+  if (hub === pinned && now - hubPushedAt < quarantineMilliseconds) {
+    problems.push("the selected digest is inside the three-day quarantine");
+  }
   if (hub !== pinned) {
     const since = new Date(hubPushedAt).toISOString();
     if (now - hubPushedAt >= quarantineMilliseconds) {
@@ -117,7 +120,7 @@ export function verdict({ pinned, hub, hubPushedAt, mirror, newer, now }) {
     );
   } else if (newer.length > 0) {
     held.push(
-      `newer release ${newer[0].name} is inside the 24-hour quarantine`,
+      `newer release ${newer[0].name} is inside the three-day quarantine`,
     );
   }
   if (problems.length > 0) return { state: "DRIFT", notes: problems };

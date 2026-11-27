@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const checkModule = import("../../scripts/check-image-pins.mjs");
 
 const now = Date.parse("2026-10-11T12:00:00Z");
-const old = now - 24 * 60 * 60 * 1000;
+const old = now - 3 * 24 * 60 * 60 * 1000;
 const young = old + 1;
 const pinned = `sha256:${"a".repeat(64)}`;
 const moved = `sha256:${"b".repeat(64)}`;
@@ -66,14 +66,28 @@ describe("check-image-pins", () => {
     ).toBe("ok");
   });
 
-  it("holds a moved tag for 24 hours, then fails", async () => {
+  it("rejects adopting a current digest inside quarantine", async () => {
+    const { verdict } = await checkModule;
+    expect(
+      verdict({
+        pinned,
+        hub: pinned,
+        hubPushedAt: now - 1,
+        mirror: pinned,
+        newer: [],
+        now,
+      }).state,
+    ).toBe("DRIFT");
+  });
+
+  it("holds a moved tag for three days, then fails", async () => {
     const { verdict } = await checkModule;
     const base = { pinned, hub: moved, mirror: pinned, newer: [], now };
     expect(verdict({ ...base, hubPushedAt: young }).state).toBe("HELD");
     expect(verdict({ ...base, hubPushedAt: old }).state).toBe("DRIFT");
   });
 
-  it("holds a newer release for 24 hours, then fails", async () => {
+  it("holds a newer release for three days, then fails", async () => {
     const { verdict } = await checkModule;
     const base = { pinned, hub: pinned, hubPushedAt: old, mirror: pinned, now };
     expect(
