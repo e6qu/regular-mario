@@ -2,6 +2,16 @@
 
 ## Current State
 
+**Production container security.** The image recipe uses pinned Node 26.13.1 on
+Debian 13, signed three-day-old OS snapshots, production dependencies only, and
+no runtime package managers. The PR image gate builds, boots, and scans the
+actual unprivileged runtime, with noninteractive production pruning and explicit
+source revision metadata. The initial runner scan found 50 high advisories
+without vendor fixes, no critical advisories or secrets, and one fixable
+`libzstd1` advisory; the signed snapshot now includes its age-eligible fix. The image-pin checker rejects both stale pins and
+adoption inside the three-day quarantine; its failing-before regression passes.
+See `docs/dependencies/README.md` for the findings, provenance, and scan boundary.
+
 **Talk library (2026-11-24).** `src/lib/talk.ts` exports `mountTalk()`: talk mode
 mounted into any element, without the app shell or the start card, with the
 castaway skin as one pack (`talk-skin.json`, sprites only). `pnpm run

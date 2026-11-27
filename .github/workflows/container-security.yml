@@ -1,0 +1,62 @@
+name: Container security
+
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime:
+    name: Production container security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the production image
+        run: timeout --kill-after=10 600 docker build --build-arg GITHUB_SHA="$GITHUB_SHA" --tag regular-mario:security-check .
+      - name: Exercise the production runtime
+        run: |
+          set -euo pipefail
+          docker run --rm --entrypoint node regular-mario:security-check --input-type=module -e '
+            import { existsSync } from "node:fs";
+            import assert from "node:assert/strict";
+            import "ws";
+            assert.notEqual(process.getuid(), 0);
+            for (const path of ["/usr/local/bin/npm", "/usr/local/bin/npx", "/usr/local/bin/yarn", "/app/node_modules/vite", "/app/node_modules/vitest"]) assert.equal(existsSync(path), false, path);
+          '
+          SERVER_PASSWORD=$(openssl rand -hex 24)
+          ADMIN_PASSWORD=$(openssl rand -hex 24)
+          SESSION_SIGNING_SECRET=$(openssl rand -hex 32)
+          export SERVER_PASSWORD ADMIN_PASSWORD SESSION_SIGNING_SECRET
+          docker run -d --name regular-mario-security --publish 127.0.0.1:8080:8080 \
+            --env SERVER_PASSWORD --env ADMIN_PASSWORD --env SESSION_SIGNING_SECRET regular-mario:security-check
+          trap 'docker logs regular-mario-security; docker rm -f regular-mario-security' EXIT
+          timeout --kill-after=5 45 bash -c 'until curl --fail --silent http://127.0.0.1:8080/api/health; do sleep 1; done'
+          curl --fail --silent http://127.0.0.1:8080/ | grep -qi '<!doctype html>'
+      - name: Install the checksum-verified scanner
+        run: |
+          curl --fail --location --connect-timeout 20 --max-time 120 \
+            https://github.com/aquasecurity/trivy/releases/download/v0.76.2/trivy_0.76.2_Linux-64bit.tar.gz \
+            --output "$RUNNER_TEMP/trivy.tar.gz"
+          echo "bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf  $RUNNER_TEMP/trivy.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/trivy.tar.gz" -C "$RUNNER_TEMP" trivy
+      - name: Scan the shipped filesystem
+        run: |
+          "$RUNNER_TEMP/trivy" image --scanners vuln,secret \
+            --timeout 3m --format json --output "$RUNNER_TEMP/runtime-security.json" regular-mario:security-check
+          node --input-type=module - "$RUNNER_TEMP/runtime-security.json" <<'JS'
+          import { readFileSync } from "node:fs";
+          const report = JSON.parse(readFileSync(process.argv[2], "utf8"));
+          if (!Array.isArray(report.Results) || !report.Results.length || report.Metadata?.OS?.Family !== "debian") throw new Error("Missing Debian runtime scan results");
+          const results = report.Results;
+          const vulnerabilities = results.flatMap(result => result.Vulnerabilities ?? []).filter(item => ["HIGH", "CRITICAL"].includes(item.Severity));
+          const secrets = results.flatMap(result => result.Secrets ?? []);
+          const fixable = vulnerabilities.filter(item => item.FixedVersion);
+          // Never print a scanner's secret-match fields into public logs.
+          console.log(JSON.stringify({ vulnerabilities: vulnerabilities.length, fixable: fixable.length, secrets: secrets.length }));
+          for (const item of vulnerabilities) console.log(`${item.Severity} ${item.VulnerabilityID} ${item.PkgName}@${item.InstalledVersion} fixed=${item.FixedVersion || "unavailable"}`);
+          if (fixable.length || secrets.length) process.exitCode = 1;
+          JS

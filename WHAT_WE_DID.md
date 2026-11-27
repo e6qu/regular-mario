@@ -5,6 +5,21 @@ entries collapsed. Content boundary held throughout: no ROM bytes, copyrighted
 sprites/audio/maps, patches, extraction outputs, or reference captures ever
 committed — only numeric metadata, code, docs, and scripts.
 
+## 2026-11-27 — Production image security and dependency admission
+
+- Moved the exact Node runtime pin to Debian 13 and applied signed, age-eligible
+  snapshot packages; kept runtime Node and production modules only.
+- Added a checksum-pinned CI image scan and real non-root startup/static-serving
+  check. Secret matches stay out of logs; unfixed advisories remain visible.
+- Verified the real image boots and serves static content on GitHub; advanced
+  the signed snapshot to include the age-eligible libzstd1 disclosure fix.
+  Recorded 50 remaining high advisories with no vendor fix, no criticals or
+  secrets, and completed the independent supply-chain review.
+- Made Docker pruning noninteractive, passed the source revision into container
+  builds, and made missing scanner results fail closed.
+- Repaired the image check's missing admission guard with a failing-before,
+  passing-after regression; aligned its window with the three-day repo policy.
+
 ## 2026-11-26 — Talk mode: the scroll of ancient wisdom is papyrus
 
 - The History picture's scroll is now old papyrus: crossed fibre strips, browned
@@ -156,6 +171,19 @@ committed — only numeric metadata, code, docs, and scripts.
   not fit the sign's width overflows, so the sign zooms out. The script's parse
   refuses an edge or message to an unknown id and two nodes on one grid place. New
   box tones: `line`, `note`, `paper`.
+
+## 2026-10-11 — keep container image pins current
+
+- Nothing compared the pinned image digests with what Docker Hub serves, so a
+  pin would only move when someone remembered to move it.
+- `scripts/check-image-pins.mjs` (`pnpm run check:image-pins`) finds every
+  `public.ecr.aws/docker/library` and `mirror.gcr.io` pin in the tracked tree.
+  It fails when Docker Hub has served a newer digest for the tag, or a newer
+  release of the same variant and major version, for at least three days, and
+  when the mirror serves a different digest than the pin. ECR Public requests
+  are spaced a second apart to stay inside its anonymous rate limit.
+- The new `Image pins` workflow runs it on pull requests, pushes to `main` and
+  daily. Unit tests cover pin discovery, release ordering and the quarantine.
 
 ## 2026-10-09 — fix PR #39's pre-existing CI dependency failures
 

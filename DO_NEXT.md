@@ -1,5 +1,13 @@
 # DO_NEXT.md
 
+- Keep production-image scanning and the three-day admission checks in the
+  publication path. OS advisories without an available fix remain visible;
+  refresh the signed snapshot and exact image pin when an eligible vendor fix
+  appears. A source dependency audit alone does not cover base-image npm or OS
+  packages. Preserve explicit source revision metadata and reject incomplete
+  scanner output before accepting a container. Track the 50 high Debian
+  advisories that the initial runtime scan could not fix with vendor packages.
+
 - Talk mode: no browser (Playwright) spec yet; add one that boots a two-slide
   talk, presses PageDown and reads the live region. A talk JSON comes from
   e6qu.github.io's `scripts/talk-json.mjs`; same-origin hosting avoids CORS.
